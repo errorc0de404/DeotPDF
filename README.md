@@ -16,7 +16,7 @@ DeotPDF is a free, open-source PDF note-taking app for Windows 10 and 11. You op
 
 I built it because I wanted something between a heavy PDF editor and a plain viewer: it opens fast, doesn't need an account or an internet connection, and handles Korean text input properly.
 
-The name comes from the Korean prefix 덧 (*deot*), as in 덧쓰다 / 덧붙이다: to write over something, to add on top of it. That's all the app does. It never touches the original PDF content; it adds a layer on top.
+The name comes from the Korean prefix 덧 (*deot*), "added on top". The original PDF stays as it is and your notes go on a layer above it.
 
 ### What you can do
 
@@ -48,7 +48,7 @@ The name comes from the Korean prefix 덧 (*deot*), as in 덧쓰다 / 덧붙이�
 **Saving**
 - Saves as a standard PDF. Your notes are written as regular PDF annotations, so Chrome, Edge, Firefox and other viewers show them.
 - Re-open the file in DeotPDF and everything is still editable
-- "Flatten" export merges the notes into the page for sharing or printing elsewhere
+- "Flatten" export merges the notes into the page for sharing or printing elsewhere. A flattened file can't be edited in DeotPDF anymore.
 - Optional automatic backups and crash recovery
 
 ### Download and run
@@ -69,7 +69,7 @@ There's no installer yet. Settings and backups live in `%LOCALAPPDATA%\PdfNotes`
 
 The zip also contains `deot.exe`. It uses the same engine as the app, so whatever it writes looks and behaves exactly like something you drew yourself, and you can keep editing it in DeotPDF afterwards.
 
-It was made with AI agents in mind: every command prints a single JSON object, errors come with stable codes, and `deot schema` describes every command's input and output. Some things it can do:
+It was made with AI agents in mind: every command prints a single JSON object, errors come with stable codes, and `deot schema` describes every command's input and output. For example:
 
 ```powershell
 deot info lecture.pdf                                   # pages, sizes, text layer, file hash
@@ -84,7 +84,7 @@ The full guide is in [docs/cli.md](docs/cli.md).
 
 ### Build from source
 
-You need Windows and the .NET SDK 10.0.401 (pinned in `global.json`). Visual Studio is not required.
+You need Windows and the .NET SDK 10.0.401 (pinned in `global.json`).
 
 ```powershell
 git clone https://github.com/errorc0de404/DeotPDF.git
@@ -95,7 +95,7 @@ dotnet test PdfNotes.slnx -c Release --no-build
 dotnet run --project src/PdfNotes.App -c Release -- path\to\file.pdf
 ```
 
-To make the same release folders:
+To build the release folders:
 
 ```powershell
 dotnet publish src/PdfNotes.App -c Release -r win-x64 --self-contained false -o out/DeotPDF
@@ -105,8 +105,6 @@ dotnet publish tools/PdfNotes.Cli -c Release -r win-x64 --self-contained false -
 (Use `--self-contained true` for the portable build.)
 
 `scripts/Enter-DevEnvironment.ps1` is optional. Dot-source it if you want the SDK and NuGet caches kept inside the repo folder instead of your user profile.
-
-The code still uses the working name **PdfNotes** for the solution, projects, namespaces and the data stored inside saved PDFs. Only the product name changed, and keeping the old internal name keeps files from earlier builds readable.
 
 ### Project layout
 
@@ -128,7 +126,6 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 
 - Mouse and keyboard only for now. Pen pressure, palm rejection and touch gestures aren't there yet.
 - PDFs that need a password to open, and digitally signed PDFs, aren't opened.
-- It doesn't edit the PDF's own text or images, and there's no OCR. Scanned pages can be written on, but their text can't be searched or highlighted.
 - No printing. Export a flattened PDF and print it from another viewer.
 - If another app re-saves the PDF, DeotPDF may no longer be able to edit its notes (they stay visible).
 
@@ -150,15 +147,16 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 
 덧PDF(DeotPDF)는 윈도우 10·11용 무료 오픈소스 PDF 필기 프로그램입니다. 강의 자료, 논문, 매뉴얼 같은 PDF를 열어서 마우스와 키보드로 펜, 형광펜, 텍스트 상자, 도형, 이미지를 얹을 수 있습니다. 저장하면 일반 PDF가 됩니다. 다른 PDF 뷰어에서도 필기가 그대로 보이고, 덧PDF로 다시 열면 이어서 고칠 수 있습니다.
 
-무거운 PDF 편집기와 그냥 뷰어 사이 정도의 프로그램이 필요해서 만들었습니다. 빨리 열리고, 계정이나 인터넷 연결이 필요 없고, 한글 입력이 제대로 되는 것을 목표로 했습니다.
-원본 PDF 내용은 건드리지 않고 그 위에 한 겹 '덧' 붙이는 덧PDF입니다.
+무거운 PDF 편집기와 단순 뷰어 사이쯤 되는 프로그램이 필요해서 만들었습니다. 빨리 열리고, 계정이나 인터넷 연결이 필요 없고, 한글 입력이 제대로 되는 것을 목표로 했습니다.
+
+원본 PDF는 건드리지 않고 그 위에 필기를 한 겹 덧붙인다고 해서 덧PDF입니다.
 
 ### 주요 기능
 
 **필기와 표시**
 - 펜, 자유 형광펜 (색·굵기·투명도 조절)
 - PDF 글자에 맞춰 붙는 형광펜: 글자 위에서 그으면 형광·밑줄·취소선이 글자 줄에 딱 맞게 들어갑니다
-- 텍스트 상자: 글자마다 글꼴·크기·색·굵게·기울임·밑줄·취소선을 따로 줄 수 있고, 배경과 테두리도 넣을 수 있습니다. 한글 입력(IME)이 자연스럽게 됩니다
+- 텍스트 상자: 글자마다 글꼴·크기·색·굵게·기울임·밑줄·취소선을 따로 줄 수 있고, 배경과 테두리도 넣을 수 있습니다. 한글 입력도 문제없이 됩니다
 - 직선, 곡선(화살표·점선 포함), 사각형, 타원, 삼각형, 다각형
 - 이미지 넣기 (파일, 끌어다 놓기, 클립보드 붙여넣기)
 - 스티키 메모
@@ -183,7 +181,7 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 **저장**
 - 표준 PDF로 저장합니다. 필기는 일반 PDF 주석으로 들어가서 크롬, 엣지, 파이어폭스 같은 다른 뷰어에서도 보입니다
 - 덧PDF로 다시 열면 전부 다시 고칠 수 있습니다
-- '필기 합친 PDF(Flatten)'로 내보내면 필기가 페이지에 아예 합쳐져서, 공유하거나 다른 프로그램에서 인쇄하기 좋습니다. 이 경우 덧 PDF에서는 다시 편집할 수 없습니다.
+- '필기 합친 PDF(Flatten)'로 내보내면 필기가 페이지에 아예 합쳐져서, 공유하거나 다른 프로그램에서 인쇄하기 좋습니다. 대신 이렇게 내보낸 파일은 덧PDF에서 다시 고칠 수 없습니다
 - 자동 백업, 비정상 종료 후 복구 (설정에서 켜고 끌 수 있습니다)
 
 ### 다운로드와 실행
@@ -230,7 +228,12 @@ dotnet test PdfNotes.slnx -c Release --no-build
 dotnet run --project src/PdfNotes.App -c Release -- 열고싶은파일.pdf
 ```
 
-배포용 폴더는 위 영어 설명의 `dotnet publish` 두 줄로 만들 수 있습니다. 앱과 `deot`를 같은 폴더에 내보내면 됩니다.
+배포용 폴더는 이렇게 만듭니다. 포터블 버전은 `--self-contained true`로 바꾸면 됩니다.
+
+```powershell
+dotnet publish src/PdfNotes.App -c Release -r win-x64 --self-contained false -o out/DeotPDF
+dotnet publish tools/PdfNotes.Cli -c Release -r win-x64 --self-contained false -o out/DeotPDF
+```
 
 ### 아직 안 되는 것
 
@@ -243,7 +246,7 @@ dotnet run --project src/PdfNotes.App -c Release -- 열고싶은파일.pdf
 
 **무료인가요?** 네. GPL-3.0 오픈소스이고 광고, 계정, 사용 통계 수집이 없습니다.
 
-**인터넷 없이 되나요?** 됩니다. 어디로도 아무것도 보내지 않습니다.
+**인터넷 없이 되나요?** 됩니다. 밖으로 보내는 데이터도 없습니다.
 
 **다른 PDF 뷰어에서도 필기가 보이나요?** 보입니다. 표준 PDF 주석으로 저장하기 때문에 크롬, 엣지, 파이어폭스 등 대부분의 뷰어에서 그대로 보입니다.
 
