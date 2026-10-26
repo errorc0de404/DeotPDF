@@ -1,0 +1,117 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot ink <pdf> -p <page> [--cell pt (12)] [--blocks [--merge pt (6)] [--min-size pt (4)]] [--dpi n (72)] [--threshold n (60)] [--include-annotations]",
+    "required": [
+      "pdf",
+      "page"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "page": {
+        "type": "string"
+      },
+      "cell": {
+        "type": "number"
+      },
+      "blocks": {
+        "type": "boolean"
+      },
+      "merge": {
+        "type": "number"
+      },
+      "minSize": {
+        "type": "number"
+      },
+      "dpi": {
+        "type": "number"
+      },
+      "threshold": {
+        "type": "integer"
+      },
+      "includeAnnotations": {
+        "type": "boolean"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "page",
+      "pageId",
+      "paper",
+      "annotationsIncluded",
+      "cell",
+      "columns",
+      "rows",
+      "cells"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "ink"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "page": {
+        "type": "integer"
+      },
+      "pageId": {
+        "$ref": "common.json#/$defs/pageId"
+      },
+      "paper": {
+        "type": "string"
+      },
+      "annotationsIncluded": {
+        "type": "boolean"
+      },
+      "cell": {
+        "type": "number"
+      },
+      "columns": {
+        "type": "integer"
+      },
+      "rows": {
+        "type": "integer"
+      },
+      "cells": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "description": "rows top to bottom (canonical y), each a list of ink fractions 0-1 left to right"
+      },
+      "blocks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "rect",
+            "inkRatio"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "rect": {
+              "$ref": "common.json#/$defs/rect"
+            },
+            "inkRatio": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    }
+  }
+}

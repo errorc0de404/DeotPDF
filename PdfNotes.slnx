@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PdfNotes.App/PdfNotes.App.csproj" />
+    <Project Path="src/PdfNotes.Core/PdfNotes.Core.csproj" />
+    <Project Path="src/PdfNotes.Editor/PdfNotes.Editor.csproj" />
+    <Project Path="src/PdfNotes.Text/PdfNotes.Text.csproj" />
+    <Project Path="src/PdfNotes.Text.Wpf/PdfNotes.Text.Wpf.csproj" />
+    <Project Path="src/PdfNotes.Pdf/PdfNotes.Pdf.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PdfNotes.Tests/PdfNotes.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/PdfNotes.Cli/PdfNotes.Cli.csproj" />
+    <Project Path="tools/PdfNotes.Probe/PdfNotes.Probe.csproj" />
+  </Folder>
+</Solution>

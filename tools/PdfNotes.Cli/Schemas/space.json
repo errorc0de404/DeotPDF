@@ -1,0 +1,113 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot space <pdf> -p <page> (--size w,h [--limit n (10)] | --largest n) [--avoid rects] [--gap pt (6)] [--within x,y,w,h] [--margin pt (0)] [--cell pt (4)] [--ink-threshold f (0.01)] [--include-annotations]. --avoid: JSON [[x,y,w,h],...], a JSON file, or x,y,w,h;x,y,w,h. Exit 2 NO_SPACE when there is none.",
+    "required": [
+      "pdf",
+      "page"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "page": {
+        "type": "string"
+      },
+      "size": {
+        "type": "string"
+      },
+      "limit": {
+        "type": "integer"
+      },
+      "largest": {
+        "type": "integer"
+      },
+      "avoid": {
+        "type": "string"
+      },
+      "gap": {
+        "type": "number"
+      },
+      "within": {
+        "type": "string"
+      },
+      "margin": {
+        "type": "number"
+      },
+      "cell": {
+        "type": "number"
+      },
+      "inkThreshold": {
+        "type": "number"
+      },
+      "includeAnnotations": {
+        "type": "boolean"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "page",
+      "pageId",
+      "cell",
+      "gap",
+      "avoidCount",
+      "candidates"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "space"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "page": {
+        "type": "integer"
+      },
+      "pageId": {
+        "$ref": "common.json#/$defs/pageId"
+      },
+      "cell": {
+        "type": "number"
+      },
+      "gap": {
+        "type": "number"
+      },
+      "avoidCount": {
+        "type": "integer"
+      },
+      "candidates": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "rect",
+            "area",
+            "inkRatio"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "rect": {
+              "$ref": "common.json#/$defs/rect"
+            },
+            "area": {
+              "type": "number"
+            },
+            "inkRatio": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "description": "Candidates never overlap the avoided areas grown by gap; they are listed, not chosen."
+  }
+}

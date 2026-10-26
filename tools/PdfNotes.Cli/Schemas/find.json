@@ -1,0 +1,167 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot find <pdf> --text <phrase> [-p <page> | --pages <list>] [--within x,y,w,h] [--fuzzy [--min-score 0.5-1]] [--context n] [--include-annotations]. Matching ignores case, white space, line breaks, soft hyphens, line-end hyphens and compatibility forms (NFKC).",
+    "required": [
+      "pdf",
+      "text"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "text": {
+        "type": "string"
+      },
+      "page": {
+        "type": "string"
+      },
+      "pages": {
+        "type": "string"
+      },
+      "within": {
+        "type": "string"
+      },
+      "fuzzy": {
+        "type": "boolean"
+      },
+      "minScore": {
+        "type": "number"
+      },
+      "context": {
+        "type": "integer"
+      },
+      "includeAnnotations": {
+        "type": "boolean"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "query",
+      "normalizedQuery",
+      "fuzzy",
+      "count",
+      "matches"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "find"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "query": {
+        "type": "string"
+      },
+      "normalizedQuery": {
+        "type": "string"
+      },
+      "fuzzy": {
+        "type": "boolean"
+      },
+      "count": {
+        "type": "integer"
+      },
+      "matches": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "page",
+            "pageId",
+            "chars",
+            "quads",
+            "score",
+            "text",
+            "before",
+            "after"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "type": "integer"
+            },
+            "pageId": {
+              "$ref": "common.json#/$defs/pageId"
+            },
+            "chars": {
+              "$ref": "common.json#/$defs/range"
+            },
+            "quads": {
+              "type": "array",
+              "items": {
+                "$ref": "common.json#/$defs/quad"
+              }
+            },
+            "score": {
+              "type": "number"
+            },
+            "text": {
+              "type": "string"
+            },
+            "before": {
+              "type": "string"
+            },
+            "after": {
+              "type": "string"
+            }
+          },
+          "description": "chars and quads go unchanged into add.mark (common markTarget)"
+        }
+      },
+      "annotationMatches": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "page",
+            "pageId",
+            "annotationId",
+            "kind",
+            "range",
+            "quads",
+            "text"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "type": "integer"
+            },
+            "pageId": {
+              "$ref": "common.json#/$defs/pageId"
+            },
+            "annotationId": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "range": {
+              "$ref": "common.json#/$defs/range"
+            },
+            "quads": {
+              "type": "array",
+              "items": {
+                "$ref": "common.json#/$defs/quad"
+              }
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "description": "text box or sticky note characters (UTF-16 range); not an add.mark target"
+        }
+      }
+    },
+    "description": "Candidates in page order, then by first character; occurrence n (add.mark) counts in this order from 1. Nothing is chosen."
+  }
+}

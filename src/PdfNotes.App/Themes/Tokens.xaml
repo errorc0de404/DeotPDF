@@ -1,0 +1,46 @@
+<!-- 디자인 토큰 (spec 3.1, D13a): 색이 아닌 값 — 글꼴, 글자 크기, 간격, 모서리. 테마와 관계없이 하나다. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <FontFamily x:Key="Font.Ui">Malgun Gothic</FontFamily>
+    <FontFamily x:Key="Font.Icon">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+    <FontFamily x:Key="Font.Mono">Consolas</FontFamily>
+
+    <sys:Double x:Key="FontSize.Body">13</sys:Double>
+    <sys:Double x:Key="FontSize.Caption">12</sys:Double>
+    <sys:Double x:Key="FontSize.Icon">15</sys:Double>
+    <sys:Double x:Key="FontSize.IconSmall">12</sys:Double>
+
+    <!-- 직접 그린 아이콘(올가미·도형·글자 하이라이트)은 Segoe Fluent Icons 글리프와 같은 크기·선 굵기 (D13c) -->
+    <sys:Double x:Key="Icon.Size">16</sys:Double>
+    <sys:Double x:Key="Icon.Stroke">1.1</sys:Double>
+    <!-- 입력칸·콤보의 높이, 상황별 설정 줄의 한 줄 높이: 도구를 바꿔도 문서 영역이 출렁이지 않는다 (D13c) -->
+    <sys:Double x:Key="Height.Field">26</sys:Double>
+    <sys:Double x:Key="Height.SubBarRow">28</sys:Double>
+
+    <!-- 편집 화면 페이지 번호 (spec 4.5, D13d): 화면에서 같은 크기, 종이 오른쪽 아래 안쪽 여백 -->
+    <sys:Double x:Key="FontSize.PageNumber">11</sys:Double>
+    <sys:Double x:Key="Space.PageNumber">8</sys:Double>
+
+    <CornerRadius x:Key="Radius.Control">4</CornerRadius>
+    <CornerRadius x:Key="Radius.Small">2</CornerRadius>
+    <CornerRadius x:Key="Radius.Popup">6</CornerRadius>
+
+    <Thickness x:Key="Space.TabRow">8,3,8,0</Thickness>
+    <Thickness x:Key="Space.Ribbon">8,2,8,2</Thickness>
+    <Thickness x:Key="Space.RibbonTab">12,5</Thickness>
+    <Thickness x:Key="Space.SubBar">10,3</Thickness>
+    <Thickness x:Key="Space.ToolButton">6,5</Thickness>
+    <Thickness x:Key="Space.ToolButtonGap">1,0</Thickness>
+    <Thickness x:Key="Space.IconGap">0,0,6,0</Thickness>
+    <Thickness x:Key="Space.Separator">6,4</Thickness>
+    <Thickness x:Key="Space.MenuSeparator">8,4</Thickness>
+    <Thickness x:Key="Space.Button">8,3</Thickness>
+    <Thickness x:Key="Space.Popup">10</Thickness>
+    <Thickness x:Key="Space.MenuItem">8,5</Thickness>
+    <Thickness x:Key="Space.ToolTip">8,4</Thickness>
+    <Thickness x:Key="Space.FieldGroup">0,0,6,0</Thickness>
+    <Thickness x:Key="Space.FieldLabel">0,0,5,0</Thickness>
+    <Thickness x:Key="Space.Field">3,0</Thickness>
+    <Thickness x:Key="Space.DialogButtons">0,16,0,0</Thickness>
+</ResourceDictionary>

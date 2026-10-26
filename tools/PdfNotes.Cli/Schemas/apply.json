@@ -1,0 +1,319 @@
+{
+  "input": {
+    "type": "object",
+    "required": [
+      "pdf",
+      "opsFile"
+    ],
+    "description": "deot apply <pdf> <ops.json | - (standard input)> -o <pdf> [--overwrite] | --dry-run, [--preview-dir <folder>] [--expect-hash h] [--batch-id id] [--flatten]. The operations run in turn on the document in memory; any failure fails the run with that operation's error (details.opIndex, details.op) and nothing is written. Ops: page.duplicate, page.insert-blank, page.delete, page.move, page.rotate, page.shrink, page.resize, page.import, add.text, add.mark, add.highlight-stroke, add.line, add.shape, add.ink, add.image, add.note, annot.update, annot.delete, annot.order, annot.lock, annot.copy. Fields are the command's options in camelCase: [x,y,w,h] or \"x,y,w,h\", {\"start\": s, \"end\": e} or \"s:e\", JSON values as JSON, true for a flag; an unknown field is refused. Page numbers are the input's pages (before any operation); pages an operation makes are named with \"as\" (a name or a list, in the order made) and referenced as \"$name\". Coordinates are those of the page when the operation runs (after an earlier shrink: shrunk coordinates; chars and words follow the text). A source key made twice in one run is DUPLICATE_SOURCE_KEY. guards: check rules on the result; an error-level problem is CHECK_FAILED (exit 2, details.problems) and nothing is written.",
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "opsFile": {
+        "type": "string"
+      },
+      "previewDir": {
+        "type": "string"
+      },
+      "out": {
+        "type": "string",
+        "description": "-o output PDF; must differ from the input; an existing file needs --overwrite"
+      },
+      "overwrite": {
+        "type": "boolean"
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "expectHash": {
+        "type": "string",
+        "description": "refuse (exit 3 HASH_MISMATCH) when the input's sourceHash differs"
+      },
+      "batchId": {
+        "type": "string"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "appFolder": {
+        "type": "string",
+        "description": "PdfNotes settings folder holding the window markers (default: the app's)"
+      },
+      "file": {
+        "type": "object",
+        "required": [
+          "ops"
+        ],
+        "additionalProperties": false,
+        "description": "the operations file (or just the ops list)",
+        "properties": {
+          "expectHash": {
+            "type": "string"
+          },
+          "batchId": {
+            "type": "string"
+          },
+          "defaults": {
+            "type": "object",
+            "description": "op name -> fields it takes when it gives none (a style object merges by field)"
+          },
+          "ops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "op"
+              ],
+              "properties": {
+                "op": {
+                  "type": "string"
+                },
+                "as": {
+                  "type": [
+                    "string",
+                    "array"
+                  ]
+                }
+              }
+            }
+          },
+          "guards": {
+            "type": "array",
+            "items": {
+              "$ref": "common.json#/$defs/checkRule"
+            }
+          }
+        }
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "batchId",
+      "ops",
+      "summary",
+      "guards",
+      "dryRun",
+      "flatten",
+      "output",
+      "outputHash",
+      "pageCount",
+      "pageIds",
+      "previews"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "apply"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "batchId": {
+        "type": "string"
+      },
+      "ops": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "index",
+            "op"
+          ],
+          "description": "index, op and the fields of that command's result except ok, command, sourceHash and the write fields",
+          "properties": {
+            "index": {
+              "type": "integer"
+            },
+            "op": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "summary": {
+        "type": "object",
+        "required": [
+          "annotations",
+          "pages"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "annotations": {
+            "type": "object",
+            "required": [
+              "created",
+              "replaced",
+              "updated",
+              "deleted"
+            ],
+            "additionalProperties": false,
+            "description": "against the input: made; replaced by source key; changed in place, moved, retagged or reordered; deleted (where they were in the input)",
+            "properties": {
+              "created": {
+                "type": "array",
+                "items": {
+                  "$ref": "common.json#/$defs/summaryEntry"
+                }
+              },
+              "replaced": {
+                "type": "array",
+                "items": {
+                  "$ref": "common.json#/$defs/summaryEntry"
+                }
+              },
+              "updated": {
+                "type": "array",
+                "items": {
+                  "$ref": "common.json#/$defs/summaryEntry"
+                }
+              },
+              "deleted": {
+                "type": "array",
+                "items": {
+                  "$ref": "common.json#/$defs/summaryEntry"
+                }
+              }
+            }
+          },
+          "pages": {
+            "type": "object",
+            "required": [
+              "created",
+              "deleted",
+              "transformed"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "created": {
+                "type": "array",
+                "items": {
+                  "$ref": "common.json#/$defs/pageRef"
+                }
+              },
+              "deleted": {
+                "type": "array",
+                "items": {
+                  "$ref": "common.json#/$defs/pageRef"
+                }
+              },
+              "transformed": {
+                "type": "array",
+                "items": {
+                  "$ref": "common.json#/$defs/pageRef"
+                }
+              }
+            }
+          }
+        }
+      },
+      "guards": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "required": [
+              "count",
+              "problems"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "count": {
+                "type": "integer"
+              },
+              "problems": {
+                "type": "array",
+                "items": {
+                  "$ref": "common.json#/$defs/problem"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "output": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outputHash": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pageCount": {
+        "type": "integer"
+      },
+      "pageIds": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/pageId"
+        }
+      },
+      "previews": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "page",
+                "pageId",
+                "path",
+                "pageToPixel",
+                "pixelToPage"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "integer"
+                },
+                "pageId": {
+                  "$ref": "common.json#/$defs/pageId"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "pageToPixel": {
+                  "$ref": "common.json#/$defs/matrix"
+                },
+                "pixelToPage": {
+                  "$ref": "common.json#/$defs/matrix"
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  }
+}

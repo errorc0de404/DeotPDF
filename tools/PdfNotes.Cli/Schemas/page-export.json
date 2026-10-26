@@ -1,0 +1,129 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot page export <pdf> (--pages <list> | --range <list> | -p <page>) -o <pdf> [--overwrite] [--flatten] [--dry-run] [--expect-hash h] (spec 11.10). The input is not changed.",
+    "required": [
+      "pdf"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "pages": {
+        "type": "string"
+      },
+      "range": {
+        "type": "string"
+      },
+      "page": {
+        "type": "string"
+      },
+      "out": {
+        "type": "string",
+        "description": "-o output PDF; must differ from the input; an existing file needs --overwrite"
+      },
+      "overwrite": {
+        "type": "boolean"
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "expectHash": {
+        "type": "string",
+        "description": "refuse (exit 3 HASH_MISMATCH) when the input's sourceHash differs"
+      },
+      "batchId": {
+        "type": "string"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "appFolder": {
+        "type": "string",
+        "description": "PdfNotes settings folder holding the window markers (default: the app's)"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "exported",
+      "dryRun",
+      "flatten",
+      "output",
+      "outputHash",
+      "pageCount"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "page export"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "exported": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "page",
+            "pageId"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "pageId": {
+              "$ref": "common.json#/$defs/pageId"
+            }
+          },
+          "description": "page is the 1-based number in the result document (null when deleted)"
+        }
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "output": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outputHash": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pageCount": {
+        "type": "integer"
+      }
+    }
+  }
+}

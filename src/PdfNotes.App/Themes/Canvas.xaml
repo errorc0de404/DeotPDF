@@ -1,0 +1,39 @@
+<!--
+  종이 위에 그리는 표시와 종이 자체의 색 (spec 3.1·3.2, D13a). 종이는 테마와 관계없이 같으므로 이 색도 테마로 바꾸지 않는다.
+  선택 손잡이·지우개 원·올가미는 흰 테두리(Overlay.Halo) 위에 그려 어떤 종이·주석 위에서도 보인다.
+  주석 자체의 색은 문서 데이터이며 여기 두지 않는다.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    mc:Ignorable="po">
+<!-- 페이지 내용 효과: 기본 없음, 읽기용 어두운 페이지에서 MainWindow가 색 반전으로 바꾼다 (spec 24.12) -->
+    <x:Null x:Key="Page.Effect" />
+    <SolidColorBrush x:Key="Paper" Color="#FFFFFF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Paper.Text" Color="#696969" po:Freeze="True" />
+    <SolidColorBrush x:Key="Paper.Edge" Color="#808080" po:Freeze="True" />
+
+    <SolidColorBrush x:Key="Overlay.Selection" Color="#1E6FD9" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.Halo" Color="#FFFFFF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.TextSelection" Color="#551E6FD9" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.LassoFill" Color="#141E6FD9" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.TextEditFrame" Color="#6495ED" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.Caret" Color="#000000" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.Neutral" Color="#708090" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.Eraser" Color="#505050" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.EraserHalo" Color="#C0FFFFFF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.EraserFill" Color="#18505050" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.Search" Color="#55FF9A00" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.SearchCurrent" Color="#80FF6A00" po:Freeze="True" />
+    <SolidColorBrush x:Key="Overlay.SearchCurrentEdge" Color="#E05000" po:Freeze="True" />
+    <!-- 편집 화면의 페이지 번호 (spec 4.5): 종이 오른쪽 아래의 옅은 회색, 주석 아래 -->
+    <SolidColorBrush x:Key="Overlay.PageNumber" Color="#99808080" po:Freeze="True" />
+
+    <!-- 마우스 커서(회전·이동)는 Windows 커서처럼 검정 + 흰 테두리 -->
+    <SolidColorBrush x:Key="Cursor.Fill" Color="#000000" po:Freeze="True" />
+    <SolidColorBrush x:Key="Cursor.Outline" Color="#FFFFFF" po:Freeze="True" />
+
+    <!-- 글자 하이라이트 아이콘의 형광 노랑 띠 (글자는 단추 글자색, D13c) -->
+    <SolidColorBrush x:Key="Icon.Highlight" Color="#FFE600" po:Freeze="True" />
+</ResourceDictionary>

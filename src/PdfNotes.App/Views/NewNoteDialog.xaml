@@ -1,0 +1,66 @@
+<Window x:Class="PdfNotes.App.Views.NewNoteDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:l="clr-namespace:PdfNotes.App.Localization"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{l:T file.newNoteName}" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        FontFamily="{DynamicResource Font.Ui}" FontSize="{DynamicResource FontSize.Body}"
+        Background="{DynamicResource Surface.Background}" Foreground="{DynamicResource Text.Primary}">
+    <Grid Margin="20" MinWidth="340">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <CheckBox x:Name="SameSizeBox" Grid.Row="5" Grid.ColumnSpan="2" Content="{l:T newNote.sameSize}" Margin="0,0,0,12" Visibility="Collapsed"
+                  Checked="SameSizeChanged" Unchecked="SameSizeChanged" />
+
+        <TextBlock Text="{l:T transform.size}" VerticalAlignment="Center" Margin="0,0,16,10" />
+        <ComboBox x:Name="SizeBox" Grid.Column="1" Margin="0,0,0,10" SelectionChanged="PaperSizeChanged">
+            <ComboBoxItem Content="A4 (210 × 297mm)" Tag="A4" IsSelected="True" />
+            <ComboBoxItem Content="A5 (148 × 210mm)" Tag="A5" />
+            <ComboBoxItem Content="Letter (215.9 × 279.4mm)" Tag="Letter" />
+            <ComboBoxItem Content="{l:T transform.custom}" Tag="Custom" />
+        </ComboBox>
+
+        <TextBlock Grid.Row="1" Text="{l:T newNote.orientation}" VerticalAlignment="Center" Margin="0,0,16,10" />
+        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+            <RadioButton x:Name="PortraitButton" Content="{l:T newNote.portrait}" IsChecked="True" Margin="0,0,16,0" Checked="OrientationChanged" />
+            <RadioButton x:Name="LandscapeButton" Content="{l:T newNote.landscape}" Checked="OrientationChanged" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="2" Text="{l:T newNote.widthHeight}" VerticalAlignment="Center" Margin="0,0,16,4" />
+        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,4">
+            <TextBox x:Name="WidthBox" Width="72" TextAlignment="Right" VerticalContentAlignment="Center" Padding="2" />
+            <TextBlock Text=" × " VerticalAlignment="Center" />
+            <TextBox x:Name="HeightBox" Width="72" TextAlignment="Right" VerticalContentAlignment="Center" Padding="2" />
+            <TextBlock Text=" mm" VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBlock x:Name="RangeText" Grid.Row="3" Grid.Column="1" Foreground="{DynamicResource Text.Muted}" FontSize="{DynamicResource FontSize.Caption}" Margin="0,0,0,12" />
+
+        <TextBlock Grid.Row="4" Text="{l:T newNote.background}" VerticalAlignment="Top" Margin="0,0,16,10" />
+        <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,0,0,10">
+            <RadioButton x:Name="BlankButton" Content="{l:T newNote.blank}" IsChecked="True" Margin="0,0,0,4" />
+            <RadioButton x:Name="GridButton" Content="{l:T newNote.grid}" Margin="0,0,0,4" />
+            <RadioButton x:Name="LinedButton" Content="{l:T newNote.lined}" />
+        </StackPanel>
+
+        <TextBlock x:Name="ErrorText" Grid.Row="6" Grid.ColumnSpan="2" Foreground="{DynamicResource Text.Danger}" TextWrapping="Wrap"
+                   MaxWidth="340" Margin="0,0,0,8" Visibility="Collapsed" />
+
+        <StackPanel Grid.Row="7" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button x:Name="CreateButton" Content="{l:T common.create}" IsDefault="True" MinWidth="84" Padding="10,4" Margin="0,0,8,0" Click="CreateClick" />
+            <Button Content="{l:T common.cancel}" IsCancel="True" MinWidth="84" Padding="10,4" />
+        </StackPanel>
+    </Grid>
+</Window>

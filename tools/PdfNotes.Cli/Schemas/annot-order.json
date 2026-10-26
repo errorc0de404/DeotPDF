@@ -1,0 +1,168 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot annot order <pdf> (--id <id> | --source-key <key>) --to front|back|forward|backward|<z> (stacking position on its page, 0 = bottom). Only annotations the CLI made (tag author \"ai\") change: others give FORBIDDEN (exit 2) unless --allow-untagged. Errors also: ANNOTATION_NOT_FOUND, LOCKED_ANNOTATION (2), and the write errors (SAME_AS_INPUT, OUTPUT_EXISTS, HASH_MISMATCH, FILE_OPEN_IN_APP).",
+    "required": [
+      "pdf",
+      "to"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string",
+        "description": "annotation ID"
+      },
+      "sourceKey": {
+        "type": "string",
+        "description": "or: the AI annotation with this source key"
+      },
+      "to": {
+        "type": [
+          "string",
+          "integer"
+        ]
+      },
+      "allowUntagged": {
+        "type": "boolean"
+      },
+      "out": {
+        "type": "string",
+        "description": "-o output PDF; must differ from the input; an existing file needs --overwrite"
+      },
+      "overwrite": {
+        "type": "boolean"
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "preview": {
+        "type": "string",
+        "description": "a .png path or a folder for renders of the changed pages"
+      },
+      "expectHash": {
+        "type": "string",
+        "description": "refuse (exit 3 HASH_MISMATCH) when the input's sourceHash differs"
+      },
+      "batchId": {
+        "type": "string"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "appFolder": {
+        "type": "string",
+        "description": "PdfNotes settings folder holding the window markers (default: the app's)"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "annotation",
+      "changed",
+      "dryRun",
+      "flatten",
+      "output",
+      "outputHash",
+      "pageCount",
+      "pageIds",
+      "previews"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "annot order"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "annotation": {
+        "$ref": "common.json#/$defs/annotation"
+      },
+      "changed": {
+        "type": "boolean"
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "output": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outputHash": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pageCount": {
+        "type": "integer"
+      },
+      "pageIds": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/pageId"
+        }
+      },
+      "previews": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "page",
+                "pageId",
+                "path",
+                "pageToPixel",
+                "pixelToPage"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "integer"
+                },
+                "pageId": {
+                  "$ref": "common.json#/$defs/pageId"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "pageToPixel": {
+                  "$ref": "common.json#/$defs/matrix"
+                },
+                "pixelToPage": {
+                  "$ref": "common.json#/$defs/matrix"
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  }
+}

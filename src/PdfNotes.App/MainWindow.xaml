@@ -1,0 +1,526 @@
+<Window x:Class="PdfNotes.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:l="clr-namespace:PdfNotes.App.Localization"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:canvas="clr-namespace:PdfNotes.App.Canvas"
+        xmlns:app="clr-namespace:PdfNotes.App"
+        Title="DeotPDF" Width="1200" Height="860" MinWidth="720" MinHeight="480"
+        FontFamily="{DynamicResource Font.Ui}" FontSize="{DynamicResource FontSize.Body}"
+        Background="{DynamicResource Window.Background}" Foreground="{DynamicResource Text.Primary}"
+        AllowDrop="True" PreviewDragOver="WindowDragOver" PreviewDragLeave="WindowDragLeave" PreviewDrop="WindowDrop"
+        PreviewKeyDown="WindowPreviewKeyDown" PreviewKeyUp="WindowPreviewKeyUp" KeyDown="WindowKeyDown"
+        Closing="WindowClosing" Closed="WindowClosed">
+    <!-- 공통 스타일(ToolButton·Icon·Swatch·Separator 등)과 색·간격 토큰은 Themes/ (Theme.Attach) -->
+
+    <Window.CommandBindings>
+        <CommandBinding Command="ApplicationCommands.New" Executed="NewExecuted" CanExecute="IdleCanExecute" />
+        <CommandBinding Command="ApplicationCommands.Open" Executed="OpenExecuted" CanExecute="IdleCanExecute" />
+        <CommandBinding Command="ApplicationCommands.Save" Executed="SaveExecuted" CanExecute="IdleCanExecute" />
+        <CommandBinding Command="ApplicationCommands.SaveAs" Executed="SaveAsExecuted" CanExecute="IdleCanExecute" />
+        <CommandBinding Command="app:AppCommands.ExportFlattened" Executed="ExportFlattenedExecuted" CanExecute="IdleCanExecute" />
+        <CommandBinding Command="ApplicationCommands.Undo" Executed="UndoExecuted" CanExecute="UndoCanExecute" />
+        <CommandBinding Command="ApplicationCommands.Redo" Executed="RedoExecuted" CanExecute="RedoCanExecute" />
+        <CommandBinding Command="ApplicationCommands.Find" Executed="FindExecuted" />
+        <CommandBinding Command="app:AppCommands.Settings" Executed="SettingsExecuted" />
+    </Window.CommandBindings>
+    <Window.InputBindings>
+        <KeyBinding Command="ApplicationCommands.SaveAs" Gesture="Ctrl+Shift+S" />
+        <KeyBinding Command="ApplicationCommands.Redo" Gesture="Ctrl+Shift+Z" />
+        <KeyBinding Command="app:AppCommands.Settings" Gesture="Ctrl+OemComma" />
+    </Window.InputBindings>
+
+    <DockPanel>
+        <!-- 상단 리본 (spec 3.2 D13 구현 기본값): 빠른 명령 / 탭 줄 / 탭 내용. 탭을 바꿔도 현재 도구는 그대로다. -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Bar.Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
+            <StackPanel>
+                <DockPanel Margin="{DynamicResource Space.TabRow}">
+                    <!-- 설정 (spec 18.1): 오른쪽 끝, 어느 탭에서나 -->
+                    <Button x:Name="SettingsButton" DockPanel.Dock="Right" Style="{StaticResource ToolButton}" Command="app:AppCommands.Settings" ToolTip="{l:T ribbon.settingsTip}">
+                        <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE713;" />
+                    </Button>
+                    <StackPanel Orientation="Horizontal">
+                        <!-- 빠른 명령: 열기 (2026-10-15 사용자 요청) · 저장 · 실행 취소 · 다시 실행 -->
+                        <Button x:Name="QuickOpenButton" Style="{StaticResource ToolButton}" Command="ApplicationCommands.Open" ToolTip="{l:T ribbon.openTip}">
+                            <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE8E5;" />
+                        </Button>
+                        <Button Style="{StaticResource ToolButton}" Command="ApplicationCommands.Save" ToolTip="{l:T ribbon.saveTip}">
+                            <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE74E;" />
+                        </Button>
+                        <Button x:Name="UndoButton" Style="{StaticResource ToolButton}" Command="ApplicationCommands.Undo" ToolTip="{l:T ribbon.undoTip}" ToolTipService.ShowOnDisabled="True">
+                            <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE7A7;" />
+                        </Button>
+                        <Button x:Name="RedoButton" Style="{StaticResource ToolButton}" Command="ApplicationCommands.Redo" ToolTip="{l:T ribbon.redoTip}" ToolTipService.ShowOnDisabled="True">
+                            <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE7A6;" />
+                        </Button>
+                        <Separator />
+                        <RadioButton x:Name="FileTabButton" Style="{StaticResource RibbonTab}" GroupName="RibbonTabs" Content="{l:T tab.file}" Tag="File" Checked="RibbonTabChecked" />
+                        <RadioButton x:Name="HomeTabButton" Style="{StaticResource RibbonTab}" GroupName="RibbonTabs" Content="{l:T tab.write}" Tag="Home" Checked="RibbonTabChecked" />
+                        <RadioButton x:Name="PageTabButton" Style="{StaticResource RibbonTab}" GroupName="RibbonTabs" Content="{l:T tab.page}" Tag="Page" Checked="RibbonTabChecked" />
+                        <RadioButton x:Name="ViewTabButton" Style="{StaticResource RibbonTab}" GroupName="RibbonTabs" Content="{l:T tab.view}" Tag="View" Checked="RibbonTabChecked" />
+                    </StackPanel>
+                </DockPanel>
+
+                <Grid Margin="{DynamicResource Space.Ribbon}">
+                    <!-- 파일 -->
+                    <WrapPanel x:Name="FileTab" Visibility="Collapsed">
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.document}">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Style="{StaticResource ToolButton}" Command="ApplicationCommands.New" ToolTip="{l:T ribbon.newTip}">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8A5;" /><TextBlock Text="{l:T ribbon.new}" /></StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ToolButton}" Command="ApplicationCommands.Open" ToolTip="{l:T ribbon.openTip}">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8E5;" /><TextBlock Text="{l:T ribbon.open}" /></StackPanel>
+                                </Button>
+                                <!-- 최근 문서 (spec 24.1): 목록은 ▾ 메뉴 -->
+                                <Button x:Name="RecentButton" Style="{StaticResource ToolButton}" ToolTip="{l:T ribbon.recent}" Click="RecentClick">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE81C;" /><TextBlock Text="{l:T ribbon.recent}" />
+                                        <TextBlock Style="{StaticResource Icon}" Margin="4,0,0,0" FontSize="9" Text="&#xE70D;" /></StackPanel>
+                                </Button>
+                                <!-- PDF 합치기 (D13j): 여러 PDF → 새 문서 -->
+                                <Button x:Name="MergePdfsButton" Style="{StaticResource ToolButton}" ToolTip="{l:T ribbon.mergeTip}" Click="MergePdfsClick">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8F1;" /><TextBlock Text="{l:T ribbon.merge}" /></StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.save}">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Style="{StaticResource ToolButton}" Command="ApplicationCommands.Save" ToolTip="{l:T ribbon.saveTip}">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE74E;" /><TextBlock Text="{l:T ribbon.save}" /></StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ToolButton}" Command="ApplicationCommands.SaveAs" ToolTip="{l:T ribbon.saveAsTip}">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE792;" /><TextBlock Text="{l:T ribbon.saveAs}" /></StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ToolButton}" Command="app:AppCommands.ExportFlattened" ToolTip="{l:T file.exportFlattenedTitle}">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xEDE1;" /><TextBlock Text="{l:T ribbon.exportFlattened}" /></StackPanel>
+                                </Button>
+                                <Button x:Name="ExportPagesFileButton" Style="{StaticResource ToolButton}" ToolTip="{l:T ribbon.exportTip}" Click="ExportPagesClick">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8A9;" /><TextBlock Text="{l:T ribbon.export}" /></StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.app}">
+                            <Button Style="{StaticResource ToolButton}" Command="app:AppCommands.Settings" ToolTip="{l:T ribbon.settingsTip}">
+                                <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE713;" /><TextBlock Text="{l:T ribbon.settings}" /></StackPanel>
+                            </Button>
+                        </HeaderedContentControl>
+                    </WrapPanel>
+
+                    <!-- 필기 (2026-10-14 `홈`에서 이름 변경, 이름 Home은 그대로): 도구를 기능별로 -->
+                    <WrapPanel x:Name="HomeTab">
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.select}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton x:Name="SelectToolButton" Style="{StaticResource ToolButton}" GroupName="Tools" ToolTip="{l:T tool.select}" Checked="ToolChecked" Click="SelectToolClick" Tag="Select">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8B0;" /><TextBlock Text="{l:T tool.select}" /></StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="LassoToolButton" Style="{StaticResource ToolButton}" GroupName="Tools" ToolTip="{l:T tool.lasso}" Checked="ToolChecked" Tag="Lasso">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ContentControl Template="{StaticResource Part.Icon.Lasso}" Focusable="False" Margin="{DynamicResource Space.IconGap}" />
+                                        <TextBlock Text="{l:T tool.lasso}" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.draw}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton x:Name="PenToolButton" Style="{StaticResource ToolButton}" GroupName="Tools" ToolTip="{l:T ribbon.pen}" Checked="ToolChecked" Tag="Pen">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xEDFB;" /><TextBlock Text="{l:T ribbon.pen}" /></StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="HighlighterToolButton" Style="{StaticResource ToolButton}" GroupName="Tools" ToolTip="{l:T ribbon.highlighter}" Checked="ToolChecked" Tag="FreeHighlight">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE7E6;" /><TextBlock Text="{l:T ribbon.highlighter}" /></StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="EraserToolButton" Style="{StaticResource ToolButton}" GroupName="Tools" ToolTip="{l:T ribbon.eraser}" Checked="ToolChecked" Tag="Eraser">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE75C;" /><TextBlock Text="{l:T ribbon.eraser}" /></StackPanel>
+                                </RadioButton>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.insert}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton x:Name="TextToolButton" Style="{StaticResource ToolButton}" GroupName="Tools" ToolTip="{l:T ribbon.text}" Checked="ToolChecked" Tag="Text">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8D2;" /><TextBlock Text="{l:T ribbon.text}" /></StackPanel>
+                                </RadioButton>
+                                <!-- 도형 (spec 8 머리말): 직선·곡선·사각형·타원·삼각형·다각형. 단추는 마지막 도형 도구, ▾는 목록 -->
+                                <RadioButton x:Name="ShapeToolButton" Style="{StaticResource ToolButton}" GroupName="Tools" ToolTip="{l:T ribbon.shape}" Checked="ToolChecked" Tag="ShapeGroup" Padding="6,5,2,5">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ContentControl x:Name="ShapeToolIcon" Focusable="False" />
+                                        <TextBlock Text="{l:T ribbon.shape}" />
+                                    </StackPanel>
+                                </RadioButton>
+                                <Button x:Name="ShapeMenuButton" Style="{StaticResource ToolButton}" Padding="2,5" ToolTip="{l:T ribbon.shapeMenuTip}" Click="ShapeMenuClick">
+                                    <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="9" Text="&#xE70D;" />
+                                </Button>
+                                <RadioButton x:Name="NoteToolButton" Style="{StaticResource ToolButton}" GroupName="Tools" ToolTip="{l:T ribbon.note}" Checked="ToolChecked" Tag="Note">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE90A;" /><TextBlock Text="{l:T ribbon.note}" /></StackPanel>
+                                </RadioButton>
+                                <Button Style="{StaticResource ToolButton}" ToolTip="{l:T image.insertTitle}" Click="InsertImageClick">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xEB9F;" /><TextBlock Text="{l:T ribbon.image}" /></StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <!-- 다른 프로그램 주석 편집 (spec 14.6, D14g): 그런 주석이 있는 문서에서만 보인다 -->
+                        <Separator x:Name="ForeignSeparator" Visibility="Collapsed" />
+                        <Button x:Name="ForeignEditButton" Style="{StaticResource ToolButton}" ToolTip="{l:T foreign.convertTip}" Click="ConvertForeignClick" Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE70F;" /><TextBlock Text="{l:T foreign.convert}" /></StackPanel>
+                        </Button>
+                    </WrapPanel>
+
+                    <!-- 페이지: D10 페이지 명령 (우클릭 메뉴와 같은 명령) -->
+                    <WrapPanel x:Name="PageTab" Visibility="Collapsed">
+                        <!-- 삽입 (spec 11.5, 2026-10-13): 본체는 빈 페이지 대화상자, ▾는 빈 페이지·PDF에서 불러오기. 맨 뒤 추가는 페이지 목록 맨 아래 단추 -->
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.newPage}">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="InsertPageButton" Style="{StaticResource ToolButton}" ToolTip="{l:T ribbon.insertPageTip}" Click="InsertPageClick" Padding="6,5,2,5">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8A5;" /><TextBlock Text="{l:T import.insert}" /></StackPanel>
+                                </Button>
+                                <Button x:Name="InsertPageMenuButton" Style="{StaticResource ToolButton}" Padding="2,5" ToolTip="{l:T ribbon.insertMenuTip}" Click="InsertPageMenuClick">
+                                    <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="9" Text="&#xE70D;" />
+                                </Button>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.copy}">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Style="{StaticResource ToolButton}" ToolTip="{l:T page.copyWithNotes}" Click="CopyPageClick">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8C8;" /><TextBlock Text="{l:T command.copy}" /></StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ToolButton}" ToolTip="{l:T page.copyPageOnly}" Click="CopyPageOnlyClick">
+                                    <TextBlock Text="{l:T page.copyPageOnly}" />
+                                </Button>
+                                <Button x:Name="PastePageButton" Style="{StaticResource ToolButton}" ToolTip="{l:T ribbon.pastePagesTip}" Click="PastePageClick">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE77F;" /><TextBlock Text="{l:T command.paste}" /></StackPanel>
+                                </Button>
+                                <!-- 페이지 내보내기 (spec 11.10, D13j): 선택한 페이지·범위, ; 로 여러 파일 -->
+                                <Button x:Name="ExportPagesButton" Style="{StaticResource ToolButton}" ToolTip="{l:T ribbon.exportPagesTip}" Click="ExportPagesClick">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xEDE1;" /><TextBlock Text="{l:T export.ok}" /></StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.organize}">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="DeletePageButton" Style="{StaticResource ToolButton}" ToolTip="{l:T command.delete}" Click="DeletePageClick">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE74D;" /><TextBlock Text="{l:T command.delete}" /></StackPanel>
+                                </Button>
+                                <!-- 이 페이지의 필기 삭제 (spec 11.11, D13j) -->
+                                <Button x:Name="ClearPageNotesButton" Style="{StaticResource ToolButton}" ToolTip="{l:T page.clearNotes}" Click="ClearPageNotesClick">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE75C;" /><TextBlock Text="{l:T ribbon.clearNotes}" /></StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ToolButton}" ToolTip="{l:T page.rotateLeft}" Click="RotateLeftClick">
+                                    <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE149;" RenderTransformOrigin="0.5,0.5">
+                                        <TextBlock.RenderTransform><ScaleTransform ScaleX="-1" /></TextBlock.RenderTransform>
+                                    </TextBlock>
+                                </Button>
+                                <Button Style="{StaticResource ToolButton}" ToolTip="{l:T page.rotateRight}" Click="RotateRightClick">
+                                    <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE149;" />
+                                </Button>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.size}">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="ShrinkPageButton" Style="{StaticResource ToolButton}" ToolTip="{l:T page.shrinkContent}" Click="ShrinkPageClick">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE73F;" /><TextBlock Text="{l:T page.shrinkContent}" /></StackPanel>
+                                </Button>
+                                <Button x:Name="ResizePageButton" Style="{StaticResource ToolButton}" ToolTip="{l:T page.resize}" Click="ResizePageClick">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE740;" /><TextBlock Text="{l:T page.resize}" /></StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.show}">
+                            <ToggleButton x:Name="PagePanelButton" Style="{StaticResource ToolButton}" ToolTip="{l:T page.list}" Click="PagePanelToggled">
+                                <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8A9;" /><TextBlock Text="{l:T page.list}" /></StackPanel>
+                            </ToggleButton>
+                        </HeaderedContentControl>
+                    </WrapPanel>
+
+                    <!-- 보기: 화면 확대/축소·맞춤·보기 방식·검색 (2026-10-13 사용자 확인: 별도 탭) -->
+                    <WrapPanel x:Name="ViewTab" Visibility="Collapsed">
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.zoom}">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Style="{StaticResource ToolButton}" Click="ZoomOutClick" ToolTip="{l:T view.zoomOut}">
+                                    <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE71F;" />
+                                </Button>
+                                <ComboBox x:Name="ZoomBox" Width="76" IsEditable="True" VerticalContentAlignment="Center" Margin="2,0"
+                                          ToolTip="{l:T view.zoom}"
+                                          SelectionChanged="ZoomBoxSelectionChanged" KeyDown="ZoomBoxKeyDown" LostKeyboardFocus="ZoomBoxLostFocus">
+                                    <ComboBoxItem Content="25%" />
+                                    <ComboBoxItem Content="50%" />
+                                    <ComboBoxItem Content="75%" />
+                                    <ComboBoxItem Content="100%" />
+                                    <ComboBoxItem Content="125%" />
+                                    <ComboBoxItem Content="150%" />
+                                    <ComboBoxItem Content="200%" />
+                                    <ComboBoxItem Content="300%" />
+                                    <ComboBoxItem Content="400%" />
+                                    <ComboBoxItem Content="800%" />
+                                </ComboBox>
+                                <Button Style="{StaticResource ToolButton}" Click="ZoomInClick" ToolTip="{l:T view.zoomIn}">
+                                    <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE8A3;" />
+                                </Button>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.fit}">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Style="{StaticResource ToolButton}" Click="FitWidthClick" ToolTip="{l:T view.fitWidth}">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE799;" /><TextBlock Text="{l:T view.fitWidth}" /></StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ToolButton}" Click="FitPageClick" ToolTip="{l:T view.fitPage}">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE9A6;" /><TextBlock Text="{l:T view.fitPage}" /></StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.viewMode}">
+                            <StackPanel Orientation="Horizontal">
+                                <ToggleButton x:Name="ContinuousButton" Style="{StaticResource ToolButton}" Click="ContinuousClick" ToolTip="{l:T view.continuousTip}">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xECE7;" /><TextBlock Text="{l:T view.continuous}" /></StackPanel>
+                                </ToggleButton>
+                                <ToggleButton x:Name="SinglePageButton" Style="{StaticResource ToolButton}" Click="SinglePageClick" ToolTip="{l:T view.singlePage}">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE7C3;" /><TextBlock Text="{l:T view.singlePage}" /></StackPanel>
+                                </ToggleButton>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.show}">
+                            <ToggleButton x:Name="HideNotesButton" Style="{StaticResource ToolButton}" ToolTip="{l:T view.hideNotes}" Click="HideNotesClick">
+                                <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xED1A;" /><TextBlock Text="{l:T view.hideNotes}" /></StackPanel>
+                            </ToggleButton>
+                        </HeaderedContentControl>
+                        <Separator />
+                        <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{l:T group.find}">
+                            <Button Style="{StaticResource ToolButton}" Command="ApplicationCommands.Find" ToolTip="{l:T view.searchTip}">
+                                <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE721;" /><TextBlock Text="{l:T view.search}" /></StackPanel>
+                            </Button>
+                        </HeaderedContentControl>
+                    </WrapPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- 상황별 설정 줄: 왼쪽은 도구·선택의 설정 막대 셋 중 하나, 오른쪽 끝은 펜 즐겨찾기 — 어느 탭에서나 보인다 (spec 24.7, 2026-10-15) -->
+        <Border x:Name="SubBarRow" DockPanel.Dock="Top" Background="{DynamicResource SubBar.Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
+            <DockPanel>
+                <StackPanel x:Name="FavoritesGroup" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,2,0"
+                            Height="{DynamicResource Height.SubBarRow}">
+                    <Separator x:Name="FavoritesSeparator" />
+                    <StackPanel x:Name="FavoritesPanel" Orientation="Horizontal" VerticalAlignment="Center" />
+                </StackPanel>
+                <Grid>
+            <!-- 상황별 설정 줄 (D13c 배치 규칙): [팔레트 | 굵기 | 투명도 | 종류별 옵션]. 세 막대(색·굵기 / 지우개 / 텍스트)는 같은 높이다. -->
+            <Border x:Name="StyleBar" Padding="{DynamicResource Space.SubBar}">
+                <!-- 좁은 창에서는 묶음 단위로 다음 줄로 넘어가 잘리지 않는다 -->
+                <WrapPanel Orientation="Horizontal" ItemHeight="{DynamicResource Height.SubBarRow}">
+                    <!-- 도형: 대상(채우기/테두리)·테두리 선 형태는 팔레트 앞 — 텍스트 줄과 같은 자리 (2026-10-13 사용자 요청) -->
+                    <StackPanel x:Name="ShapeOptionsPanel" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed" />
+                    <!-- 형광펜의 종류 (spec 9.1): 형광 / 밑줄 / 취소선 -->
+                    <StackPanel x:Name="MarkKindPanel" Style="{StaticResource FieldGroup}" Visibility="Collapsed">
+                        <RadioButton x:Name="MarkHighlightButton" Style="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T highlighter.kindHighlight}" Padding="6,3" Focusable="False" Tag="Highlight" Checked="MarkKindChecked" />
+                        <RadioButton x:Name="MarkUnderlineButton" Style="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T markup.underline}" Padding="6,3" Focusable="False" Tag="Underline" Checked="MarkKindChecked" />
+                        <RadioButton x:Name="MarkStrikeOutButton" Style="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T text.strikeOut}" Padding="6,3" Focusable="False" Tag="StrikeOut" Checked="MarkKindChecked" />
+                        <Separator />
+                    </StackPanel>
+                    <!-- 팔레트: 기본 10색 | 사용자 색 · + (색 평면·색 코드·스포이드, 코드로 붙임) -->
+                    <StackPanel x:Name="PaletteGroup" Style="{StaticResource FieldGroup}">
+                    <StackPanel x:Name="PalettePanel" Orientation="Horizontal" VerticalAlignment="Center" />
+                    <Separator />
+                    <StackPanel x:Name="RecentPanel" Orientation="Horizontal" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Separator />
+                    <StackPanel Style="{StaticResource FieldGroup}">
+                        <TextBlock Text="{l:T style.width}" Style="{StaticResource FieldLabel}" />
+                        <Slider x:Name="WidthSlider" Width="110" VerticalAlignment="Center" IsMoveToPointEnabled="True"
+                                ValueChanged="WidthSliderChanged" PreviewMouseUp="SliderCommitted" KeyUp="SliderCommitted" LostKeyboardFocus="SliderCommitted" />
+                        <TextBox x:Name="WidthBox" Width="44" Margin="6,0,0,0" TextAlignment="Right"
+                                 KeyDown="StyleBoxKeyDown" LostKeyboardFocus="WidthBoxCommitted" />
+                        <TextBlock Text="pt" Style="{StaticResource FieldUnit}" />
+                        <!-- 글자 하이라이트 높이 `자동`(글자 높이)은 pt 바로 옆 (spec 9.1) -->
+                        <ToggleButton x:Name="HighlightAutoButton" Style="{StaticResource ToolButton}" Content="{l:T common.auto}" Padding="6,3" Margin="6,0,0,0" Focusable="False"
+                                      ToolTip="{l:T style.autoTip}" Visibility="Collapsed" Click="HighlightAutoClick" />
+                    </StackPanel>
+                    <Separator />
+                    <StackPanel Style="{StaticResource FieldGroup}">
+                        <TextBlock Text="{l:T style.transparency}" Style="{StaticResource FieldLabel}" />
+                        <Slider x:Name="TransparencySlider" Width="110" Minimum="0" Maximum="100" VerticalAlignment="Center" IsMoveToPointEnabled="True"
+                                ValueChanged="TransparencySliderChanged" PreviewMouseUp="SliderCommitted" KeyUp="SliderCommitted" LostKeyboardFocus="SliderCommitted" />
+                        <TextBox x:Name="TransparencyBox" Width="44" Margin="6,0,0,0" TextAlignment="Right"
+                                 KeyDown="StyleBoxKeyDown" LostKeyboardFocus="TransparencyBoxCommitted" />
+                        <TextBlock Text="%" Style="{StaticResource FieldUnit}" />
+                        <!-- 형광펜 `글자에 맞추기` (spec 9.1): 글자 위에서 시작한 형광 획은 글자 하이라이트 -->
+                        <ToggleButton x:Name="HighlighterSnapButton" Style="{StaticResource ToolButton}" Content="{l:T highlighter.snap}" Padding="6,3" Margin="8,0,0,0" Focusable="False"
+                                      Visibility="Collapsed" Click="HighlighterSnapClick" />
+                    </StackPanel>
+                    <!-- 종류별 옵션: 선 -->
+                    <StackPanel x:Name="LineOptionsPanel" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed" />
+                </WrapPanel>
+            </Border>
+
+            <!-- 지우개 설정 (spec 7.3-7.4): 획/영역, 크기(pt) -->
+            <Border x:Name="EraserBorder" Padding="{DynamicResource Space.SubBar}" Visibility="Collapsed">
+                <!-- 좁은 창에서는 다음 줄로 넘어가 잘리지 않는다 -->
+                <WrapPanel Orientation="Horizontal" ItemHeight="{DynamicResource Height.SubBarRow}">
+                    <RadioButton x:Name="StrokeEraserButton" Style="{StaticResource ToolButton}" GroupName="EraserMode" Content="{l:T eraser.stroke}" ToolTip="{l:T tool.strokeEraser}" Checked="ToolChecked" Tag="StrokeEraser" />
+                    <RadioButton x:Name="AreaEraserButton" Style="{StaticResource ToolButton}" GroupName="EraserMode" Content="{l:T eraser.area}" ToolTip="{l:T tool.areaEraser}" Checked="ToolChecked" Tag="AreaEraser" />
+                    <Separator />
+                    <StackPanel Style="{StaticResource FieldGroup}">
+                        <TextBlock Text="{l:T transform.size}" Style="{StaticResource FieldLabel}" />
+                        <Slider x:Name="EraserSizeSlider" Width="110" Minimum="2" Maximum="100" VerticalAlignment="Center" IsMoveToPointEnabled="True"
+                                ValueChanged="EraserSizeSliderChanged" PreviewMouseUp="EraserSizeCommitted" KeyUp="EraserSizeCommitted" />
+                        <TextBox x:Name="EraserSizeBox" Width="44" Margin="6,0,0,0" TextAlignment="Right"
+                                 KeyDown="EraserSizeBoxKeyDown" LostKeyboardFocus="EraserSizeBoxCommitted" />
+                        <TextBlock Text="pt" Style="{StaticResource FieldUnit}" />
+                    </StackPanel>
+                </WrapPanel>
+            </Border>
+
+            <Border x:Name="TextStyleBorder" Padding="{DynamicResource Space.SubBar}" Visibility="Collapsed">
+                <WrapPanel x:Name="TextStylePanel" Orientation="Horizontal" ItemHeight="{DynamicResource Height.SubBarRow}" />
+            </Border>
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <!-- 하단 상태줄 (spec 3.2-7, D13): PowerPoint처럼 페이지 번호·확대율만, 가운데는 짧은 알림 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Bar.Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="8,2">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource ToolButton}" Click="PreviousPageClick" ToolTip="{l:T status.previousPage}">
+                        <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="{DynamicResource FontSize.IconSmall}" Text="&#xE76B;" />
+                    </Button>
+                    <TextBox x:Name="PageBox" Width="44" MinHeight="22" TextAlignment="Center"
+                             KeyDown="PageBoxKeyDown" LostKeyboardFocus="PageBoxLostFocus" ToolTip="{l:T status.pageNumber}" />
+                    <TextBlock x:Name="PageCountText" VerticalAlignment="Center" Margin="6,0" Text="/ 1" />
+                    <Button Style="{StaticResource ToolButton}" Click="NextPageClick" ToolTip="{l:T status.nextPage}">
+                        <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="{DynamicResource FontSize.IconSmall}" Text="&#xE76C;" />
+                    </Button>
+                </StackPanel>
+                <TextBlock x:Name="NotesHiddenText" DockPanel.Dock="Right" Text="{l:T status.notesHidden}" VerticalAlignment="Center" Margin="12,0,0,0"
+                           Foreground="{DynamicResource Accent}" Visibility="Collapsed" />
+                <!-- 확대율: 누르면 배율 메뉴 (spec 4.4, 2026-10-14) -->
+                <Button x:Name="ZoomButton" DockPanel.Dock="Right" Style="{StaticResource ToolButton}" Margin="12,0,0,0" Padding="6,2" Cursor="Hand" Focusable="False"
+                        ToolTip="{l:T view.zoom}" Click="ZoomMenuClick">
+                    <TextBlock x:Name="ZoomText" MinWidth="36" TextAlignment="Right" Foreground="{DynamicResource Text.Secondary}" />
+                </Button>
+                <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="16,0" Foreground="{DynamicResource Text.Muted}" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
+
+        <!-- 좌측 페이지 패널 (spec 3.2-5, 11): 기본 보이기, 썸네일·다중 선택·드래그 순서 변경 -->
+        <Border x:Name="PagePanel" DockPanel.Dock="Left" Width="176" Background="{DynamicResource Panel.Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="8,4,4,2">
+                    <ToggleButton x:Name="MultiSelectButton" DockPanel.Dock="Right" Style="{StaticResource ToolButton}" Padding="5,2" ToolTip="{l:T panel.multiSelect}"
+                                  Click="MultiSelectToggled">
+                        <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="13" Text="&#xE762;" />
+                    </ToggleButton>
+                    <!-- 목차 (spec 24.4): 기본 꺼짐, 목차 없는 PDF에서는 비활성 -->
+                    <ToggleButton x:Name="OutlineButton" DockPanel.Dock="Right" Style="{StaticResource ToolButton}" Padding="5,2" ToolTip="{l:T panel.outline}"
+                                  Click="OutlineToggled">
+                        <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="13" Text="&#xE8FD;" />
+                    </ToggleButton>
+                    <TextBlock Text="{l:T export.pages}" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" />
+                </DockPanel>
+                <Grid x:Name="PagePanelBody">
+                    <Grid.RowDefinitions>
+                        <RowDefinition x:Name="OutlineRow" Height="0" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" MinHeight="80" />
+                    </Grid.RowDefinitions>
+                    <TreeView x:Name="OutlineTree" Grid.Row="0" BorderThickness="0" Background="Transparent" Visibility="Collapsed"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    <GridSplitter x:Name="OutlineSplitter" Grid.Row="1" Height="5" HorizontalAlignment="Stretch" Background="{DynamicResource Divider}"
+                                  Visibility="Collapsed" DragCompleted="OutlineSplitterDragged" />
+                <Grid Grid.Row="2">
+                <ListBox x:Name="PageList" SelectionMode="Extended" BorderThickness="0" Background="Transparent"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel" HorizontalContentAlignment="Center">
+                    <ListBox.Resources>
+                        <DataTemplate DataType="{x:Type app:PageThumb}">
+                            <StackPanel Margin="2,6,2,2">
+                                <Border x:Name="Frame" Background="{DynamicResource Paper}" BorderBrush="{DynamicResource Page.Border}" BorderThickness="1" HorizontalAlignment="Center">
+                                    <Image Source="{Binding Image}" Width="{Binding ImageWidth}" Height="{Binding ImageHeight}" Stretch="Fill" Effect="{DynamicResource Page.Effect}" />
+                                </Border>
+                                <TextBlock x:Name="Number" Text="{Binding Number}" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource Text.Muted}" FontSize="{DynamicResource FontSize.Caption}" />
+                            </StackPanel>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                    <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                    <Setter TargetName="Frame" Property="BorderThickness" Value="2" />
+                                    <Setter TargetName="Number" Property="FontWeight" Value="Bold" />
+                                    <Setter TargetName="Number" Property="Foreground" Value="{DynamicResource Accent}" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ListBox.Resources>
+                </ListBox>
+                <Canvas IsHitTestVisible="False">
+                    <Rectangle x:Name="PageDropLine" Height="3" Fill="{DynamicResource Accent}" Canvas.Left="8" Visibility="Collapsed" RadiusX="1.5" RadiusY="1.5" />
+                </Canvas>
+                </Grid>
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <!-- 중앙 문서 영역 (spec 3.2-6) -->
+        <Grid x:Name="DocumentHost">
+        <ScrollViewer x:Name="Scroller" CanContentScroll="True" Focusable="False"
+                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <!-- IME off on the canvas: the first key typed on a selected text box reaches the editor whole (D12) -->
+            <canvas:DocumentView x:Name="View" InputMethod.IsInputMethodEnabled="False" />
+        </ScrollViewer>
+        <Canvas x:Name="TextEditorLayer" ClipToBounds="True" />
+        <!-- 열린 스티키 메모 카드 (spec 24.9) -->
+        <Canvas x:Name="NoteLayer" ClipToBounds="True" />
+        <!-- 페이지 목록 손잡이 (2026-10-14 사용자 요청): 목록 오른쪽 가장자리에 붙어 있고, 숨기면 창 왼쪽 끝에 이것만 보인다 -->
+        <Button x:Name="PagePanelHandle" Style="{StaticResource PanelHandle}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                ToolTip="{l:T page.hideList}" Click="PagePanelHandleClick">
+            <TextBlock x:Name="PagePanelHandleIcon" Style="{StaticResource Icon}" Margin="0" FontSize="10" Text="&#xE76B;" />
+        </Button>
+        <!-- 검색 (spec 12): Ctrl+F, 결과 수, 이전/다음, 닫기 -->
+        <Border x:Name="SearchBar" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,28,0" Background="{DynamicResource Surface.Background}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="{DynamicResource Radius.Control}" Padding="6,3" Visibility="Collapsed">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="10" ShadowDepth="1" Opacity="0.18" />
+            </Border.Effect>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" Foreground="{DynamicResource Text.Muted}" FontSize="13" />
+                <TextBox x:Name="SearchBox" Width="210" VerticalContentAlignment="Center" BorderThickness="0" Background="Transparent"
+                         TextChanged="SearchTextChanged" PreviewKeyDown="SearchBoxKeyDown" />
+                <TextBlock x:Name="SearchCount" MinWidth="52" TextAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" Margin="6,0,4,0" />
+                <Button x:Name="SearchPreviousButton" Style="{StaticResource ToolButton}" Padding="5,3" Focusable="False" ToolTip="{l:T search.previous}" Click="SearchPreviousClick">
+                    <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="{DynamicResource FontSize.IconSmall}" Text="&#xE70E;" />
+                </Button>
+                <Button x:Name="SearchNextButton" Style="{StaticResource ToolButton}" Padding="5,3" Focusable="False" ToolTip="{l:T search.next}" Click="SearchNextClick">
+                    <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="{DynamicResource FontSize.IconSmall}" Text="&#xE70D;" />
+                </Button>
+                <Button Style="{StaticResource ToolButton}" Padding="5,3" Focusable="False" ToolTip="{l:T search.close}" Click="SearchCloseClick">
+                    <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="{DynamicResource FontSize.IconSmall}" Text="&#xE711;" />
+                </Button>
+            </StackPanel>
+        </Border>
+        <!-- 파일 여는 중 카드: 짧게 끝나면 보이지 않는다 (MainWindow.Loading.cs) -->
+        <Grid x:Name="LoadingOverlay" Background="Transparent" Visibility="Collapsed">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource Surface.Background}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="{DynamicResource Radius.Popup}" Padding="18,14">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="14" ShadowDepth="1" Opacity="0.22" />
+                </Border.Effect>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse x:Name="LoadingSpinner" Width="20" Height="20" Stroke="{DynamicResource Accent}" StrokeThickness="2.5"
+                             StrokeDashArray="9 100" StrokeDashCap="Round" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Center">
+                        <Ellipse.RenderTransform>
+                            <RotateTransform />
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+                    <TextBlock x:Name="LoadingText" Margin="12,0,0,0" VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource Text.Primary}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+        </Grid>
+    </DockPanel>
+</Window>

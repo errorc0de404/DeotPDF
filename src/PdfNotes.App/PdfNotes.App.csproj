@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Shown name "DeotPDF" (App.DisplayName); namespaces and the file-format id stay PdfNotes. -->
+    <AssemblyName>DeotPDF</AssemblyName>
+    <Product>DeotPDF</Product>
+    <!-- exe, taskbar and window icon (windows without Icon use it); the vector source is Assets/DeotPDF.svg. -->
+    <ApplicationIcon>Assets/DeotPDF.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PdfNotes.Text\PdfNotes.Text.csproj" />
+    <ProjectReference Include="..\PdfNotes.Text.Wpf\PdfNotes.Text.Wpf.csproj" />
+    <ProjectReference Include="..\PdfNotes.Core\PdfNotes.Core.csproj" />
+    <ProjectReference Include="..\PdfNotes.Editor\PdfNotes.Editor.csproj" />
+    <ProjectReference Include="..\PdfNotes.Pdf\PdfNotes.Pdf.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Pixel shader bytecode compiled by tools/compile-shader.py from the .fx next to it -->
+    <EmbeddedResource Include="Canvas\Shaders\InvertColors.ps" LogicalName="PdfNotes.InvertColors.ps" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- D14e: language packs shipped next to the app (Languages\*.json); Korean is built into PdfNotes.Editor. -->
+    <None Include="Languages\*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

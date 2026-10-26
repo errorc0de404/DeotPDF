@@ -1,0 +1,54 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot text <pdf> -p <page> [--fields chars,words,lines]",
+    "required": ["pdf", "page"],
+    "properties": {
+      "pdf": { "type": "string" },
+      "page": { "type": "string", "description": "1-based number or page ID" },
+      "fields": { "type": "string", "description": "comma list of chars, words, lines (default all)" }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": ["ok", "command", "sourceHash", "page", "pageId", "hasText", "charCount"],
+    "additionalProperties": false,
+    "properties": {
+      "ok": { "const": true },
+      "command": { "const": "text" },
+      "sourceHash": { "$ref": "common.json#/$defs/sourceHash" },
+      "page": { "type": "integer" },
+      "pageId": { "$ref": "common.json#/$defs/pageId" },
+      "hasText": { "type": "boolean" },
+      "charCount": { "type": "integer" },
+      "chars": {
+        "type": "array",
+        "description": "PDF text layer in reading order. index = 0-based character number (PDFium order of the source page); quad is null for generated characters (spaces, line ends) without a shape.",
+        "items": {
+          "type": "object",
+          "required": ["index", "text", "quad"],
+          "additionalProperties": false,
+          "properties": { "index": { "type": "integer" }, "text": { "type": "string" }, "quad": { "anyOf": [{ "$ref": "common.json#/$defs/quad" }, { "type": "null" }] } }
+        }
+      },
+      "words": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["start", "end", "text", "quads"],
+          "additionalProperties": false,
+          "properties": { "start": { "type": "integer" }, "end": { "type": "integer" }, "text": { "type": "string" }, "quads": { "type": "array", "items": { "$ref": "common.json#/$defs/quad" } } }
+        }
+      },
+      "lines": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["start", "end", "text", "quad"],
+          "additionalProperties": false,
+          "properties": { "start": { "type": "integer" }, "end": { "type": "integer" }, "text": { "type": "string" }, "quad": { "$ref": "common.json#/$defs/quad" } }
+        }
+      }
+    }
+  }
+}

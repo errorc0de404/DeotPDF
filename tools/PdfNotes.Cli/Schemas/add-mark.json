@@ -1,0 +1,260 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot add mark <pdf> -p <page> (--chars s:e | --words s:e | --quads json | --find <phrase> [--within x,y,w,h] [--occurrence n]) [--kind highlight|underline|strikeout (highlight)] [--color #RRGGBB] [--opacity o] [--height auto|pt (highlight)] [--width pt (underline, strikeout; 0.5-4)]. Defaults: highlight #FFE600 opacity 0.4 auto height; underline/strikeout #E53935 opaque 1.5 pt. --find takes only exact candidates (find without --fuzzy): none is NOT_FOUND, two or more AMBIGUOUS_MATCH (exit 2, details.matches as find gives them); --occurrence n is the n-th (1-based) after --within. Errors also: RANGE_OUT_OF_TEXT, EMPTY_RANGE (2). Common: -p <page> (number or page ID), [--source-key k] [--group-key k] [--lock], -o <pdf> [--overwrite] | --dry-run, [--preview png|folder] [--expect-hash h] [--batch-id id] [--flatten]. The annotation is tagged author \"ai\" with the batch id; a source key an AI annotation already has replaces it (same ID and stacking position; another page moves it there on top). Errors: SOURCE_KEY_KIND_MISMATCH (2), DUPLICATE_SOURCE_KEY (2), PAGE_NOT_FOUND, SAME_AS_INPUT, OUTPUT_EXISTS, HASH_MISMATCH (3), FILE_OPEN_IN_APP (3).",
+    "required": [
+      "pdf",
+      "page"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "page": {
+        "type": "string"
+      },
+      "sourceKey": {
+        "type": "string"
+      },
+      "groupKey": {
+        "type": "string"
+      },
+      "lock": {
+        "type": "boolean"
+      },
+      "chars": {
+        "type": "string",
+        "description": "start:end characters, 0-based, end excluded"
+      },
+      "words": {
+        "type": "string",
+        "description": "start:end words of the text command"
+      },
+      "quads": {
+        "type": "string",
+        "description": "JSON list of quads [[x,y]x4] (upper-left, upper-right, lower-left, lower-right), or @file"
+      },
+      "find": {
+        "type": "string"
+      },
+      "within": {
+        "type": "string",
+        "description": "x,y,w,h"
+      },
+      "occurrence": {
+        "type": "integer"
+      },
+      "kind": {
+        "enum": [
+          "highlight",
+          "underline",
+          "strikeout"
+        ]
+      },
+      "color": {
+        "type": "string",
+        "description": "#RRGGBB"
+      },
+      "opacity": {
+        "type": "number",
+        "description": "opacity 0.01-1 (1 = opaque)"
+      },
+      "height": {
+        "type": "string",
+        "description": "auto or 1-80 pt"
+      },
+      "width": {
+        "type": "number"
+      },
+      "out": {
+        "type": "string",
+        "description": "-o output PDF; must differ from the input; an existing file needs --overwrite"
+      },
+      "overwrite": {
+        "type": "boolean"
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "preview": {
+        "type": "string",
+        "description": "a .png path or a folder for renders of the changed pages"
+      },
+      "expectHash": {
+        "type": "string",
+        "description": "refuse (exit 3 HASH_MISMATCH) when the input's sourceHash differs"
+      },
+      "batchId": {
+        "type": "string"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "appFolder": {
+        "type": "string",
+        "description": "PdfNotes settings folder holding the window markers (default: the app's)"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "annotation",
+      "replaced",
+      "previousPage",
+      "chars",
+      "text",
+      "warnings",
+      "dryRun",
+      "flatten",
+      "output",
+      "outputHash",
+      "pageCount",
+      "pageIds",
+      "previews"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "add mark"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "annotation": {
+        "$ref": "common.json#/$defs/annotation"
+      },
+      "replaced": {
+        "type": "boolean",
+        "description": "an AI annotation with the same source key was replaced (its ID is kept)"
+      },
+      "previousPage": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": [
+              "page",
+              "pageId"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "page": {
+                "type": "integer"
+              },
+              "pageId": {
+                "$ref": "common.json#/$defs/pageId"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "the page the replaced annotation was on, when it moved to another page"
+      },
+      "chars": {
+        "anyOf": [
+          {
+            "$ref": "common.json#/$defs/range"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "the characters marked; null for --quads"
+      },
+      "text": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "the text layer characters marked; null for --quads"
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/warning"
+        }
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "output": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outputHash": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pageCount": {
+        "type": "integer"
+      },
+      "pageIds": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/pageId"
+        }
+      },
+      "previews": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "page",
+                "pageId",
+                "path",
+                "pageToPixel",
+                "pixelToPage"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "integer"
+                },
+                "pageId": {
+                  "$ref": "common.json#/$defs/pageId"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "pageToPixel": {
+                  "$ref": "common.json#/$defs/matrix"
+                },
+                "pixelToPage": {
+                  "$ref": "common.json#/$defs/matrix"
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  }
+}

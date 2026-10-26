@@ -1,0 +1,212 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot add image <pdf> -p <page> --file <png|jpg|bmp> [--rect x,y,w,h]. h 0 keeps the picture's aspect; no --rect: natural size (its DPI, 96 when unknown) fitted into 80 % of the page and centered, like the app. Errors also: FILE_NOT_FOUND, INVALID_IMAGE. Common: -p <page> (number or page ID), [--source-key k] [--group-key k] [--lock], -o <pdf> [--overwrite] | --dry-run, [--preview png|folder] [--expect-hash h] [--batch-id id] [--flatten]. The annotation is tagged author \"ai\" with the batch id; a source key an AI annotation already has replaces it (same ID and stacking position; another page moves it there on top). Errors: SOURCE_KEY_KIND_MISMATCH (2), DUPLICATE_SOURCE_KEY (2), PAGE_NOT_FOUND, SAME_AS_INPUT, OUTPUT_EXISTS, HASH_MISMATCH (3), FILE_OPEN_IN_APP (3).",
+    "required": [
+      "pdf",
+      "page",
+      "file"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "page": {
+        "type": "string"
+      },
+      "sourceKey": {
+        "type": "string"
+      },
+      "groupKey": {
+        "type": "string"
+      },
+      "lock": {
+        "type": "boolean"
+      },
+      "file": {
+        "type": "string"
+      },
+      "rect": {
+        "type": "string"
+      },
+      "out": {
+        "type": "string",
+        "description": "-o output PDF; must differ from the input; an existing file needs --overwrite"
+      },
+      "overwrite": {
+        "type": "boolean"
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "preview": {
+        "type": "string",
+        "description": "a .png path or a folder for renders of the changed pages"
+      },
+      "expectHash": {
+        "type": "string",
+        "description": "refuse (exit 3 HASH_MISMATCH) when the input's sourceHash differs"
+      },
+      "batchId": {
+        "type": "string"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "appFolder": {
+        "type": "string",
+        "description": "PdfNotes settings folder holding the window markers (default: the app's)"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "annotation",
+      "replaced",
+      "previousPage",
+      "pixelSize",
+      "warnings",
+      "dryRun",
+      "flatten",
+      "output",
+      "outputHash",
+      "pageCount",
+      "pageIds",
+      "previews"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "add image"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "annotation": {
+        "$ref": "common.json#/$defs/annotation"
+      },
+      "replaced": {
+        "type": "boolean",
+        "description": "an AI annotation with the same source key was replaced (its ID is kept)"
+      },
+      "previousPage": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": [
+              "page",
+              "pageId"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "page": {
+                "type": "integer"
+              },
+              "pageId": {
+                "$ref": "common.json#/$defs/pageId"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "the page the replaced annotation was on, when it moved to another page"
+      },
+      "pixelSize": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        },
+        "minItems": 2,
+        "maxItems": 2
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/warning"
+        }
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "output": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outputHash": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pageCount": {
+        "type": "integer"
+      },
+      "pageIds": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/pageId"
+        }
+      },
+      "previews": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "page",
+                "pageId",
+                "path",
+                "pageToPixel",
+                "pixelToPage"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "integer"
+                },
+                "pageId": {
+                  "$ref": "common.json#/$defs/pageId"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "pageToPixel": {
+                  "$ref": "common.json#/$defs/matrix"
+                },
+                "pixelToPage": {
+                  "$ref": "common.json#/$defs/matrix"
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  }
+}

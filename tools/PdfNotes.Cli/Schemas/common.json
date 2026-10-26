@@ -1,0 +1,573 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "common.json",
+  "description": "Shared shapes. Coordinates are canonical page points (spec 15): 1/72 inch, origin at the top-left of the visible CropBox before /Rotate, +x right, +y down. Geometry is rounded to 0.001.",
+  "$defs": {
+    "point": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "[x, y]"
+    },
+    "rect": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "description": "[x, y, w, h]"
+    },
+    "pixelRect": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "description": "[x, y, w, h] in image pixels"
+    },
+    "quad": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/point"
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "description": "[upper-left, upper-right, lower-left, lower-right] relative to the text direction"
+    },
+    "matrix": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 6,
+      "maxItems": 6,
+      "description": "[a, b, c, d, e, f]: x' = a*x + c*y + e, y' = b*x + d*y + f. A composition 'A then B' is listed in application order."
+    },
+    "pageId": {
+      "type": "string",
+      "description": "Page UUID. For a PDF without app data it is derived from the file hash and page position (info.pageIds = derived)."
+    },
+    "sourceHash": {
+      "type": "string",
+      "description": "sha256: + hex of the input file bytes"
+    },
+    "tags": {
+      "type": "object",
+      "required": [
+        "author",
+        "batchId",
+        "sourceKey",
+        "groupKey"
+      ],
+      "additionalProperties": false,
+      "description": "Storage format v7 annotation tags (cli_plan 6). sourceKey is unique among the annotations of one author; batchId is run history only; groupKey ties annotations together.",
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "batchId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "groupKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "pageTransform": {
+      "type": "object",
+      "required": [
+        "pageId",
+        "before",
+        "after",
+        "matrix",
+        "inverse"
+      ],
+      "additionalProperties": false,
+      "description": "matrix maps canonical points before the edit to canonical points after it; inverse maps back. Rotation keeps canonical points (identity matrix).",
+      "properties": {
+        "pageId": {
+          "$ref": "#/$defs/pageId"
+        },
+        "before": {
+          "$ref": "#/$defs/pageFrame"
+        },
+        "after": {
+          "$ref": "#/$defs/pageFrame"
+        },
+        "matrix": {
+          "$ref": "#/$defs/matrix"
+        },
+        "inverse": {
+          "$ref": "#/$defs/matrix"
+        }
+      }
+    },
+    "pageFrame": {
+      "type": "object",
+      "required": [
+        "width",
+        "height",
+        "rotation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        }
+      }
+    },
+    "warning": {
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "object"
+        }
+      }
+    },
+    "markTarget": {
+      "type": "object",
+      "description": "Where add.mark puts a mark: a page and either a character range of its text layer or quads. A find match's pageId with its chars (or quads) is one as it is.",
+      "required": [
+        "page"
+      ],
+      "properties": {
+        "page": {
+          "type": [
+            "string",
+            "integer"
+          ]
+        },
+        "chars": {
+          "$ref": "#/$defs/range"
+        },
+        "quads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/quad"
+          },
+          "minItems": 1
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "chars"
+          ]
+        },
+        {
+          "required": [
+            "quads"
+          ]
+        }
+      ]
+    },
+    "range": {
+      "type": "object",
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "integer"
+        },
+        "end": {
+          "type": "integer"
+        }
+      },
+      "description": "0-based, end excluded"
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "ok",
+        "error"
+      ],
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "error": {
+          "type": "object",
+          "required": [
+            "code",
+            "message",
+            "details"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "details": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "annotation": {
+      "type": "object",
+      "required": [
+        "id",
+        "page",
+        "pageId",
+        "kind",
+        "z",
+        "locked",
+        "bounds",
+        "corners",
+        "transform",
+        "tags"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "page": {
+          "type": "integer"
+        },
+        "pageId": {
+          "$ref": "#/$defs/pageId"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "mark",
+            "highlight-stroke",
+            "line",
+            "shape",
+            "ink",
+            "image",
+            "note"
+          ]
+        },
+        "z": {
+          "type": "integer",
+          "description": "stacking position on the page, 0 = bottom"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "bounds": {
+          "$ref": "#/$defs/rect",
+          "description": "axis-aligned bounds on the page"
+        },
+        "corners": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point"
+          },
+          "description": "the (possibly rotated) local box on the page"
+        },
+        "transform": {
+          "$ref": "#/$defs/matrix"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/tags"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "storage format v7; null for the user's own writing and other apps' annotations"
+        }
+      },
+      "description": "One annotation as annot list reports it: kind-specific fields (text, runs, quads, color, points, ...) follow the common ones."
+    },
+    "annotationRef": {
+      "type": "object",
+      "description": "An annotation by ID with where it is and its keys.",
+      "required": [
+        "id",
+        "page",
+        "pageId",
+        "kind",
+        "sourceKey",
+        "groupKey"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "page": {
+          "type": "integer"
+        },
+        "pageId": {
+          "$ref": "#/$defs/pageId"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "sourceKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "groupKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "checkRule": {
+      "type": "object",
+      "required": [
+        "rule"
+      ],
+      "additionalProperties": false,
+      "description": "One check rule (cli_plan 4.8). overlapRegions: the selected annotations overlap one of \"regions\" ([x,y,w,h] list). overlapAmong: selected annotations of a page overlap each other. outsidePage: bounds past the page. textOverflow: text boxes whose glyphs reach past their inner width, or taller than \"maxHeight\". minFontSize: text runs smaller than \"size\" pt. missingGlyph: characters no installed font has. Overlaps and edges use the page-aligned bounds annot list reports; \"tolerance\" (pt, default 0) ignores smaller overlaps and overhangs.",
+      "properties": {
+        "rule": {
+          "enum": [
+            "overlapRegions",
+            "overlapAmong",
+            "outsidePage",
+            "textOverflow",
+            "minFontSize",
+            "missingGlyph"
+          ]
+        },
+        "level": {
+          "enum": [
+            "error",
+            "warn"
+          ],
+          "description": "apply guards: error refuses to write (default), warn only reports"
+        },
+        "select": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "every field narrows; none: all annotations; exclude takes some out again",
+          "properties": {
+            "kinds": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "text",
+                  "mark",
+                  "highlight-stroke",
+                  "line",
+                  "shape",
+                  "ink",
+                  "image",
+                  "note"
+                ]
+              }
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "sourceKeys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "groupKeys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "batchIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "tagged": {
+              "type": "boolean"
+            },
+            "pages": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              }
+            },
+            "exclude": {
+              "type": "object",
+              "description": "the same fields (but pages): matching annotations are taken out again"
+            }
+          }
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rect"
+          }
+        },
+        "tolerance": {
+          "type": "number"
+        },
+        "maxHeight": {
+          "type": "number"
+        },
+        "size": {
+          "type": "number"
+        }
+      }
+    },
+    "problem": {
+      "type": "object",
+      "required": [
+        "rule",
+        "ruleIndex",
+        "level",
+        "page",
+        "pageId",
+        "id",
+        "kind",
+        "sourceKey",
+        "groupKey",
+        "bounds",
+        "details"
+      ],
+      "additionalProperties": false,
+      "description": "One problem a rule found. details: overlapRegions {region, overlap}; overlapAmong {otherId, otherKind, otherSourceKey, otherBounds, overlap}; outsidePage {page, overflow{left,top,right,bottom}}; textOverflow {width, height, wide, tall, textRight, maxHeight?}; minFontSize {minSize, smallest, ranges[{start,end,text,size}]}; missingGlyph {missingGlyphs (as measure)}.",
+      "properties": {
+        "rule": {
+          "type": "string"
+        },
+        "ruleIndex": {
+          "type": "integer"
+        },
+        "level": {
+          "enum": [
+            "error",
+            "warn"
+          ]
+        },
+        "page": {
+          "type": "integer"
+        },
+        "pageId": {
+          "$ref": "#/$defs/pageId"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "sourceKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "groupKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bounds": {
+          "$ref": "#/$defs/rect"
+        },
+        "details": {
+          "type": "object"
+        }
+      }
+    },
+    "pageRef": {
+      "type": "object",
+      "required": [
+        "page",
+        "pageId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "type": "integer"
+        },
+        "pageId": {
+          "$ref": "#/$defs/pageId"
+        }
+      }
+    },
+    "summaryEntry": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "sourceKey",
+        "page",
+        "pageId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "sourceKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "page": {
+          "type": "integer"
+        },
+        "pageId": {
+          "$ref": "#/$defs/pageId"
+        }
+      }
+    }
+  }
+}

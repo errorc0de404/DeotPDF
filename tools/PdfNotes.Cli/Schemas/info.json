@@ -1,0 +1,51 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot info <pdf>",
+    "required": ["pdf"],
+    "properties": { "pdf": { "type": "string" } }
+  },
+  "output": {
+    "type": "object",
+    "required": ["ok", "command", "sourceHash", "path", "pageCount", "pageIds", "appData", "pages"],
+    "additionalProperties": false,
+    "properties": {
+      "ok": { "const": true },
+      "command": { "const": "info" },
+      "sourceHash": { "$ref": "common.json#/$defs/sourceHash" },
+      "path": { "type": "string" },
+      "pageCount": { "type": "integer" },
+      "pageIds": { "enum": ["file", "derived"] },
+      "appData": {
+        "type": "object",
+        "required": ["restoredAnnotations", "readOnlyAnnotations", "warnings"],
+        "additionalProperties": false,
+        "properties": {
+          "restoredAnnotations": { "type": "integer" },
+          "readOnlyAnnotations": { "type": "integer" },
+          "warnings": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "pages": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["page", "pageId", "width", "height", "rotation", "displayWidth", "displayHeight", "source", "hasText", "annotationCount"],
+          "additionalProperties": false,
+          "properties": {
+            "page": { "type": "integer", "description": "1-based position" },
+            "pageId": { "$ref": "common.json#/$defs/pageId" },
+            "width": { "type": "number", "description": "canonical width (before rotation)" },
+            "height": { "type": "number" },
+            "rotation": { "enum": [0, 90, 180, 270] },
+            "displayWidth": { "type": "number", "description": "width as shown (after rotation)" },
+            "displayHeight": { "type": "number" },
+            "source": { "enum": ["pdf", "generated"] },
+            "hasText": { "type": "boolean" },
+            "annotationCount": { "type": "integer" }
+          }
+        }
+      }
+    }
+  }
+}

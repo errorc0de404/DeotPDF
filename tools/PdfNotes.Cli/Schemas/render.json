@@ -1,0 +1,58 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot render <pdf> -p <page> -o <png> [--region x,y,w,h] [--dpi 110] [--annotations all|none|tagged|untagged|batch:<id>|group:<key>] [--overlay <json or file>]  |  render <pdf> --pages <list> --grid -o <png> [--dpi 36] [--columns 4] [--annotations ...]. An existing PNG is replaced.",
+    "required": ["pdf", "out"],
+    "properties": {
+      "pdf": { "type": "string" },
+      "page": { "type": "string" },
+      "pages": { "type": "string", "description": "e.g. 3-12 or 1,4,6-8 or page IDs" },
+      "grid": { "type": "boolean" },
+      "out": { "type": "string" },
+      "dpi": { "type": "number" },
+      "region": { "type": "string", "description": "canonical x,y,w,h" },
+      "annotations": { "type": "string" },
+      "overlay": { "type": "string", "description": "list of [x,y,w,h] or {rect|quad, color, opacity}; drawn only on the PNG" },
+      "columns": { "type": "integer" }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": ["ok", "command", "sourceHash", "output", "width", "height", "dpi", "annotations", "annotationsDrawn"],
+    "additionalProperties": false,
+    "properties": {
+      "ok": { "const": true },
+      "command": { "const": "render" },
+      "sourceHash": { "$ref": "common.json#/$defs/sourceHash" },
+      "output": { "type": "string" },
+      "width": { "type": "integer" },
+      "height": { "type": "integer" },
+      "dpi": { "type": "number" },
+      "page": { "type": "integer" },
+      "pageId": { "$ref": "common.json#/$defs/pageId" },
+      "region": { "anyOf": [{ "$ref": "common.json#/$defs/rect" }, { "type": "null" }] },
+      "pixelRegion": { "$ref": "common.json#/$defs/pixelRect", "description": "the rendered area in pixels of the whole displayed page" },
+      "pageToPixel": { "$ref": "common.json#/$defs/matrix", "description": "canonical page point -> pixel of the saved PNG" },
+      "pixelToPage": { "$ref": "common.json#/$defs/matrix" },
+      "annotations": { "type": "string" },
+      "annotationsDrawn": { "type": "integer" },
+      "overlayCount": { "type": "integer" },
+      "grid": { "type": "object", "required": ["columns", "rows"], "properties": { "columns": { "type": "integer" }, "rows": { "type": "integer" } } },
+      "cells": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["page", "pageId", "pixelRect", "pageToPixel", "pixelToPage"],
+          "additionalProperties": false,
+          "properties": {
+            "page": { "type": "integer" },
+            "pageId": { "$ref": "common.json#/$defs/pageId" },
+            "pixelRect": { "$ref": "common.json#/$defs/pixelRect" },
+            "pageToPixel": { "$ref": "common.json#/$defs/matrix" },
+            "pixelToPage": { "$ref": "common.json#/$defs/matrix" }
+          }
+        }
+      }
+    }
+  }
+}

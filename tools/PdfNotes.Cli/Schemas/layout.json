@@ -1,0 +1,98 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot layout <pdf> -p <page>",
+    "required": [
+      "pdf",
+      "page"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "page": {
+        "type": "string"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "page",
+      "pageId",
+      "blocks"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "layout"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "page": {
+        "type": "integer"
+      },
+      "pageId": {
+        "$ref": "common.json#/$defs/pageId"
+      },
+      "blocks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "index",
+            "rect",
+            "lines",
+            "chars",
+            "text",
+            "marker",
+            "indent",
+            "lineHeight"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "index": {
+              "type": "integer"
+            },
+            "rect": {
+              "$ref": "common.json#/$defs/rect"
+            },
+            "lines": {
+              "$ref": "common.json#/$defs/range"
+            },
+            "chars": {
+              "$ref": "common.json#/$defs/range"
+            },
+            "text": {
+              "type": "string"
+            },
+            "marker": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "indent": {
+              "type": "integer"
+            },
+            "lineHeight": {
+              "type": "number"
+            }
+          },
+          "description": "lines are line numbers of the text command (0-based, end excluded); indent ranks the block's left edge among the page's distinct left edges"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot fonts",
+    "required": [],
+    "properties": {}
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "fallback",
+      "count",
+      "fonts"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "fonts"
+      },
+      "fallback": {
+        "type": "string"
+      },
+      "count": {
+        "type": "integer"
+      },
+      "fonts": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

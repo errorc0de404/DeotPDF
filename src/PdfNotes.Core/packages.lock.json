@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "Clipper2": {
+        "type": "Direct",
+        "requested": "[1.5.4, )",
+        "resolved": "1.5.4",
+        "contentHash": "p7Mr9zOCYGx9D46CopNLxSSLYqFHLeJdyMVKt5hl9bYsywbhzw6daDJMpAus28X0R5BAaFX3fZJZaAD39zO3tw=="
+      }
+    },
+    "net10.0/win-x64": {}
+  }
+}

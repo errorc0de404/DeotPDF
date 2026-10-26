@@ -1,0 +1,86 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot schema [command]",
+    "properties": {
+      "command": {
+        "type": "string",
+        "description": "Command name, e.g. render or annot list. Omit for the command list."
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "version"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "schema"
+      },
+      "version": {
+        "type": "integer"
+      },
+      "commands": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "summary"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "exitCodes": {
+        "type": "object"
+      },
+      "name": {
+        "type": "string"
+      },
+      "schema": {
+        "type": "object"
+      },
+      "common": {
+        "type": "object"
+      },
+      "errorCodes": {
+        "type": "array",
+        "description": "every error code, its exit code and when it is given",
+        "items": {
+          "type": "object",
+          "required": [
+            "code",
+            "exit",
+            "meaning"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "exit": {
+              "type": "integer"
+            },
+            "meaning": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

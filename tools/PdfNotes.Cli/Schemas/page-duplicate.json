@@ -1,0 +1,205 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot page duplicate <pdf> -p <page> [--count n] [--with-annotations]. Copies go right after the page; copied annotations get new IDs and no tags. Common: -o <pdf> [--overwrite] | --dry-run, [--preview png|folder] [--expect-hash h] [--flatten]. Errors: SAME_AS_INPUT, OUTPUT_EXISTS, HASH_MISMATCH (3), FILE_OPEN_IN_APP (3).",
+    "required": [
+      "pdf",
+      "page"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "page": {
+        "type": "string"
+      },
+      "count": {
+        "type": "integer"
+      },
+      "withAnnotations": {
+        "type": "boolean"
+      },
+      "out": {
+        "type": "string",
+        "description": "-o output PDF; must differ from the input; an existing file needs --overwrite"
+      },
+      "overwrite": {
+        "type": "boolean"
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "preview": {
+        "type": "string",
+        "description": "a .png path or a folder for renders of the changed pages"
+      },
+      "expectHash": {
+        "type": "string",
+        "description": "refuse (exit 3 HASH_MISMATCH) when the input's sourceHash differs"
+      },
+      "batchId": {
+        "type": "string"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "appFolder": {
+        "type": "string",
+        "description": "PdfNotes settings folder holding the window markers (default: the app's)"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "source",
+      "created",
+      "dryRun",
+      "flatten",
+      "output",
+      "outputHash",
+      "pageCount",
+      "pageIds",
+      "previews"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "page duplicate"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "source": {
+        "type": "object",
+        "required": [
+          "page",
+          "pageId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pageId": {
+            "$ref": "common.json#/$defs/pageId"
+          }
+        },
+        "description": "page is the 1-based number in the result document (null when deleted)"
+      },
+      "created": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "page",
+            "pageId"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "pageId": {
+              "$ref": "common.json#/$defs/pageId"
+            }
+          },
+          "description": "page is the 1-based number in the result document (null when deleted)"
+        }
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "output": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outputHash": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pageCount": {
+        "type": "integer"
+      },
+      "pageIds": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/pageId"
+        }
+      },
+      "previews": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "page",
+                "pageId",
+                "path",
+                "pageToPixel",
+                "pixelToPage"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "integer"
+                },
+                "pageId": {
+                  "$ref": "common.json#/$defs/pageId"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "pageToPixel": {
+                  "$ref": "common.json#/$defs/matrix"
+                },
+                "pixelToPage": {
+                  "$ref": "common.json#/$defs/matrix"
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  }
+}

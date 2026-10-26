@@ -1,0 +1,241 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot add shape <pdf> -p <page> --kind rect|ellipse|triangle|polygon (--rect x,y,w,h | --points json for polygon, 3+ points) [--fill #RRGGBB] [--fill-opacity 0-1 (0 = none)] [--border-color #RRGGBB] [--border-width 0.5-40] [--border-opacity o] [--dash solid|dash|dot|dash-dot] [--no-border]. Defaults are the app's: fill #9EC5F0 opacity 0.7, border #1E4F91 2 pt. Drawn upright on the page as shown (a triangle points up on a turned page too). Common: -p <page> (number or page ID), [--source-key k] [--group-key k] [--lock], -o <pdf> [--overwrite] | --dry-run, [--preview png|folder] [--expect-hash h] [--batch-id id] [--flatten]. The annotation is tagged author \"ai\" with the batch id; a source key an AI annotation already has replaces it (same ID and stacking position; another page moves it there on top). Errors: SOURCE_KEY_KIND_MISMATCH (2), DUPLICATE_SOURCE_KEY (2), PAGE_NOT_FOUND, SAME_AS_INPUT, OUTPUT_EXISTS, HASH_MISMATCH (3), FILE_OPEN_IN_APP (3).",
+    "required": [
+      "pdf",
+      "page",
+      "kind"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "page": {
+        "type": "string"
+      },
+      "sourceKey": {
+        "type": "string"
+      },
+      "groupKey": {
+        "type": "string"
+      },
+      "lock": {
+        "type": "boolean"
+      },
+      "kind": {
+        "enum": [
+          "rect",
+          "ellipse",
+          "triangle",
+          "polygon"
+        ]
+      },
+      "rect": {
+        "type": "string"
+      },
+      "points": {
+        "type": "string",
+        "description": "JSON list [[x,y],...] in page points, or @file"
+      },
+      "fill": {
+        "type": "string",
+        "description": "#RRGGBB"
+      },
+      "fillOpacity": {
+        "type": "number"
+      },
+      "borderColor": {
+        "type": "string",
+        "description": "#RRGGBB"
+      },
+      "borderWidth": {
+        "type": "number"
+      },
+      "borderOpacity": {
+        "type": "number",
+        "description": "opacity 0.01-1 (1 = opaque)"
+      },
+      "dash": {
+        "enum": [
+          "solid",
+          "dash",
+          "dot",
+          "dash-dot"
+        ]
+      },
+      "noBorder": {
+        "type": "boolean"
+      },
+      "out": {
+        "type": "string",
+        "description": "-o output PDF; must differ from the input; an existing file needs --overwrite"
+      },
+      "overwrite": {
+        "type": "boolean"
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "preview": {
+        "type": "string",
+        "description": "a .png path or a folder for renders of the changed pages"
+      },
+      "expectHash": {
+        "type": "string",
+        "description": "refuse (exit 3 HASH_MISMATCH) when the input's sourceHash differs"
+      },
+      "batchId": {
+        "type": "string"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "appFolder": {
+        "type": "string",
+        "description": "PdfNotes settings folder holding the window markers (default: the app's)"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "annotation",
+      "replaced",
+      "previousPage",
+      "warnings",
+      "dryRun",
+      "flatten",
+      "output",
+      "outputHash",
+      "pageCount",
+      "pageIds",
+      "previews"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "add shape"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "annotation": {
+        "$ref": "common.json#/$defs/annotation"
+      },
+      "replaced": {
+        "type": "boolean",
+        "description": "an AI annotation with the same source key was replaced (its ID is kept)"
+      },
+      "previousPage": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": [
+              "page",
+              "pageId"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "page": {
+                "type": "integer"
+              },
+              "pageId": {
+                "$ref": "common.json#/$defs/pageId"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "the page the replaced annotation was on, when it moved to another page"
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/warning"
+        }
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "output": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outputHash": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pageCount": {
+        "type": "integer"
+      },
+      "pageIds": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/pageId"
+        }
+      },
+      "previews": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "page",
+                "pageId",
+                "path",
+                "pageToPixel",
+                "pixelToPage"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "integer"
+                },
+                "pageId": {
+                  "$ref": "common.json#/$defs/pageId"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "pageToPixel": {
+                  "$ref": "common.json#/$defs/matrix"
+                },
+                "pixelToPage": {
+                  "$ref": "common.json#/$defs/matrix"
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  }
+}

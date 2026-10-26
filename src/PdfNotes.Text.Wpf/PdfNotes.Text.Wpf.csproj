@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- D14a: the WPF text engine (FlowDocument layout, editor documents). Platform-neutral contracts are in PdfNotes.Text. -->
+  <PropertyGroup><TargetFramework>net10.0-windows</TargetFramework><UseWPF>true</UseWPF></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PdfNotes.Text\PdfNotes.Text.csproj" />
+    <ProjectReference Include="..\PdfNotes.Core\PdfNotes.Core.csproj" />
+  </ItemGroup>
+</Project>

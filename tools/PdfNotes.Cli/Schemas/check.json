@@ -1,0 +1,66 @@
+{
+  "input": {
+    "type": "object",
+    "required": [
+      "pdf",
+      "rules"
+    ],
+    "description": "deot check <pdf> --rules <json list | @file> [-p <page> | --pages <list>]. Runs every rule on the pages (all by default) and lists the problems; problems are not a failure of the command (exit 0, passed false when an error-level rule found one).",
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "page": {
+        "type": "string"
+      },
+      "pages": {
+        "type": "string"
+      },
+      "rules": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/checkRule"
+        }
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "rules",
+      "count",
+      "passed",
+      "problems"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "check"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "rules": {
+        "type": "integer"
+      },
+      "count": {
+        "type": "integer"
+      },
+      "passed": {
+        "type": "boolean"
+      },
+      "problems": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/problem"
+        }
+      }
+    }
+  }
+}

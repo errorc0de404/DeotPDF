@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PdfNotes.Core\PdfNotes.Core.csproj" />
+    <ProjectReference Include="..\PdfNotes.Pdf\PdfNotes.Pdf.csproj" />
+    <ProjectReference Include="..\PdfNotes.Text\PdfNotes.Text.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Localization\ko.json" LogicalName="PdfNotes.Editor.Localization.ko.json" />
+  </ItemGroup>
+</Project>

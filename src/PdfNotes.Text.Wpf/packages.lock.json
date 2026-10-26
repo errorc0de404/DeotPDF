@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0-windows7.0": {
+      "Clipper2": {
+        "type": "Transitive",
+        "resolved": "1.5.4",
+        "contentHash": "p7Mr9zOCYGx9D46CopNLxSSLYqFHLeJdyMVKt5hl9bYsywbhzw6daDJMpAus28X0R5BAaFX3fZJZaAD39zO3tw=="
+      },
+      "pdfnotes.core": {
+        "type": "Project",
+        "dependencies": {
+          "Clipper2": "[1.5.4, )"
+        }
+      },
+      "pdfnotes.text": {
+        "type": "Project",
+        "dependencies": {
+          "PdfNotes.Core": "[1.0.0, )"
+        }
+      }
+    },
+    "net10.0-windows7.0/win-x64": {}
+  }
+}

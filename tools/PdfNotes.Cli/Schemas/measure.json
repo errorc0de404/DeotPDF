@@ -1,0 +1,274 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot measure --text <formatted text> [--width pt] [--height pt] [--style json|file]. No width: narrowest box keeping each written line on one line. Warnings: FONT_NOT_INSTALLED, FONT_FALLBACK, MISSING_GLYPH.",
+    "required": [
+      "text"
+    ],
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "formatted text: JSON list [{text, bold, italic, underline, strikeout, color, size, font, highlight (#RRGGBB or true), highlightOpacity}], @file with that list, or plain text with **bold** *italic* __underline__ ~~strikeout~~ ==highlight== (backslash escapes)"
+      },
+      "width": {
+        "type": "number"
+      },
+      "height": {
+        "type": "number"
+      },
+      "style": {
+        "type": "string",
+        "description": "style JSON: font, size, color #RRGGBB, bold, italic, alignment left|center|right, background, backgroundOpacity, border, borderColor, borderOpacity, highlightColor, highlightOpacity"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "width",
+      "height",
+      "lineCount",
+      "lines",
+      "fonts",
+      "substitutions",
+      "missingGlyphs",
+      "warnings",
+      "effectiveStyle"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "measure"
+      },
+      "width": {
+        "type": "number"
+      },
+      "height": {
+        "type": "number"
+      },
+      "lineCount": {
+        "type": "integer"
+      },
+      "lines": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "start",
+            "end",
+            "text",
+            "rect"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "start": {
+              "type": "integer"
+            },
+            "end": {
+              "type": "integer"
+            },
+            "text": {
+              "type": "string"
+            },
+            "rect": {
+              "$ref": "common.json#/$defs/rect"
+            }
+          },
+          "description": "UTF-16 range; rect in box coordinates (origin at the box's top-left)"
+        }
+      },
+      "fonts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "start",
+            "end",
+            "requested",
+            "font"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "start": {
+              "type": "integer"
+            },
+            "end": {
+              "type": "integer"
+            },
+            "requested": {
+              "type": "string"
+            },
+            "font": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "substitutions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "start",
+            "end",
+            "text",
+            "requested",
+            "font"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "start": {
+              "type": "integer"
+            },
+            "end": {
+              "type": "integer"
+            },
+            "text": {
+              "type": "string"
+            },
+            "requested": {
+              "type": "string"
+            },
+            "font": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "missingGlyphs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "start",
+            "end",
+            "text",
+            "codepoints"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "start": {
+              "type": "integer"
+            },
+            "end": {
+              "type": "integer"
+            },
+            "text": {
+              "type": "string"
+            },
+            "codepoints": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "fits": {
+        "type": "boolean"
+      },
+      "requiredHeight": {
+        "type": "number"
+      },
+      "overflowHeight": {
+        "type": "number"
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/warning"
+        }
+      },
+      "effectiveStyle": {
+        "type": "object",
+        "required": [
+          "font",
+          "fontUsed",
+          "size",
+          "color",
+          "bold",
+          "italic",
+          "alignment",
+          "lineSpacing",
+          "padding",
+          "borderWidth",
+          "minHeight",
+          "background",
+          "backgroundOpacity",
+          "border",
+          "borderColor",
+          "borderOpacity",
+          "highlightColor",
+          "highlightOpacity"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "font": {
+            "type": "string"
+          },
+          "fontUsed": {
+            "type": "string"
+          },
+          "size": {
+            "type": "number"
+          },
+          "color": {
+            "type": "string"
+          },
+          "bold": {
+            "type": "boolean"
+          },
+          "italic": {
+            "type": "boolean"
+          },
+          "alignment": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ]
+          },
+          "lineSpacing": {
+            "type": "string"
+          },
+          "padding": {
+            "type": "number"
+          },
+          "borderWidth": {
+            "type": "number"
+          },
+          "minHeight": {
+            "type": "number"
+          },
+          "background": {
+            "type": "string"
+          },
+          "backgroundOpacity": {
+            "type": "number"
+          },
+          "border": {
+            "type": "boolean"
+          },
+          "borderColor": {
+            "type": "string"
+          },
+          "borderOpacity": {
+            "type": "number"
+          },
+          "highlightColor": {
+            "type": "string"
+          },
+          "highlightOpacity": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}

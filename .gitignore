@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+artifacts/
+TestResults/
+.vs/
+*.user
+*.suo
+*.log
+.local/
+work/
+__pycache__/
+*.pyc
+# Local dev notes, not part of the public repo
+AGENTS.md
+개발환경_구축결과.md

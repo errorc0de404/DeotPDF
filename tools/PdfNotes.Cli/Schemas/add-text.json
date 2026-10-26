@@ -1,0 +1,460 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot add text <pdf> -p <page> --rect x,y,w,h --text <formatted text> [--style json|file] [--no-auto-height] [--overflow error|allow (error)]. The height follows the text (h may be 0); --no-auto-height keeps h as a limit (TEXT_OVERFLOW). A final rect past the page is PAGE_OVERFLOW (exit 2) unless --overflow allow (then a warning). Nothing is shrunk or rewrapped. Warnings also: FONT_NOT_INSTALLED, FONT_FALLBACK, MISSING_GLYPH. Common: -p <page> (number or page ID), [--source-key k] [--group-key k] [--lock], -o <pdf> [--overwrite] | --dry-run, [--preview png|folder] [--expect-hash h] [--batch-id id] [--flatten]. The annotation is tagged author \"ai\" with the batch id; a source key an AI annotation already has replaces it (same ID and stacking position; another page moves it there on top). Errors: SOURCE_KEY_KIND_MISMATCH (2), DUPLICATE_SOURCE_KEY (2), PAGE_NOT_FOUND, SAME_AS_INPUT, OUTPUT_EXISTS, HASH_MISMATCH (3), FILE_OPEN_IN_APP (3).",
+    "required": [
+      "pdf",
+      "page",
+      "rect",
+      "text"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "page": {
+        "type": "string"
+      },
+      "sourceKey": {
+        "type": "string"
+      },
+      "groupKey": {
+        "type": "string"
+      },
+      "lock": {
+        "type": "boolean"
+      },
+      "rect": {
+        "type": "string",
+        "description": "x,y,w,h; w at least 16"
+      },
+      "text": {
+        "type": "string",
+        "description": "formatted text: JSON list [{text, bold, italic, underline, strikeout, color, size, font, highlight (#RRGGBB or true), highlightOpacity}], @file with that list, or plain text with **bold** *italic* __underline__ ~~strikeout~~ ==highlight== (backslash escapes)"
+      },
+      "style": {
+        "type": "string",
+        "description": "style JSON: font, size, color #RRGGBB, bold, italic, alignment left|center|right, background, backgroundOpacity, border, borderColor, borderOpacity, highlightColor, highlightOpacity"
+      },
+      "noAutoHeight": {
+        "type": "boolean"
+      },
+      "overflow": {
+        "enum": [
+          "error",
+          "allow"
+        ]
+      },
+      "out": {
+        "type": "string",
+        "description": "-o output PDF; must differ from the input; an existing file needs --overwrite"
+      },
+      "overwrite": {
+        "type": "boolean"
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "preview": {
+        "type": "string",
+        "description": "a .png path or a folder for renders of the changed pages"
+      },
+      "expectHash": {
+        "type": "string",
+        "description": "refuse (exit 3 HASH_MISMATCH) when the input's sourceHash differs"
+      },
+      "batchId": {
+        "type": "string"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "appFolder": {
+        "type": "string",
+        "description": "PdfNotes settings folder holding the window markers (default: the app's)"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "annotation",
+      "replaced",
+      "previousPage",
+      "rect",
+      "layout",
+      "warnings",
+      "dryRun",
+      "flatten",
+      "output",
+      "outputHash",
+      "pageCount",
+      "pageIds",
+      "previews"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "add text"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "annotation": {
+        "$ref": "common.json#/$defs/annotation"
+      },
+      "replaced": {
+        "type": "boolean",
+        "description": "an AI annotation with the same source key was replaced (its ID is kept)"
+      },
+      "previousPage": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": [
+              "page",
+              "pageId"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "page": {
+                "type": "integer"
+              },
+              "pageId": {
+                "$ref": "common.json#/$defs/pageId"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "the page the replaced annotation was on, when it moved to another page"
+      },
+      "rect": {
+        "$ref": "common.json#/$defs/rect",
+        "description": "final rectangle on the page"
+      },
+      "layout": {
+        "type": "object",
+        "required": [
+          "width",
+          "height",
+          "lineCount",
+          "lines",
+          "fonts",
+          "substitutions",
+          "missingGlyphs",
+          "effectiveStyle"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "lineCount": {
+            "type": "integer"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "start",
+                "end",
+                "text",
+                "rect"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "start": {
+                  "type": "integer"
+                },
+                "end": {
+                  "type": "integer"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "rect": {
+                  "$ref": "common.json#/$defs/rect"
+                }
+              },
+              "description": "UTF-16 range; rect in box coordinates (origin at the box's top-left)"
+            }
+          },
+          "fonts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "start",
+                "end",
+                "requested",
+                "font"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "start": {
+                  "type": "integer"
+                },
+                "end": {
+                  "type": "integer"
+                },
+                "requested": {
+                  "type": "string"
+                },
+                "font": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "substitutions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "start",
+                "end",
+                "text",
+                "requested",
+                "font"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "start": {
+                  "type": "integer"
+                },
+                "end": {
+                  "type": "integer"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "requested": {
+                  "type": "string"
+                },
+                "font": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "missingGlyphs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "start",
+                "end",
+                "text",
+                "codepoints"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "start": {
+                  "type": "integer"
+                },
+                "end": {
+                  "type": "integer"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "codepoints": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "fits": {
+            "type": "boolean"
+          },
+          "requiredHeight": {
+            "type": "number"
+          },
+          "overflowHeight": {
+            "type": "number"
+          },
+          "effectiveStyle": {
+            "type": "object",
+            "required": [
+              "font",
+              "fontUsed",
+              "size",
+              "color",
+              "bold",
+              "italic",
+              "alignment",
+              "lineSpacing",
+              "padding",
+              "borderWidth",
+              "minHeight",
+              "background",
+              "backgroundOpacity",
+              "border",
+              "borderColor",
+              "borderOpacity",
+              "highlightColor",
+              "highlightOpacity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "font": {
+                "type": "string"
+              },
+              "fontUsed": {
+                "type": "string"
+              },
+              "size": {
+                "type": "number"
+              },
+              "color": {
+                "type": "string"
+              },
+              "bold": {
+                "type": "boolean"
+              },
+              "italic": {
+                "type": "boolean"
+              },
+              "alignment": {
+                "enum": [
+                  "left",
+                  "center",
+                  "right"
+                ]
+              },
+              "lineSpacing": {
+                "type": "string"
+              },
+              "padding": {
+                "type": "number"
+              },
+              "borderWidth": {
+                "type": "number"
+              },
+              "minHeight": {
+                "type": "number"
+              },
+              "background": {
+                "type": "string"
+              },
+              "backgroundOpacity": {
+                "type": "number"
+              },
+              "border": {
+                "type": "boolean"
+              },
+              "borderColor": {
+                "type": "string"
+              },
+              "borderOpacity": {
+                "type": "number"
+              },
+              "highlightColor": {
+                "type": "string"
+              },
+              "highlightOpacity": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "description": "measure result of the box at its width (lines in box coordinates; fits, requiredHeight and overflowHeight with --no-auto-height)"
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/warning"
+        }
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "output": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outputHash": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pageCount": {
+        "type": "integer"
+      },
+      "pageIds": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/pageId"
+        }
+      },
+      "previews": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "page",
+                "pageId",
+                "path",
+                "pageToPixel",
+                "pixelToPage"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "integer"
+                },
+                "pageId": {
+                  "$ref": "common.json#/$defs/pageId"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "pageToPixel": {
+                  "$ref": "common.json#/$defs/matrix"
+                },
+                "pixelToPage": {
+                  "$ref": "common.json#/$defs/matrix"
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  }
+}

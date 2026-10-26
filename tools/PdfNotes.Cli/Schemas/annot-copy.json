@@ -1,0 +1,188 @@
+{
+  "input": {
+    "type": "object",
+    "description": "deot annot copy <pdf> (--id <id> | --from-key <key>) [--to <page>] [--at x,y] [--source-key <new key>] [--group-key <key>] [--lock]. Any annotation can be copied except text marks (NOT_TRANSFORMABLE). Like the app's paste: on its own page the copy steps 10 pt aside, on another page it keeps where it shows on the paper; --at puts its bounds' top-left there. The copy is a new AI annotation of this run (group key of the original unless --group-key); a source key an AI annotation already has replaces it, as with add. Errors: ANNOTATION_NOT_FOUND, SOURCE_KEY_KIND_MISMATCH, DUPLICATE_SOURCE_KEY (2).",
+    "required": [
+      "pdf"
+    ],
+    "properties": {
+      "pdf": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      },
+      "fromKey": {
+        "type": "string",
+        "description": "or: the AI annotation with this source key"
+      },
+      "to": {
+        "type": "string"
+      },
+      "at": {
+        "type": "string",
+        "description": "x,y"
+      },
+      "sourceKey": {
+        "type": "string"
+      },
+      "groupKey": {
+        "type": "string"
+      },
+      "lock": {
+        "type": "boolean"
+      },
+      "out": {
+        "type": "string",
+        "description": "-o output PDF; must differ from the input; an existing file needs --overwrite"
+      },
+      "overwrite": {
+        "type": "boolean"
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "preview": {
+        "type": "string",
+        "description": "a .png path or a folder for renders of the changed pages"
+      },
+      "expectHash": {
+        "type": "string",
+        "description": "refuse (exit 3 HASH_MISMATCH) when the input's sourceHash differs"
+      },
+      "batchId": {
+        "type": "string"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "appFolder": {
+        "type": "string",
+        "description": "PdfNotes settings folder holding the window markers (default: the app's)"
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "required": [
+      "ok",
+      "command",
+      "sourceHash",
+      "annotation",
+      "replaced",
+      "previousPage",
+      "source",
+      "dryRun",
+      "flatten",
+      "output",
+      "outputHash",
+      "pageCount",
+      "pageIds",
+      "previews"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ok": {
+        "const": true
+      },
+      "command": {
+        "const": "annot copy"
+      },
+      "sourceHash": {
+        "$ref": "common.json#/$defs/sourceHash"
+      },
+      "annotation": {
+        "$ref": "common.json#/$defs/annotation"
+      },
+      "replaced": {
+        "type": "boolean"
+      },
+      "previousPage": {
+        "anyOf": [
+          {
+            "$ref": "common.json#/$defs/pageRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "source": {
+        "$ref": "common.json#/$defs/annotationRef"
+      },
+      "dryRun": {
+        "type": "boolean"
+      },
+      "flatten": {
+        "type": "boolean"
+      },
+      "output": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outputHash": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pageCount": {
+        "type": "integer"
+      },
+      "pageIds": {
+        "type": "array",
+        "items": {
+          "$ref": "common.json#/$defs/pageId"
+        }
+      },
+      "previews": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "page",
+                "pageId",
+                "path",
+                "pageToPixel",
+                "pixelToPage"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "integer"
+                },
+                "pageId": {
+                  "$ref": "common.json#/$defs/pageId"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "pageToPixel": {
+                  "$ref": "common.json#/$defs/matrix"
+                },
+                "pixelToPage": {
+                  "$ref": "common.json#/$defs/matrix"
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  }
+}
