@@ -140,8 +140,6 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 
 **Will my notes show up in other PDF readers?** Yes. They're saved as standard PDF annotations with their own appearance, so Chrome, Edge, Firefox and most other readers display them.
 
-**Can I use it to take notes on lecture slides?** That's what it was made for. A handy trick: on the *Page* tab, use *Change page size* to make the page wider. The slide keeps its size and you get an empty strip next to it to write in.
-
 **Does it work on macOS or Linux?** Not yet. The core is plain .NET, but the app UI is WPF, which is Windows-only.
 
 **Can an AI agent use it?** Yes, through `deot`. See [docs/cli.md](docs/cli.md).
@@ -150,11 +148,10 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 
 ## 한국어
 
-덧PDF(DeotPDF)는 윈도우 10·11용 무료 오픈소스 PDF 필기 프로그램입니다. 강의 자료, 논문, 매뉴얼 같은 PDF를 열어서 마우스와 키보드로 펜, 형광펜, 텍스트 상자, 도형, 이미지를 얹을 수 있습니다. 저장하면 그냥 일반 PDF가 됩니다. 다른 PDF 뷰어에서도 필기가 그대로 보이고, 덧PDF로 다시 열면 이어서 고칠 수 있습니다.
+덧PDF(DeotPDF)는 윈도우 10·11용 무료 오픈소스 PDF 필기 프로그램입니다. 강의 자료, 논문, 매뉴얼 같은 PDF를 열어서 마우스와 키보드로 펜, 형광펜, 텍스트 상자, 도형, 이미지를 얹을 수 있습니다. 저장하면 일반 PDF가 됩니다. 다른 PDF 뷰어에서도 필기가 그대로 보이고, 덧PDF로 다시 열면 이어서 고칠 수 있습니다.
 
 무거운 PDF 편집기와 그냥 뷰어 사이 정도의 프로그램이 필요해서 만들었습니다. 빨리 열리고, 계정이나 인터넷 연결이 필요 없고, 한글 입력이 제대로 되는 것을 목표로 했습니다.
-
-이름의 '덧'은 덧쓰다, 덧붙이다의 '덧'입니다. 원본 PDF 내용은 건드리지 않고 그 위에 한 겹 덧붙이는 프로그램이라서 이렇게 지었습니다.
+원본 PDF 내용은 건드리지 않고 그 위에 한 겹 '덧' 붙이는 덧PDF입니다.
 
 ### 주요 기능
 
@@ -186,7 +183,7 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 **저장**
 - 표준 PDF로 저장합니다. 필기는 일반 PDF 주석으로 들어가서 크롬, 엣지, 파이어폭스 같은 다른 뷰어에서도 보입니다
 - 덧PDF로 다시 열면 전부 다시 고칠 수 있습니다
-- '필기 합친 PDF(Flatten)'로 내보내면 필기가 페이지에 아예 합쳐져서, 공유하거나 다른 프로그램에서 인쇄하기 좋습니다
+- '필기 합친 PDF(Flatten)'로 내보내면 필기가 페이지에 아예 합쳐져서, 공유하거나 다른 프로그램에서 인쇄하기 좋습니다. 이 경우 덧 PDF에서는 다시 편집할 수 없습니다.
 - 자동 백업, 비정상 종료 후 복구 (설정에서 켜고 끌 수 있습니다)
 
 ### 다운로드와 실행
@@ -222,7 +219,7 @@ deot apply 강의.pdf plan.json --dry-run --preview-dir 미리보기   # 여러 
 
 ### 소스에서 빌드하기
 
-윈도우와 .NET SDK 10.0.401(`global.json`에 고정)이 필요합니다. 비주얼 스튜디오는 없어도 됩니다.
+윈도우와 .NET SDK 10.0.401(`global.json`에 고정)이 필요합니다.
 
 ```powershell
 git clone https://github.com/errorc0de404/DeotPDF.git
@@ -235,13 +232,10 @@ dotnet run --project src/PdfNotes.App -c Release -- 열고싶은파일.pdf
 
 배포용 폴더는 위 영어 설명의 `dotnet publish` 두 줄로 만들 수 있습니다. 앱과 `deot`를 같은 폴더에 내보내면 됩니다.
 
-코드 안에서는 개발할 때 쓰던 이름인 **PdfNotes**를 그대로 씁니다. 솔루션, 프로젝트, 네임스페이스, 저장된 PDF 안의 편집 데이터 이름이 모두 PdfNotes입니다. 제품 이름만 바꿨고, 예전에 저장한 파일을 계속 열 수 있도록 안쪽 이름은 일부러 그대로 두었습니다.
-
 ### 아직 안 되는 것
 
 - 지금은 마우스·키보드 전용입니다. 펜 필압, 손바닥 무시, 터치 제스처는 아직 없습니다.
 - 열 때 암호가 필요한 PDF와 전자서명된 PDF는 열지 않습니다.
-- PDF 원래 글자나 그림은 고치지 않고, OCR도 없습니다. 스캔한 페이지에 필기는 되지만 글자 검색이나 글자 맞춤 형광펜은 안 됩니다.
 - 인쇄 기능이 없습니다. 필기 합친 PDF로 내보내서 다른 뷰어에서 인쇄해 주세요.
 - 다른 프로그램에서 다시 저장한 PDF는 필기가 보이기는 하지만 덧PDF에서 다시 고치지 못할 수 있습니다.
 
@@ -252,8 +246,6 @@ dotnet run --project src/PdfNotes.App -c Release -- 열고싶은파일.pdf
 **인터넷 없이 되나요?** 됩니다. 어디로도 아무것도 보내지 않습니다.
 
 **다른 PDF 뷰어에서도 필기가 보이나요?** 보입니다. 표준 PDF 주석으로 저장하기 때문에 크롬, 엣지, 파이어폭스 등 대부분의 뷰어에서 그대로 보입니다.
-
-**강의 PPT PDF에 필기하기 좋나요?** 원래 그 용도로 만들었습니다. '페이지' 탭의 '페이지 크기 변경'으로 페이지 너비만 키우면 슬라이드는 그 크기 그대로이고 옆에 빈 공간이 생깁니다. 거기에 정리하면 편합니다.
 
 **맥이나 리눅스에서도 되나요?** 아직은 윈도우 전용입니다. 핵심 코드는 일반 .NET이지만 화면이 WPF라서 윈도우에서만 돌아갑니다.
 
