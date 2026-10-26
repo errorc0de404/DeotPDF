@@ -4,7 +4,7 @@
 
 **윈도우용 가벼운 PDF 필기·주석 프로그램입니다. 스크립트나 AI 에이전트가 PDF에 필기할 수 있는 명령줄 도구(`deot`)도 함께 들어 있습니다.**
 
-[English](#english) · [한국어](#한국어) · [Download / 다운로드](../../releases/latest) · [CLI guide](docs/cli.md) · [CLI 설명서](docs/cli.ko.md)
+[English](#english) · [한국어](#한국어) · [Download / 다운로드](https://github.com/errorc0de404/DeotPDF/releases/latest) · [CLI guide](docs/cli.md) · [CLI 설명서](docs/cli.ko.md)
 
 ![DeotPDF main window](docs/images/screenshot-light.png)
 
@@ -53,7 +53,7 @@ The name comes from the Korean prefix 덧 (*deot*), as in 덧쓰다 / 덧붙이�
 
 ### Download and run
 
-1. Grab a zip from the [Releases](../../releases/latest) page:
+1. Grab a zip from the [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) page:
    - `DeotPDF-0.9.0-win-x64.zip` (small). Needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64). If it isn't installed, Windows will tell you when you start the app.
    - `DeotPDF-0.9.0-win-x64-portable.zip` (bigger, includes the runtime). Unzip and run, nothing else to install.
 2. Unzip anywhere and run `DeotPDF.exe`.
@@ -191,7 +191,7 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 
 ### 다운로드와 실행
 
-1. [Releases](../../releases/latest) 페이지에서 zip을 받습니다.
+1. [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) 페이지에서 zip을 받습니다.
    - `DeotPDF-0.9.0-win-x64.zip`: 용량이 작은 대신 [.NET 10 데스크톱 런타임](https://dotnet.microsoft.com/download/dotnet/10.0)(x64)이 필요합니다. 없으면 실행할 때 윈도우가 알려 줍니다.
    - `DeotPDF-0.9.0-win-x64-portable.zip`: 런타임이 들어 있어 용량이 큽니다. 압축만 풀면 바로 됩니다.
 2. 아무 데나 압축을 풀고 `DeotPDF.exe`를 실행합니다.
