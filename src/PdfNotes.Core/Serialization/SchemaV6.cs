@@ -6,7 +6,7 @@ namespace PdfNotes.Core.Serialization;
 
 /// <summary>
 /// v6 = v5 plus the <c>textMarkup</c> (underline/strikeout on PDF glyphs, spec 24.8) and <c>note</c> (sticky note, 24.9)
-/// annotation types (D13i, docs/schema-v6.md). Every v5 field keeps its meaning. Older readers see an unknown version and
+/// annotation types (D13i, docs/file-format.md). Every v5 field keeps its meaning. Older readers see an unknown version and
 /// keep the appearances read-only; older writers refuse a model with the new types.
 /// </summary>
 public static class SchemaV6

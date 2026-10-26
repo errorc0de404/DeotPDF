@@ -8,7 +8,7 @@ using PdfSharp.Pdf;
 namespace PdfNotes.Pdf.Writing;
 
 /// <summary>
-/// Where the editable PDF keeps app data (schema v1, docs/schema-v1.md). Each app annotation is a /Stamp
+/// Where the editable PDF keeps app data (schema v1, docs/file-format.md). Each app annotation is a /Stamp
 /// annotation with a standard appearance plus an app-only envelope stream; the document header is a catalog stream.
 /// </summary>
 public static class EditablePdfKeys

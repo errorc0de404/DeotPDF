@@ -120,7 +120,7 @@ The code still uses the working name **PdfNotes** for the solution, projects, na
 | `tools/PdfNotes.Cli` | The `deot` command-line tool |
 | `tools/PdfNotes.Probe` | Test harness that drives the real app window |
 | `tests/PdfNotes.Tests` | Unit and integration tests |
-| `docs/` | CLI guide, and the format of the editing data stored in PDFs (`schema-v*.md`) |
+| `docs/` | CLI guide, and [the format of the editing data stored in PDFs](docs/file-format.md) (Korean) |
 
 Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](https://pdfium.googlesource.com/pdfium/), reading and writing use [PDFsharp](https://github.com/empira/PDFsharp), and the eraser and lasso use [Clipper2](https://github.com/AngusJohnson/Clipper2).
 

@@ -6,7 +6,7 @@ namespace PdfNotes.Core.Serialization;
 
 /// <summary>
 /// v3 = v2 plus the optional <c>outline</c> of ink/freeHighlight strokes: pieces left by the area eraser (D08,
-/// docs/schema-v3.md). Everything else keeps the v1/v2 meaning. Older readers see an unknown version (or an unknown
+/// docs/file-format.md). Everything else keeps the v1/v2 meaning. Older readers see an unknown version (or an unknown
 /// field) and keep the appearances read-only instead of losing the erased shape.
 /// </summary>
 public static class SchemaV3

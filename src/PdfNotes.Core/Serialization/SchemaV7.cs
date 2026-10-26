@@ -7,7 +7,7 @@ using PdfNotes.Core.Models;
 namespace PdfNotes.Core.Serialization;
 
 /// <summary>
-/// v7 = v6 plus the document's annotation tag table (author, batchId, sourceKey, groupKey; cli_plan 6, docs/schema-v7.md)
+/// v7 = v6 plus the document's annotation tag table (author, batchId, sourceKey, groupKey; cli_plan 6, docs/file-format.md)
 /// as the header field <c>tags</c>. Every v6 field and every annotation envelope keeps its meaning. A model without tags
 /// is still written as v6, so files the CLI never tagged stay readable by older versions of the app; older readers see a
 /// v7 header as unknown and keep the appearances read-only.

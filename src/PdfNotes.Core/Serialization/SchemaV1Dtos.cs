@@ -4,7 +4,7 @@ using PdfNotes.Core.Models;
 namespace PdfNotes.Core.Serialization;
 
 // Wire contract of metadata schema v1. These classes are the only JSON shape; model records never serialize
-// directly, so refactoring the model cannot silently change stored files. See docs/schema-v1.md.
+// directly, so refactoring the model cannot silently change stored files. See docs/file-format.md.
 
 internal sealed class DocumentHeaderDto
 {

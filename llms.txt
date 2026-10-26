@@ -15,5 +15,5 @@ Internal code name: PdfNotes (solution `PdfNotes.slnx`, namespaces, and the edit
 
 ## Optional
 
-- [Editing data format](docs/schema-v1.md): how DeotPDF stores re-editable annotation data inside a PDF (later versions in `docs/schema-v2.md` … `docs/schema-v7.md`)
+- [Editing data format](docs/file-format.md) (Korean): how DeotPDF stores re-editable annotation data inside a PDF, read/write rules and version history (schema v1–v7)
 - [Third-party notices](THIRD-PARTY-NOTICES.md): PDFium, PDFsharp, Clipper2

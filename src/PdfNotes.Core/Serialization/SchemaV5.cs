@@ -5,7 +5,7 @@ using PdfNotes.Core.Models;
 namespace PdfNotes.Core.Serialization;
 
 /// <summary>
-/// v5 = v4 plus the <c>shape</c> annotation type (D11 shape tool, docs/schema-v5.md). Every v4 field keeps its
+/// v5 = v4 plus the <c>shape</c> annotation type (D11 shape tool, docs/file-format.md). Every v4 field keeps its
 /// meaning. Older readers see an unknown version and keep all appearances read-only instead of dropping shapes;
 /// older writers refuse a model with shapes.
 /// </summary>
