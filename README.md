@@ -54,8 +54,8 @@ The name comes from the Korean prefix 덧 (*deot*), "added on top". The original
 ### Download and run
 
 1. Grab a zip from the [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) page:
-   - `DeotPDF-0.9.0-win-x64.zip` (small). Needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64). If it isn't installed, Windows will tell you when you start the app.
-   - `DeotPDF-0.9.0-win-x64-portable.zip` (bigger, includes the runtime). Unzip and run, nothing else to install.
+   - `DeotPDF-1.0.0-win-x64.zip` (small). Needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64). If it isn't installed, Windows will tell you when you start the app.
+   - `DeotPDF-1.0.0-win-x64-portable.zip` (bigger, includes the runtime). Unzip and run, nothing else to install.
 2. Unzip anywhere and run `DeotPDF.exe`.
 3. Optional: to have DeotPDF show up under *Open with* for `.pdf` files, run this in the unzipped folder. It only touches your user account, needs no admin rights, and doesn't change your default PDF app.
    ```powershell
@@ -187,8 +187,8 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 ### 다운로드와 실행
 
 1. [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) 페이지에서 zip을 받습니다.
-   - `DeotPDF-0.9.0-win-x64.zip`: 용량이 작은 대신 [.NET 10 데스크톱 런타임](https://dotnet.microsoft.com/download/dotnet/10.0)(x64)이 필요합니다. 없으면 실행할 때 윈도우가 알려 줍니다.
-   - `DeotPDF-0.9.0-win-x64-portable.zip`: 런타임이 들어 있어 용량이 큽니다. 압축만 풀면 바로 됩니다.
+   - `DeotPDF-1.0.0-win-x64.zip`: 용량이 작은 대신 [.NET 10 데스크톱 런타임](https://dotnet.microsoft.com/download/dotnet/10.0)(x64)이 필요합니다. 없으면 실행할 때 윈도우가 알려 줍니다.
+   - `DeotPDF-1.0.0-win-x64-portable.zip`: 런타임이 들어 있어 용량이 큽니다. 압축만 풀면 바로 됩니다.
 2. 아무 데나 압축을 풀고 `DeotPDF.exe`를 실행합니다.
 3. (선택) PDF 파일 우클릭 › '연결 프로그램'에 덧PDF가 뜨게 하려면 압축 푼 폴더에서 아래를 실행합니다. 지금 사용자 계정에만 등록되고, 관리자 권한이 필요 없고, 기본 PDF 프로그램은 바꾸지 않습니다.
    ```powershell

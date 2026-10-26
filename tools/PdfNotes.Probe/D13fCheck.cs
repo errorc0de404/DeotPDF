@@ -1134,6 +1134,12 @@ internal static class D13fCheck
             Before = before, Points = points,
             Last10SlopePrivateMBPerCycle = R(Slope(priv.TakeLast(10).ToList())), Last10SlopeManagedMBPerCycle = R(Slope(managed.TakeLast(10).ToList())),
         };
+        // D15: D13F_HOLD=<file> keeps the process alive after the cycles until that file is deleted (take a heap dump meanwhile).
+        if (Environment.GetEnvironmentVariable("D13F_HOLD") is { Length: > 0 } hold)
+        {
+            File.WriteAllText(hold, Environment.ProcessId.ToString());
+            while (File.Exists(hold)) await Task.Delay(500);
+        }
     }
 
     // ===================== table =====================
