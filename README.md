@@ -104,8 +104,6 @@ dotnet publish tools/PdfNotes.Cli -c Release -r win-x64 --self-contained false -
 
 (Use `--self-contained true` for the portable build.)
 
-`scripts/Enter-DevEnvironment.ps1` is optional. Dot-source it if you want the SDK and NuGet caches kept inside the repo folder instead of your user profile.
-
 ### Project layout
 
 | Folder | What's in it |
@@ -116,7 +114,6 @@ dotnet publish tools/PdfNotes.Cli -c Release -r win-x64 --self-contained false -
 | `src/PdfNotes.Pdf` | Everything that talks to PDFium and PDFsharp: rendering, text extraction, saving, flatten |
 | `src/PdfNotes.Text`, `src/PdfNotes.Text.Wpf` | Text layout shared by the screen, saved PDFs and the CLI |
 | `tools/PdfNotes.Cli` | The `deot` command-line tool |
-| `tools/PdfNotes.Probe` | Test harness that drives the real app window |
 | `tests/PdfNotes.Tests` | Unit and integration tests |
 | `docs/` | CLI guide, and [the format of the editing data stored in PDFs](docs/file-format.md) (Korean) |
 
