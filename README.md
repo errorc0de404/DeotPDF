@@ -268,24 +268,6 @@ dotnet publish tools/PdfNotes.Cli -c Release -r win-x64 --self-contained false -
 
 ---
 
-## Code signing policy / 코드 서명 정책
-
-Releases are not code-signed yet. Once DeotPDF has more users, the plan is to apply to [SignPath Foundation](https://signpath.org), which offers free code signing to open-source projects. Release builds already come from GitHub Actions so they can be signed later. When that happens, release pages will say: *Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org)*.
-
-- Only DeotPDF's own files will be signed (`DeotPDF.exe`, `deot.exe` and the `DeotPDF`, `deot`, `PdfNotes.*` libraries), built by GitHub Actions from this repository's source.
-- Committers and reviewers: [errorc0de404](https://github.com/errorc0de404)
-- Approvers: [errorc0de404](https://github.com/errorc0de404)
-- Privacy: this program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. The one network feature, the update check, sends only a request for the latest release version to the GitHub API (`api.github.com`), is offered at first start and can be turned off in Settings › About. GitHub's handling of that request falls under the [GitHub Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
-
-릴리스 파일에는 아직 코드 서명이 없습니다. 사용자가 늘면 오픈소스 프로젝트에 무료 서명을 해 주는 [SignPath Foundation](https://signpath.org)에 신청할 계획이고, 나중에 서명할 수 있도록 릴리스는 이미 GitHub Actions에서 빌드합니다. 서명이 붙으면 릴리스 페이지에 위 영어 문구(SignPath.io가 서명을, SignPath Foundation이 인증서를 제공한다는 내용)를 적습니다.
-
-- 서명할 것은 덧PDF가 직접 만든 파일(`DeotPDF.exe`, `deot.exe`, `DeotPDF`·`deot`·`PdfNotes.*` 라이브러리)뿐이고, 이 저장소의 소스를 GitHub Actions에서 빌드한 것입니다.
-- 커밋·검토: [errorc0de404](https://github.com/errorc0de404)
-- 서명 승인: [errorc0de404](https://github.com/errorc0de404)
-- 개인정보: 사용자가 요청하지 않는 한 다른 시스템으로 정보를 보내지 않습니다. 네트워크를 쓰는 기능은 업데이트 확인 하나이고, GitHub API(`api.github.com`)에 최신 릴리스 버전을 묻는 요청만 보냅니다. 처음 실행할 때 켤지 묻고, 설정 › 정보에서 끌 수 있습니다.
-
----
-
 ## License / 라이선스
 
 DeotPDF is licensed under the [GNU General Public License v3.0](LICENSE). Third-party components and their licenses are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
