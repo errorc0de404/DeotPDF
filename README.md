@@ -65,6 +65,8 @@ The name comes from the Korean prefix 덧 (*deot*), "added on top". The original
 
 There's no installer yet. Settings and backups live in `%LOCALAPPDATA%\PdfNotes`.
 
+Windows may show a blue *Windows protected your PC* (SmartScreen) box the first time, because the app is new and not widely downloaded yet. Click **More info**, then **Run anyway**. If you want to check the download first, compare the zip's SHA256 with the one on the release page.
+
 ### The `deot` command-line tool
 
 The zip also contains `deot.exe`. It uses the same engine as the app, so whatever it writes looks and behaves exactly like something you drew yourself, and you can keep editing it in DeotPDF afterwards.
@@ -95,14 +97,13 @@ dotnet test PdfNotes.slnx -c Release --no-build
 dotnet run --project src/PdfNotes.App -c Release -- path\to\file.pdf
 ```
 
-To build the release folders:
+To build the two release zips (they land in `artifacts/release`):
 
 ```powershell
-dotnet publish src/PdfNotes.App -c Release -r win-x64 --self-contained false -o out/DeotPDF
-dotnet publish tools/PdfNotes.Cli -c Release -r win-x64 --self-contained false -o out/DeotPDF
+powershell -NoProfile -File tools/package-release.ps1
 ```
 
-(Use `--self-contained true` for the portable build.)
+Releases are built the same way by GitHub Actions (`.github/workflows/release.yml`).
 
 ### Project layout
 
@@ -130,7 +131,7 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 
 **Is it free?** Yes. It's open source under GPL-3.0, with no ads, account or telemetry.
 
-**Does it work offline?** Yes. Nothing is sent anywhere.
+**Does it work offline?** Yes. The only thing that goes online is the update check, which asks GitHub for the latest version number at most once a day. DeotPDF asks you before turning it on, and you can switch it off in Settings › About. Your files and notes never leave your PC.
 
 **Will my notes show up in other PDF readers?** Yes. They're saved as standard PDF annotations with their own appearance, so Chrome, Edge, Firefox and most other readers display them.
 
@@ -195,6 +196,8 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 
 아직 설치 프로그램은 없습니다. 설정과 백업은 `%LOCALAPPDATA%\PdfNotes`에 저장됩니다.
 
+처음 실행할 때 파란색 'Windows의 PC 보호'(SmartScreen) 창이 뜰 수 있습니다. 새로 나온 프로그램이라 아직 받은 사람이 적어서 그렇습니다. '추가 정보'를 누른 다음 '실행'을 누르면 됩니다. 받은 파일이 맞는지 확인하고 싶으면 zip의 SHA256을 릴리스 페이지에 적힌 값과 비교해 보세요.
+
 ### 명령줄 도구 `deot`
 
 zip 안에 `deot.exe`도 들어 있습니다. 앱과 같은 엔진을 써서, `deot`로 넣은 필기도 앱에서 직접 그린 것과 똑같이 보이고 덧PDF에서 이어서 고칠 수 있습니다.
@@ -243,13 +246,31 @@ dotnet publish tools/PdfNotes.Cli -c Release -r win-x64 --self-contained false -
 
 **무료인가요?** 네. GPL-3.0 오픈소스이고 광고, 계정, 사용 통계 수집이 없습니다.
 
-**인터넷 없이 되나요?** 됩니다. 밖으로 보내는 데이터도 없습니다.
+**인터넷 없이 되나요?** 됩니다. 인터넷을 쓰는 건 업데이트 확인 하나뿐인데, 하루에 한 번까지 GitHub에서 최신 버전 번호만 받아 옵니다. 켤지는 처음 실행할 때 묻고, 설정 › 정보에서 끌 수 있습니다. 파일이나 필기 내용은 밖으로 나가지 않습니다.
 
 **다른 PDF 뷰어에서도 필기가 보이나요?** 보입니다. 표준 PDF 주석으로 저장하기 때문에 크롬, 엣지, 파이어폭스 등 대부분의 뷰어에서 그대로 보입니다.
 
 **맥이나 리눅스에서도 되나요?** 아직은 윈도우 전용입니다. 핵심 코드는 일반 .NET이지만 화면이 WPF라서 윈도우에서만 돌아갑니다.
 
 **AI 에이전트가 PDF에 필기하게 할 수 있나요?** `deot`로 할 수 있습니다. [docs/cli.ko.md](docs/cli.ko.md)를 보세요.
+
+---
+
+## Code signing policy / 코드 서명 정책
+
+Windows release builds are signed through [SignPath Foundation](https://signpath.org), which offers free code signing to open-source projects. Once signing is approved, release pages will say: *Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org)*. Releases up to 1.0.0 are unsigned.
+
+- Only DeotPDF's own files are signed (`DeotPDF.exe`, `deot.exe` and the `DeotPDF`, `deot`, `PdfNotes.*` libraries), built by GitHub Actions from this repository's source.
+- Committers and reviewers: [errorc0de404](https://github.com/errorc0de404)
+- Approvers: [errorc0de404](https://github.com/errorc0de404)
+- Privacy: this program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. The one network feature, the update check, sends only a request for the latest release version to the GitHub API (`api.github.com`), is offered at first start and can be turned off in Settings › About. GitHub's handling of that request falls under the [GitHub Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
+
+윈도우 릴리스 파일은 오픈소스 프로젝트에 무료 서명을 해 주는 [SignPath Foundation](https://signpath.org)을 통해 서명합니다. 서명이 승인되면 릴리스 페이지에 위 영어 문구(SignPath.io가 서명을, SignPath Foundation이 인증서를 제공한다는 내용)를 적습니다. 1.0.0까지는 서명이 없습니다.
+
+- 서명하는 것은 덧PDF가 직접 만든 파일(`DeotPDF.exe`, `deot.exe`, `DeotPDF`·`deot`·`PdfNotes.*` 라이브러리)뿐이고, 이 저장소의 소스를 GitHub Actions에서 빌드한 것입니다.
+- 커밋·검토: [errorc0de404](https://github.com/errorc0de404)
+- 서명 승인: [errorc0de404](https://github.com/errorc0de404)
+- 개인정보: 사용자가 요청하지 않는 한 다른 시스템으로 정보를 보내지 않습니다. 네트워크를 쓰는 기능은 업데이트 확인 하나이고, GitHub API(`api.github.com`)에 최신 릴리스 버전을 묻는 요청만 보냅니다. 처음 실행할 때 켤지 묻고, 설정 › 정보에서 끌 수 있습니다.
 
 ---
 

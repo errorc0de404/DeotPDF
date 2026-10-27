@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath artifact configuration for the "unsigned" artifact of .github/workflows/release.yml.
+     The artifact holds both release folders; only DeotPDF's own binaries are signed. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <zip-file>
+    <directory-set>
+      <include path="DeotPDF-*-win-x64" />
+      <include path="DeotPDF-*-win-x64-portable" />
+      <for-each>
+        <pe-file-set product-name="DeotPDF" product-version="${version}">
+          <include path="DeotPDF.exe" />
+          <include path="DeotPDF.dll" />
+          <include path="deot.exe" />
+          <include path="deot.dll" />
+          <include path="PdfNotes.*.dll" max-matches="unbounded" />
+          <for-each>
+            <authenticode-sign />
+          </for-each>
+        </pe-file-set>
+      </for-each>
+    </directory-set>
+  </zip-file>
+</artifact-configuration>

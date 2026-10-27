@@ -126,7 +126,7 @@ public static class PageCommand
 
     public static readonly CliOp Import = Op("page import", "Inserts pages of another PDF", ["--from", "--range", "--after"], [], (args, doc, result) =>
     {
-        string from = System.IO.Path.GetFullPath(args.Required("--from"));
+        string from = CliPaths.Full(args.Required("--from"));
         if (!System.IO.File.Exists(from)) throw new CliException("FILE_NOT_FOUND", $"The file {from} does not exist.", ExitCodes.InvalidInput, new JsonObject { ["path"] = from });
         int index = After(doc, args.Required("--after"));
         PdfSourceDocument file;

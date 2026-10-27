@@ -11,7 +11,7 @@ AI 에이전트나 스크립트가 쓰라고 만든 도구라서 동작 방식�
 - `deot`는 **대신 고르지 않습니다**. 찾는 문구가 두 군데 있으면 아무거나 고르지 않고 두 후보를 담은 오류를 돌려줍니다. 어디에 무엇을 둘지는 부르는 쪽이 정합니다.
 - **입력 파일은 절대 바뀌지 않습니다**. 쓰는 명령에는 `-o <출력>`이나 `--dry-run`이 꼭 필요합니다.
 
-목차: [준비](#준비) · [출력과 종료 코드](#출력과-종료-코드) · [좌표](#좌표와-번호) · [명령 목록](#명령-목록) · [쓰기 옵션](#쓰기-옵션) · [서식 있는 글](#서식-있는-글과-스타일) · [태그와 키](#태그-sourcekey-groupkey) · [apply](#apply-여러-작업을-한-번에) · [check](#check-규칙) · [추천 흐름](#에이전트에게-추천하는-흐름) · [오류 코드](#오류-코드)
+목차: [준비](#준비) · [출력과 종료 코드](#출력과-종료-코드) · [좌표](#좌표와-번호) · [명령 목록](#명령-목록) · [쓰기 옵션](#쓰기-옵션) · [서식 있는 글](#서식-있는-글과-스타일) · [태그와 키](#태그-sourcekey-groupkey) · [apply](#apply-여러-작업을-한-번에) · [check](#check-규칙) · [추천 흐름](#에이전트에게-추천하는-흐름) · [MCP 서버](#mcp-서버) · [오류 코드](#오류-코드)
 
 ## 준비
 
@@ -221,6 +221,44 @@ deot check 결과.pdf --rules '[{"rule": "overlapRegions", "regions": [[0,0,960,
 - 어떤 대상 옆에 작은 번호 표시를 둘 자리는 `space -p 3 --size 15,15 --within <대상 주변> --gap 1 --cell 1`로 찾으면 잘 나옵니다.
 - 긴 단어도 글자 단위로 줄바꿈되기 때문에 옆으로 넘치는 일은 없습니다. 신경 쓸 것은 높이입니다(`measure --height`나 `textOverflow` 규칙).
 
+## MCP 서버
+
+`deot mcp`는 같은 명령들을 표준 입출력 [MCP](https://modelcontextprotocol.io) 서버로 띄웁니다. Claude Desktop, Claude Code 같은 MCP 클라이언트에서 도구로 부를 수 있습니다.
+
+```powershell
+deot mcp --root C:\Users\me\강의 [--root <다른 폴더>]
+```
+
+`--root`는 꼭 줘야 합니다. 서버는 이 폴더 안의 파일만 읽고 쓰며, 상대 경로는 첫 번째 폴더에서 시작합니다. 밖의 경로는 `PATH_NOT_ALLOWED`로 거절합니다.
+
+Claude Code:
+
+```powershell
+claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\강의
+```
+
+Claude Desktop(`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "deot": {
+      "command": "C:\Tools\DeotPDF\deot.exe",
+      "args": ["mcp", "--root", "C:\Users\me\강의"]
+    }
+  }
+}
+```
+
+도구 구성:
+
+- **읽기** 명령은 하나씩 도구가 됩니다. `schema`, `info`, `render`, `text`, `annot_list`, `find`, `layout`, `ink`, `space`, `measure`, `fonts`, `check`입니다. 필드 이름은 옵션 이름의 camelCase이고(`--include-annotations`는 `includeAnnotations`), 입력 PDF는 `pdf`, 플래그는 `true`로 씁니다.
+- **쓰기**는 `apply` 하나로 합니다. 계획 파일 대신 계획 자체를 `plan`에 넣습니다(`ops`가 있는 객체나 작업 목록). 하나만 고칠 때도 작업이 하나인 계획으로 보냅니다. `previews: true`를 주면 바뀐 페이지를 이미지로 돌려받습니다. `dryRun`과 같이 써도 됩니다.
+- `apply`로는 할 수 없는 `page_export`도 따로 있습니다.
+- `render`는 PNG를 이미지로 돌려줍니다. `out`은 파일을 남기고 싶을 때만 주면 됩니다.
+
+결과 텍스트는 명령이 찍는 JSON 그대로이고, 실패하면 `isError`가 붙습니다. 명령과 출력은 명령줄과 똑같아서 이 문서의 나머지 내용이 그대로 통합니다. 작업 필드가 궁금하면 그 명령으로 `schema`를 부르세요(`{"command": "add text"}`).
+
 ## 오류 코드
 
 정확한 목록은 `deot schema`의 `errorCodes`입니다.
@@ -238,6 +276,7 @@ deot check 결과.pdf --rules '[{"rule": "overlapRegions", "regions": [[0,0,960,
 | `INVALID_IMAGE` | 1 | PNG, JPEG, BMP가 아님 |
 | `IMAGE_TOO_LARGE` | 1 | 그림이 너무 큼. `--dpi`를 낮추거나 `--region`을 쓰세요 |
 | `SAME_AS_INPUT` | 1 | 출력(미리보기) 경로가 입력 파일임 |
+| `PATH_NOT_ALLOWED` | 1 | `deot mcp`에서만: 경로가 `--root` 폴더 밖임 |
 | `OUTPUT_EXISTS` | 1 | 출력 파일이 이미 있는데 `--overwrite`가 없음 |
 | `NOT_FOUND` | 2 | `--find`와 정확히 맞는 것이 없음 |
 | `AMBIGUOUS_MATCH` | 2 | `--find` 후보가 둘 이상(`details.matches`) |

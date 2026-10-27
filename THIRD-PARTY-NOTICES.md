@@ -9,8 +9,10 @@ DeotPDF itself is licensed under GPL-3.0 (see [LICENSE](LICENSE)). It ships with
 | [PDFsharp](https://github.com/empira/PDFsharp) | 6.2.4 | Reading and writing PDF objects | MIT, © empira Software GmbH |
 | [Clipper2](https://github.com/AngusJohnson/Clipper2) | 1.5.4 | Polygon clipping for the eraser and lasso | Boost Software License 1.0, © Angus Johnson ([`third_party/Clipper2/License.txt`](third_party/Clipper2/License.txt)) |
 | [.NET](https://github.com/dotnet/runtime) / [WPF](https://github.com/dotnet/wpf) | 10.0 | Runtime and UI framework (included in the portable build) | MIT, © .NET Foundation and Contributors |
-| System.Security.Cryptography.Pkcs, Microsoft.Extensions.* abstractions | 10.0 | Pulled in by PDFsharp | MIT, © Microsoft Corporation |
+| System.Security.Cryptography.Pkcs, Microsoft.Extensions.* abstractions | 10.0 | Pulled in by PDFsharp and the MCP SDK | MIT, © Microsoft Corporation |
+| [MCP C# SDK](https://github.com/modelcontextprotocol/csharp-sdk) (`ModelContextProtocol.Core`) | 2.3.0 | `deot mcp` | Apache-2.0 (older contributions MIT), © Model Context Protocol a Series of LF Projects, LLC ([`third_party/ModelContextProtocol/LICENSE`](third_party/ModelContextProtocol/LICENSE)) |
+| Microsoft.Extensions.AI.Abstractions | 10.11.0 | Pulled in by the MCP SDK | MIT, © Microsoft Corporation |
 
 Test-only packages (xUnit, Microsoft.NET.Test.Sdk, coverlet) are used when running the test suite and are not included in the release.
 
-The PDFium and Clipper2 license files are also included in the release zips under `licenses/`.
+The PDFium, Clipper2 and MCP SDK license files are also included in the release zips under `licenses/`.

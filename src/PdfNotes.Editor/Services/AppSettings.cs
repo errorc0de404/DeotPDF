@@ -175,6 +175,13 @@ public sealed class AppSettings
     /// <summary>UI language pack (spec 18.1, D14e): the built-in Korean or a pack found in <see cref="LanguageFolders"/>; read at start.</summary>
     public string Language { get; set; } = PdfNotes.Editor.Localization.Strings.BuiltInLanguage;
 
+    /// <summary>
+    /// Check for a new version at start (roadmap 1.1, <see cref="Services.UpdateCheck"/>): null until the user was asked
+    /// (on the first start of a release build), then their answer. <see cref="UpdateCheckedAt"/> is the last check (UTC).
+    /// </summary>
+    public bool? CheckUpdates { get; set; }
+    public DateTime? UpdateCheckedAt { get; set; }
+
     /// <summary>Where language packs are looked for: the app folder's <c>Languages</c>, then the settings folder's (the user's copy wins).</summary>
     public static string[] LanguageFolders => [Path.Combine(AppContext.BaseDirectory, "Languages"), Path.Combine(Path.GetDirectoryName(DefaultPath)!, "Languages")];
 

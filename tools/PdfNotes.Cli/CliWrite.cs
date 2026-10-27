@@ -49,9 +49,9 @@ public sealed class CliWrite
     /// </summary>
     public static CliWrite Parse(CliArgs args, string input, string? preview = null, string? expectHash = null, string? batchId = null)
     {
-        string full = Path.GetFullPath(input);
+        string full = CliPaths.Full(input);
         bool dryRun = args.Flag("--dry-run");
-        string? output = args.Value("--out") is { } o ? Path.GetFullPath(o) : null;
+        string? output = args.Value("--out") is { } o ? CliPaths.Full(o) : null;
         if (output is null && !dryRun) throw CliException.Invalid("Option -o <output pdf> is required (or --dry-run).");
         if (output is not null)
         {
@@ -67,7 +67,9 @@ public sealed class CliWrite
         if (batch is not null && new AnnotationTag(AnnotationTag.AiAuthor, batch).Validate() is not null)
             throw CliException.Invalid("--batch-id is empty, too long or has control characters.");
         string appFolder = args.Value("--app-folder") ?? Path.GetDirectoryName(AppSettings.DefaultPath)!;
-        var options = new CliWrite(full, output, dryRun, args.Value("--preview") ?? preview, hash,
+        string? previewPath = args.Value("--preview") ?? preview;
+        if (previewPath is not null) previewPath = CliPaths.Full(previewPath);
+        var options = new CliWrite(full, output, dryRun, previewPath, hash,
             batch ?? $"run-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..6]}", args.Flag("--flatten"), appFolder);
         options.RefuseShown(full);
         if (output is not null && !dryRun) options.RefuseShown(output);
@@ -146,9 +148,9 @@ public sealed class CliWrite
             var page = doc.Model.GetPage(id);
             int number = doc.NumberOf(page);
             string path = single
-                ? pages.Count == 1 ? Preview : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(Preview))!, $"{Path.GetFileNameWithoutExtension(Preview)}-{number}.png")
+                ? pages.Count == 1 ? Preview : Path.Combine(Path.GetDirectoryName(CliPaths.Full(Preview))!, $"{Path.GetFileNameWithoutExtension(Preview)}-{number}.png")
                 : Path.Combine(Preview, $"page-{number}.png");
-            path = Path.GetFullPath(path);
+            path = CliPaths.Full(path);
             if (string.Equals(path, Input, StringComparison.OrdinalIgnoreCase)) throw new CliException("SAME_AS_INPUT", "A preview path is the input file.");
             var rendered = PageRaster.Render(doc, page, ppp, null, _ => true, out _);
             PageRaster.SavePng(PageRaster.ToBitmap(rendered), path);

@@ -40,7 +40,7 @@ public static class RichText
     {
         if (value.StartsWith('@'))
         {
-            string path = value[1..];
+            string path = CliPaths.Full(value[1..]);
             if (!File.Exists(path)) throw new CliException("FILE_NOT_FOUND", $"The text file {path} does not exist.");
             value = File.ReadAllText(path);
         }
@@ -113,8 +113,9 @@ public static class RichText
         string text = value.TrimStart();
         if (!text.StartsWith('{'))
         {
-            if (!File.Exists(value)) throw new CliException("FILE_NOT_FOUND", $"The style file {value} does not exist.");
-            text = File.ReadAllText(value);
+            string path = CliPaths.Full(value);
+            if (!File.Exists(path)) throw new CliException("FILE_NOT_FOUND", $"The style file {path} does not exist.");
+            text = File.ReadAllText(path);
         }
         JsonNode? root;
         try { root = JsonNode.Parse(text); }

@@ -1,6 +1,9 @@
 <Project>
   <PropertyGroup>
-    <Version>1.0.0</Version>
+    <Version>1.0.1-dev</Version>
+    <!-- File properties of every exe/dll: one product name and a plain version (no +commit), which code signing checks -->
+    <Product>DeotPDF</Product>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

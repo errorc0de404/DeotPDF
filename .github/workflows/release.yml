@@ -1,0 +1,103 @@
+# Builds the release zips on a GitHub-hosted runner.
+# - Manual run (Actions tab): builds and uploads the zips as a workflow artifact.
+# - Tag push (v1.2.3): also checks the tag against Directory.Build.props and creates a draft release.
+# Signing runs only once the SignPath repository variables are set (SIGNPATH_ORGANIZATION_ID,
+# SIGNPATH_PROJECT_SLUG, SIGNPATH_POLICY_SLUG) and the SIGNPATH_API_TOKEN secret exists;
+# the artifact configuration is .signpath/artifact-configuration.xml.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      DOTNET_NOLOGO: "1"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Version
+        id: version
+        shell: pwsh
+        run: |
+          $v = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -ne "v$v") { throw "tag $env:GITHUB_REF_NAME does not match version $v" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Test
+        run: dotnet test tests/PdfNotes.Tests -c Release
+
+      - name: Build release folders
+        shell: pwsh
+        run: ./tools/package-release.ps1 -Version ${{ steps.version.outputs.version }} -Stage folders
+
+      - name: Upload unsigned folders
+        id: unsigned
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned
+          path: artifacts/release/DeotPDF-*/
+          if-no-files-found: error
+
+      - name: Sign (SignPath)
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: artifacts/signed
+          parameters: |
+            version: ${{ toJSON(steps.version.outputs.version) }}
+
+      - name: Use signed folders
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: pwsh
+        run: |
+          Get-ChildItem artifacts/signed -Directory | ForEach-Object {
+            Remove-Item -Recurse -Force (Join-Path artifacts/release $_.Name)
+            Move-Item $_.FullName artifacts/release
+          }
+          $sig = Get-AuthenticodeSignature "artifacts/release/DeotPDF-${{ steps.version.outputs.version }}-win-x64/DeotPDF.exe"
+          if ($sig.Status -ne "Valid") { throw "DeotPDF.exe is not signed: $($sig.Status)" }
+
+      - name: Zip
+        shell: pwsh
+        run: ./tools/package-release.ps1 -Version ${{ steps.version.outputs.version }} -Stage zip
+
+      - name: Upload zips
+        uses: actions/upload-artifact@v7
+        with:
+          name: DeotPDF-${{ steps.version.outputs.version }}
+          path: |
+            artifacts/release/*.zip
+            artifacts/release/SHA256SUMS-*.txt
+          if-no-files-found: error
+
+      - name: Draft release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = "${{ steps.version.outputs.version }}"
+          $sums = Get-Content "artifacts/release/SHA256SUMS-$v.txt" -Raw
+          $notes = "SHA256`n`n``````n$sums``````"
+          $files = (Get-ChildItem artifacts/release/*.zip).FullName + "artifacts/release/SHA256SUMS-$v.txt"
+          gh release create "v$v" @files --draft --title "DeotPDF $v" --notes $notes

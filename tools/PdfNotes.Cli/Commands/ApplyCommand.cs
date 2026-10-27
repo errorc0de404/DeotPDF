@@ -98,7 +98,7 @@ public static class ApplyCommand
         if (path == "-") text = Console.In.ReadToEnd();
         else
         {
-            string full = Path.GetFullPath(path);
+            string full = CliPaths.Full(path);
             if (!File.Exists(full)) throw new CliException("FILE_NOT_FOUND", $"The operations file {full} does not exist.", ExitCodes.InvalidInput, new JsonObject { ["path"] = full });
             text = File.ReadAllText(full, Encoding.UTF8);
         }
@@ -156,7 +156,7 @@ public static class ApplyCommand
         foreach (var (key, value) in fields)
         {
             if (key is "op" or "as") continue;
-            string option = "--" + Regex.Replace(key, "(?<=[a-z0-9])([A-Z])", "-$1").ToLowerInvariant();
+            string option = Option(key);
             if (definition.Flags.Contains(option))
             {
                 if (value is JsonValue v && v.GetValueKind() is JsonValueKind.True or JsonValueKind.False)
@@ -175,7 +175,11 @@ public static class ApplyCommand
         return tokens;
     }
 
-    private static string Value(JsonNode node) => node switch
+    /// <summary>The option of a camelCase field: <c>sourceKey</c> → <c>--source-key</c>.</summary>
+    internal static string Option(string field) => "--" + Regex.Replace(field, "(?<=[a-z0-9])([A-Z])", "-$1").ToLowerInvariant();
+
+    /// <summary>A field's value as one command-line token (see the class summary).</summary>
+    internal static string Value(JsonNode node) => node switch
     {
         JsonValue v when v.GetValueKind() == JsonValueKind.String => v.GetValue<string>(),
         JsonValue v when v.GetValueKind() == JsonValueKind.Number => v.GetValue<double>().ToString("R", CultureInfo.InvariantCulture),

@@ -33,8 +33,8 @@ public partial class App : Application
         window.Show();
         // "DeotPDF.exe file.pdf" (also used by Explorer "Open with").
         // After an abnormal end the newest backup can be opened first (spec 18.2).
-        if (await window.OfferRecoveryAsync()) return;
-        if (e.Args.Length == 1 && File.Exists(e.Args[0])) await window.OpenFileAsync(e.Args[0]);
+        if (!await window.OfferRecoveryAsync() && e.Args.Length == 1 && File.Exists(e.Args[0])) await window.OpenFileAsync(e.Args[0]);
+        await window.CheckForUpdatesAtStartAsync();
     }
 
     /// <summary>

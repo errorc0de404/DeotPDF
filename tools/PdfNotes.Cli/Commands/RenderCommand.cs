@@ -25,8 +25,8 @@ public static class RenderCommand
     {
         var args = CliArgs.Parse(tokens, ["--page", "--pages", "--out", "--dpi", "--region", "--annotations", "--overlay", "--columns"], ["--grid"]);
         string input = args.InputPath();
-        string output = Path.GetFullPath(args.Required("--out"));
-        if (string.Equals(output, Path.GetFullPath(input), StringComparison.OrdinalIgnoreCase))
+        string output = CliPaths.Full(args.Required("--out"));
+        if (string.Equals(output, CliPaths.Full(input), StringComparison.OrdinalIgnoreCase))
             throw new CliException("SAME_AS_INPUT", "The output path is the input file.");
         var filter = AnnotationFilter(args.Value("--annotations") ?? "all");
         if (args.Flag("--grid"))
@@ -184,8 +184,9 @@ public static class RenderCommand
         string text = value.TrimStart();
         if (!text.StartsWith('[') && !text.StartsWith('{'))
         {
-            if (!File.Exists(value)) throw new CliException("FILE_NOT_FOUND", $"The overlay file {value} does not exist.");
-            text = File.ReadAllText(value);
+            string path = CliPaths.Full(value);
+            if (!File.Exists(path)) throw new CliException("FILE_NOT_FOUND", $"The overlay file {path} does not exist.");
+            text = File.ReadAllText(path);
         }
         JsonNode? root;
         try { root = JsonNode.Parse(text); }

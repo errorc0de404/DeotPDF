@@ -6,7 +6,6 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Shown name "DeotPDF" (App.DisplayName); namespaces and the file-format id stay PdfNotes. -->
     <AssemblyName>DeotPDF</AssemblyName>
-    <Product>DeotPDF</Product>
     <!-- exe, taskbar and window icon (windows without Icon use it); the vector source is Assets/DeotPDF.svg. -->
     <ApplicationIcon>Assets/DeotPDF.ico</ApplicationIcon>
   </PropertyGroup>

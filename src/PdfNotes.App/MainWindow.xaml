@@ -398,6 +398,11 @@
                         <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="{DynamicResource FontSize.IconSmall}" Text="&#xE76C;" />
                     </Button>
                 </StackPanel>
+                <!-- 새 버전 (roadmap 1.1): 누르면 릴리스 페이지 -->
+                <Button x:Name="UpdateButton" DockPanel.Dock="Right" Style="{StaticResource ToolButton}" Margin="12,0,0,0" Padding="6,2" Cursor="Hand" Focusable="False"
+                        ToolTip="{l:T status.updateTip}" Click="UpdateClick" Visibility="Collapsed">
+                    <TextBlock x:Name="UpdateText" Foreground="{DynamicResource Accent}" />
+                </Button>
                 <TextBlock x:Name="NotesHiddenText" DockPanel.Dock="Right" Text="{l:T status.notesHidden}" VerticalAlignment="Center" Margin="12,0,0,0"
                            Foreground="{DynamicResource Accent}" Visibility="Collapsed" />
                 <!-- 확대율: 누르면 배율 메뉴 (spec 4.4, 2026-10-14) -->

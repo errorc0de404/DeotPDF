@@ -376,9 +376,9 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
         var display = DisplaySettings;
         var dialog = new SettingsDialog(new(settings.QuickErase, settings.PageDrag,
             new(settings.AutoBackup, settings.BackupIntervalMinutes, settings.BackupMode, settings.EffectiveBackupFolder, settings.BackupKeep), display,
-            settings.Language),
+            settings.Language, settings.CheckUpdates == true),
             () => Prompt(Strings.Get("settings.backupInPlaceConfirm"), MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes,
-            PreviewDisplay, Strings.Discover(AppSettings.LanguageFolders), new(backupStore.Usage, ClearBackups)) { Owner = this };
+            PreviewDisplay, Strings.Discover(AppSettings.LanguageFolders), new(backupStore.Usage, ClearBackups), new(CheckForUpdatesAsync, OpenWebPage)) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.Result is not { } values) { PreviewDisplay(display); return false; } // cancel undoes the preview
         SetDisplay(values.Display ?? display);
         settings.QuickErase = values.QuickErase;
@@ -390,6 +390,7 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
         settings.BackupKeep = values.Backup.Keep;
         bool languageChanged = !string.Equals(settings.Language, values.Language, StringComparison.OrdinalIgnoreCase);
         settings.Language = values.Language;
+        if (values.CheckUpdates != (settings.CheckUpdates == true)) settings.CheckUpdates = values.CheckUpdates; // untouched: still asked at the first start
         settings.Save();
         if (languageChanged) ShowMessage(Strings.Get("settings.languageNextStart"), MessageBoxImage.Information); // packs load at start (D14e)
         return true;

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using PdfNotes.App.Services;
 using PdfNotes.App.Themes;
@@ -25,7 +26,12 @@ public sealed record DisplayValues(ThemeChoice Theme, AccentColor Accent, bool P
 /// <summary>Values of the settings window (spec 18.1).</summary>
 /// <param name="PageDrag">필기 › 페이지 사이 끌어 옮기기 (spec 5.3, D14g), off by default.</param>
 /// <param name="Language">화면 › 언어 (D14e): the language pack, applied at the next start.</param>
-public sealed record SettingsValues(bool QuickErase, bool PageDrag, BackupValues Backup, DisplayValues? Display = null, string Language = Strings.BuiltInLanguage);
+/// <param name="CheckUpdates">정보 › 시작할 때 업데이트 확인 (roadmap 1.1).</param>
+public sealed record SettingsValues(bool QuickErase, bool PageDrag, BackupValues Backup, DisplayValues? Display = null, string Language = Strings.BuiltInLanguage,
+    bool CheckUpdates = false);
+
+/// <summary>What 정보 does (roadmap 1.1): check for a new version now, and open a web page.</summary>
+public sealed record AboutActions(Func<Task<UpdateResult>> Check, Action<string> Open);
 
 /// <summary>What 저장 shows and does about the backups the app made (spec 18.2, D14g): their count and size, and 백업 비우기.</summary>
 /// <param name="Clear">Asks for confirmation and deletes them; true when it deleted.</param>
@@ -63,6 +69,8 @@ public sealed class SettingsDialog : Window
     private readonly CheckBox pageNumbers = new() { Name = "PageNumbersBox", Content = Strings.Get("settings.showPageNumbers") };
     private readonly CheckBox autoTabs = new() { Name = "AutoTabsBox", Content = Strings.Get("settings.autoTabs"), Margin = new Thickness(0, 6, 0, 0) };
     private readonly ComboBox language = new() { Name = "LanguageBox", MinWidth = 120, HorizontalAlignment = HorizontalAlignment.Left };
+    private readonly CheckBox checkUpdates = new() { Name = "CheckUpdatesBox", Content = Strings.Get("about.checkAtStart") };
+    private readonly TextBlock updateStatus = new() { Name = "UpdateStatusText", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
     private readonly BackupMode initialMode;
     private readonly Func<bool> confirmOriginal;
     private readonly Action<DisplayValues>? preview;
@@ -73,7 +81,7 @@ public sealed class SettingsDialog : Window
         [(AccentColor.Blue, Strings.Get("color.blue")), (AccentColor.Green, Strings.Get("color.green")), (AccentColor.Purple, Strings.Get("color.purple")), (AccentColor.Orange, Strings.Get("color.orange")), (AccentColor.Red, Strings.Get("color.red")), (AccentColor.Gray, Strings.Get("color.gray"))];
 
     public SettingsDialog(SettingsValues current, Func<bool> confirmOriginal, Action<DisplayValues>? preview = null, IReadOnlyList<LanguagePack>? languages = null,
-        BackupActions? backups = null)
+        BackupActions? backups = null, AboutActions? about = null)
     {
         Theme.Attach(this);
         this.confirmOriginal = confirmOriginal;
@@ -164,12 +172,15 @@ public sealed class SettingsDialog : Window
             ?? language.Items[0];
         displayItems.Children.Add(Row(Strings.Get("settings.language"), language));
 
+        checkUpdates.IsChecked = current.CheckUpdates;
+
         var pages = new (string Name, UIElement Content)[]
         {
             (Strings.Get("settings.sectionNotes"), Section(quickErase, pageDrag)),
             (Strings.Get("settings.sectionSave"), Section(backup, backupItems, usageRow)),
             (Strings.Get("settings.sectionDisplay"), Section(displayItems, Row(Strings.Get("settings.pageNumberRow"), pageNumbers, Spaced(new TextBlock { Text = Strings.Get("settings.size"), VerticalAlignment = VerticalAlignment.Center }), numberSize),
                 darkPages, favorites, autoTabs)),
+            (Strings.Get("settings.sectionAbout"), About(about)), // last: Probes find the categories by position
         };
         foreach (var (name, _) in pages) categories.Items.Add(new ListBoxItem { Content = name, Padding = new Thickness(10, 6, 10, 6) });
         categories.SelectionChanged += (_, _) => page.Content = categories.SelectedIndex >= 0 ? pages[categories.SelectedIndex].Content : null;
@@ -202,7 +213,7 @@ public sealed class SettingsDialog : Window
         int count = int.TryParse(keep.Text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out int n) ? n : 10;
         Result = new(quickErase.IsChecked == true, pageDrag.IsChecked == true, new(backup.IsChecked == true,
             (int)((ComboBoxItem)interval.SelectedItem).Tag, mode, folder.Text, Math.Clamp(count, AppSettings.MinBackupKeep, AppSettings.MaxBackupKeep)), Display,
-            (string)((ComboBoxItem)language.SelectedItem).Tag);
+            (string)((ComboBoxItem)language.SelectedItem).Tag, checkUpdates.IsChecked == true);
         DialogResult = true;
     }
 
@@ -211,6 +222,56 @@ public sealed class SettingsDialog : Window
         (PageNumberSize)Math.Max(0, numberSize.SelectedIndex));
 
     private static FrameworkElement Spaced(FrameworkElement e) { e.Margin = new Thickness(14, 0, 6, 0); return e; }
+
+    /// <summary>
+    /// 정보 (roadmap 1.1): name, version, license and links, the start-up check and a check now. The check shows its
+    /// result beside the button; it does not wait for OK.
+    /// </summary>
+    private StackPanel About(AboutActions? about)
+    {
+        var name = new TextBlock { Text = App.DisplayName, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 6) };
+        name.SetResourceReference(TextBlock.FontSizeProperty, "FontSize.Title");
+        var links = new TextBlock { Margin = new Thickness(0, 6, 0, 10) };
+        links.Inlines.Add(Link("ProjectLink", Strings.Get("about.project"), UpdateCheck.ProjectPage, about));
+        links.Inlines.Add(new Run("   "));
+        links.Inlines.Add(Link("NoticesLink", Strings.Get("about.notices"), UpdateCheck.NoticesPage, about));
+
+        var check = new Button { Name = "UpdateCheckButton", Content = Strings.Get("about.checkNow"), Padding = new Thickness(8, 1, 8, 1), IsEnabled = about is not null };
+        check.Click += async (_, _) =>
+        {
+            check.IsEnabled = false;
+            updateStatus.Text = Strings.Get("about.checking");
+            var result = await about!.Check();
+            updateStatus.Inlines.Clear();
+            switch (result.State)
+            {
+                case UpdateState.Available:
+                    updateStatus.Inlines.Add(new Run(Strings.Format("about.available", ("version", result.Version!)) + "  "));
+                    updateStatus.Inlines.Add(Link("DownloadLink", Strings.Get("about.download"), result.Url ?? UpdateCheck.ReleasesPage, about));
+                    break;
+                case UpdateState.UpToDate: updateStatus.Text = Strings.Get("about.upToDate"); break;
+                default: updateStatus.Text = Strings.Get("about.failed"); break;
+            }
+            check.IsEnabled = true;
+        };
+        var panel = new StackPanel();
+        panel.Children.Add(name);
+        panel.Children.Add(Row(Strings.Get("about.version"), new TextBlock { Name = "VersionText", Text = UpdateCheck.CurrentVersion, VerticalAlignment = VerticalAlignment.Center }));
+        panel.Children.Add(Row(Strings.Get("about.license"), new TextBlock { Text = "GPL-3.0", VerticalAlignment = VerticalAlignment.Center })); // license id: not UI text (D14e)
+        panel.Children.Add(links);
+        checkUpdates.Margin = new Thickness(0, 4, 0, 8);
+        panel.Children.Add(checkUpdates);
+        panel.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Children = { check, updateStatus } });
+        return panel;
+    }
+
+    private static Hyperlink Link(string name, string text, string url, AboutActions? about)
+    {
+        var link = new Hyperlink(new Run(text)) { Name = name, ToolTip = url };
+        link.SetResourceReference(TextElement.ForegroundProperty, "Accent");
+        link.Click += (_, _) => about?.Open(url);
+        return link;
+    }
 
     /// <summary>A file size for people: KB below one MB, MB with one decimal, GB with one decimal.</summary>
     public static string Size(long bytes) => bytes switch

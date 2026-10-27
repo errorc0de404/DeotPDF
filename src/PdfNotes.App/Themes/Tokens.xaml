@@ -8,6 +8,8 @@
 
     <sys:Double x:Key="FontSize.Body">13</sys:Double>
     <sys:Double x:Key="FontSize.Caption">12</sys:Double>
+    <!-- 설정 › 정보의 앱 이름 (roadmap 1.1) -->
+    <sys:Double x:Key="FontSize.Title">18</sys:Double>
     <sys:Double x:Key="FontSize.Icon">15</sys:Double>
     <sys:Double x:Key="FontSize.IconSmall">12</sys:Double>
 

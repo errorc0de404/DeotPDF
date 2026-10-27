@@ -11,7 +11,7 @@ It was built for AI agents and scripts, which is why it works the way it does:
 - `deot` **never decides for you**. If a phrase occurs twice, you get an error listing both, not a guess. Layout decisions (where a note goes, what to highlight) stay with the caller.
 - The input file is **never modified**. Writing commands need `-o <output>` or `--dry-run`.
 
-Contents: [Setup](#setup) · [Output and exit codes](#output-and-exit-codes) · [Coordinates](#coordinates-and-numbering) · [Commands](#commands) · [Writing](#writing-options) · [Formatted text](#formatted-text-and-styles) · [Tags and source keys](#tags-source-keys-and-group-keys) · [apply](#apply-many-edits-at-once) · [check](#check-rules) · [Workflow for agents](#a-workflow-that-works-well) · [Error codes](#error-codes)
+Contents: [Setup](#setup) · [Output and exit codes](#output-and-exit-codes) · [Coordinates](#coordinates-and-numbering) · [Commands](#commands) · [Writing](#writing-options) · [Formatted text](#formatted-text-and-styles) · [Tags and source keys](#tags-source-keys-and-group-keys) · [apply](#apply-many-edits-at-once) · [check](#check-rules) · [Workflow for agents](#a-workflow-that-works-well) · [MCP server](#mcp-server) · [Error codes](#error-codes)
 
 ## Setup
 
@@ -221,6 +221,44 @@ Small things learned the hard way:
 - To find a spot for a small badge next to something, try `space -p 3 --size 15,15 --within <area around the target> --gap 1 --cell 1`.
 - Long words wrap by character, so text never overflows sideways. Height is the thing to watch (`measure --height` or the `textOverflow` rule).
 
+## MCP server
+
+`deot mcp` runs the same commands as an [MCP](https://modelcontextprotocol.io) server over standard input and output, so Claude Desktop, Claude Code and other MCP clients can call them as tools.
+
+```powershell
+deot mcp --root C:\Users\me\Lectures [--root <another folder>]
+```
+
+`--root` is required. The server only reads and writes files inside these folders, and a relative path starts at the first one. Anything outside is refused with `PATH_NOT_ALLOWED`.
+
+Claude Code:
+
+```powershell
+claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\Lectures
+```
+
+Claude Desktop (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "deot": {
+      "command": "C:\Tools\DeotPDF\deot.exe",
+      "args": ["mcp", "--root", "C:\Users\me\Lectures"]
+    }
+  }
+}
+```
+
+The tools:
+
+- **Reading** commands are one tool each: `schema`, `info`, `render`, `text`, `annot_list`, `find`, `layout`, `ink`, `space`, `measure`, `fonts`, `check`. Fields are the options in camelCase (`--include-annotations` becomes `includeAnnotations`), the input PDF is `pdf`, and a flag is `true`.
+- **Writing** goes through `apply`. Instead of a file, pass the plan itself as `plan` (an object with `ops`, or just the list of ops). One edit is a plan with one op. Add `previews: true` to get the changed pages back as images, with or without `dryRun`.
+- `page_export` is there too, since `apply` can't do what it does.
+- `render` returns the PNG as an image. `out` is optional and only needed if you want to keep the file.
+
+The text of every result is exactly the JSON the command prints, and a failed command comes back with `isError`. The commands and their output are the same as on the command line, so the rest of this guide applies as is. For an op's fields, call `schema` with that command (`{"command": "add text"}`).
+
 ## Error codes
 
 `deot schema` returns the authoritative list as `errorCodes`.
@@ -238,6 +276,7 @@ Small things learned the hard way:
 | `INVALID_IMAGE` | 1 | Not a PNG, JPEG or BMP |
 | `IMAGE_TOO_LARGE` | 1 | The render would be too big. Lower `--dpi` or use `--region` |
 | `SAME_AS_INPUT` | 1 | The output (or preview) path is the input file |
+| `PATH_NOT_ALLOWED` | 1 | `deot mcp` only: the path is outside the `--root` folders |
 | `OUTPUT_EXISTS` | 1 | The output exists and `--overwrite` wasn't given |
 | `NOT_FOUND` | 2 | `--find` has no exact match |
 | `AMBIGUOUS_MATCH` | 2 | `--find` matched more than once (`details.matches`) |

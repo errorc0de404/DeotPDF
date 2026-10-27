@@ -50,17 +50,22 @@
         "resolved": "17.14.1",
         "contentHash": "pmTrhfFIoplzFVbhVwUquT+77CbGH+h4/3mBpdmIlYtBi9nAB+kKI6dN3A/nV4DFi3wLLx/BlHIPK+MkbQ6Tpg=="
       },
+      "Microsoft.Extensions.AI.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.11.0",
+        "contentHash": "h4DX/TdJU4fk1GGaf19n6Kujkj6VXbGeL4UEOsQ8+ZJC5fVApPauokCtvBP684BYbczUYZQNfo1mbmyHG4WVSg=="
+      },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
-        "resolved": "8.0.2",
-        "contentHash": "3iE7UF7MQkCv1cxzCahz+Y/guQbTqieyxyaWKhrRO91itI9cOKO76OHeQDahqG4MmW5umr3CcCvGmK92lWNlbg=="
+        "resolved": "10.0.13",
+        "contentHash": "G2GrGWNAPZBsii2F6AU8n+JT2tC1/I0Ml/e9ZyNCgPjf3hZqronP7o0X91aAynCmVeae8KkSIUNXXeXCNRmdVQ=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Transitive",
-        "resolved": "8.0.3",
-        "contentHash": "dL0QGToTxggRLMYY4ZYX5AMwBb+byQBd/5dMiZE07Nv73o6I5Are3C7eQTh7K2+A4ct0PVISSr7TZANbiNb2yQ==",
+        "resolved": "10.0.13",
+        "contentHash": "aSZEhEig4fvNiw2zs8Z6NyDlniKtq6YjcF3DyHuqTEHcZ2VKA/6itMPZ+dW+yWABWExlDcQwwdbqX1Rcb7W8WQ==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.13"
         }
       },
       "Microsoft.TestPlatform.ObjectModel": {
@@ -75,6 +80,15 @@
         "dependencies": {
           "Microsoft.TestPlatform.ObjectModel": "17.14.1",
           "Newtonsoft.Json": "13.0.3"
+        }
+      },
+      "ModelContextProtocol.Core": {
+        "type": "Transitive",
+        "resolved": "2.3.0",
+        "contentHash": "EDpbQholhVWoNumb0Ab3oGv9LmXOLgaD5ixEIUkrnzpnqD0TJCSHTJ5G71/J1KlrQ98aWDclWTPMffKTnCJoMw==",
+        "dependencies": {
+          "Microsoft.Extensions.AI.Abstractions": "10.11.0",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.13"
         }
       },
       "Newtonsoft.Json": {
@@ -133,21 +147,22 @@
       "deot": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.0.0, )",
-          "PdfNotes.Editor": "[1.0.0, )",
-          "PdfNotes.Pdf": "[1.0.0, )",
-          "PdfNotes.Text": "[1.0.0, )",
-          "PdfNotes.Text.Wpf": "[1.0.0, )"
+          "ModelContextProtocol.Core": "[2.3.0, )",
+          "PdfNotes.Core": "[1.0.1-dev, )",
+          "PdfNotes.Editor": "[1.0.1-dev, )",
+          "PdfNotes.Pdf": "[1.0.1-dev, )",
+          "PdfNotes.Text": "[1.0.1-dev, )",
+          "PdfNotes.Text.Wpf": "[1.0.1-dev, )"
         }
       },
       "DeotPDF": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.0.0, )",
-          "PdfNotes.Editor": "[1.0.0, )",
-          "PdfNotes.Pdf": "[1.0.0, )",
-          "PdfNotes.Text": "[1.0.0, )",
-          "PdfNotes.Text.Wpf": "[1.0.0, )"
+          "PdfNotes.Core": "[1.0.1-dev, )",
+          "PdfNotes.Editor": "[1.0.1-dev, )",
+          "PdfNotes.Pdf": "[1.0.1-dev, )",
+          "PdfNotes.Text": "[1.0.1-dev, )",
+          "PdfNotes.Text.Wpf": "[1.0.1-dev, )"
         }
       },
       "pdfnotes.core": {
@@ -159,31 +174,33 @@
       "pdfnotes.editor": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.0.0, )",
-          "PdfNotes.Pdf": "[1.0.0, )",
-          "PdfNotes.Text": "[1.0.0, )"
+          "PdfNotes.Core": "[1.0.1-dev, )",
+          "PdfNotes.Pdf": "[1.0.1-dev, )",
+          "PdfNotes.Text": "[1.0.1-dev, )"
         }
       },
       "pdfnotes.pdf": {
         "type": "Project",
         "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )",
           "PDFsharp": "[6.2.4, )",
-          "PdfNotes.Core": "[1.0.0, )",
-          "PdfNotes.Text": "[1.0.0, )",
+          "PdfNotes.Core": "[1.0.1-dev, )",
+          "PdfNotes.Text": "[1.0.1-dev, )",
           "bblanchon.PDFium.Win32": "[156.0.8076, )"
         }
       },
       "pdfnotes.text": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.0.0, )"
+          "PdfNotes.Core": "[1.0.1-dev, )"
         }
       },
       "pdfnotes.text.wpf": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.0.0, )",
-          "PdfNotes.Text": "[1.0.0, )"
+          "PdfNotes.Core": "[1.0.1-dev, )",
+          "PdfNotes.Text": "[1.0.1-dev, )"
         }
       }
     },

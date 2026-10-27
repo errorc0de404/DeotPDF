@@ -43,7 +43,7 @@ public sealed class CliDocument : IDisposable
 
     public static CliDocument Open(string path)
     {
-        string full = System.IO.Path.GetFullPath(path);
+        string full = CliPaths.Full(path);
         if (!File.Exists(full)) throw new CliException("FILE_NOT_FOUND", $"The file {full} does not exist.", ExitCodes.InvalidInput, new JsonObject { ["path"] = full });
         byte[] bytes;
         try { bytes = File.ReadAllBytes(full); }

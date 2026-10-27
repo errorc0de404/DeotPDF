@@ -42,6 +42,7 @@ public static class SchemaCommand
         ("NOT_TRANSFORMABLE", 1, "a text mark (or a note's icon) cannot be moved, turned, resized or copied that way"),
         ("INVALID_IMAGE", 1, "not a PNG, JPEG or BMP image"),
         ("IMAGE_TOO_LARGE", 1, "the rendered image would be too large; lower --dpi or use --region"),
+        ("PATH_NOT_ALLOWED", 1, "deot mcp: the path is outside the folders the server may use (--root or the client's roots)"),
         ("SAME_AS_INPUT", 1, "the output (or a preview) is the input file"),
         ("OUTPUT_EXISTS", 1, "the output exists and --overwrite is not given"),
         ("NOT_FOUND", 2, "--find found no exact candidate"),

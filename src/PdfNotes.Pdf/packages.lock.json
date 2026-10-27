@@ -8,6 +8,21 @@
         "resolved": "156.0.8076",
         "contentHash": "nWP8z9PAK1ArGUGPoYgSsRL8sFkgvVgOrlv82CjEPGpXdtSg/ctCr/Xe8aDI8k2nk3mXvYWGnOlZsRIA7IxupQ=="
       },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "Direct",
+        "requested": "[10.0.13, )",
+        "resolved": "10.0.13",
+        "contentHash": "G2GrGWNAPZBsii2F6AU8n+JT2tC1/I0Ml/e9ZyNCgPjf3hZqronP7o0X91aAynCmVeae8KkSIUNXXeXCNRmdVQ=="
+      },
+      "Microsoft.Extensions.Logging.Abstractions": {
+        "type": "Direct",
+        "requested": "[10.0.13, )",
+        "resolved": "10.0.13",
+        "contentHash": "aSZEhEig4fvNiw2zs8Z6NyDlniKtq6YjcF3DyHuqTEHcZ2VKA/6itMPZ+dW+yWABWExlDcQwwdbqX1Rcb7W8WQ==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.13"
+        }
+      },
       "PDFsharp": {
         "type": "Direct",
         "requested": "[6.2.4, )",
@@ -29,19 +44,6 @@
         "resolved": "1.5.4",
         "contentHash": "p7Mr9zOCYGx9D46CopNLxSSLYqFHLeJdyMVKt5hl9bYsywbhzw6daDJMpAus28X0R5BAaFX3fZJZaAD39zO3tw=="
       },
-      "Microsoft.Extensions.DependencyInjection.Abstractions": {
-        "type": "Transitive",
-        "resolved": "8.0.2",
-        "contentHash": "3iE7UF7MQkCv1cxzCahz+Y/guQbTqieyxyaWKhrRO91itI9cOKO76OHeQDahqG4MmW5umr3CcCvGmK92lWNlbg=="
-      },
-      "Microsoft.Extensions.Logging.Abstractions": {
-        "type": "Transitive",
-        "resolved": "8.0.3",
-        "contentHash": "dL0QGToTxggRLMYY4ZYX5AMwBb+byQBd/5dMiZE07Nv73o6I5Are3C7eQTh7K2+A4ct0PVISSr7TZANbiNb2yQ==",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2"
-        }
-      },
       "pdfnotes.core": {
         "type": "Project",
         "dependencies": {
@@ -51,7 +53,7 @@
       "pdfnotes.text": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.0.0, )"
+          "PdfNotes.Core": "[1.0.1-dev, )"
         }
       }
     },

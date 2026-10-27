@@ -162,7 +162,7 @@ public static class SpaceCommand
     public static List<Rect2> ParseRects(string value, string option)
     {
         string text = value.Trim();
-        if (!text.StartsWith('[') && File.Exists(text)) text = File.ReadAllText(text).Trim();
+        if (!text.StartsWith('[') && CliPaths.Full(text) is var path && File.Exists(path)) text = File.ReadAllText(path).Trim();
         if (!text.StartsWith('['))
             return [.. text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(p => CliArgs.ParseRect(p, option))];
         JsonNode? root;

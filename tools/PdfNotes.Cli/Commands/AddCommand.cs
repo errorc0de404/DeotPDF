@@ -166,7 +166,7 @@ public static class AddCommand
 
     public static readonly CliOp Image = Op("add image", "PNG, JPEG or BMP image", ["--file", "--rect"], [], (args, doc, page) =>
         {
-            string path = Path.GetFullPath(args.Required("--file"));
+            string path = CliPaths.Full(args.Required("--file"));
             if (!File.Exists(path)) throw new CliException("FILE_NOT_FOUND", $"The image {path} does not exist.", ExitCodes.InvalidInput, new JsonObject { ["path"] = path });
             byte[] bytes = File.ReadAllBytes(path);
             Resource resource;
@@ -383,7 +383,7 @@ public static class AddCommand
     {
         if (value.StartsWith('@'))
         {
-            string path = value[1..];
+            string path = CliPaths.Full(value[1..]);
             if (!File.Exists(path)) throw new CliException("FILE_NOT_FOUND", $"The file {path} of {option} does not exist.");
             value = File.ReadAllText(path);
         }
