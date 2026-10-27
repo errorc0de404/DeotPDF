@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 (2026-10-27)
 
 - `deot mcp`: the CLI as an MCP server for Claude Desktop, Claude Code and other clients. Reading commands are tools of their own, writing goes through `apply` with the plan passed directly, `render` and `apply` previews come back as images, and files are limited to the `--root` folders. The command-line interface itself is unchanged.
 - Settings › About: version, license and links, and a check for new versions. Release builds ask once at the first start whether to check at start (at most once a day); a newer release shows in the status bar and opens its page. Nothing is downloaded or installed.

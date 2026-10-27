@@ -54,8 +54,8 @@ The name comes from the Korean prefix 덧 (*deot*), "added on top". The original
 ### Download and run
 
 1. Grab a zip from the [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) page:
-   - `DeotPDF-1.0.0-win-x64.zip` (small). Needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64). If it isn't installed, Windows will tell you when you start the app.
-   - `DeotPDF-1.0.0-win-x64-portable.zip` (bigger, includes the runtime). Unzip and run, nothing else to install.
+   - `DeotPDF-1.1.0-win-x64.zip` (small). Needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64). If it isn't installed, Windows will tell you when you start the app.
+   - `DeotPDF-1.1.0-win-x64-portable.zip` (bigger, includes the runtime). Unzip and run, nothing else to install.
 2. Unzip anywhere and run `DeotPDF.exe`.
 3. Optional: to have DeotPDF show up under *Open with* for `.pdf` files, run this in the unzipped folder. It only touches your user account, needs no admin rights, and doesn't change your default PDF app.
    ```powershell
@@ -80,6 +80,12 @@ deot find lecture.pdf --text "cell membrane" -p 3       # where a phrase is
 deot add mark lecture.pdf -p 3 --find "cell membrane" -o out.pdf
 deot add text lecture.pdf -p 3 --rect 500,60,200,0 --text "**Key point**: see fig. 2" -o out.pdf
 deot apply lecture.pdf plan.json --dry-run --preview-dir preview   # many edits at once, all or nothing
+```
+
+It also runs as an MCP server, so Claude Desktop, Claude Code and other MCP clients can use it as a set of tools. Access is limited to the folders you allow:
+
+```powershell
+claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\Lectures
 ```
 
 The full guide is in [docs/cli.md](docs/cli.md).
@@ -185,8 +191,8 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 ### 다운로드와 실행
 
 1. [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) 페이지에서 zip을 받습니다.
-   - `DeotPDF-1.0.0-win-x64.zip`: 용량이 작은 대신 [.NET 10 데스크톱 런타임](https://dotnet.microsoft.com/download/dotnet/10.0)(x64)이 필요합니다. 없으면 실행할 때 윈도우가 알려 줍니다.
-   - `DeotPDF-1.0.0-win-x64-portable.zip`: 런타임이 들어 있어 용량이 큽니다. 압축만 풀면 바로 됩니다.
+   - `DeotPDF-1.1.0-win-x64.zip`: 용량이 작은 대신 [.NET 10 데스크톱 런타임](https://dotnet.microsoft.com/download/dotnet/10.0)(x64)이 필요합니다. 없으면 실행할 때 윈도우가 알려 줍니다.
+   - `DeotPDF-1.1.0-win-x64-portable.zip`: 런타임이 들어 있어 용량이 큽니다. 압축만 풀면 바로 됩니다.
 2. 아무 데나 압축을 풀고 `DeotPDF.exe`를 실행합니다.
 3. (선택) PDF 파일 우클릭 › '연결 프로그램'에 덧PDF가 뜨게 하려면 압축 푼 폴더에서 아래를 실행합니다. 지금 사용자 계정에만 등록되고, 관리자 권한이 필요 없고, 기본 PDF 프로그램은 바꾸지 않습니다.
    ```powershell
@@ -211,6 +217,12 @@ deot find 강의.pdf --text "세포막" -p 3                  # 문구 위치 �
 deot add mark 강의.pdf -p 3 --find "세포막" -o 결과.pdf  # 그 문구에 형광 표시
 deot add text 강의.pdf -p 3 --rect 500,60,200,0 --text "**핵심**: 그림 2 참고" -o 결과.pdf
 deot apply 강의.pdf plan.json --dry-run --preview-dir 미리보기   # 여러 작업을 한 번에, 하나라도 실패하면 아무것도 안 씀
+```
+
+MCP 서버로도 띄울 수 있어서 Claude Desktop, Claude Code 같은 MCP 클라이언트에서 도구로 바로 쓸 수 있습니다. 허락한 폴더 안의 파일만 다룹니다.
+
+```powershell
+claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\Lectures
 ```
 
 자세한 내용은 [docs/cli.ko.md](docs/cli.ko.md)에 있습니다.
@@ -258,16 +270,16 @@ dotnet publish tools/PdfNotes.Cli -c Release -r win-x64 --self-contained false -
 
 ## Code signing policy / 코드 서명 정책
 
-Windows release builds are signed through [SignPath Foundation](https://signpath.org), which offers free code signing to open-source projects. Once signing is approved, release pages will say: *Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org)*. Releases up to 1.0.0 are unsigned.
+Releases are not code-signed yet. Once DeotPDF has more users, the plan is to apply to [SignPath Foundation](https://signpath.org), which offers free code signing to open-source projects. Release builds already come from GitHub Actions so they can be signed later. When that happens, release pages will say: *Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org)*.
 
-- Only DeotPDF's own files are signed (`DeotPDF.exe`, `deot.exe` and the `DeotPDF`, `deot`, `PdfNotes.*` libraries), built by GitHub Actions from this repository's source.
+- Only DeotPDF's own files will be signed (`DeotPDF.exe`, `deot.exe` and the `DeotPDF`, `deot`, `PdfNotes.*` libraries), built by GitHub Actions from this repository's source.
 - Committers and reviewers: [errorc0de404](https://github.com/errorc0de404)
 - Approvers: [errorc0de404](https://github.com/errorc0de404)
 - Privacy: this program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. The one network feature, the update check, sends only a request for the latest release version to the GitHub API (`api.github.com`), is offered at first start and can be turned off in Settings › About. GitHub's handling of that request falls under the [GitHub Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
 
-윈도우 릴리스 파일은 오픈소스 프로젝트에 무료 서명을 해 주는 [SignPath Foundation](https://signpath.org)을 통해 서명합니다. 서명이 승인되면 릴리스 페이지에 위 영어 문구(SignPath.io가 서명을, SignPath Foundation이 인증서를 제공한다는 내용)를 적습니다. 1.0.0까지는 서명이 없습니다.
+릴리스 파일에는 아직 코드 서명이 없습니다. 사용자가 늘면 오픈소스 프로젝트에 무료 서명을 해 주는 [SignPath Foundation](https://signpath.org)에 신청할 계획이고, 나중에 서명할 수 있도록 릴리스는 이미 GitHub Actions에서 빌드합니다. 서명이 붙으면 릴리스 페이지에 위 영어 문구(SignPath.io가 서명을, SignPath Foundation이 인증서를 제공한다는 내용)를 적습니다.
 
-- 서명하는 것은 덧PDF가 직접 만든 파일(`DeotPDF.exe`, `deot.exe`, `DeotPDF`·`deot`·`PdfNotes.*` 라이브러리)뿐이고, 이 저장소의 소스를 GitHub Actions에서 빌드한 것입니다.
+- 서명할 것은 덧PDF가 직접 만든 파일(`DeotPDF.exe`, `deot.exe`, `DeotPDF`·`deot`·`PdfNotes.*` 라이브러리)뿐이고, 이 저장소의 소스를 GitHub Actions에서 빌드한 것입니다.
 - 커밋·검토: [errorc0de404](https://github.com/errorc0de404)
 - 서명 승인: [errorc0de404](https://github.com/errorc0de404)
 - 개인정보: 사용자가 요청하지 않는 한 다른 시스템으로 정보를 보내지 않습니다. 네트워크를 쓰는 기능은 업데이트 확인 하나이고, GitHub API(`api.github.com`)에 최신 릴리스 버전을 묻는 요청만 보냅니다. 처음 실행할 때 켤지 묻고, 설정 › 정보에서 끌 수 있습니다.

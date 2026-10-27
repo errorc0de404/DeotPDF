@@ -1,6 +1,6 @@
 # DeotPDF (덧PDF)
 
-> Free, open-source (GPL-3.0) PDF annotation and note-taking app for Windows 10/11, written in C#/WPF on .NET 10. Users write on PDFs with a mouse and keyboard (pen, text-snapping highlighter, text boxes with Korean IME, shapes, images, sticky notes) and save a standard PDF whose annotations show in other viewers and stay editable in DeotPDF. It also ships `deot`, a JSON-output command-line tool that lets AI agents and scripts read PDF layout and add the same annotations.
+> Free, open-source (GPL-3.0) PDF annotation and note-taking app for Windows 10/11, written in C#/WPF on .NET 10. Users write on PDFs with a mouse and keyboard (pen, text-snapping highlighter, text boxes with Korean IME, shapes, images, sticky notes) and save a standard PDF whose annotations show in other viewers and stay editable in DeotPDF. It also ships `deot`, a JSON-output command-line tool that lets AI agents and scripts read PDF layout and add the same annotations; `deot mcp` exposes the same commands as an MCP server (stdio, limited to `--root` folders).
 
 Korean name: 덧PDF. Korean description: 윈도우용 무료 PDF 필기·주석 프로그램. 강의 자료 PDF에 마우스로 필기, 글자에 맞는 형광펜, 한글 텍스트 상자, 페이지 편집, PDF 합치기, AI 에이전트용 명령줄 도구 `deot`.
 
@@ -9,11 +9,11 @@ Internal code name: PdfNotes (solution `PdfNotes.slnx`, namespaces, and the edit
 ## Docs
 
 - [README](README.md): features, download, build, limitations, FAQ (English and Korean)
-- [CLI guide (English)](docs/cli.md): every `deot` command, coordinates, `apply` plan format, `check` rules, error codes, recommended agent workflow
+- [CLI guide (English)](docs/cli.md): every `deot` command, coordinates, `apply` plan format, `check` rules, error codes, recommended agent workflow, MCP server setup
 - [CLI 설명서 (한국어)](docs/cli.ko.md): 같은 내용의 한국어판
 - [Changelog](CHANGELOG.md)
 
 ## Optional
 
 - [Editing data format](docs/file-format.md) (Korean): how DeotPDF stores re-editable annotation data inside a PDF, read/write rules and version history (schema v1–v7)
-- [Third-party notices](THIRD-PARTY-NOTICES.md): PDFium, PDFsharp, Clipper2
+- [Third-party notices](THIRD-PARTY-NOTICES.md): PDFium, PDFsharp, Clipper2, MCP C# SDK
