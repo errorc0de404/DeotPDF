@@ -319,7 +319,8 @@ public sealed class CliAddTests : IDisposable
         Assert.True(fits["layout"]!["fits"]!.GetValue<bool>());
         // Missing glyphs are always reported.
         var missing = Write("add", "text", sample, "-p", "1", "--rect", "60,500,200,0", "--text", "A\U000F0000B", "--dry-run");
-        Assert.Contains(missing["warnings"]!.AsArray(), w => w!["code"]!.GetValue<string>() == "MISSING_GLYPH");
+        if (!TextEngineSetup.EveryCodePointHasAGlyph)
+            Assert.Contains(missing["warnings"]!.AsArray(), w => w!["code"]!.GetValue<string>() == "MISSING_GLYPH");
     }
 
     [Fact]

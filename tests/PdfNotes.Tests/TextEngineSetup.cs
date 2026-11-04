@@ -19,4 +19,12 @@ internal static class TextEngineSetup
 #pragma warning restore CA2255
 
     public static bool Skia => TextLayout.Engine is SkiaTextEngine;
+
+    /// <summary>The default family (Malgun Gothic) is not installed and the tests pretend it is (Cli.Tests on Linux and macOS).</summary>
+    public static bool DefaultFamilySimulated { get; private set; }
+
+    /// <summary>
+    /// macOS has a last-resort font with a box for every code point, so nothing is ever a missing glyph there.
+    /// </summary>
+    public static bool EveryCodePointHasAGlyph => OperatingSystem.IsMacOS();
 }

@@ -218,7 +218,7 @@ public sealed class CliQueryTests : IDisposable
         Assert.Equal(0, lines[0]!["start"]!.GetValue<int>());
         Assert.Equal(text.Length, lines[^1]!["end"]!.GetValue<int>());
         // Where the default family is not installed (Linux, macOS CI) the CLI rightly warns about the substitute.
-        if (TextLayout.FontAvailable(d.FontFamily)) Assert.Empty(measured["warnings"]!.AsArray());
+        if (TextLayout.FontAvailable(d.FontFamily) && !TextEngineSetup.DefaultFamilySimulated) Assert.Empty(measured["warnings"]!.AsArray());
         Assert.Equal(4, measured["effectiveStyle"]!["padding"]!.GetValue<double>());
 
         // No width: one line per written line.
@@ -236,13 +236,19 @@ public sealed class CliQueryTests : IDisposable
         string missing = char.ConvertFromUtf32(0x10FFFD); // a private-use code point no font draws
         var measured = CliRunner.Ok("measure", "--text", $"[{{\"text\":\"abc {missing} 가\",\"font\":\"No Such Font 123\"}}]", "--width", "200");
         var codes = measured["warnings"]!.AsArray().Select(w => w!["code"]!.GetValue<string>()).ToArray();
-        Assert.Contains("MISSING_GLYPH", codes);
         Assert.Contains("FONT_NOT_INSTALLED", codes);
-        var glyph = Assert.Single(measured["missingGlyphs"]!.AsArray())!;
-        Assert.Equal(["U+10FFFD"], glyph["codepoints"]!.AsArray().Select(c => c!.GetValue<string>()).ToArray());
-        Assert.Equal(4, glyph["start"]!.GetValue<int>());
-        Assert.All(measured["fonts"]!.AsArray().Where(f => f!["start"]!.GetValue<int>() < 4), f => Assert.Equal(TextLayout.FallbackFont, f!["font"]!.GetValue<string>()));
-        Assert.Equal(TextLayout.FallbackFont, measured["effectiveStyle"]!["fontUsed"]!.GetValue<string>());
+        if (!TextEngineSetup.EveryCodePointHasAGlyph)
+        {
+            Assert.Contains("MISSING_GLYPH", codes);
+            var glyph = Assert.Single(measured["missingGlyphs"]!.AsArray())!;
+            Assert.Equal(["U+10FFFD"], glyph["codepoints"]!.AsArray().Select(c => c!.GetValue<string>()).ToArray());
+            Assert.Equal(4, glyph["start"]!.GetValue<int>());
+        }
+        // A family that is not installed is drawn with the default family, or the engine's fallback without it.
+        string substitute = TextEngineSetup.DefaultFamilySimulated ? "Malgun Gothic" : TextLayout.FallbackFont; // not UI text (D14e)
+        if (!TextEngineSetup.DefaultFamilySimulated)
+            Assert.All(measured["fonts"]!.AsArray().Where(f => f!["start"]!.GetValue<int>() < 4), f => Assert.Equal(TextLayout.FallbackFont, f!["font"]!.GetValue<string>()));
+        Assert.Equal(substitute, measured["effectiveStyle"]!["fontUsed"]!.GetValue<string>());
 
         var fonts = CliRunner.Ok("fonts");
         Assert.Equal(TextLayout.FallbackFont, fonts["fallback"]!.GetValue<string>());
