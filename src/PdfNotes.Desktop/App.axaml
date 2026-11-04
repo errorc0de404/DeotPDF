@@ -1,0 +1,17 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PdfNotes.Desktop.App"
+             RequestedThemeVariant="Default">
+    <!-- Roadmap P4 A0: Fluent controls under the app's own design tokens (Themes/Tokens, Themes/Colors — the WPF values). -->
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://DeotPDF.Next/Themes/Tokens.axaml" />
+                <ResourceInclude Source="avares://DeotPDF.Next/Themes/Colors.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

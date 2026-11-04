@@ -1,0 +1,40 @@
+<!-- Generated from src/PdfNotes.App/Themes/Tokens.xaml (roadmap P4 A0). Same keys and values as the WPF tokens until the WPF app
+     is retired; ThemeTokenTests checks that they match. Change both, or regenerate. -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <FontFamily x:Key="Font.Ui">Malgun Gothic</FontFamily>
+    <FontFamily x:Key="Font.Icon">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+    <FontFamily x:Key="Font.Mono">Consolas</FontFamily>
+    <x:Double x:Key="FontSize.Body">13</x:Double>
+    <x:Double x:Key="FontSize.Caption">12</x:Double>
+    <x:Double x:Key="FontSize.Title">18</x:Double>
+    <x:Double x:Key="FontSize.Icon">15</x:Double>
+    <x:Double x:Key="FontSize.IconSmall">12</x:Double>
+    <x:Double x:Key="Icon.Size">16</x:Double>
+    <x:Double x:Key="Icon.Stroke">1.1</x:Double>
+    <x:Double x:Key="Height.Field">26</x:Double>
+    <x:Double x:Key="Height.SubBarRow">28</x:Double>
+    <x:Double x:Key="FontSize.PageNumber">11</x:Double>
+    <x:Double x:Key="Space.PageNumber">8</x:Double>
+    <CornerRadius x:Key="Radius.Control">4</CornerRadius>
+    <CornerRadius x:Key="Radius.Small">2</CornerRadius>
+    <CornerRadius x:Key="Radius.Popup">6</CornerRadius>
+    <Thickness x:Key="Space.TabRow">8,3,8,0</Thickness>
+    <Thickness x:Key="Space.Ribbon">8,2,8,2</Thickness>
+    <Thickness x:Key="Space.RibbonTab">12,5</Thickness>
+    <Thickness x:Key="Space.SubBar">10,3</Thickness>
+    <Thickness x:Key="Space.ToolButton">6,5</Thickness>
+    <Thickness x:Key="Space.ToolButtonGap">1,0</Thickness>
+    <Thickness x:Key="Space.IconGap">0,0,6,0</Thickness>
+    <Thickness x:Key="Space.Separator">6,4</Thickness>
+    <Thickness x:Key="Space.MenuSeparator">8,4</Thickness>
+    <Thickness x:Key="Space.Button">8,3</Thickness>
+    <Thickness x:Key="Space.Popup">10</Thickness>
+    <Thickness x:Key="Space.MenuItem">8,5</Thickness>
+    <Thickness x:Key="Space.ToolTip">8,4</Thickness>
+    <Thickness x:Key="Space.FieldGroup">0,0,6,0</Thickness>
+    <Thickness x:Key="Space.FieldLabel">0,0,5,0</Thickness>
+    <Thickness x:Key="Space.Field">3,0</Thickness>
+    <Thickness x:Key="Space.DialogButtons">0,16,0,0</Thickness>
+</ResourceDictionary>

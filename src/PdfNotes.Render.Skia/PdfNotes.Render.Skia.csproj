@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Roadmap P4 A2: annotations and canvas marks drawn with SkiaSharp. No window needed, so tests compare it with the
+       PDF appearance rendered by PDFium. The Avalonia app (PdfNotes.Desktop) draws its pages with it. -->
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PdfNotes.Core\PdfNotes.Core.csproj" />
+    <ProjectReference Include="..\PdfNotes.Editor\PdfNotes.Editor.csproj" />
+    <ProjectReference Include="..\PdfNotes.Text.Skia\PdfNotes.Text.Skia.csproj" />
+  </ItemGroup>
+</Project>

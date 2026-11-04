@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Roadmap P4: the Avalonia desktop app for Windows, macOS and Linux (1.3). Until it replaces the WPF app (A7) the
+       executable is DeotPDF.Next so both can sit in one folder. Build another OS with -p:RuntimeIdentifier=linux-x64 etc. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>DeotPDF.Next</AssemblyName>
+    <RootNamespace>PdfNotes.Desktop</RootNamespace>
+    <ApplicationIcon>..\PdfNotes.App\Assets\DeotPDF.ico</ApplicationIcon>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Skia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="bblanchon.PDFium.Linux" Version="156.0.8076" />
+    <PackageReference Include="bblanchon.PDFium.macOS" Version="156.0.8076" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PdfNotes.ViewModels\PdfNotes.ViewModels.csproj" />
+    <ProjectReference Include="..\PdfNotes.Editor\PdfNotes.Editor.csproj" />
+    <ProjectReference Include="..\PdfNotes.Pdf\PdfNotes.Pdf.csproj" />
+    <ProjectReference Include="..\PdfNotes.Text.Skia\PdfNotes.Text.Skia.csproj" />
+    <ProjectReference Include="..\PdfNotes.TextEditor.Avalonia\PdfNotes.TextEditor.Avalonia.csproj" />
+    <ProjectReference Include="..\PdfNotes.Render.Skia\PdfNotes.Render.Skia.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The language packs the WPF app ships; the same files until it is retired. -->
+    <None Include="..\PdfNotes.App\Languages\*.json" Link="Languages\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

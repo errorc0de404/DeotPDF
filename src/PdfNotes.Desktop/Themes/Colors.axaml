@@ -1,0 +1,98 @@
+<!-- Generated from src/PdfNotes.App/Themes/Light.xaml, Dark.xaml, Canvas.xaml and Accents.xaml (roadmap P4 A0). Same keys and values as the WPF tokens until the WPF app
+     is retired; ThemeTokenTests checks that they match. Change both, or regenerate. -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="Window.Background" Color="#FAFAFA" />
+            <SolidColorBrush x:Key="Bar.Background" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="SubBar.Background" Color="#FCFCFC" />
+            <SolidColorBrush x:Key="Panel.Background" Color="#F3F3F4" />
+            <SolidColorBrush x:Key="Surface.Background" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="Canvas.Background" Color="#E8E8EA" />
+            <SolidColorBrush x:Key="Divider" Color="#E0E0E0" />
+            <SolidColorBrush x:Key="Border" Color="#C8C8C8" />
+            <SolidColorBrush x:Key="Text.Primary" Color="#202020" />
+            <SolidColorBrush x:Key="Text.Secondary" Color="#444444" />
+            <SolidColorBrush x:Key="Text.Muted" Color="#666666" />
+            <SolidColorBrush x:Key="Text.Disabled" Color="#A0A0A0" />
+            <SolidColorBrush x:Key="Text.Danger" Color="#B00020" />
+            <SolidColorBrush x:Key="Control.Background" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="Control.Border" Color="#B4B4B8" />
+            <SolidColorBrush x:Key="Control.Hover" Color="#E6E6E6" />
+            <SolidColorBrush x:Key="Control.Pressed" Color="#D6D6D6" />
+            <SolidColorBrush x:Key="Button.Background" Color="#F5F5F5" />
+            <SolidColorBrush x:Key="Swatch.Outline" Color="#40000000" />
+            <SolidColorBrush x:Key="Swatch.Hover" Color="#C0C0C0" />
+            <SolidColorBrush x:Key="ScrollBar.Track" Color="#F0F0F0" />
+            <SolidColorBrush x:Key="ScrollBar.Thumb" Color="#C2C2C2" />
+            <SolidColorBrush x:Key="ScrollBar.ThumbHover" Color="#A6A6A6" />
+            <SolidColorBrush x:Key="Page.Shadow" Color="#30000000" />
+            <SolidColorBrush x:Key="Page.Border" Color="#C8C8C8" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="Window.Background" Color="#202020" />
+            <SolidColorBrush x:Key="Bar.Background" Color="#2B2B2B" />
+            <SolidColorBrush x:Key="SubBar.Background" Color="#272727" />
+            <SolidColorBrush x:Key="Panel.Background" Color="#242424" />
+            <SolidColorBrush x:Key="Surface.Background" Color="#2C2C2C" />
+            <SolidColorBrush x:Key="Canvas.Background" Color="#1A1A1A" />
+            <SolidColorBrush x:Key="Divider" Color="#3A3A3A" />
+            <SolidColorBrush x:Key="Border" Color="#4A4A4A" />
+            <SolidColorBrush x:Key="Text.Primary" Color="#EDEDED" />
+            <SolidColorBrush x:Key="Text.Secondary" Color="#C8C8C8" />
+            <SolidColorBrush x:Key="Text.Muted" Color="#A0A0A0" />
+            <SolidColorBrush x:Key="Text.Disabled" Color="#6E6E6E" />
+            <SolidColorBrush x:Key="Text.Danger" Color="#FF8A80" />
+            <SolidColorBrush x:Key="Control.Background" Color="#1E1E1E" />
+            <SolidColorBrush x:Key="Control.Border" Color="#5C5C5C" />
+            <SolidColorBrush x:Key="Control.Hover" Color="#3A3A3A" />
+            <SolidColorBrush x:Key="Control.Pressed" Color="#464646" />
+            <SolidColorBrush x:Key="Button.Background" Color="#333333" />
+            <SolidColorBrush x:Key="Swatch.Outline" Color="#66FFFFFF" />
+            <SolidColorBrush x:Key="Swatch.Hover" Color="#6E6E6E" />
+            <SolidColorBrush x:Key="ScrollBar.Track" Color="#262626" />
+            <SolidColorBrush x:Key="ScrollBar.Thumb" Color="#5A5A5A" />
+            <SolidColorBrush x:Key="ScrollBar.ThumbHover" Color="#7A7A7A" />
+            <SolidColorBrush x:Key="Page.Shadow" Color="#80000000" />
+            <SolidColorBrush x:Key="Page.Border" Color="#3A3A3A" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+    <!-- Paper and the marks drawn on it: the same in every theme (Canvas.xaml). -->
+    <SolidColorBrush x:Key="Paper" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Paper.Text" Color="#696969" />
+    <SolidColorBrush x:Key="Paper.Edge" Color="#808080" />
+    <SolidColorBrush x:Key="Overlay.Selection" Color="#1E6FD9" />
+    <SolidColorBrush x:Key="Overlay.Halo" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Overlay.TextSelection" Color="#551E6FD9" />
+    <SolidColorBrush x:Key="Overlay.LassoFill" Color="#141E6FD9" />
+    <SolidColorBrush x:Key="Overlay.TextEditFrame" Color="#6495ED" />
+    <SolidColorBrush x:Key="Overlay.Caret" Color="#000000" />
+    <SolidColorBrush x:Key="Overlay.Neutral" Color="#708090" />
+    <SolidColorBrush x:Key="Overlay.Eraser" Color="#505050" />
+    <SolidColorBrush x:Key="Overlay.EraserHalo" Color="#C0FFFFFF" />
+    <SolidColorBrush x:Key="Overlay.EraserFill" Color="#18505050" />
+    <SolidColorBrush x:Key="Overlay.Search" Color="#55FF9A00" />
+    <SolidColorBrush x:Key="Overlay.SearchCurrent" Color="#80FF6A00" />
+    <SolidColorBrush x:Key="Overlay.SearchCurrentEdge" Color="#E05000" />
+    <SolidColorBrush x:Key="Overlay.PageNumber" Color="#99808080" />
+    <SolidColorBrush x:Key="Cursor.Fill" Color="#000000" />
+    <SolidColorBrush x:Key="Cursor.Outline" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Icon.Highlight" Color="#FFE600" />
+    <!-- Accent colors, light and dark variant each; DesktopTheme builds Accent / Accent.Subtle / Accent.Foreground. -->
+    <Color x:Key="Accent.Blue.Light">#1E6FD9</Color>
+    <Color x:Key="Accent.Blue.Dark">#5B9EF0</Color>
+    <Color x:Key="Accent.Green.Light">#1B8A4B</Color>
+    <Color x:Key="Accent.Green.Dark">#4CC07A</Color>
+    <Color x:Key="Accent.Purple.Light">#7B3FD1</Color>
+    <Color x:Key="Accent.Purple.Dark">#A780F0</Color>
+    <Color x:Key="Accent.Orange.Light">#D2650A</Color>
+    <Color x:Key="Accent.Orange.Dark">#F4A04A</Color>
+    <Color x:Key="Accent.Red.Light">#C8323C</Color>
+    <Color x:Key="Accent.Red.Dark">#F06B73</Color>
+    <Color x:Key="Accent.Gray.Light">#5F6670</Color>
+    <Color x:Key="Accent.Gray.Dark">#A3AAB4</Color>
+    <Color x:Key="Accent.Foreground.Light">#FFFFFF</Color>
+    <Color x:Key="Accent.Foreground.Dark">#101010</Color>
+</ResourceDictionary>

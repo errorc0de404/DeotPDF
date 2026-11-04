@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:canvas="using:PdfNotes.Desktop.Canvas"
+        x:Class="PdfNotes.Desktop.Views.MainWindow"
+        Title="DeotPDF"
+        Width="1200" Height="800" MinWidth="720" MinHeight="480"
+        Background="{DynamicResource Window.Background}"
+        FontFamily="{DynamicResource Font.Ui}" FontSize="{DynamicResource FontSize.Body}">
+    <!-- Roadmap P4 A0–A4: the shell. The ribbon, the style bars and the page list come in A5; until then a plain tool row. -->
+    <DockPanel>
+        <Border x:Name="RibbonHost" DockPanel.Dock="Top" Background="{DynamicResource Bar.Background}"
+                BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="{DynamicResource Space.Ribbon}">
+            <WrapPanel x:Name="ToolRow" Orientation="Horizontal" />
+        </Border>
+        <Border x:Name="StatusBar" DockPanel.Dock="Bottom" Background="{DynamicResource Bar.Background}"
+                BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="{DynamicResource Space.SubBar}">
+            <DockPanel>
+                <TextBlock x:Name="ZoomText" DockPanel.Dock="Right" Foreground="{DynamicResource Text.Secondary}" />
+                <TextBlock x:Name="StatusText" Foreground="{DynamicResource Text.Secondary}" />
+            </DockPanel>
+        </Border>
+        <Border x:Name="CanvasHost" Background="{DynamicResource Canvas.Background}" ClipToBounds="True">
+            <canvas:DocumentCanvas x:Name="Canvas" />
+        </Border>
+    </DockPanel>
+</Window>
