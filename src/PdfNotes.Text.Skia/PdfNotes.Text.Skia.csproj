@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- P2: the SkiaSharp + HarfBuzz text engine. Used by the editor trial now; the app and the CLI switch to it in P4.
+       Keep SkiaSharp on the version Avalonia uses (roadmap P2). -->
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
+    <PackageReference Include="SkiaSharp.HarfBuzz" Version="3.119.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PdfNotes.Core\PdfNotes.Core.csproj" />
+    <ProjectReference Include="..\PdfNotes.Text\PdfNotes.Text.csproj" />
+  </ItemGroup>
+</Project>

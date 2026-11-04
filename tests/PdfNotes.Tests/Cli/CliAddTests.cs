@@ -1,8 +1,10 @@
 using System.IO;
 using System.Text.Json.Nodes;
+#if !DEOT_SKIA
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using PdfNotes.App.Canvas;
+#endif
 using PdfNotes.Cli;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
@@ -44,11 +46,8 @@ public sealed class CliAddTests : IDisposable
     {
         var pixels = new byte[width * height * 4];
         for (int i = 0; i < pixels.Length; i += 4) (pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]) = (200, 80, (byte)(i % 255), 255);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, width * 4)));
         string path = Out($"image-{width}x{height}.png");
-        using var stream = File.Create(path);
-        encoder.Save(stream);
+        TestPng.Save(path, width, height, pixels);
         return path;
     }
 
@@ -139,6 +138,7 @@ public sealed class CliAddTests : IDisposable
         Assert.Equal(steps.Length, CliRunner.Ok("annot", "list", resaved, "--batch-id", "run-c4")["count"]!.GetValue<int>());
     }
 
+#if !DEOT_SKIA // the WPF app painter: the Windows test project only
     /// <summary>
     /// cli_plan 4.2 left from C1: <c>render</c> draws annotations from the Flatten PDF; the app screen draws them with
     /// <see cref="AnnotationPainter"/>. On every page of every kind both must look the same: of the pixels either one
@@ -164,6 +164,7 @@ public sealed class CliAddTests : IDisposable
                     context.DrawImage(PageRaster.ToBitmap(paper), new System.Windows.Rect(0, 0, paper.Width, paper.Height));
                     foreach (var a in page.Annotations)
                         if (a is ImageAnnotation image) AnnotationPainter.PaintImage(context, image, doc.Model.Resources[image.ResourceId], view);
+                        else if (a is TextBoxAnnotation text && TextEngineSetup.Skia) PaintSkiaText(context, text, view, paper.Width, paper.Height);
                         else AnnotationPainter.Paint(context, a, view);
                 });
                 var appPixels = new byte[paper.Width * paper.Height * 4];
@@ -215,6 +216,24 @@ public sealed class CliAddTests : IDisposable
         if (keep is not null) File.WriteAllLines(Path.Combine(keep, "compare.txt"), report);
     }
 
+    /// <summary>
+    /// With the Skia engine (PDFNOTES_TEXT_ENGINE=skia) the WPF app painter cannot draw a text box; its screen drawing
+    /// is the Skia renderer the P4 app will use (roadmap P2 S3), laid over the page like the painter would.
+    /// </summary>
+    private static void PaintSkiaText(System.Windows.Media.DrawingContext context, TextBoxAnnotation text, ViewTransform view, int width, int height)
+    {
+        var m = text.Transform.Then(view.PageToDip);
+        using var bitmap = new SkiaSharp.SKBitmap(new SkiaSharp.SKImageInfo(width, height, SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Premul));
+        using (var canvas = new SkiaSharp.SKCanvas(bitmap))
+        {
+            canvas.Clear(SkiaSharp.SKColors.Transparent);
+            canvas.SetMatrix(new SkiaSharp.SKMatrix((float)m.M11, (float)m.M21, (float)m.OffsetX, (float)m.M12, (float)m.M22, (float)m.OffsetY, 0, 0, 1));
+            PdfNotes.Text.SkiaTextRenderer.Draw(canvas, (PdfNotes.Text.SkiaTextLayout)TextLayout.Measure(text));
+        }
+        var layer = System.Windows.Media.Imaging.BitmapSource.Create(width, height, 96, 96, PixelFormats.Pbgra32, null, bitmap.GetPixels(), bitmap.ByteCount, bitmap.RowBytes);
+        context.DrawImage(layer, new System.Windows.Rect(0, 0, width, height));
+    }
+
     private static void Sta(Action action)
     {
         Exception? failure = null;
@@ -224,6 +243,7 @@ public sealed class CliAddTests : IDisposable
         Assert.True(thread.Join(TimeSpan.FromSeconds(60)), "timed out");
         if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
     }
+#endif
 
     [Fact]
     public void FindNeedsExactlyOneCandidate()

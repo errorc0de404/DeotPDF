@@ -22,17 +22,7 @@ public partial class MainWindow
     /// The open document's own file is never a target. The document, its path and its unsaved mark do not change.
     /// Returns the number of files written.
     /// </summary>
-    public async Task<int> ExportPagesAsync(bool allPages = false, bool flatten = false)
-    {
-        if (busy || document is not { } doc) return 0;
-        FinishTextEditing();
-        var model = doc.Session.Current;
-        var selected = SelectedPageIds.Select(model.IndexOfPage).Where(i => i >= 0);
-        var dialog = new PageExportDialog(model.Pages.Count, allPages || flatten ? PageRanges.All : PageRanges.Format(selected, model.Pages.Count)) { Owner = this, Flatten = flatten };
-        bool ok = ExportDialogOverride is { } run ? run(dialog) && dialog.Accept() : dialog.ShowDialog() == true;
-        if (!ok || dialog.Result is not { Length: > 0 } groups) return 0;
-        return await workflow.ExportPagesAsync(groups, dialog.Flatten);
-    }
+    public Task<int> ExportPagesAsync(bool allPages = false, bool flatten = false) => viewModel.ImportExport.ExportPagesAsync(allPages, flatten);
 
     /// <summary>
     /// 이 페이지의 필기 삭제 (spec 11.11): every annotation of the selected pages, locked ones too, after one confirmation,
@@ -45,13 +35,13 @@ public partial class MainWindow
         var ids = SelectedPageIds;
         var pages = ids.Select(doc.Session.Current.GetPage).ToList();
         int count = pages.Sum(p => p.Annotations.Count), locked = pages.Sum(p => p.Annotations.Count(a => a.Locked));
-        if (count == 0) { StatusText.Text = Strings.Get("clearNotes.nothing"); return false; }
+        if (count == 0) { viewModel.Status = Strings.Get("clearNotes.nothing"); return false; }
         string which = pages.Count == 1 ? Strings.Get("clearNotes.thisPage") : Strings.Format("clearNotes.selectedPages", ("count", pages.Count));
         string lockedNote = locked > 0 ? Strings.Format("clearNotes.lockedIncluded", ("count", locked)) : "";
         if (Prompt(Strings.Format("clearNotes.confirm", ("which", which), ("count", count), ("locked", lockedNote)), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return false;
         selectTool.SetSelection([]);
         bool done = RunPageCommand(m => DocumentEdits.ClearPages(m, ids));
-        if (done) StatusText.Text = Strings.Format("clearNotes.done", ("count", count));
+        if (done) viewModel.Status = Strings.Format("clearNotes.done", ("count", count));
         return done;
     }
 

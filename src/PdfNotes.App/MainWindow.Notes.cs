@@ -25,7 +25,7 @@ public partial class MainWindow
     // ----- 24.12 reading dark page -----
 
     /// <summary>The page display is inverted (setting 화면 › 어두운 페이지, or its preview in the settings window).</summary>
-    public bool DarkPagesShown { get; private set; }
+    public bool DarkPagesShown => viewModel.Display.DarkPages;
 
     /// <summary>
     /// Sets the <c>Page.Effect</c> resource: page content in the document area and the thumbnails take it; marks, the
@@ -33,7 +33,6 @@ public partial class MainWindow
     /// </summary>
     private void ShowDarkPages(bool on)
     {
-        DarkPagesShown = on;
         if (on && darkPageEffect is null) { darkPageEffect = new InvertEffect(); darkPageEffect.Freeze(); }
         Resources["Page.Effect"] = on ? darkPageEffect : null;
     }
@@ -41,7 +40,7 @@ public partial class MainWindow
     // ----- 24.10 hide the notes -----
 
     /// <summary>App annotations are hidden on the pages and thumbnails (보기 › 필기 숨기기). View state only.</summary>
-    public bool NotesHidden { get; private set; }
+    public bool NotesHidden => viewModel.Display.NotesHidden;
 
     private void HideNotesClick(object sender, RoutedEventArgs e) => SetNotesHidden(HideNotesButton.IsChecked == true);
 
@@ -55,20 +54,19 @@ public partial class MainWindow
         if (NotesHidden == hidden) { HideNotesButton.IsChecked = hidden; return; }
         FinishTextEditing();
         View.CancelTool();
-        NotesHidden = hidden;
+        viewModel.Display.NotesHidden = hidden;
         if (hidden) { SetTool(ToolKind.Select); selectTool.Select(null); }
         selectTool.IgnoreAnnotations = hidden;
         HideNotesButton.IsChecked = hidden;
         NotesHiddenText.Visibility = hidden ? Visibility.Visible : Visibility.Collapsed;
         UpdateStyleBar();
         View.RefreshOverlays();
-        foreach (var thumb in pageThumbs) thumb.Rendered = null;
-        RenderThumbnails();
+        _ = pages.InvalidateThumbnailsAsync();
     }
 
     // ----- 24.7 pen favorites -----
 
-    public IReadOnlyList<AppSettings.FavoriteSettings?> Favorites => settings.Favorites;
+    public IReadOnlyList<AppSettings.FavoriteSettings?> Favorites => viewModel.Favorites.Slots;
 
     /// <summary>The favorites at the right end of the settings row under the ribbon (2026-10-15: every tab, not only 필기).</summary>
     private void ShowFavorites(bool shown) => FavoritesGroup.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
@@ -81,7 +79,7 @@ public partial class MainWindow
         {
             int slot = i;
             var button = new Button { Name = $"Favorite{i}", Style = (Style)FindResource("ToolButton"), Focusable = false, Padding = new Thickness(2),
-                Content = FavoriteIcon(settings.Favorites[i]), ToolTip = FavoriteTip(settings.Favorites[i], i) };
+                Content = FavoriteIcon(settings.Favorites[i]), ToolTip = FavoritesViewModel.Tip(settings.Favorites[i], i) };
             button.Click += (_, _) => ApplyFavorite(slot);
             var replace = new MenuItem { Header = Strings.Get("favorites.replace") };
             replace.Click += (_, _) => StoreFavorite(slot);
@@ -90,19 +88,6 @@ public partial class MainWindow
             button.ContextMenu = new ContextMenu { Items = { replace, clear } };
             FavoritesPanel.Children.Add(button);
         }
-    }
-
-    /// <summary>`펜 2pt (Ctrl+1)`, `밑줄 1.5pt (Ctrl+3)`; an empty slot says how to fill it (spec 24.7).</summary>
-    private static string FavoriteTip(AppSettings.FavoriteSettings? slot, int index)
-    {
-        if (slot is null) return Strings.Get("favorites.emptyTip");
-        string name = slot.Tool != ToolKind.FreeHighlight ? Strings.Get("ribbon.pen") : slot.MarkKind switch
-        {
-            TextMarkupKind.Underline => Strings.Get("markup.underline"),
-            TextMarkupKind.StrikeOut => Strings.Get("text.strikeOut"),
-            _ => Strings.Get("ribbon.highlighter")
-        };
-        return Strings.Format("favorites.tip", ("name", name), ("width", Math.Round(slot.Style.WidthPt, 1)), ("key", index + 1));
     }
 
     /// <summary>
@@ -119,7 +104,7 @@ public partial class MainWindow
             grid.Children.Add(ring);
             return grid;
         }
-        var style = slot.Style.ToStyle(StrokeStyle.DefaultPen, FavoriteKind(slot));
+        var style = slot.Style.ToStyle(StrokeStyle.DefaultPen, FavoritesViewModel.Kind(slot));
         var brush = new SolidColorBrush(Color.FromArgb((byte)Math.Round(255 * (1 - style.TransparencyPercent / 100)), style.Color.R, style.Color.G, style.Color.B));
         brush.Freeze();
         Shape mark = slot.Tool != ToolKind.FreeHighlight
@@ -132,9 +117,6 @@ public partial class MainWindow
         return grid;
     }
 
-    private static AnnotationKind FavoriteKind(AppSettings.FavoriteSettings slot) =>
-        slot.Tool != ToolKind.FreeHighlight ? AnnotationKind.Ink : slot.MarkKind is null ? AnnotationKind.FreeHighlight : AnnotationKind.TextMarkup;
-
     /// <summary>
     /// A favorite switches to its tool (the highlighter with its kind) with its color, width and transparency; an empty
     /// one stores the current settings. While the notes are hidden it shows them first (spec 24.10).
@@ -144,54 +126,17 @@ public partial class MainWindow
         if (slot < 0 || slot >= settings.Favorites.Length) return;
         if (settings.Favorites[slot] is not { } favorite) { StoreFavorite(slot); return; }
         if (NotesHidden) SetNotesHidden(false);
-        if (favorite.Tool == ToolKind.FreeHighlight)
-        {
-            markKind = settings.MarkKind = favorite.MarkKind;
-            switch (favorite.MarkKind)
-            {
-                case TextMarkupKind.Underline:
-                    underlineStyle = favorite.Style.ToStyle(StrokeStyle.DefaultMarkup, AnnotationKind.TextMarkup);
-                    settings.Underline = AppSettings.StyleSettings.From(underlineStyle);
-                    break;
-                case TextMarkupKind.StrikeOut:
-                    strikeOutStyle = favorite.Style.ToStyle(StrokeStyle.DefaultMarkup, AnnotationKind.TextMarkup);
-                    settings.StrikeOut = AppSettings.StyleSettings.From(strikeOutStyle);
-                    break;
-                default:
-                    highlighterStyle = favorite.Style.ToStyle(StrokeStyle.DefaultHighlighter, AnnotationKind.FreeHighlight);
-                    settings.Highlighter = AppSettings.StyleSettings.From(highlighterStyle);
-                    break;
-            }
-        }
-        else
-        {
-            penStyle = favorite.Style.ToStyle(StrokeStyle.DefaultPen, AnnotationKind.Ink);
-            settings.Pen = AppSettings.StyleSettings.From(penStyle);
-        }
-        settings.Save();
+        styles.UseFavorite(favorite);
         SetTool(favorite.Tool);
         UpdateStyleBar();
     }
 
     /// <summary>Stores the current highlighter settings (with its kind) when the highlighter is the tool, otherwise the pen's.</summary>
-    public void StoreFavorite(int slot)
-    {
-        bool highlighter = tools.Current == ToolKind.FreeHighlight;
-        settings.Favorites[slot] = new()
-        {
-            Tool = highlighter ? ToolKind.FreeHighlight : ToolKind.Pen,
-            MarkKind = highlighter ? markKind : null,
-            Style = AppSettings.StyleSettings.From(!highlighter ? penStyle : markKind is null ? highlighterStyle : MarkupToolStyle)
-        };
-        settings.Save();
-        BuildFavorites();
-    }
+    public void StoreFavorite(int slot) => viewModel.Favorites.Store(slot, styles.CurrentFavorite());
 
     public void ClearFavorite(int slot)
     {
-        settings.Favorites[slot] = null;
-        settings.Save();
-        BuildFavorites();
+        viewModel.Favorites.Clear(slot);
     }
 
     // ----- 24.11 image files dropped on a page -----

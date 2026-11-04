@@ -51,8 +51,8 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )",
           "PDFsharp": "[6.2.4, )",
-          "PdfNotes.Core": "[1.0.1-dev, )",
-          "PdfNotes.Text": "[1.0.1-dev, )",
+          "PdfNotes.Core": "[1.2.0-dev, )",
+          "PdfNotes.Text": "[1.2.0-dev, )",
           "System.Security.Cryptography.Pkcs": "[10.0.13, )",
           "bblanchon.PDFium.Win32": "[156.0.8076, )"
         }
@@ -60,7 +60,7 @@
       "pdfnotes.text": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.0.1-dev, )"
+          "PdfNotes.Core": "[1.2.0-dev, )"
         }
       }
     },

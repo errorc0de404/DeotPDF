@@ -3,7 +3,6 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Windows.Media.Imaging;
 using PdfNotes.Core.Commands;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
@@ -170,20 +169,20 @@ public static class AddCommand
             if (!File.Exists(path)) throw new CliException("FILE_NOT_FOUND", $"The image {path} does not exist.", ExitCodes.InvalidInput, new JsonObject { ["path"] = path });
             byte[] bytes = File.ReadAllBytes(path);
             Resource resource;
-            BitmapFrame frame;
+            int pw, ph;
+            double dpiX;
             try
             {
                 resource = ImageResources.Create(bytes);
-                frame = BitmapDecoder.Create(new MemoryStream(bytes), BitmapCreateOptions.None, BitmapCacheOption.OnLoad).Frames[0];
+                (pw, ph, dpiX) = ImageProbe.Read(bytes);
             }
-            catch (Exception e) when (e is InvalidDataException or NotSupportedException or FileFormatException or ArgumentException)
+            catch (Exception e) when (e is InvalidDataException or NotSupportedException or IOException or ArgumentException or FormatException)
             {
                 throw new CliException("INVALID_IMAGE", $"The file is not a PNG, JPEG or BMP image the app can show ({e.Message}).", ExitCodes.InvalidInput,
                     new JsonObject { ["path"] = path });
             }
-            int pw = frame.PixelWidth, ph = frame.PixelHeight;
             if (args.Value("--rect") is not { } r)
-                return new(ImagePlacement.Place(resource, pw, ph, frame.DpiX, page), resource, new JsonObject { ["pixelSize"] = new JsonArray(pw, ph) });
+                return new(ImagePlacement.Place(resource, pw, ph, dpiX, page), resource, new JsonObject { ["pixelSize"] = new JsonArray(pw, ph) });
             var rect = Box(r, "--rect");
             double height = rect.Height > 0 ? rect.Height : rect.Width * ph / pw;
             return new(new ImageAnnotation(Guid.NewGuid(), false, Affine.Translation(rect.X, rect.Y), resource.Id, new(0, 0, rect.Width, height)), resource,

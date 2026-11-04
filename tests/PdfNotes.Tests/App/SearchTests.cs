@@ -25,6 +25,9 @@ public sealed class SearchTests : IDisposable
     {
         Assert.Equal([(0, 3)], TextSearch.Find(Units("PDF english"), "pdf"));
         Assert.Equal([(4, 11)], TextSearch.Find(Units("PDF english"), "ENGLISH"));
+        Assert.Empty(TextSearch.Find(Units("PDF english"), "pdf", matchCase: true)); // Aa on
+        Assert.Equal([(0, 3)], TextSearch.Find(Units("PDF pdf"), "PDF", matchCase: true));
+        Assert.Equal([(4, 7)], TextSearch.Find(Units("PDF pdf"), "pdf", matchCase: true));
         // An engine line end ("\r\n" units) or a line break of a box matches one space.
         Assert.Equal([(0, 12)], TextSearch.Find(["P", "D", "F", "\r", "\n", "E", "n", "g", "l", "i", "s", "h"], "pdf  English"));
         Assert.Equal([(0, 6)], TextSearch.Find(Units("abcdef"), "abc def", i => i == 3));
@@ -53,6 +56,7 @@ public sealed class SearchTests : IDisposable
         page = page with { Annotations = [top, above, gone, half] };
         var hits = DocumentSearch.SearchPage(page, [], "hello");
         Assert.Equal([above.Id, top.Id, top.Id, half.Id], hits.Select(h => h.BoxId!.Value)); // reading order by position, not z-order
+        Assert.Equal([top.Id, half.Id], DocumentSearch.SearchPage(page, [], "hello", matchCase: true).Select(h => h.BoxId!.Value)); // Aa: "HELLO" and "Hello" are not found
         Assert.Equal((12, 17), (hits[2].Start, hits[2].End));
         Assert.All(hits, h => Assert.Single(h.Quads));
         var q = hits[1].Quads[0];

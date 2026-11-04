@@ -1,0 +1,42 @@
+--- start (1.1 IME trial, Avalonia 12.1.4, Windows 11 Korean and Japanese IME; path removed)
+09:34:15.840 preedit "" [] cursor -
+09:35:10.636 commit "d" [U+0064]
+09:35:10.841 commit "d" [U+0064]
+09:35:11.314 commit "d" [U+0064]
+09:35:12.079 preedit "" [] cursor -
+09:35:12.082 preedit "ㅇ" [U+3147] cursor -
+09:35:12.196 preedit "아" [U+C544] cursor -
+09:35:12.262 preedit "안" [U+C548] cursor -
+09:35:12.411 preedit "" [] cursor -
+09:35:12.412 commit "안" [U+C548]
+09:35:12.413 preedit "" [] cursor -
+09:35:12.414 preedit "" [] cursor -
+09:35:12.414 preedit "ㄴ" [U+3134] cursor -
+09:35:12.498 preedit "녀" [U+B140] cursor -
+09:35:12.563 preedit "녕" [U+B155] cursor -
+09:35:12.682 preedit "" [] cursor -
+09:35:12.683 commit "녕" [U+B155]
+09:35:12.684 preedit "" [] cursor -
+09:35:12.686 commit " " [U+0020]
+09:35:13.414 commit "1" [U+0031]
+09:35:13.494 commit "2" [U+0032]
+09:35:13.549 commit "3" [U+0033]
+09:35:14.491 commit "a" [U+0061]
+09:35:15.091 commit "T" [U+0054]
+09:35:15.227 commit "h" [U+0068]
+09:35:15.398 commit "i" [U+0069]
+09:35:15.478 commit "s" [U+0073]
+09:35:15.559 commit " " [U+0020]
+09:35:15.680 commit "i" [U+0069]
+09:35:15.741 commit "s" [U+0073]
+09:35:15.839 commit " " [U+0020]
+09:35:16.087 commit "a" [U+0061]
+09:35:16.148 commit " " [U+0020]
+09:35:16.420 commit "t" [U+0074]
+09:35:16.525 commit "e" [U+0065]
+09:35:16.702 commit "s" [U+0073]
+09:35:16.777 commit "t" [U+0074]
+09:35:16.868 commit " " [U+0020]
+09:35:17.205 preedit "" [] cursor -
+09:36:52.740 final text: "안녕123\nThis is a test" [U+C548 U+B155 U+0031 U+0032 U+0033 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0061 U+0020 U+0074 U+0065 U+0073 U+0074]
+09:36:52.757 preedit "" [] cursor -

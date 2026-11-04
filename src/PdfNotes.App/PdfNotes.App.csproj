@@ -15,6 +15,7 @@
     <ProjectReference Include="..\PdfNotes.Core\PdfNotes.Core.csproj" />
     <ProjectReference Include="..\PdfNotes.Editor\PdfNotes.Editor.csproj" />
     <ProjectReference Include="..\PdfNotes.Pdf\PdfNotes.Pdf.csproj" />
+    <ProjectReference Include="..\PdfNotes.ViewModels\PdfNotes.ViewModels.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Pixel shader bytecode compiled by tools/compile-shader.py from the .fx next to it -->

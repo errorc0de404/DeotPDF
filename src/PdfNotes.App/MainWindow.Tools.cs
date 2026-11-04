@@ -21,77 +21,68 @@ using PdfNotes.Editor.Localization;
 namespace PdfNotes.App;
 
 /// <summary>Canvas tools and the contextual style bar (spec 3.1–3.2, 7.1–7.2, 9.1–9.2).</summary>
-public partial class MainWindow
+public partial class MainWindow : IToolView
 {
     private TextTool textTool = null!;
     private SelectTool selectTool = null!;
     private StrokeTool penTool = null!, highlighterStrokeTool = null!;
     private HighlighterTool highlighterTool = null!;
     private NoteTool noteTool = null!;
-    private StrokeStyle underlineStyle = StrokeStyle.DefaultMarkup, strikeOutStyle = StrokeStyle.DefaultMarkup;
-    private TextMarkupKind? markKind;
-    private bool highlighterAuto = true;
-
-    /// <summary>What the highlighter makes now (spec 9.1): null for highlights, or underline / strikeout.</summary>
-    public TextMarkupKind? MarkKind => markKind;
-
-    /// <summary>The style of the current underline or strikeout kind (each kind remembers its own).</summary>
-    public StrokeStyle MarkupToolStyle => markKind == TextMarkupKind.StrikeOut ? strikeOutStyle : underlineStyle;
-
-    /// <summary>Glyph highlights of the highlighter are the glyph height (on) or the width as height (off).</summary>
-    public bool HighlighterAuto => highlighterAuto;
-
-    /// <summary>The highlighter's 글자에 맞추기 toggle (spec 9.1, app setting).</summary>
-    public bool HighlighterSnap => settings.HighlighterSnap;
     private LineTool lineTool = null!, curveTool = null!;
     private LassoTool lassoTool = null!;
     private ShapeTool shapeTool = null!;
-    private ShapeStyle shapeStyle = ShapeStyle.Default;
-    private bool shapeFillTarget = true;
     private ComboBox shapeBorderBox = null!;
     private RadioButton shapeFillButton = null!, shapeBorderButton = null!;
     private EraserTool strokeEraserTool = null!, areaEraserTool = null!;
-    private StrokeStyle penStyle = StrokeStyle.DefaultPen, highlighterStyle = StrokeStyle.DefaultHighlighter, lineStyle = StrokeStyle.DefaultPen;
-    private LineOptions lineOptions = LineOptions.Default;
     private ComboBox dashBox = null!, shapeBox = null!;
     private ToggleButton startArrowButton = null!, endArrowButton = null!;
-    private List<RgbColor> recentColors = [];
     private bool syncingStyleBar, syncingTools;
+
+    /// <summary>The tools' styles and the style bar's commands (P1 V7a).</summary>
+    private ToolStylesViewModel styles => viewModel.ToolStyles;
+
+    /// <summary>What the highlighter makes now (spec 9.1): null for highlights, or underline / strikeout.</summary>
+    public TextMarkupKind? MarkKind => styles.MarkKind;
+
+    /// <summary>The style of the current underline or strikeout kind (each kind remembers its own).</summary>
+    public StrokeStyle MarkupToolStyle => styles.MarkupStyle;
+
+    /// <summary>Glyph highlights of the highlighter are the glyph height (on) or the width as height (off).</summary>
+    public bool HighlighterAuto => styles.HighlighterAuto;
+
+    /// <summary>The highlighter's 글자에 맞추기 toggle (spec 9.1, app setting).</summary>
+    public bool HighlighterSnap => settings.HighlighterSnap;
 
     public ToolKind CurrentTool => tools.Current;
 
     /// <summary>The tool to go back to after the selection tool was entered automatically (lasso or highlight), else null.</summary>
     public ToolKind? ReturnTool => tools.Return;
     public SelectTool Selection => selectTool;
-    public StrokeStyle PenStyle => penStyle;
-    public StrokeStyle HighlighterStyle => highlighterStyle;
-    public StrokeStyle LineStyle => lineStyle;
-    public LineOptions LineToolOptions => lineOptions;
+    public StrokeStyle PenStyle => styles.Pen;
+    public StrokeStyle HighlighterStyle => styles.Highlighter;
+    public StrokeStyle LineStyle => styles.Line;
+    public LineOptions LineToolOptions => styles.LineOptions;
 
-    /// <summary>
-    /// The glyph highlight style of the highlighter (spec 9.1): the highlight kind's color and transparency, and either
-    /// the glyph height or its width (1–80pt) as the height.
-    /// </summary>
-    public TextHighlightStyle TextHighlightToolStyle => new(highlighterStyle.ClampFor(AnnotationKind.PdfTextHighlight), highlighterAuto);
-    public ShapeStyle ShapeToolStyle => shapeStyle;
+    /// <summary>The glyph highlight style of the highlighter (spec 9.1).</summary>
+    public TextHighlightStyle TextHighlightToolStyle => styles.TextHighlightStyle;
+    public ShapeStyle ShapeToolStyle => styles.Shape;
     public ShapeKind ShapeToolKind => settings.ShapeKind;
 
     /// <summary>True when the palette and transparency edit the fill of shapes, false for their border.</summary>
-    public bool ShapeFillTarget => shapeFillTarget;
+    public bool ShapeFillTarget => styles.ShapeFillTarget;
     public double StrokeEraserDiameter => settings.StrokeEraserPt;
     public double AreaEraserDiameter => settings.AreaEraserPt;
-    public IReadOnlyList<RgbColor> RecentColors => recentColors;
+    public IReadOnlyList<RgbColor> RecentColors => styles.UserColors;
 
     private void InitializeTools()
     {
-        penStyle = settings.Pen.ToStyle(StrokeStyle.DefaultPen, AnnotationKind.Ink);
-        highlighterStyle = settings.Highlighter.ToStyle(StrokeStyle.DefaultHighlighter, AnnotationKind.FreeHighlight);
-        recentColors = [.. settings.GetRecentColors()];
-        lineStyle = settings.Line.ToStyle(StrokeStyle.DefaultPen, AnnotationKind.Line);
-        lineOptions = settings.LineOptions;
-        highlighterAuto = settings.HighlighterAuto;
         tools.ReturnChanged += (_, _) => MarkReturnTool();
         selectTool = new SelectTool(View, () => document?.Session, PageGlyphs) { AllowCrossPage = () => settings.PageDrag && View.Mode == ViewMode.Continuous };
+        styles.Attach(selectTool);
+        viewModel.Selection.Attach(selectTool, bytes => ImageAssets.Decode(bytes));
+        viewModel.TextStyle.Attach(this, selectTool);
+        styles.Changed += (_, _) => UpdateStyleBar();
+        viewModel.ToolBar.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ToolBarViewModel.Buttons)) ShowToolButtons(); };
         selectTool.SelectionChanged += (_, _) =>
         {
             View.RefreshOverlays();
@@ -101,28 +92,23 @@ public partial class MainWindow
         // Drawing, typing or erasing on the canvas shows the 필기 tab; the selection tool's panning and PDF text
         // selection do not (spec 3.2 automatic tab switch).
         View.ToolPressed += (_, _) => { if (View.ActiveTool != selectTool || selectTool.SelectedIds.Count > 0) AutoRibbonTab(RibbonTab.Home); };
-        penTool = new StrokeTool(View, () => document?.Session, () => penStyle, AnnotationKind.Ink);
-        highlighterStrokeTool = new StrokeTool(View, () => document?.Session, () => highlighterStyle, AnnotationKind.FreeHighlight);
+        penTool = new StrokeTool(View, () => document?.Session, () => styles.Pen, AnnotationKind.Ink);
+        highlighterStrokeTool = new StrokeTool(View, () => document?.Session, () => styles.Highlighter, AnnotationKind.FreeHighlight);
         textTool = new TextTool(View, BeginNewTextAtClick, SelectTextAt);
         // Clicking an existing line or shape with a shape group tool edits it with the selection tool and comes back
         // afterwards (spec 5.4, D12; lines and curves 2026-10-13 user request).
         Action<Guid> SelectFrom(ToolKind tool) => id => Dispatcher.BeginInvoke(() => { SetTool(ToolKind.Select); selectTool.Select(id); tools.Return = tool; });
-        lineTool = new LineTool(View, () => document?.Session, selectTool, () => lineStyle, () => lineOptions, curve: false, SelectFrom(ToolKind.Line));
-        curveTool = new LineTool(View, () => document?.Session, selectTool, () => lineStyle, () => lineOptions, curve: true, SelectFrom(ToolKind.Curve));
+        lineTool = new LineTool(View, () => document?.Session, selectTool, () => styles.Line, () => styles.LineOptions, curve: false, SelectFrom(ToolKind.Line));
+        curveTool = new LineTool(View, () => document?.Session, selectTool, () => styles.Line, () => styles.LineOptions, curve: true, SelectFrom(ToolKind.Curve));
         lassoTool = new LassoTool(View, () => document?.Session, selectTool);
-        shapeStyle = settings.Shape.ToStyle();
-        shapeTool = new ShapeTool(View, () => document?.Session, selectTool, () => settings.ShapeKind, () => shapeStyle, SelectFrom(ToolKind.Shape));
-        underlineStyle = settings.Underline?.ToStyle(StrokeStyle.DefaultMarkup, AnnotationKind.TextMarkup) ?? StrokeStyle.DefaultMarkup;
-        strikeOutStyle = settings.StrikeOut?.ToStyle(StrokeStyle.DefaultMarkup, AnnotationKind.TextMarkup) ?? StrokeStyle.DefaultMarkup;
-        markKind = settings.MarkKind;
-        noteColor = RgbColor.TryParse(settings.NoteColor, out var savedNote) ? savedNote : noteColor;
+        shapeTool = new ShapeTool(View, () => document?.Session, selectTool, () => settings.ShapeKind, () => styles.Shape, SelectFrom(ToolKind.Shape));
         noteTool = new NoteTool(View, CreateNote, SelectNoteAt);
         // The one highlighter (spec 9, D14g): free strokes, glyph highlights in its own color, underline and strikeout.
         // Clicking an existing result edits it with the selection tool (spec 5.4).
         var highlighterText = new TextHighlightTool(View, () => document?.Session, PageGlyphs, () => TextHighlightToolStyle, SelectFrom(ToolKind.FreeHighlight),
-            () => markKind is { } k ? (k, MarkupToolStyle) : null);
+            () => styles.MarkKind is { } k ? (k, styles.MarkupStyle) : null);
         highlighterTool = new HighlighterTool(View, () => document?.Session, highlighterStrokeTool, highlighterText,
-            () => settings.HighlighterSnap, () => markKind is not null, SelectFrom(ToolKind.FreeHighlight));
+            () => settings.HighlighterSnap, () => styles.MarkKind is not null, SelectFrom(ToolKind.FreeHighlight));
         // Spec 5.4 (2026-10-12): a lasso result is edited with the selection tool; the selection is kept.
         lassoTool.Selected += (_, _) => Dispatcher.BeginInvoke(() =>
         {
@@ -155,7 +141,7 @@ public partial class MainWindow
         View.MarksPainter = PaintMarks;
         InitializeSelectionCommands();
         foreach (var color in ColorPalette.Basic) PalettePanel.Children.Add(CreateSwatch(color, ColorName(color), SetColor));
-        var (customButton, customPopup) = CustomColorEntry("CustomColor", () => StyleTarget?.Style.Color ?? penStyle.Color, SetColor);
+        var (customButton, customPopup) = CustomColorEntry("CustomColor", () => StyleTarget?.Style.Color ?? styles.Pen.Color, SetColor);
         PaletteGroup.Children.Add(customButton);
         PaletteGroup.Children.Add(customPopup);
         InitializeEyedropper();
@@ -163,13 +149,15 @@ public partial class MainWindow
         SetTool(ToolKind.Pen);
     }
 
-    /// <summary>Switches the canvas tool (toolbar, and later the quick menu, use this same path; spec 5.6).</summary>
-    public void SetTool(ToolKind kind)
+    /// <summary>Switches the canvas tool (toolbar, quick menu, favorites and shortcuts use this same path; spec 5.6, <see cref="ToolBarViewModel"/>).</summary>
+    public void SetTool(ToolKind kind) => viewModel.ToolBar.SetTool(kind);
+
+    IToolView IMainView.Tools => this;
+
+    void IToolView.ShowNotes() => SetNotesHidden(false);
+
+    void IToolView.UseTool(ToolKind kind)
     {
-        if (NotesHidden && kind != ToolKind.Select) SetNotesHidden(false); // a drawing tool shows the notes again (spec 24.10, D14g)
-        bool hidden = NotesHidden;
-        FinishTextEditing();
-        kind = tools.Choose(kind, hidden);
         View.Tool = kind switch
         {
             ToolKind.Text => textTool,
@@ -186,30 +174,36 @@ public partial class MainWindow
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
         if (!ToolSwitch.KeepsSelection(kind)) selectTool.Select(null);
-        // Showing the state must not switch tools: Checked of the eraser mode buttons would select an eraser.
+    }
+
+    /// <summary>Shows which tool buttons are on (<see cref="ToolBarViewModel.Buttons"/>); showing it must not switch tools.</summary>
+    private void ShowToolButtons()
+    {
+        var b = viewModel.ToolBar.Buttons;
+        // Checked of the eraser mode buttons would select an eraser.
         syncingTools = true;
         try
         {
-        TextToolButton.IsChecked = kind == ToolKind.Text;
-        SelectToolButton.IsChecked = kind == ToolKind.Select;
-        PenToolButton.IsChecked = kind == ToolKind.Pen;
-        HighlighterToolButton.IsChecked = kind == ToolKind.FreeHighlight;
-        ShapeToolButton.IsChecked = kind is ToolKind.Line or ToolKind.Curve or ToolKind.Shape;
-        ShapeToolIcon.Content = ShapeIcon(settings.ShapeGroupTool, settings.ShapeKind);
-        LassoToolButton.IsChecked = kind == ToolKind.Lasso;
-        EraserToolButton.IsChecked = kind is ToolKind.StrokeEraser or ToolKind.AreaEraser;
-        StrokeEraserButton.IsChecked = settings.Eraser == ToolKind.StrokeEraser;
-        AreaEraserButton.IsChecked = settings.Eraser == ToolKind.AreaEraser;
+            TextToolButton.IsChecked = b.Current == ToolKind.Text;
+            SelectToolButton.IsChecked = b.Current == ToolKind.Select;
+            PenToolButton.IsChecked = b.Current == ToolKind.Pen;
+            HighlighterToolButton.IsChecked = b.Current == ToolKind.FreeHighlight;
+            ShapeToolButton.IsChecked = b.ShapeGroup;
+            ShapeToolIcon.Content = ShapeIcon(b.ShapeGroupTool, b.ShapeKind);
+            LassoToolButton.IsChecked = b.Current == ToolKind.Lasso;
+            EraserToolButton.IsChecked = b.EraserOn;
+            StrokeEraserButton.IsChecked = b.Eraser == ToolKind.StrokeEraser;
+            AreaEraserButton.IsChecked = b.Eraser == ToolKind.AreaEraser;
         }
         finally { syncingTools = false; }
-        UpdateStyleBar();
-        AutoRibbonTab(RibbonTab.Home); // a tool change, also by shortcut or quick menu (spec 3.2)
     }
 
     /// <summary>
     /// Ends a selection-tool visit that started automatically (spec 5.4, D14g): when the selection became empty — a click
     /// on an empty place, Esc, Delete — the previous tool comes back. A selection tool the user chose keeps going.
     /// </summary>
+    void IToolView.ReturnAfterAutoSelect() => ReturnAfterAutoSelect();
+
     private void ReturnAfterAutoSelect()
     {
         if (tools.TakeReturn() is not { } previous) return;
@@ -244,8 +238,7 @@ public partial class MainWindow
     {
         if (syncingTools || sender is not FrameworkElement { Tag: string tag }) return;
         // The toolbar eraser button selects the eraser used last; the eraser bar switches between the two.
-        var kind = tools.ForButton(tag);
-        if (kind != tools.Current) SetTool(kind);
+        viewModel.ToolBar.Press(tag);
     }
 
     private void PaintOverlay(DrawingContext context, int pageIndex, Page page, ViewTransform transform)
@@ -279,9 +272,11 @@ public partial class MainWindow
         PaintOpenNote(context, page, transform);
         if (textEditor is not null && editingText is not null && editingPage == pageIndex)
         {
-            var box = ReadEditor(); var b = PdfNotes.Text.TextLayout.Bounds(box); var m = box.Transform.Then(transform.PageToDip);
+            // While typing, the box shows its last layout until the new one is ready (TextLaidOut redraws).
+            var box = ReadEditor(); var layout = AnnotationPainter.TextLayoutFor(box, out _) ?? PdfNotes.Text.WpfText.Measure(box);
+            var b = new Rect2(0, 0, box.WidthPt, layout.Height); var m = box.Transform.Then(transform.PageToDip);
             context.PushTransform(new MatrixTransform(new Matrix(m.M11, m.M12, m.M21, m.M22, m.OffsetX, m.OffsetY)));
-            context.DrawDrawing(PdfNotes.Text.WpfText.Measure(box).Highlights); // the live editor draws only the text
+            context.DrawDrawing(layout.Highlights); // the live editor draws only the text
             var frameRect = new Rect(0, 0, b.Width, b.Height);
             // The edit frame of a borderless box has a white halo so it shows on dark pages too (D13c); a real border is document data.
             if (!box.BoxStyle.BorderEnabled) context.DrawRectangle(null, new Pen(Theme.Brush("Overlay.Halo"), 1.5), frameRect);
@@ -314,10 +309,8 @@ public partial class MainWindow
     }
 
     private Typeface? pageNumberFace;
-    private PageNumberSize pageNumberSize = PageNumberSize.Normal;
-
     /// <summary>Page number size in DIP (2026-10-15: small 11 / normal 14 / large 18; the token FontSize.PageNumber was 11).</summary>
-    public double PageNumberDip => pageNumberSize switch { PageNumberSize.Small => 11, PageNumberSize.Large => 18, _ => 14 };
+    public double PageNumberDip => viewModel.Display.PageNumberDip;
 
     /// <summary>
     /// The page's number at the bottom-right of the displayed paper (spec 4.5): faint, under the annotations, the same size
@@ -325,7 +318,7 @@ public partial class MainWindow
     /// </summary>
     private void PaintPageNumber(DrawingContext context, int pageIndex, ViewTransform transform)
     {
-        if (!showPageNumbers) return;
+        if (!viewModel.Display.PageNumbers) return;
         pageNumberFace ??= new Typeface((FontFamily)FindResource("Font.Ui"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
         double size = PageNumberDip, margin = (double)FindResource("Space.PageNumber");
         var text = new FormattedText((pageIndex + 1).ToString(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
@@ -333,107 +326,30 @@ public partial class MainWindow
         context.DrawText(text, new Point(transform.PageWidthDip - margin - text.Width, transform.PageHeightDip - margin - text.Height));
     }
 
-    private void DeleteSelection()
-    {
-        if (document is null || selectTool.SelectedIds.Count == 0) return;
-        View.CancelTool();
-        document.Session.Execute(DocumentEdits.DeleteAnnotations(document.Session.Current, selectTool.SelectedIds));
-        ReturnAfterAutoSelect();
-    }
+    private void DeleteSelection() => viewModel.Selection.Delete();
 
-    // ----- style target: the active drawing tool, or the selected stroke/line -----
+    // ----- style target: the active drawing tool, or the selected stroke/line (ToolStylesViewModel) -----
 
-    /// <summary>The single selected, unlocked line (also the line just drawn with a line tool).</summary>
-    public LineAnnotation? SelectedLine => selectTool.SelectedAnnotations is [LineAnnotation line] ? line : null;
-
-    /// <summary>The single selected, unlocked PDF glyph highlight.</summary>
-    public PdfTextHighlight? SelectedTextHighlight => selectTool.SelectedAnnotations is [PdfTextHighlight h] ? h : null;
-
-    /// <summary>
-    /// The selected annotations the style bar edits together (spec 3.1, 9.4): every unlocked selected one, when all of
-    /// them have a color, width and transparency (strokes, lines, glyph highlights). A selection that also holds text
-    /// boxes or images offers only the commands they share, so the bar is off.
-    /// </summary>
-    public Annotation[] StyleSelection => tools.Current is ToolKind.Select or ToolKind.Lasso && selectTool.SelectedAnnotations is { Length: > 0 } all &&
-        all.All(ToolStyles.HasStrokeStyle) ? all : [];
-
-    private StrokeStyle StyleOf(Annotation a) => ToolStyles.StyleOf(a, shapeFillTarget);
-
-    /// <summary>The single selected, unlocked shape (also the shape just drawn with the shape tool).</summary>
-    public ShapeAnnotation? SelectedShape => selectTool.SelectedAnnotations is [ShapeAnnotation shape] ? shape : null;
-
-    /// <summary>The fill or the border of a shape style as the color/width/transparency the bar shows (width: the border).</summary>
-    private StrokeStyle ShapeStroke(ShapeStyle s) => ToolStyles.ShapeStroke(s, shapeFillTarget);
-
-    /// <summary>Writes a bar change back to the fill or the border (<see cref="ToolStyles.WithStroke"/>).</summary>
-    private ShapeStyle WithStroke(ShapeStyle s, StrokeStyle stroke) => ToolStyles.WithStroke(s, stroke, shapeFillTarget);
-
-    /// <summary>Which values differ across a multi-selection: the bar shows them empty (mixed) until one is set for all.</summary>
-    public (bool Color, bool Width, bool Transparency) StyleMixed => ToolStyles.Mixed(StyleSelection.Select(StyleOf).ToArray());
-
-    /// <summary>
-    /// The style the bar shows and edits, or null when there is nothing to style (select tool, no selection).
-    /// With a line tool the bar shows the line just drawn while it is selected; edits then change it and the tool.
-    /// </summary>
-    public (StrokeStyle Style, AnnotationKind Kind)? StyleTarget => tools.Current switch
-    {
-        ToolKind.Pen => (penStyle, AnnotationKind.Ink),
-        ToolKind.FreeHighlight => markKind is null ? (highlighterStyle, AnnotationKind.FreeHighlight) : (MarkupToolStyle, AnnotationKind.TextMarkup),
-        ToolKind.Line or ToolKind.Curve => (SelectedLine is { } l ? StrokeStyle.Of(l) : lineStyle, AnnotationKind.Line),
-        ToolKind.Note => (new StrokeStyle(noteColor, StrokeStyle.DefaultPen.WidthPt, 0), AnnotationKind.Note),
-        ToolKind.Shape => (ShapeStroke(SelectedShape?.Style ?? shapeStyle), AnnotationKind.Shape),
-        _ => StyleSelection is [var first, ..] ? (StyleOf(first), first.Kind) : null
-    };
+    public LineAnnotation? SelectedLine => styles.SelectedLine;
+    public PdfTextHighlight? SelectedTextHighlight => styles.SelectedTextHighlight;
+    public Annotation[] StyleSelection => styles.StyleSelection;
+    public ShapeAnnotation? SelectedShape => styles.SelectedShape;
+    public (bool Color, bool Width, bool Transparency) StyleMixed => styles.StyleMixed;
+    public (StrokeStyle Style, AnnotationKind Kind)? StyleTarget => styles.StyleTarget;
 
     /// <summary>Applies a color to the target. Colors outside the basic palette become user colors.</summary>
-    public void SetColor(RgbColor color)
-    {
-        RememberColor(color);
-        ApplyStyle(s => s with { Color = color }, a => a with { Color = color }, l => l with { Color = color }, null, h => h with { Color = color });
-    }
+    public void SetColor(RgbColor color) => styles.SetColor(color);
 
     /// <summary>Applies a width. <paramref name="continuous"/> changes (slider drag) merge into one Undo unit until committed.</summary>
-    public void SetWidth(double widthPt, bool continuous = false)
-    {
-        if (!double.IsFinite(widthPt)) return;
-        ApplyStyle(s => s with { WidthPt = widthPt }, a => a.IsOutlined ? a : a with { WidthPt = ClampWidth(widthPt, a.Kind) }, l => l with { WidthPt = ClampWidth(widthPt, l.Kind) },
-            continuous ? "width" : null, h => h with { HeightMode = HighlightHeightMode.Manual, ManualHeightPt = ClampWidth(widthPt, AnnotationKind.PdfTextHighlight) });
-    }
+    public void SetWidth(double widthPt, bool continuous = false) => styles.SetWidth(widthPt, continuous);
 
-    public void SetTransparency(double percent, bool continuous = false)
-    {
-        if (!double.IsFinite(percent)) return;
-        percent = Math.Clamp(percent, 0, 100);
-        double opacity = PdfNotes.Core.Models.Opacity.FromTransparencyPercent(percent);
-        ApplyStyle(s => s with { TransparencyPercent = percent }, a => a with { Opacity = opacity }, l => l with { Opacity = opacity },
-            continuous ? "transparency" : null, h => h with { Opacity = opacity });
-    }
+    public void SetTransparency(double percent, bool continuous = false) => styles.SetTransparency(percent, continuous);
 
     /// <summary>Ends a slider drag: the merged change becomes one Undo unit and tool settings are stored.</summary>
-    public void CommitStyleChange()
-    {
-        document?.Session.SealCoalescing();
-        settings.Save();
-    }
-
-    private static double ClampWidth(double width, AnnotationKind kind) => ToolStyles.ClampWidth(width, kind);
+    public void CommitStyleChange() => styles.Commit();
 
     /// <summary>Glyph highlight height: automatic (glyph height) or the width as the manual height (spec 9.1).</summary>
-    public void SetHighlightAuto(bool auto)
-    {
-        if (tools.Current == ToolKind.FreeHighlight && markKind is null)
-        {
-            highlighterAuto = auto;
-            settings.HighlighterAuto = auto;
-            settings.Save();
-        }
-        else if (StyleSelection is { Length: > 0 } targets && targets.All(a => a is PdfTextHighlight))
-        {
-            UpdateSelected(targets, targets.Cast<PdfTextHighlight>().Select(h => (Annotation)(auto ? h with { HeightMode = HighlightHeightMode.Auto, ManualHeightPt = null }
-                : h with { HeightMode = HighlightHeightMode.Manual, ManualHeightPt = ClampWidth(StrokeStyle.Of(h).WidthPt, AnnotationKind.PdfTextHighlight) })).ToArray(), null);
-        }
-        UpdateStyleBar();
-    }
+    public void SetHighlightAuto(bool auto) => styles.SetHighlightAuto(auto);
 
     private void HighlightAutoClick(object sender, RoutedEventArgs e) => SetHighlightAuto(HighlightAutoButton.IsChecked == true);
 
@@ -444,96 +360,16 @@ public partial class MainWindow
     }
 
     /// <summary>Chooses what the highlighter makes: a highlight, an underline or a strikeout (spec 9.1). App setting.</summary>
-    public void SetMarkKind(TextMarkupKind? kind)
-    {
-        markKind = kind;
-        settings.MarkKind = kind;
-        settings.Save();
-        UpdateStyleBar();
-    }
+    public void SetMarkKind(TextMarkupKind? kind) => styles.SetMarkKind(kind);
 
-    /// <summary>The highlighter's 글자에 맞추기 toggle (spec 9.1): highlight strokes that start on text snap to it. App setting.</summary>
-    public void SetHighlighterSnap(bool on)
-    {
-        settings.HighlighterSnap = on;
-        settings.Save();
-        UpdateStyleBar();
-    }
+    /// <summary>The highlighter's 글자에 맞추기 toggle (spec 9.1). App setting.</summary>
+    public void SetHighlighterSnap(bool on) => styles.SetHighlighterSnap(on);
 
     private void HighlighterSnapClick(object sender, RoutedEventArgs e) => SetHighlighterSnap(HighlighterSnapButton.IsChecked == true);
 
-    private void ApplyStyle(Func<StrokeStyle, StrokeStyle> toolChange, Func<StrokeAnnotation, StrokeAnnotation> strokeChange,
-        Func<LineAnnotation, LineAnnotation> lineChange, string? coalescePart, Func<PdfTextHighlight, PdfTextHighlight>? highlightChange = null)
-    {
-        switch (tools.Current)
-        {
-            case ToolKind.FreeHighlight when markKind == TextMarkupKind.StrikeOut:
-                strikeOutStyle = toolChange(strikeOutStyle).ClampFor(AnnotationKind.TextMarkup);
-                settings.StrikeOut = AppSettings.StyleSettings.From(strikeOutStyle);
-                break;
-            case ToolKind.FreeHighlight when markKind == TextMarkupKind.Underline:
-                underlineStyle = toolChange(underlineStyle).ClampFor(AnnotationKind.TextMarkup);
-                settings.Underline = AppSettings.StyleSettings.From(underlineStyle);
-                break;
-            case ToolKind.Note:
-                noteColor = toolChange(new StrokeStyle(noteColor, StrokeStyle.DefaultPen.WidthPt, 0)).Color;
-                settings.NoteColor = noteColor.ToHex();
-                break;
-            case ToolKind.Pen:
-                penStyle = toolChange(penStyle).ClampFor(AnnotationKind.Ink);
-                settings.Pen = AppSettings.StyleSettings.From(penStyle);
-                break;
-            case ToolKind.FreeHighlight:
-                highlighterStyle = toolChange(highlighterStyle).ClampFor(AnnotationKind.FreeHighlight);
-                settings.Highlighter = AppSettings.StyleSettings.From(highlighterStyle);
-                break;
-            case ToolKind.Shape:
-                shapeStyle = WithStroke(shapeStyle, toolChange(ShapeStroke(shapeStyle)));
-                settings.Shape = AppSettings.ShapeSettings.From(shapeStyle);
-                if (SelectedShape is { } drawnShape) UpdateSelected(drawnShape, drawnShape with { Style = WithStroke(drawnShape.Style, toolChange(ShapeStroke(drawnShape.Style))) }, coalescePart);
-                break;
-            case ToolKind.Line or ToolKind.Curve:
-                lineStyle = toolChange(lineStyle).ClampFor(AnnotationKind.Line);
-                settings.Line = AppSettings.StyleSettings.From(lineStyle);
-                if (SelectedLine is { } drawn) UpdateSelected(drawn, lineChange(drawn), coalescePart);
-                break;
-            default:
-                var targets = StyleSelection;
-                if (targets.Length == 0) return;
-                UpdateSelected(targets, targets.Select(a => a switch
-                {
-                    StrokeAnnotation s => strokeChange(s),
-                    LineAnnotation l => lineChange(l),
-                    PdfTextHighlight h => highlightChange?.Invoke(h) ?? h,
-                    PdfTextMarkup m => toolChange(StrokeStyle.Of(m)).ClampFor(AnnotationKind.TextMarkup) is var ms ? m with { Color = ms.Color, WidthPt = ms.WidthPt, Opacity = ms.Opacity } : m,
-                    StickyNote n => n with { Color = toolChange(StyleOf(n)).Color },
-                    ShapeAnnotation sh => sh with { Style = WithStroke(sh.Style, toolChange(ShapeStroke(sh.Style))) },
-                    _ => a
-                }).ToArray(), coalescePart);
-                break;
-        }
-        if (coalescePart is null) settings.Save();
-        UpdateStyleBar();
-    }
-
-    /// <summary>Replaces one selected annotation; slider drags (<paramref name="coalescePart"/>) merge into one Undo unit.</summary>
-    private void UpdateSelected(Annotation before, Annotation after, string? coalescePart, string label = "undo.changeStyle") =>
-        UpdateSelected([before], [after], coalescePart, label);
-
     /// <summary>Replaces selected annotations together (one Undo unit for the whole selection).</summary>
-    private void UpdateSelected(IReadOnlyList<Annotation> before, IReadOnlyList<Annotation> after, string? coalescePart, string label = "undo.changeStyle")
-    {
-        if (document is not { } doc || before.Count == 0) return;
-        var changed = after.Where((a, i) => !a.Equals(before[i])).ToArray();
-        if (changed.Length > 0)
-            doc.Session.Execute(DocumentEdits.UpdateAnnotations(doc.Session.Current, changed, label,
-                coalescePart is null ? null : $"style:{string.Join(",", before.Select(a => a.Id))}:{coalescePart}"));
-        if (coalescePart is null) doc.Session.SealCoalescing();
-    }
-
-    /// <summary>The lines the line options edit: the line just drawn with a line tool, or a selection of lines only.</summary>
-    private LineAnnotation[] OptionLines => tools.Current is ToolKind.Line or ToolKind.Curve ? SelectedLine is { } l ? [l] : []
-        : StyleSelection is { Length: > 0 } s && s.All(a => a is LineAnnotation) ? s.Cast<LineAnnotation>().ToArray() : [];
+    private void UpdateSelected(IReadOnlyList<Annotation> before, IReadOnlyList<Annotation> after, string? coalescePart, string label = "undo.changeStyle") =>
+        styles.Update(before, after, coalescePart, label);
 
     // ----- shapes: fill/border target, border style (spec 8 preface, D11) -----
 
@@ -561,53 +397,29 @@ public partial class MainWindow
     }
 
     /// <summary>Chooses what the palette and transparency edit for shapes: the fill or the border (not document state).</summary>
-    public void SetShapeColorTarget(bool fill)
-    {
-        shapeFillTarget = fill;
-        UpdateStyleBar();
-    }
+    public void SetShapeColorTarget(bool fill) => styles.SetShapeColorTarget(fill);
 
     /// <summary>The border of the shape tool and of the shapes it edits: null removes it (kept when there is no fill), else its dash.</summary>
-    public void SetShapeBorder(DashStyle? dash)
-    {
-        ShapeStyle Apply(ShapeStyle s) => dash is { } d ? s with { BorderEnabled = true, BorderDash = d } : s.FillOpacity > 0 ? s with { BorderEnabled = false } : s;
-        if (tools.Current == ToolKind.Shape)
-        {
-            shapeStyle = Apply(shapeStyle);
-            settings.Shape = AppSettings.ShapeSettings.From(shapeStyle);
-            settings.Save();
-        }
-        if (OptionShapes is { Length: > 0 } shapes)
-        {
-            UpdateSelected(shapes, shapes.Select(s => (Annotation)(s with { Style = Apply(s.Style) })).ToArray(), null);
-        }
-        UpdateStyleBar();
-    }
+    public void SetShapeBorder(DashStyle? dash) => styles.SetShapeBorder(dash);
 
     /// <summary>Chooses the shape the shape tool draws next and switches to it (shape button menu).</summary>
     public void SetShapeKind(ShapeKind kind)
     {
-        if (kind == ShapeKind.Polyline) throw new ArgumentOutOfRangeException(nameof(kind));
-        settings.ShapeKind = kind;
-        settings.Save();
-        SetTool(ToolKind.Shape);
+        viewModel.ToolBar.SetShapeKind(kind);
     }
 
-    private void UpdateShapeOptions()
+    private void UpdateShapeOptions(bool visible)
     {
-        var shapes = OptionShapes;
-        bool visible = tools.Current == ToolKind.Shape || shapes.Length > 0;
         ShapeOptionsPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         if (!visible) return;
+        var state = styles.ShapeBar;
         bool wasSyncing = syncingStyleBar;
         syncingStyleBar = true;
         try
         {
-            shapeFillButton.IsChecked = shapeFillTarget;
-            shapeBorderButton.IsChecked = !shapeFillTarget;
-            var styles = shapes.Length > 0 ? shapes.Select(s => s.Style).ToArray() : [shapeStyle];
-            int Index(ShapeStyle s) => s.BorderEnabled ? 1 + (int)s.BorderDash : 0;
-            shapeBorderBox.SelectedIndex = styles.All(s => Index(s) == Index(styles[0])) ? Index(styles[0]) : -1;
+            shapeFillButton.IsChecked = state.FillTarget;
+            shapeBorderButton.IsChecked = !state.FillTarget;
+            shapeBorderBox.SelectedIndex = state.BorderIndex;
         }
         finally { syncingStyleBar = wasSyncing; }
     }
@@ -694,111 +506,72 @@ public partial class MainWindow
         return button;
     }
 
-    public void SetLineDash(DashStyle dash) => ApplyLineOptions(o => o with { Dash = dash }, l => l with { Dash = dash });
+    public void SetLineDash(DashStyle dash) => styles.SetLineDash(dash);
 
-    public void SetLineArrows(bool? start = null, bool? end = null) => ApplyLineOptions(
-        o => o with { StartArrow = start ?? o.StartArrow, EndArrow = end ?? o.EndArrow },
-        l => l with { StartArrow = start ?? l.StartArrow, EndArrow = end ?? l.EndArrow });
+    public void SetLineArrows(bool? start = null, bool? end = null) => styles.SetLineArrows(start, end);
 
     /// <summary>
     /// With a selected line: 0 straight, 1 or 2 control points (raising keeps the shape, lowering approximates).
     /// Otherwise the curve tool's choice for new curves: 0 automatic, 1 or 2 forced.
     /// </summary>
-    public void SetLineShape(int controls)
-    {
-        if (controls is < 0 or > 2) throw new ArgumentOutOfRangeException(nameof(controls));
-        if (SelectedLine is { } line)
-        {
-            UpdateSelected(line, LineGeometry.Convert(line, (LineKind)controls), null, "undo.changeLineShape");
-        }
-        else if (tools.Current == ToolKind.Curve)
-        {
-            lineOptions = lineOptions with { CurveControls = controls };
-            settings.LineOptions = lineOptions;
-            settings.Save();
-        }
-        UpdateStyleBar();
-    }
+    public void SetLineShape(int controls) => styles.SetLineShape(controls);
 
-    private void ApplyLineOptions(Func<LineOptions, LineOptions> toolChange, Func<LineAnnotation, LineAnnotation> lineChange)
+    private void UpdateLineOptions(bool visible)
     {
-        if (tools.Current is ToolKind.Line or ToolKind.Curve)
+        LineOptionsPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (!visible) return;
+        var state = styles.LineBar;
+        dashBox.SelectedIndex = state.DashIndex;
+        startArrowButton.IsChecked = state.StartArrow;
+        endArrowButton.IsChecked = state.EndArrow;
+        string[] shapes = state.Shapes switch
         {
-            lineOptions = toolChange(lineOptions).Validated();
-            settings.LineOptions = lineOptions;
-            settings.Save();
-        }
-        if (OptionLines is { Length: > 0 } lines) UpdateSelected(lines, lines.Select(lineChange).ToArray(), null);
-        UpdateStyleBar();
-    }
-
-    private void UpdateLineOptions()
-    {
-        var lines = OptionLines;
-        var line = lines.Length == 1 ? lines[0] : null;
-        bool tool = tools.Current is ToolKind.Line or ToolKind.Curve;
-        LineOptionsPanel.Visibility = lines.Length > 0 || tool ? Visibility.Visible : Visibility.Collapsed;
-        if (LineOptionsPanel.Visibility != Visibility.Visible) return;
-        var options = lines.Length == 0 ? lineOptions : new LineOptions(lines[0].Dash, lines[0].StartArrow, lines[0].EndArrow, 0);
-        // Several lines with different values show nothing chosen (mixed) until a value is set for all of them.
-        dashBox.SelectedIndex = lines.Any(l => l.Dash != options.Dash) ? -1 : (int)options.Dash;
-        startArrowButton.IsChecked = options.StartArrow && lines.All(l => l.StartArrow);
-        endArrowButton.IsChecked = options.EndArrow && lines.All(l => l.EndArrow);
-        string[] shapes = line is not null ? [Strings.Get("lineShape.straight"), Strings.Get("lineShape.oneControl"), Strings.Get("lineShape.twoControls")] : tools.Current == ToolKind.Curve && lines.Length == 0 ? [Strings.Get("common.auto"), Strings.Get("lineShape.oneControl"), Strings.Get("lineShape.twoControls")] : [];
+            LineShapeChoice.SelectedLine => [Strings.Get("lineShape.straight"), Strings.Get("lineShape.oneControl"), Strings.Get("lineShape.twoControls")],
+            LineShapeChoice.CurveTool => [Strings.Get("common.auto"), Strings.Get("lineShape.oneControl"), Strings.Get("lineShape.twoControls")],
+            _ => []
+        };
         if (shapeBox.ItemsSource is not string[] current || !current.SequenceEqual(shapes)) shapeBox.ItemsSource = shapes;
         shapeBox.Visibility = shapes.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
-        shapeBox.SelectedIndex = shapes.Length == 0 ? -1 : line is not null ? (int)line.LineKind : lineOptions.CurveControls;
+        shapeBox.SelectedIndex = state.ShapeIndex;
     }
 
     // ----- style bar UI -----
 
     private void UpdateStyleBar()
     {
-        var target = StyleTarget;
+        var bar = styles.Bar;
         UpdateTextStyleBar();
-        bool eraser = tools.Current is ToolKind.StrokeEraser or ToolKind.AreaEraser;
-        EraserBorder.Visibility = eraser ? Visibility.Visible : Visibility.Collapsed;
-        StyleBar.Visibility = eraser || TextStyleBorder.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
-        StyleBar.IsEnabled = target is not null;
-        StyleBar.Opacity = target is null ? 0.55 : 1;
-        // An area-eraser piece keeps its shape: its width is no longer editable.
-        var selection = StyleSelection;
-        var mixed = StyleMixed;
-        bool fixedWidth = selection.Length > 0 && selection.All(a => a is StrokeAnnotation { IsOutlined: true });
-        UpdateShapeOptions();
-        bool highlighter = tools.Current == ToolKind.FreeHighlight;
-        bool highlight = highlighter && markKind is null || selection.Length > 0 && selection.All(a => a is PdfTextHighlight);
-        MarkKindPanel.Visibility = highlighter ? Visibility.Visible : Visibility.Collapsed;
-        HighlighterSnapButton.Visibility = highlighter ? Visibility.Visible : Visibility.Collapsed;
+        EraserBorder.Visibility = bar.Eraser ? Visibility.Visible : Visibility.Collapsed;
+        StyleBar.Visibility = bar.Eraser || TextStyleBorder.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+        StyleBar.IsEnabled = bar.Target is not null;
+        StyleBar.Opacity = bar.Target is null ? 0.55 : 1;
+        UpdateShapeOptions(bar.ShapeOptionsShown);
+        MarkKindPanel.Visibility = bar.MarkKindShown ? Visibility.Visible : Visibility.Collapsed;
+        HighlighterSnapButton.Visibility = bar.Highlighter ? Visibility.Visible : Visibility.Collapsed;
         HighlighterSnapButton.IsChecked = settings.HighlighterSnap;
-        HighlighterSnapButton.IsEnabled = markKind is null; // underline and strikeout always go on text (spec 9.1)
-        (markKind switch { TextMarkupKind.Underline => MarkUnderlineButton, TextMarkupKind.StrikeOut => MarkStrikeOutButton, _ => MarkHighlightButton }).IsChecked = true;
-        // A sticky note has a color only (spec 24.9).
-        bool colorOnly = tools.Current == ToolKind.Note || selection.Length > 0 && selection.All(a => a is StickyNote);
-        TransparencySlider.IsEnabled = TransparencyBox.IsEnabled = !colorOnly;
-        HighlightAutoButton.Visibility = highlight ? Visibility.Visible : Visibility.Collapsed;
-        HighlightAutoButton.IsChecked = highlighter ? highlighterAuto
-            : selection.Length > 0 && selection.All(a => a is PdfTextHighlight { HeightMode: HighlightHeightMode.Auto });
-        // Automatic glyph height leaves no width to set on selected glyph highlights; the highlighter's width still
-        // sets its free strokes (spec 9.1).
-        WidthSlider.IsEnabled = WidthBox.IsEnabled = !fixedWidth && !colorOnly && !(highlight && !highlighter && HighlightAutoButton.IsChecked == true);
-        if (eraser) UpdateEraserBar();
+        HighlighterSnapButton.IsEnabled = bar.SnapEnabled; // underline and strikeout always go on text (spec 9.1)
+        (styles.MarkKind switch { TextMarkupKind.Underline => MarkUnderlineButton, TextMarkupKind.StrikeOut => MarkStrikeOutButton, _ => MarkHighlightButton }).IsChecked = true;
+        TransparencySlider.IsEnabled = TransparencyBox.IsEnabled = bar.TransparencyEnabled;
+        HighlightAutoButton.Visibility = bar.HighlightAutoShown ? Visibility.Visible : Visibility.Collapsed;
+        HighlightAutoButton.IsChecked = bar.HighlightAutoChecked;
+        WidthSlider.IsEnabled = WidthBox.IsEnabled = bar.WidthEnabled;
+        if (bar.Eraser) UpdateEraserBar();
         syncingStyleBar = true;
         try
         {
-            var (style, kind) = target ?? (penStyle, AnnotationKind.Ink);
+            var (style, kind) = bar.Shown(styles.Pen);
             var (min, max) = StrokeStyle.WidthRange(kind);
             WidthSlider.Minimum = min;
             WidthSlider.Maximum = max;
             WidthSlider.Value = Math.Clamp(style.WidthPt, min, max);
-            if (!WidthBox.IsKeyboardFocusWithin) WidthBox.Text = target is null || mixed.Width ? "" : FormatNumber(style.WidthPt);
+            if (!WidthBox.IsKeyboardFocusWithin) WidthBox.Text = bar.Target is null || bar.Mixed.Width ? "" : FormatNumber(style.WidthPt);
             TransparencySlider.Value = style.TransparencyPercent;
-            if (!TransparencyBox.IsKeyboardFocusWithin) TransparencyBox.Text = target is null || mixed.Transparency ? "" : FormatNumber(style.TransparencyPercent);
-            UpdateLineOptions();
-            bool showColor = target is not null && !mixed.Color;
+            if (!TransparencyBox.IsKeyboardFocusWithin) TransparencyBox.Text = bar.Target is null || bar.Mixed.Transparency ? "" : FormatNumber(style.TransparencyPercent);
+            UpdateLineOptions(bar.LineOptionsShown);
+            bool showColor = bar.Target is not null && !bar.Mixed.Color;
             foreach (Button swatch in PalettePanel.Children) MarkSwatch(swatch, showColor && Equals(swatch.DataContext, style.Color));
             RecentPanel.Children.Clear();
-            foreach (var color in recentColors)
+            foreach (var color in styles.UserColors)
             {
                 var swatch = CreateSwatch(color, color.ToHex(), SetColor, removable: true);
                 MarkSwatch(swatch, showColor && color == style.Color);
@@ -828,29 +601,11 @@ public partial class MainWindow
         return swatch;
     }
 
-    /// <summary>
-    /// Adds a color outside the basic palette to the user colors every palette shares (spec 3.4, D14g): at the end, never
-    /// pushing one out; a full list (12) takes no more until one is removed.
-    /// </summary>
-    private void RememberColor(RgbColor color)
-    {
-        if (ColorPalette.Basic.Contains(color)) return;
-        recentColors = ColorPalette.Add(recentColors, color);
-        settings.RecentColors = [.. recentColors.Select(c => c.ToHex())];
-    }
+    /// <summary>Adds a color outside the basic palette to the user colors every palette shares (spec 3.4, D14g).</summary>
+    private void RememberColor(RgbColor color) => styles.RememberColor(color);
 
-    /// <summary>
-    /// Removes a user color from every palette (spec 3.2, 2026-10-13). An app setting: no Undo, the document stays as it
-    /// is, and annotations in that color keep it. Basic colors cannot be removed.
-    /// </summary>
-    public void RemoveUserColor(RgbColor color)
-    {
-        if (!recentColors.Contains(color)) return;
-        recentColors = ColorPalette.Remove(recentColors, color);
-        settings.RecentColors = [.. recentColors.Select(c => c.ToHex())];
-        settings.Save();
-        UpdateStyleBar();
-    }
+    /// <summary>Removes a user color from every palette (spec 3.2, 2026-10-13). An app setting: no Undo.</summary>
+    public void RemoveUserColor(RgbColor color) => styles.RemoveUserColor(color);
 
     /// <summary>
     /// The + of a palette (spec 3.2, 2026-10-13 user requests): a popup with the color plane and hue strip, the color code,
@@ -870,7 +625,7 @@ public partial class MainWindow
         button.SetBinding(ToggleButton.IsCheckedProperty, new System.Windows.Data.Binding(nameof(Popup.IsOpen)) { Source = popup, Mode = System.Windows.Data.BindingMode.TwoWay });
         void Back() => (textEditor as IInputElement ?? View).Focus();
         // A full user color list (spec 3.4: 12) adds nothing: 추가 stays off until a color is removed.
-        popup.Opened += (_, _) => { picker.Add.IsEnabled = recentColors.Count < ColorPalette.MaxUser; picker.ShowColor(current()); picker.Code.Focus(); picker.Code.SelectAll(); };
+        popup.Opened += (_, _) => { picker.Add.IsEnabled = styles.UserColors.Count < ColorPalette.MaxUser; picker.ShowColor(current()); picker.Code.Focus(); picker.Code.SelectAll(); };
         picker.Picked += color => { popup.IsOpen = false; apply(color); Back(); };
         picker.EyedropperRequested += () => { popup.IsOpen = false; StartEyedropper(apply); };
         picker.PreviewKeyDown += (_, e) =>
@@ -901,14 +656,14 @@ public partial class MainWindow
     {
         eyedropper = apply;
         Mouse.OverrideCursor = Cursors.Cross;
-        StatusText.Text = Strings.Get("color.eyedropperTip");
+        viewModel.Status = Strings.Get("color.eyedropperTip");
     }
 
     private void EndEyedropper()
     {
         eyedropper = null;
         Mouse.OverrideCursor = null;
-        StatusText.Text = "";
+        viewModel.Status = "";
     }
 
     private void InitializeEyedropper()
@@ -1007,17 +762,13 @@ public partial class MainWindow
 
     // ----- eraser bar: stroke/area mode and diameter (spec 7.3–7.4) -----
 
-    /// <summary>Sets the diameter of the active eraser (points, 2–100) and stores it.</summary>
+    /// <summary>Sets the diameter of the active eraser (points, 2–100); stored when committed.</summary>
     public void SetEraserSize(double diameterPt)
     {
-        if (!double.IsFinite(diameterPt)) return;
-        if (tools.Current == ToolKind.StrokeEraser) settings.StrokeEraserPt = EraserSizes.Clamp(diameterPt, EraserMode.Stroke);
-        else if (tools.Current == ToolKind.AreaEraser) settings.AreaEraserPt = EraserSizes.Clamp(diameterPt, EraserMode.Area);
-        else return;
-        UpdateEraserBar();
+        if (styles.SetEraserSize(diameterPt)) UpdateEraserBar();
     }
 
-    private double ActiveEraserSize => tools.Current == ToolKind.StrokeEraser ? settings.StrokeEraserPt : settings.AreaEraserPt;
+    private double ActiveEraserSize => styles.EraserSize;
 
     private void UpdateEraserBar()
     {
@@ -1035,13 +786,13 @@ public partial class MainWindow
         if (!syncingStyleBar) SetEraserSize(Math.Round(e.NewValue));
     }
 
-    private void EraserSizeCommitted(object sender, RoutedEventArgs e) => settings.Save();
+    private void EraserSizeCommitted(object sender, RoutedEventArgs e) => viewModel.SaveSettings();
 
     private void EraserSizeBoxCommitted(object sender, RoutedEventArgs e)
     {
         if (TryParseNumber(EraserSizeBox.Text, out double value)) SetEraserSize(value);
         EraserSizeBox.Text = FormatNumber(ActiveEraserSize);
-        settings.Save();
+        viewModel.SaveSettings();
     }
 
     private void EraserSizeBoxKeyDown(object sender, KeyEventArgs e)

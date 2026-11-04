@@ -57,9 +57,9 @@
       "pdfnotes.editor": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.0.1-dev, )",
-          "PdfNotes.Pdf": "[1.0.1-dev, )",
-          "PdfNotes.Text": "[1.0.1-dev, )"
+          "PdfNotes.Core": "[1.2.0-dev, )",
+          "PdfNotes.Pdf": "[1.2.0-dev, )",
+          "PdfNotes.Text": "[1.2.0-dev, )"
         }
       },
       "pdfnotes.pdf": {
@@ -68,22 +68,22 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )",
           "PDFsharp": "[6.2.4, )",
-          "PdfNotes.Core": "[1.0.1-dev, )",
-          "PdfNotes.Text": "[1.0.1-dev, )",
+          "PdfNotes.Core": "[1.2.0-dev, )",
+          "PdfNotes.Text": "[1.2.0-dev, )",
           "bblanchon.PDFium.Win32": "[156.0.8076, )"
         }
       },
       "pdfnotes.text": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.0.1-dev, )"
+          "PdfNotes.Core": "[1.2.0-dev, )"
         }
       },
       "pdfnotes.text.wpf": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.0.1-dev, )",
-          "PdfNotes.Text": "[1.0.1-dev, )"
+          "PdfNotes.Core": "[1.2.0-dev, )",
+          "PdfNotes.Text": "[1.2.0-dev, )"
         }
       }
     },

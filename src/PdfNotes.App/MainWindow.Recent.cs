@@ -15,35 +15,18 @@ namespace PdfNotes.App;
 public partial class MainWindow
 {
     /// <summary>Recent documents, most recent first (validation harness and the 파일 tab menu).</summary>
-    public IReadOnlyList<string> RecentFiles => settings.RecentFiles;
+    public IReadOnlyList<string> RecentFiles => viewModel.Recent.Files;
 
     /// <summary>The recent documents menu opened last (validation harness).</summary>
     public ContextMenu? LastRecentMenu { get; private set; }
 
-    private void AddRecent(string path)
-    {
-        path = Path.GetFullPath(path);
-        settings.RecentFiles.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
-        settings.RecentFiles.Insert(0, path);
-        if (settings.RecentFiles.Count > AppSettings.MaxRecentFiles) settings.RecentFiles.RemoveRange(AppSettings.MaxRecentFiles, settings.RecentFiles.Count - AppSettings.MaxRecentFiles);
-        settings.Save();
-        UpdateRecentButton();
-    }
-
-    public void RemoveRecent(string path)
-    {
-        settings.RecentFiles.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
-        settings.Save();
-        UpdateRecentButton();
-    }
-
-    private void UpdateRecentButton() => RecentButton.IsEnabled = settings.RecentFiles.Count > 0;
+    public void RemoveRecent(string path) => viewModel.Recent.Remove(path);
 
     /// <summary>파일 › 최근 문서 ▾: file names (full path as tooltip), most recent first; right-click 목록에서 제거.</summary>
     private void RecentClick(object sender, RoutedEventArgs e)
     {
         var menu = new ContextMenu { PlacementTarget = RecentButton, Placement = PlacementMode.Bottom };
-        foreach (string path in settings.RecentFiles.ToArray())
+        foreach (string path in viewModel.Recent.Files.ToArray())
         {
             var item = new MenuItem { Header = Path.GetFileName(path), ToolTip = path };
             item.Click += async (_, _) => await OpenRecentAsync(path);
@@ -57,32 +40,20 @@ public partial class MainWindow
     }
 
     /// <summary>Opens a recent document like 열기; a file that is gone is reported briefly and leaves the list.</summary>
-    public async Task<bool> OpenRecentAsync(string path)
-    {
-        if (!File.Exists(path))
-        {
-            RemoveRecent(path);
-            StatusText.Text = Strings.Format("recent.missing", ("name", Path.GetFileName(path)));
-            return false;
-        }
-        return await OpenFileAsync(path);
-    }
+    public Task<bool> OpenRecentAsync(string path) => viewModel.OpenRecentAsync(path);
 
     /// <summary>Remembers where the document was shown (page, point at the view center, zoom); new notes are not remembered.</summary>
     private void RememberPosition(OpenDocument? doc)
     {
         if (doc?.FilePath is not { } path || !ReferenceEquals(doc, document) || View.CenterAnchor is not { } anchor) return;
-        path = Path.GetFullPath(path);
-        settings.Positions.RemoveAll(p => string.Equals(p.Path, path, StringComparison.OrdinalIgnoreCase));
-        settings.Positions.Insert(0, new() { Path = path, Page = anchor.PageIndex, X = anchor.PagePoint.X, Y = anchor.PagePoint.Y, Zoom = View.Zoom });
-        if (settings.Positions.Count > AppSettings.MaxPositions) settings.Positions.RemoveRange(AppSettings.MaxPositions, settings.Positions.Count - AppSettings.MaxPositions);
+        viewModel.Recent.RememberPosition(path, anchor.PageIndex, anchor.PagePoint, View.Zoom);
     }
 
     /// <summary>Shows a reopened document where it was left; a document seen for the first time keeps the fit width start.
     /// Fewer pages than before go to the last page.</summary>
     private void RestorePosition(string path)
     {
-        var saved = settings.Positions.FirstOrDefault(p => string.Equals(p.Path, Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase));
+        var saved = viewModel.Recent.PositionOf(path);
         if (saved is null || View.PageCount == 0) return;
         int page = Math.Clamp(saved.Page, 0, View.PageCount - 1);
         View.SetZoom(saved.Zoom);

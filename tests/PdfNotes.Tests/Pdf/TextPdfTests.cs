@@ -38,31 +38,54 @@ public sealed class TextPdfTests
         var actual = document.Render(0, 2, annotations: true); var blank = background.Render(0, 2, annotations: true);
         Assert.True(actual.Bgra.Where((v, i) => i % 4 != 3 && v < 210).Count() > 1000);
         Assert.True(blank.Bgra.Where((v, i) => i % 4 != 3 && v < 210).Count() < 10);
-        // Independent rasterization of the shared vector drawing verifies real glyph positions/orientation and fill alpha.
-        Exception? failure = null;
+        // Independent rasterization of the engine's own screen drawing verifies real glyph positions/orientation and fill alpha.
+        var setup = model.Pages[0].Setup; var m = box.Transform.Then(setup.Frame.CanonicalToDisplay).Then(Affine.Scale(2));
+        var expected = TextEngineSetup.Skia ? SkiaRaster(box, m, actual.Width, actual.Height, actual.Stride) : WpfRaster(box, m, actual.Width, actual.Height, actual.Stride);
+        long error = 0; int colored = 0;
+        for (int i = 0; i < expected.Length; i += 4)
+            if (expected[i] < 250 || expected[i + 1] < 250 || expected[i + 2] < 250 || actual.Bgra[i] < 250 || actual.Bgra[i + 1] < 250 || actual.Bgra[i + 2] < 250)
+            { error += Math.Abs(expected[i] - actual.Bgra[i]) + Math.Abs(expected[i + 1] - actual.Bgra[i + 1]) + Math.Abs(expected[i + 2] - actual.Bgra[i + 2]); colored++; }
+        Assert.True(error / (double)(colored * 3) < 12, $"Mean painted-pixel RGB error: {error / (double)(colored * 3)}");
+    }
+
+    /// <summary>The box drawn by the WPF engine's screen drawing on white, BGRA.</summary>
+    private static byte[] WpfRaster(TextBoxAnnotation box, Affine m, int width, int height, int stride)
+    {
+        byte[]? result = null; Exception? failure = null;
         var thread = new Thread(() =>
         {
             try
             {
-                var setup = model.Pages[0].Setup; var m = box.Transform.Then(setup.Frame.CanonicalToDisplay).Then(Affine.Scale(2));
                 var visual = new DrawingVisual(); using (var c = visual.RenderOpen())
                 {
-                    c.DrawRectangle(Brushes.White, null, new Rect(0, 0, actual.Width, actual.Height));
+                    c.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
                     c.PushTransform(new MatrixTransform(new Matrix(m.M11, m.M12, m.M21, m.M22, m.OffsetX, m.OffsetY)));
                     c.DrawDrawing(WpfText.Measure(box).Drawing); c.Pop();
                 }
-                var bitmap = new RenderTargetBitmap(actual.Width, actual.Height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(visual);
-                var expected = new byte[actual.Bgra.Length]; bitmap.CopyPixels(expected, actual.Stride, 0);
-                long error = 0; int colored = 0;
-                for (int i = 0; i < expected.Length; i += 4)
-                    if (expected[i] < 250 || expected[i + 1] < 250 || expected[i + 2] < 250 || actual.Bgra[i] < 250 || actual.Bgra[i + 1] < 250 || actual.Bgra[i + 2] < 250)
-                    { error += Math.Abs(expected[i] - actual.Bgra[i]) + Math.Abs(expected[i + 1] - actual.Bgra[i + 1]) + Math.Abs(expected[i + 2] - actual.Bgra[i + 2]); colored++; }
-                Assert.True(error / (double)(colored * 3) < 12, $"Mean painted-pixel RGB error: {error / (double)(colored * 3)}");
+                var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(visual);
+                result = new byte[stride * height]; bitmap.CopyPixels(result, stride, 0);
             }
             catch (Exception e) { failure = e; }
         });
         thread.SetApartmentState(ApartmentState.STA); thread.Start(); Assert.True(thread.Join(TimeSpan.FromSeconds(20)));
         if (failure is not null) throw failure;
+        return result!;
+    }
+
+    /// <summary>The box drawn by the Skia engine's screen renderer on white, BGRA (roadmap P2 S2).</summary>
+    private static byte[] SkiaRaster(TextBoxAnnotation box, Affine m, int width, int height, int stride)
+    {
+        using var bitmap = new SkiaSharp.SKBitmap(new SkiaSharp.SKImageInfo(width, height, SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Premul));
+        using (var canvas = new SkiaSharp.SKCanvas(bitmap))
+        {
+            canvas.Clear(SkiaSharp.SKColors.White);
+            canvas.SetMatrix(new SkiaSharp.SKMatrix((float)m.M11, (float)m.M21, (float)m.OffsetX, (float)m.M12, (float)m.M22, (float)m.OffsetY, 0, 0, 1));
+            SkiaTextRenderer.Draw(canvas, (SkiaTextLayout)TextLayout.Measure(box));
+        }
+        var result = new byte[stride * height];
+        for (int y = 0; y < height; y++)
+            System.Runtime.InteropServices.Marshal.Copy(bitmap.GetPixels() + y * bitmap.RowBytes, result, y * stride, width * 4);
+        return result;
     }
     [Fact] public void LockedBlankTextHasNeitherMetadataNorAppearance()
     {

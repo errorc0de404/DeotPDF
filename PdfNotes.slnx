@@ -4,8 +4,12 @@
     <Project Path="src/PdfNotes.Core/PdfNotes.Core.csproj" />
     <Project Path="src/PdfNotes.Editor/PdfNotes.Editor.csproj" />
     <Project Path="src/PdfNotes.Text/PdfNotes.Text.csproj" />
+    <Project Path="src/PdfNotes.Text.Skia/PdfNotes.Text.Skia.csproj" />
     <Project Path="src/PdfNotes.Text.Wpf/PdfNotes.Text.Wpf.csproj" />
+    <Project Path="src/PdfNotes.TextEditor/PdfNotes.TextEditor.csproj" />
+    <Project Path="src/PdfNotes.TextEditor.Avalonia/PdfNotes.TextEditor.Avalonia.csproj" />
     <Project Path="src/PdfNotes.Pdf/PdfNotes.Pdf.csproj" />
+    <Project Path="src/PdfNotes.ViewModels/PdfNotes.ViewModels.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PdfNotes.Tests/PdfNotes.Tests.csproj" />

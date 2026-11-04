@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" Version="12.1.4" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -19,6 +20,9 @@
     <Using Include="Xunit" />
     <ProjectReference Include="..\..\src\PdfNotes.App\PdfNotes.App.csproj" />
     <ProjectReference Include="..\..\tools\PdfNotes.Cli\PdfNotes.Cli.csproj" />
+    <ProjectReference Include="..\..\src\PdfNotes.Text.Skia\PdfNotes.Text.Skia.csproj" />
+    <ProjectReference Include="..\..\src\PdfNotes.TextEditor\PdfNotes.TextEditor.csproj" />
+    <ProjectReference Include="..\..\src\PdfNotes.TextEditor.Avalonia\PdfNotes.TextEditor.Avalonia.csproj" />
   </ItemGroup>
 
 </Project>

@@ -21,6 +21,9 @@ public class ArchitectureTests
     [InlineData(typeof(PdfNotes.Text.TextLayout))]
     [InlineData(typeof(PdfNotes.Pdf.Writing.EditablePdfWriter))]
     [InlineData(typeof(PdfNotes.Editor.Services.AppSettings))]
+    [InlineData(typeof(PdfNotes.ViewModels.MainViewModel))]
+    [InlineData(typeof(PdfNotes.TextEditor.TextEditorModel))]
+    [InlineData(typeof(PdfNotes.Text.SkiaText))]
     public void SharedProjectsAreNet10WithoutWpf(Type marker)
     {
         var assembly = marker.Assembly;
@@ -40,6 +43,8 @@ public class ArchitectureTests
     [InlineData(typeof(PdfNotes.Text.TextLayout), null)]
     [InlineData(typeof(PdfNotes.Pdf.Writing.EditablePdfWriter), "pdfium")]
     [InlineData(typeof(PdfNotes.Editor.Services.AppSettings), null)]
+    [InlineData(typeof(PdfNotes.ViewModels.MainViewModel), null)]
+    [InlineData(typeof(PdfNotes.TextEditor.TextEditorModel), null)]
     public void SharedProjectsCallNoNativeCodeExceptPdfium(Type marker, string? allowed)
     {
         const System.Reflection.BindingFlags all = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic
@@ -53,5 +58,33 @@ public class ArchitectureTests
         Assert.All(imports, i => Assert.True(i.Library == allowed, $"{i.Method} imports {i.Library}"));
         if (allowed is not null)
             Assert.NotEmpty(imports); // the check would pass vacuously if reflection stopped seeing the imports
+    }
+
+    /// <summary>P2: the editor model takes no packages — only Core and Text (roadmap P2, new projects).</summary>
+    [Fact]
+    public void TextEditorReferencesOnlyCoreAndText()
+    {
+        var references = typeof(PdfNotes.TextEditor.TextEditorModel).Assembly.GetReferencedAssemblies().Select(a => a.Name!).ToArray();
+        string[] allowed = ["netstandard", "PdfNotes.Core", "PdfNotes.Text"];
+        Assert.All(references, name => Assert.True(name.StartsWith("System", StringComparison.Ordinal) || allowed.Contains(name), name));
+    }
+
+    /// <summary>
+    /// P2 (decision B, roadmap): in 1.2 the app and the shipped CLI keep the WPF engine and editor. Nothing they load may
+    /// reference the Skia engine, the new editor or Avalonia until P4 switches both at once.
+    /// </summary>
+    [Theory]
+    [InlineData(typeof(PdfNotes.App.App))]
+    [InlineData(typeof(PdfNotes.Cli.CliApp))]
+    [InlineData(typeof(PdfNotes.ViewModels.MainViewModel))]
+    [InlineData(typeof(PdfNotes.Editor.Services.AppSettings))]
+    [InlineData(typeof(PdfNotes.Pdf.Writing.EditablePdfWriter))]
+    [InlineData(typeof(PdfNotes.Text.TextLayout))]
+    [InlineData(typeof(PdfNotes.Text.WpfText))]
+    public void ShippedProjectsDoNotUseTheP2Projects(Type marker)
+    {
+        string[] forbidden = ["PdfNotes.Text.Skia", "PdfNotes.TextEditor", "Avalonia", "SkiaSharp", "HarfBuzzSharp"];
+        var references = marker.Assembly.GetReferencedAssemblies().Select(a => a.Name!).ToArray();
+        Assert.DoesNotContain(references, name => forbidden.Any(f => name.StartsWith(f, StringComparison.OrdinalIgnoreCase)));
     }
 }

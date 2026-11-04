@@ -3,72 +3,48 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using PdfNotes.App.Canvas;
-using PdfNotes.Editor.Localization;
-using PdfNotes.Editor.Session;
 
 namespace PdfNotes.App;
 
 /// <summary>
-/// The loading card while a file opens: it appears only when opening takes longer than <see cref="LoadingDelay"/>, blocks
-/// the canvas while the file is read, and stays until the first pages are drawn (at most <see cref="LoadingLinger"/>).
+/// The loading card while a file opens. Its timing is <see cref="LoadingViewModel"/>; the window shows the card and tells
+/// the view model when the first pages are drawn.
 /// </summary>
 public partial class MainWindow
 {
-    private static readonly TimeSpan LoadingDelay = TimeSpan.FromMilliseconds(150);
-    private static readonly TimeSpan LoadingLinger = TimeSpan.FromSeconds(2);
-    private DispatcherTimer? loadingTimer;
     private PageRenderScheduler? loadingScheduler;
 
     /// <summary>True while the loading card is shown.</summary>
-    public bool LoadingShown => LoadingOverlay.Visibility == Visibility.Visible;
+    public bool LoadingShown => viewModel.Loading.IsShown;
 
-    void IDocumentHost.Loading(string? name)
+    private void InitializeLoading() => viewModel.Loading.PropertyChanged += (_, e) =>
     {
-        if (name is not null) BeginLoading(name);
-        else EndLoading();
-    }
-
-    private void BeginLoading(string name)
-    {
-        StopLoading();
-        LoadingText.Text = Strings.Format("status.openingFile", ("name", name));
-        loadingTimer = new DispatcherTimer(DispatcherPriority.Normal, Dispatcher) { Interval = LoadingDelay };
-        loadingTimer.Tick += (_, _) =>
+        var loading = viewModel.Loading;
+        switch (e.PropertyName)
         {
-            loadingTimer?.Stop();
-            loadingTimer = null;
-            LoadingOverlay.IsHitTestVisible = true;
-            LoadingOverlay.Visibility = Visibility.Visible;
-            LoadingSpinner.RenderTransform.BeginAnimation(RotateTransform.AngleProperty,
-                new DoubleAnimation(0, 360, TimeSpan.FromSeconds(0.9)) { RepeatBehavior = RepeatBehavior.Forever });
-        };
-        loadingTimer.Start();
-    }
+            case nameof(LoadingViewModel.BlocksInput):
+                LoadingOverlay.IsHitTestVisible = loading.BlocksInput;
+                break;
+            case nameof(LoadingViewModel.IsShown):
+                LoadingOverlay.Visibility = loading.IsShown ? Visibility.Visible : Visibility.Collapsed;
+                LoadingSpinner.RenderTransform.BeginAnimation(RotateTransform.AngleProperty, loading.IsShown
+                    ? new DoubleAnimation(0, 360, TimeSpan.FromSeconds(0.9)) { RepeatBehavior = RepeatBehavior.Forever } : null);
+                break;
+            case nameof(LoadingViewModel.WaitsForPages) when !loading.WaitsForPages && loadingScheduler is not null:
+                loadingScheduler.Idle -= LoadingSchedulerIdle;
+                loadingScheduler = null;
+                break;
+        }
+    };
 
-    /// <summary>The file is read (or failed): a card not shown yet never appears; a shown one waits for the first pages.</summary>
-    private void EndLoading()
+    void IMainView.WaitForFirstPages()
     {
-        if (loadingScheduler is not null) return; // already waiting for the pages
-        if (!LoadingShown || scheduler is not { } pending) { StopLoading(); return; }
-        LoadingOverlay.IsHitTestVisible = false; // the document is usable already; the card only covers the blank pages
+        if (scheduler is not { } pending) { viewModel.Loading.PagesDrawn(); return; }
         loadingScheduler = pending;
         pending.Idle += LoadingSchedulerIdle;
-        loadingTimer = new DispatcherTimer(DispatcherPriority.Normal, Dispatcher) { Interval = LoadingLinger };
-        loadingTimer.Tick += (_, _) => StopLoading();
-        loadingTimer.Start();
         // The view asks for its pages at layout; nothing asked (or all cached) by then means nothing to wait for.
-        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, () => { if (ReferenceEquals(loadingScheduler, pending) && pending.IsIdle) StopLoading(); });
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, () => { if (ReferenceEquals(loadingScheduler, pending) && pending.IsIdle) viewModel.Loading.PagesDrawn(); });
     }
 
-    private void LoadingSchedulerIdle() => StopLoading();
-
-    private void StopLoading()
-    {
-        loadingTimer?.Stop();
-        loadingTimer = null;
-        if (loadingScheduler is not null) loadingScheduler.Idle -= LoadingSchedulerIdle;
-        loadingScheduler = null;
-        LoadingSpinner.RenderTransform.BeginAnimation(RotateTransform.AngleProperty, null);
-        LoadingOverlay.Visibility = Visibility.Collapsed;
-    }
+    private void LoadingSchedulerIdle() => viewModel.Loading.PagesDrawn();
 }

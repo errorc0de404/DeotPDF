@@ -298,8 +298,17 @@ public sealed class PdfiumDocument : IDisposable
         }
     }
 
+    /// <summary>
+    /// Clockwise baseline angle of a glyph in PDF user space. Taken from the glyph matrix's baseline vector (a, b) only:
+    /// PDFium's own angle also reads the shear of oblique/italic text as rotation, which would tilt highlights.
+    /// </summary>
     private static double Angle(nint text, int index)
     {
+        if (Native.FPDFText_GetMatrix(text, index, out var m) != 0 && float.IsFinite(m.A) && float.IsFinite(m.B) && Math.Abs(m.A) + Math.Abs(m.B) > 1e-6)
+        {
+            double a = Math.Atan2(-m.B, m.A);
+            return a < 0 ? a + 2 * Math.PI : a;
+        }
         float angle = Native.FPDFText_GetCharAngle(text, index);
         return angle >= 0 && float.IsFinite(angle) ? angle : 0;
     }
@@ -411,6 +420,8 @@ public sealed class PdfiumDocument : IDisposable
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFText_CountChars(nint text);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern uint FPDFText_GetUnicode(nint text, int index);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern float FPDFText_GetCharAngle(nint text, int index);
+        [StructLayout(LayoutKind.Sequential)] internal struct Matrix { public float A, B, C, D, E, F; }
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFText_GetMatrix(nint text, int index, out Matrix matrix);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFText_GetCharBox(nint text, int index, out double left, out double right, out double bottom, out double top);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_GetPageBoundingBox(nint page, out RectF rect);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPage_GetRotation(nint page);

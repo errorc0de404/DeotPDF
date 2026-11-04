@@ -6,15 +6,12 @@ using PdfNotes.Editor.Localization;
 
 namespace PdfNotes.App;
 
-/// <summary>Tabs of the top ribbon (spec 3.2 D13 implementation default). <see cref="Home"/> is the tab named 필기 (2026-10-14).</summary>
-public enum RibbonTab { File, Home, Page, View }
-
 public partial class MainWindow
 {
-    /// <summary>The visible ribbon tab. Changing it never changes the current tool or the keyboard focus.</summary>
-    public RibbonTab CurrentRibbonTab { get; private set; } = RibbonTab.Home;
+    /// <summary>The visible ribbon tab (<see cref="RibbonViewModel"/>). Changing it never changes the current tool or the keyboard focus.</summary>
+    public RibbonTab CurrentRibbonTab => viewModel.Ribbon.Current;
 
-    public void ShowRibbonTab(RibbonTab tab) => RibbonTabButton(tab).IsChecked = true;
+    public void ShowRibbonTab(RibbonTab tab) => viewModel.Ribbon.Current = tab;
 
     private ToggleButton RibbonTabButton(RibbonTab tab) => tab switch
     {
@@ -26,26 +23,25 @@ public partial class MainWindow
 
     private void InitializeRibbon()
     {
-        HomeTabButton.IsChecked = true;
-        PageList.SelectionChanged += (_, _) => UpdatePageCommands();
-        Activated += (_, _) => UpdatePageCommands(); // another window may have copied pages meanwhile (spec 11.4, D14g)
+        viewModel.Ribbon.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(RibbonViewModel.Current)) ShowCurrentTab(); };
+        ShowCurrentTab();
+        PageList.SelectionChanged += (_, _) => viewModel.Pages.CommandsChanged();
+        Activated += (_, _) => viewModel.Pages.CommandsChanged(); // another window may have copied pages meanwhile (spec 11.4, D14g)
+        viewModel.Pages.PropertyChanged += (_, e) => { if (e.PropertyName is nameof(PagesViewModel.CanPaste) or nameof(PagesViewModel.CanDelete)) UpdatePageCommands(); };
     }
 
-    /// <summary>
-    /// Automatic tab switch (spec 3.2, 2026-10-14): work on the page list shows 페이지, work on the canvas (selecting,
-    /// drawing, typing, changing the tool) shows 필기. Only between those two — an open 파일 or 보기 tab stays — and only
-    /// with the 화면 setting on. Showing a tab never changes the tool, the selection or the keyboard focus.
-    /// </summary>
-    private void AutoRibbonTab(RibbonTab tab)
-    {
-        if (holdRibbonTab || !settings.AutoSwitchTabs || CurrentRibbonTab is not (RibbonTab.Home or RibbonTab.Page) || CurrentRibbonTab == tab) return;
-        ShowRibbonTab(tab);
-    }
+    /// <summary>Automatic tab switch (spec 3.2, <see cref="RibbonViewModel.Auto"/>).</summary>
+    private void AutoRibbonTab(RibbonTab tab) => viewModel.Ribbon.Auto(tab);
 
     private void RibbonTabChecked(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { Tag: string name } || !Enum.TryParse<RibbonTab>(name, out var tab)) return;
-        CurrentRibbonTab = tab;
+        if (sender is FrameworkElement { Tag: string name } && Enum.TryParse<RibbonTab>(name, out var tab)) viewModel.Ribbon.Current = tab;
+    }
+
+    private void ShowCurrentTab()
+    {
+        var tab = viewModel.Ribbon.Current;
+        RibbonTabButton(tab).IsChecked = true;
         FileTab.Visibility = tab == RibbonTab.File ? Visibility.Visible : Visibility.Collapsed;
         HomeTab.Visibility = tab == RibbonTab.Home ? Visibility.Visible : Visibility.Collapsed;
         PageTab.Visibility = tab == RibbonTab.Page ? Visibility.Visible : Visibility.Collapsed;
@@ -59,8 +55,8 @@ public partial class MainWindow
     private void UpdatePageCommands()
     {
         if (document is null) return;
-        PastePageButton.IsEnabled = CanPastePages;
-        DeletePageButton.IsEnabled = SelectedPageIds.Length < document.Session.Current.Pages.Count;
+        PastePageButton.IsEnabled = viewModel.Pages.CanPaste;
+        DeletePageButton.IsEnabled = viewModel.Pages.CanDelete;
     }
 
     private void InsertPageClick(object sender, RoutedEventArgs e) => AddBlankPage(true);

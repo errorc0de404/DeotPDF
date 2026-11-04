@@ -19,10 +19,7 @@ using PdfNotes.Editor.Localization;
 
 namespace PdfNotes.App;
 
-/// <summary>What the text bar's palette and transparency edit (spec 3.2, 2026-10-13): the characters, the box fill or the box border.</summary>
-public enum TextColorTarget { Text, Fill, Border }
-
-public partial class MainWindow
+public partial class MainWindow : ITextEditorSession
 {
     private RichTextBox? textEditor;
     private TextBoxAnnotation? editingText, draftText;
@@ -37,13 +34,12 @@ public partial class MainWindow
     private TextBox textSizeBox = null!, textAlphaBox = null!;
     private StackPanel textPalettePanel = null!, textRecentPanel = null!;
     private readonly RadioButton[] textTargetButtons = new RadioButton[3];
-    private TextColorTarget textColorTarget = TextColorTarget.Text;
     private readonly Dictionary<string, ToggleButton> textToggles = [];
     private ToggleButton textHighlightButton = null!;
     public RichTextBox? ActiveTextEditor => textEditor;
     public TextBoxAnnotation? EditingText => editingText;
-    public TextRun DefaultTextStyle => settings.DefaultText;
-    private TextBoxAnnotation? TextTarget => textEditor is not null ? ReadEditor() : selectTool.SelectedAnnotations.OfType<TextBoxAnnotation>().FirstOrDefault();
+    public TextRun DefaultTextStyle => viewModel.TextStyle.DefaultStyle;
+    private TextStyleViewModel textStyle => viewModel.TextStyle;
 
     private void InitializeTextEditing()
     {
@@ -56,28 +52,29 @@ public partial class MainWindow
         var targets = Group();
         foreach (var (name, label, target) in new[] { ("TextTargetText", Strings.Get("text.targetText"), TextColorTarget.Text), ("TextTargetFill", Strings.Get("text.targetFill"), TextColorTarget.Fill), ("TextTargetBorder", Strings.Get("text.targetBorder"), TextColorTarget.Border) })
         {
-            var button = new RadioButton { Name = name, Content = label, GroupName = "TextColorTarget", Style = (Style)FindResource("ToolButton"), IsChecked = target == textColorTarget };
+            var button = new RadioButton { Name = name, Content = label, GroupName = "TextColorTarget", Style = (Style)FindResource("ToolButton"), IsChecked = target == textStyle.ColorTarget };
             button.Checked += (_, _) => { if (!syncingTextBar) SetTextColorTarget(target); };
             textTargetButtons[(int)target] = button;
             targets.Children.Add(button);
         }
         textPalettePanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         foreach (var color in ColorPalette.Basic) textPalettePanel.Children.Add(CreateSwatch(color, ColorName(color), SetTextColor));
+        textStyle.Changed += (_, _) => UpdateTextStyleBar();
         textRecentPanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        var (custom, customPopup) = CustomColorEntry("TextCustomColor", () => TextTargetColor ?? RgbColor.Black, SetTextColor);
+        var (custom, customPopup) = CustomColorEntry("TextCustomColor", () => textStyle.TargetColor ?? RgbColor.Black, SetTextColor);
         Group(textPalettePanel, new Separator(), textRecentPanel, custom, customPopup);
         TextStylePanel.Children.Add(new Separator());
         textAlphaBox = Field("TextAlphaBox", "", 40, () => { if (TryParseNumber(textAlphaBox.Text, out double percent)) SetTextTransparency(percent); else UpdateTextStyleBar(); }, Strings.Get("style.transparency"));
         Group(BarLabel(Strings.Get("style.transparency")), textAlphaBox, BarUnit("%"));
         TextStylePanel.Children.Add(new Separator());
-        textSizeBox = Field("TextSizeBox", "12", 42, () => { if (double.TryParse(textSizeBox.Text, out double size) && double.IsFinite(size)) ApplyTextFormat(r => r with { SizePt = TextEditing.InputSize(size) }); }, Strings.Get("text.size"));
+        textSizeBox = Field("TextSizeBox", "12", 42, () => textStyle.SetSize(textSizeBox.Text), Strings.Get("text.size"));
         Group(fontBox, textSizeBox, BarUnit("pt"));
         TextStylePanel.Children.Add(new Separator());
         var toggles = Group();
         foreach (var (label, tip) in new[] { ("B", Strings.Get("text.bold")), ("I", Strings.Get("text.italic")), ("U", Strings.Get("text.underline")), ("S", Strings.Get("text.strikeOut")) })
         {
             var button = new ToggleButton { Content = label, Width = 27, Focusable = false, ToolTip = tip, Style = (Style)FindResource("ToolButton") };
-            button.Click += (_, _) => ApplyTextFormat(r => label switch { "B" => r with { Bold = button.IsChecked == true }, "I" => r with { Italic = button.IsChecked == true }, "U" => r with { Underline = button.IsChecked == true }, _ => r with { Strikethrough = button.IsChecked == true } });
+            button.Click += (_, _) => textStyle.SetFlag(label[0], button.IsChecked == true);
             textToggles[label] = button; toggles.Children.Add(button);
         }
         textHighlightButton = new ToggleButton { Focusable = false, ToolTip = Strings.Get("text.highlight"), Style = (Style)FindResource("ToolButton"),
@@ -88,7 +85,7 @@ public partial class MainWindow
         // 정렬 as the PowerPoint glyphs (왼쪽·가운데·오른쪽 맞춤): the words did not fit at the 1200 DIP one-row width (D13e)
         alignmentBox = new ComboBox { Name = "TextAlignmentBox", Width = 50, ItemsSource = new[] { "\uE8E4", "\uE8E3", "\uE8E2" }, Margin = new Thickness(0, 0, 4, 0), ToolTip = Strings.Get("text.alignment") };
         alignmentBox.SetResourceReference(FontFamilyProperty, "Font.Icon");
-        alignmentBox.SelectionChanged += (_, _) => { if (!syncingTextBar && alignmentBox.SelectedIndex >= 0) ApplyTextBox(b => b with { Alignment = (Alignment)alignmentBox.SelectedIndex }); };
+        alignmentBox.SelectionChanged += (_, _) => { if (!syncingTextBar && alignmentBox.SelectedIndex >= 0) textStyle.SetAlignment((Alignment)alignmentBox.SelectedIndex); };
         var slots = new Button { Content = Strings.Get("text.stylesButton"), Focusable = false, ToolTip = Strings.Get("text.savedStyles"), Style = (Style)FindResource("ToolButton") };
         slots.Click += (_, _) =>
         {
@@ -135,75 +132,26 @@ public partial class MainWindow
     private TextBlock BarUnit(string text) => new() { Text = text, Style = (Style)FindResource("FieldUnit") };
     private void ApplyFont()
     {
-        if (syncingTextBar || string.IsNullOrWhiteSpace(fontBox.Text)) return;
-        string family = fontBox.Text;
-        if (!TextLayout.FontAvailable(family)) { ShowMessage(Strings.Get("text.fontMissing"), MessageBoxImage.Information); family = "Malgun Gothic"; }
-        ApplyTextFormat(r => r with { FontFamily = family });
+        if (!syncingTextBar) textStyle.SetFont(fontBox.Text);
     }
-    public TextColorTarget TextColorTarget => textColorTarget;
+    public TextColorTarget TextColorTarget => textStyle.ColorTarget;
 
     /// <summary>Chooses what the text bar's palette and transparency edit (not document state).</summary>
-    public void SetTextColorTarget(TextColorTarget target)
-    {
-        textColorTarget = target;
-        UpdateTextStyleBar();
-    }
+    public void SetTextColorTarget(TextColorTarget target) => textStyle.SetColorTarget(target);
 
-    /// <summary>The color of the current target, or null when the box has no fill or border to show.</summary>
-    private RgbColor? TextTargetColor
-    {
-        get
-        {
-            var style = TextTarget?.BoxStyle ?? NewTextBoxStyle;
-            return textColorTarget switch
-            {
-                TextColorTarget.Text => CurrentTextStyle().Color,
-                TextColorTarget.Fill => style.BackgroundOpacity > 0 ? style.BackgroundColor : null,
-                _ => style.BorderEnabled ? style.BorderColor : null
-            };
-        }
-    }
-
-    /// <summary>
-    /// A palette color for the current target. Choosing a fill or border color for a box without one turns it on, opaque
-    /// (like shapes). Colors outside the basic palette join the shared user colors.
-    /// </summary>
-    public void SetTextColor(RgbColor color)
-    {
-        RememberColor(color);
-        settings.Save();
-        switch (textColorTarget)
-        {
-            case TextColorTarget.Text: ApplyTextFormat(r => r with { Color = color }); break;
-            case TextColorTarget.Fill: ApplyTextBoxStyle(s => s with { BackgroundColor = color, BackgroundOpacity = s.BackgroundOpacity > 0 ? s.BackgroundOpacity : 1 }); break;
-            default: ApplyTextBoxStyle(s => s with { BorderColor = color, BorderOpacity = s.BorderEnabled && s.BorderOpacity > 0 ? s.BorderOpacity : 1, BorderEnabled = true }); break;
-        }
-        UpdateStyleBar();
-    }
+    /// <summary>A palette color for the current target (<see cref="TextStyleViewModel.SetColor"/>).</summary>
+    public void SetTextColor(RgbColor color) => textStyle.SetColor(color);
 
     /// <summary>Transparency (0–100%) of the box fill or border; a 100% border is no border. Characters have none.</summary>
-    public void SetTextTransparency(double percent)
-    {
-        if (!double.IsFinite(percent) || textColorTarget == TextColorTarget.Text) return;
-        percent = Math.Clamp(percent, 0, 100);
-        double opacity = PdfNotes.Core.Models.Opacity.FromTransparencyPercent(percent);
-        if (textColorTarget == TextColorTarget.Fill) ApplyTextBoxStyle(s => s with { BackgroundOpacity = opacity });
-        else ApplyTextBoxStyle(s => percent >= 100 ? s with { BorderEnabled = false } : s with { BorderEnabled = true, BorderOpacity = opacity });
-    }
+    public void SetTextTransparency(double percent) => textStyle.SetTransparency(percent);
 
-    /// <summary>Changes the box fill/border of the edited or selected boxes; the next new box starts with it too (2026-10-13 user request, like the shape tool).</summary>
-    public void ApplyTextBoxStyle(Func<TextBoxStyle, TextBoxStyle> change)
-    {
-        var next = change(TextTarget?.BoxStyle ?? NewTextBoxStyle);
-        ApplyTextBox(b => b with { BoxStyle = change(b.BoxStyle) });
-        settings.TextBox = PdfNotes.Editor.Services.AppSettings.TextBoxSettings.From(next);
-        settings.Save();
-    }
+    /// <summary>Changes the box fill/border of the edited or selected boxes; the next new box starts with it too.</summary>
+    public void ApplyTextBoxStyle(Func<TextBoxStyle, TextBoxStyle> change) => textStyle.ApplyBoxStyle(change);
 
     public void ApplyTextBoxStyle(TextBoxStyle style) => ApplyTextBoxStyle(_ => style);
 
     /// <summary>Box fill/border a new text box starts with: the last one set in the text bar (spec 6.2).</summary>
-    public TextBoxStyle NewTextBoxStyle => settings.TextBox.ToStyle();
+    public TextBoxStyle NewTextBoxStyle => textStyle.NewBoxStyle;
     public void BeginNewText(int pageIndex, Point2 position, double width = 180)
     {
         FinishTextEditing();
@@ -383,7 +331,7 @@ public partial class MainWindow
             if (e.Key == Key.Escape && !composingText) { FinishTextEditing(); e.Handled = true; }
             if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.B or Key.I or Key.U)
             {
-                var r = CurrentTextStyle(); ApplyTextFormat(t => e.Key switch { Key.B => t with { Bold = !r.Bold }, Key.I => t with { Italic = !r.Italic }, _ => t with { Underline = !r.Underline } }); e.Handled = true;
+                textStyle.ToggleFlag(e.Key switch { Key.B => 'B', Key.I => 'I', _ => 'U' }); e.Handled = true;
             }
         };
         DataObject.AddPastingHandler(textEditor, (_, e) =>
@@ -514,7 +462,11 @@ public partial class MainWindow
         var origin = View.TranslatePoint(new Point(0, 0), TextEditorLayer);
         textEditor.ApplyTemplate();
         if (textEditor.Document.PagePadding != new Thickness(4)) textEditor.Document.PagePadding = new Thickness(4);
-        textEditor.Width = box.WidthPt / box.LayoutScale; textEditor.Height = TextLayout.Measure(box).Height / box.LayoutScale;
+        // A layout still being built: the last one, never shorter than the live editor's content (TextLaidOut sets it exactly).
+        var layout = Canvas.AnnotationPainter.TextLayoutFor(box, out bool current);
+        textEditor.Width = box.WidthPt / box.LayoutScale;
+        textEditor.Height = layout is null ? TextLayout.Measure(box).Height / box.LayoutScale
+            : current ? layout.Height / box.LayoutScale : Math.Max(layout.Height / box.LayoutScale, textEditor.ExtentHeight);
         textEditor.RenderTransform = new MatrixTransform(new Matrix(transform.M11, transform.M12, transform.M21, transform.M22, transform.OffsetX + origin.X, transform.OffsetY + origin.Y));
         textEditor.Background = Brushes.Transparent;
         var setup = document.Session.Current.Pages[editingPage].Setup;
@@ -525,36 +477,39 @@ public partial class MainWindow
         textEditor.BorderBrush = WpfText.Brush(box.BoxStyle.BorderColor, box.BoxStyle.BorderOpacity);
         // Keep the editor's content origin identical to the document padding; border is drawn by a separate overlay.
     }
-    private TextRun CurrentTextStyle()
+    private TextRun CurrentTextStyle() => textStyle.CurrentStyle;
+
+    // ----- the text bar's view of the editor (ITextEditorSession, P1 V8) -----
+
+    bool ITextEditorSession.IsEditing => textEditor is not null && editingText is not null;
+    TextBoxAnnotation ITextEditorSession.Box => ReadEditor();
+    (int Start, int Length) ITextEditorSession.Range => EditorRange();
+    TextRun ITextEditorSession.TypingStyle => typingStyle;
+    void ITextEditorSession.CompleteInput() => CompleteTextInput();
+
+    void ITextEditorSession.Format(Func<TextRun, TextRun> change)
     {
-        if (textEditor is not null) { var box = ReadEditor(); var (start, length) = EditorRange(); return length > 0 ? TextEditing.StyleAt(box, start) : typingStyle; }
-        return TextTarget is { } target ? TextEditing.StyleAt(target, 0) : settings.DefaultText;
+        var box = ReadEditor(); var (start, length) = EditorRange(); typingStyle = change(CurrentTextStyle()) with { Start = 0, Length = 0 };
+        if (length > 0)
+        {
+            inputStyleOverride = null;
+            box = TextEditing.Format(box, start, length, change); ReplaceEditor(box, start, length); FlushTextEdit();
+        }
+        else { inputStyleOverride = typingStyle; loadingText = true; try { SetCaretFormat(typingStyle); } finally { loadingText = false; } }
     }
+
+    void ITextEditorSession.Change(Func<TextBoxAnnotation, TextBoxAnnotation> change)
+    {
+        var range = EditorRange(); ReplaceEditor(change(ReadEditor()), range.Start, range.Length); FlushTextEdit();
+    }
+
     private void CompleteTextInput()
     {
         if (!composingText || textEditor is null) return;
         if (activeComposition is { } composition) TextCompositionManager.CompleteComposition(composition);
         View.Focus(); textEditor?.Focus(); composingText = false; activeComposition = null; FlushTextEdit();
     }
-    public void ApplyTextFormat(Func<TextRun, TextRun> change)
-    {
-        CompleteTextInput();
-        document?.Session.SealCoalescing();
-        if (textEditor is not null && editingText is not null)
-        {
-            var box = ReadEditor(); var (start, length) = EditorRange(); typingStyle = change(CurrentTextStyle()) with { Start = 0, Length = 0 };
-            if (length > 0)
-            {
-                inputStyleOverride = null;
-                box = TextEditing.Format(box, start, length, change); ReplaceEditor(box, start, length); FlushTextEdit();
-            }
-            else { inputStyleOverride = typingStyle; loadingText = true; try { SetCaretFormat(typingStyle); } finally { loadingText = false; } }
-        }
-        else if (document is not null && selectTool.SelectedAnnotations.OfType<TextBoxAnnotation>().Any())
-            document.Session.Execute(DocumentEdits.UpdateAnnotations(document.Session.Current, selectTool.SelectedAnnotations.OfType<TextBoxAnnotation>().Select(b => TextEditing.Format(b, 0, b.Text.Length, change)), "undo.textFormat"));
-        else typingStyle = change(typingStyle);
-        document?.Session.SealCoalescing(); UpdateTextStyleBar();
-    }
+    public void ApplyTextFormat(Func<TextRun, TextRun> change) => textStyle.Format(change);
     private void SetCaretFormat(TextRun r)
     {
         SetRangeFormat(textEditor!.Selection, r);
@@ -576,43 +531,13 @@ public partial class MainWindow
         finally { loadingText = false; }
         PositionTextEditor();
     }
-    public void ApplyTextBox(Func<TextBoxAnnotation, TextBoxAnnotation> change)
-    {
-        CompleteTextInput();
-        if (textEditor is not null) { var range = EditorRange(); ReplaceEditor(change(ReadEditor()), range.Start, range.Length); FlushTextEdit(); }
-        else if (document is not null) document.Session.Execute(DocumentEdits.UpdateAnnotations(document.Session.Current, selectTool.SelectedAnnotations.OfType<TextBoxAnnotation>().Select(change), "undo.textBoxStyle"));
-        document?.Session.SealCoalescing(); UpdateTextStyleBar();
-    }
-    /// <summary>
-    /// Highlights the selected characters of the edited box with the highlight tool's style, or removes the highlight
-    /// when they are all highlighted already (spec 9.4). Without an editor it applies to whole selected boxes.
-    /// </summary>
-    public void ToggleTextHighlight()
-    {
-        CompleteTextInput();
-        document?.Session.SealCoalescing();
-        var s = TextHighlightToolStyle;
-        var style = new TextHighlightRange(0, 0, s.Mode, s.ManualHeight, s.Style.Color, s.Style.Opacity);
-        TextBoxAnnotation Toggle(TextBoxAnnotation box, int start, int length) =>
-            TextHighlights.Covers(box, start, length) ? TextHighlights.Remove(box, start, length) : TextHighlights.Add(box, start, length, style);
-        if (textEditor is not null && editingText is not null)
-        {
-            var (start, length) = EditorRange();
-            if (length > 0) { ReplaceEditor(Toggle(ReadEditor(), start, length), start, length); FlushTextEdit(); }
-        }
-        else if (document is not null && selectTool.SelectedAnnotations.OfType<TextBoxAnnotation>().ToArray() is { Length: > 0 } boxes)
-            document.Session.Execute(DocumentEdits.UpdateAnnotations(document.Session.Current, boxes.Select(b => Toggle(b, 0, b.Text.Length)), "undo.textHighlight"));
-        document?.Session.SealCoalescing(); UpdateTextStyleBar(); View.RefreshOverlays();
-    }
+    public void ApplyTextBox(Func<TextBoxAnnotation, TextBoxAnnotation> change) => textStyle.ApplyBox(change);
 
-    public void SaveTextStyle(int? slot)
-    {
-        CompleteTextInput();
-        var style = CurrentTextStyle() with { Start = 0, Length = 0 };
-        if (slot is { } i) settings.TextSlots[i] = style; else settings.DefaultText = style;
-        settings.Save(); StatusText.Text = slot is { } number ? Strings.Format("text.slotSaved", ("number", number + 1)) : Strings.Get("text.defaultSaved");
-    }
-    public void ApplyTextSlot(int slot) { if (settings.TextSlots[slot] is { } r) ApplyTextFormat(old => r with { Start = old.Start, Length = old.Length }); }
+    /// <summary>Highlights the selected characters of the edited box, or removes the highlight (spec 9.4, <see cref="TextStyleViewModel.ToggleHighlight"/>).</summary>
+    public void ToggleTextHighlight() => textStyle.ToggleHighlight();
+
+    public void SaveTextStyle(int? slot) => textStyle.SaveStyle(slot);
+    public void ApplyTextSlot(int slot) => textStyle.ApplySlot(slot);
     /// <summary>
     /// A style slot's menu header drawn in that slot's format (spec 6.3, D14g): font, size (kept readable), color (a
     /// near-white color shows in the menu's text color), bold, italic, underline and strikethrough. An empty slot is plain.
@@ -662,42 +587,35 @@ public partial class MainWindow
     private void UpdateTextStyleBar()
     {
         if (fontBox is null) return;
-        bool visible = tools.Current == ToolKind.Text || textEditor is not null || selectTool.SelectedAnnotations.Any(a => a is TextBoxAnnotation);
-        TextStyleBorder.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-        TextStyleBorder.IsEnabled = textEditor is not null || selectTool.SelectedAnnotations.OfType<TextBoxAnnotation>().Any();
-        if (!visible) { textRecentPanel.Children.Clear(); return; } // rebuilt with the current user colors when shown
+        var bar = textStyle.Bar;
+        TextStyleBorder.Visibility = bar.Visible ? Visibility.Visible : Visibility.Collapsed;
+        TextStyleBorder.IsEnabled = bar.Enabled;
+        if (!bar.Visible) { textRecentPanel.Children.Clear(); return; } // rebuilt with the current user colors when shown
         syncingTextBar = true;
         try
         {
-            var r = CurrentTextStyle(); var box = TextTarget;
+            var r = bar.Style;
             if (!fontBox.IsKeyboardFocusWithin) fontBox.Text = r.FontFamily;
-            if (!textSizeBox.IsKeyboardFocusWithin) textSizeBox.Text = r.SizePt.ToString("0.##", CultureInfo.CurrentCulture);
-            textHighlightButton.IsChecked = textEditor is not null && box is not null && EditorRange() is { Length: > 0 } range
-                ? TextHighlights.Covers(box, range.Start, range.Length) : box is not null && TextHighlights.Covers(box, 0, box.Text.Length);
+            if (!textSizeBox.IsKeyboardFocusWithin) textSizeBox.Text = bar.Size;
+            textHighlightButton.IsChecked = bar.Highlighted;
             textToggles["B"].IsChecked = r.Bold; textToggles["I"].IsChecked = r.Italic; textToggles["U"].IsChecked = r.Underline; textToggles["S"].IsChecked = r.Strikethrough;
-            alignmentBox.SelectedIndex = (int)(box?.Alignment ?? Alignment.Left);
-            var style = box?.BoxStyle ?? NewTextBoxStyle;
-            for (int i = 0; i < textTargetButtons.Length; i++) textTargetButtons[i].IsChecked = i == (int)textColorTarget;
-            var color = TextTargetColor;
+            alignmentBox.SelectedIndex = (int)bar.Alignment;
+            for (int i = 0; i < textTargetButtons.Length; i++) textTargetButtons[i].IsChecked = i == (int)bar.Target;
+            var color = bar.Color;
             foreach (Button swatch in textPalettePanel.Children) MarkSwatch(swatch, Equals(swatch.DataContext, color));
             textRecentPanel.Children.Clear();
-            foreach (var recent in recentColors)
+            foreach (var recent in styles.UserColors)
             {
                 var swatch = CreateSwatch(recent, recent.ToHex(), SetTextColor, removable: true);
                 MarkSwatch(swatch, recent == color);
                 textRecentPanel.Children.Add(swatch);
             }
-            textAlphaBox.IsEnabled = textColorTarget != TextColorTarget.Text;
-            if (!textAlphaBox.IsKeyboardFocusWithin)
-                textAlphaBox.Text = textColorTarget switch
-                {
-                    TextColorTarget.Fill => FormatNumber(PdfNotes.Core.Models.Opacity.ToTransparencyPercent(style.BackgroundOpacity)),
-                    TextColorTarget.Border => style.BorderEnabled ? FormatNumber(PdfNotes.Core.Models.Opacity.ToTransparencyPercent(style.BorderOpacity)) : "100",
-                    _ => ""
-                };
+            textAlphaBox.IsEnabled = bar.TransparencyEnabled;
+            if (!textAlphaBox.IsKeyboardFocusWithin) textAlphaBox.Text = bar.Transparency;
         }
         finally { syncingTextBar = false; }
     }
+
     /// <summary>Plain text from the clipboard as a new text box whose first line starts at <paramref name="at"/> (null: the page middle).</summary>
     private void PastePlainTextBox(string plain, int pageIndex, Point2? at)
     {
@@ -726,8 +644,6 @@ public partial class MainWindow
         if (redo ? doc.Session.Redo() : doc.Session.Undo()) RevealHistoryChange(operations);
     }
 
-    private bool holdRibbonTab;
-
     /// <summary>
     /// After an Undo or Redo (spec 13.3, D14g): when what the step left (restored or changed annotations of one page) is off
     /// screen, the view goes there (zoom kept) and selects it — with an automatic selection visit, so clicking away returns
@@ -751,20 +667,20 @@ public partial class MainWindow
             var selectable = shown.Where(a => !a.Locked).Select(a => a.Id).ToList();
             if (selectable.Count == 0 || NotesHidden || !offScreen && tools.Current != ToolKind.Select) return; // seen where it is: keep drawing
             var back = tools.Current;
-            holdRibbonTab = true; // an Undo is not canvas work: e.g. undoing a 페이지 tab command keeps that tab (spec 3.3)
+            viewModel.Ribbon.Hold = true; // an Undo is not canvas work: e.g. undoing a 페이지 tab command keeps that tab (spec 3.3)
             try
             {
                 if (back != ToolKind.Select) { SetTool(ToolKind.Select); tools.Return = back; }
                 selectTool.SetSelection(selectable);
             }
-            finally { holdRibbonTab = false; }
+            finally { viewModel.Ribbon.Hold = false; }
             return;
         }
         if (pages.FirstOrDefault(p => model.IndexOfPage(p) >= 0) is { } pageId && pageId != Guid.Empty)
         {
             int index = model.IndexOfPage(pageId);
             if (View.CurrentPageIndex != index) View.GoToPage(index);
-            Activate(pageId, scroll: false);
+            viewModel.Pages.Activate(pageId, scroll: false);
         }
     }
 }

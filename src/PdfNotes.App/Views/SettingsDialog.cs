@@ -13,15 +13,6 @@ namespace PdfNotes.App.Views;
 /// <summary>Automatic backup values of the settings window (spec 18.2).</summary>
 public sealed record BackupValues(bool Enabled, int IntervalMinutes, BackupMode Mode, string Folder, int Keep);
 
-/// <summary>
-/// 화면 values of the settings window (spec 18.1, D13d): theme, accent color, page numbers (4.5), automatic 필기 ↔ 페이지
-/// tab switch (3.2), reading dark page (24.12, off) and the pen favorites group (24.7, on).
-/// </summary>
-public sealed record DisplayValues(ThemeChoice Theme, AccentColor Accent, bool PageNumbers, bool AutoSwitchTabs = true, bool DarkPages = false, bool Favorites = true,
-    PageNumberSize NumberSize = PageNumberSize.Normal)
-{
-    public static DisplayValues Default { get; } = new(ThemeChoice.System, AccentColor.Blue, true);
-}
 
 /// <summary>Values of the settings window (spec 18.1).</summary>
 /// <param name="PageDrag">필기 › 페이지 사이 끌어 옮기기 (spec 5.3, D14g), off by default.</param>
@@ -274,12 +265,7 @@ public sealed class SettingsDialog : Window
     }
 
     /// <summary>A file size for people: KB below one MB, MB with one decimal, GB with one decimal.</summary>
-    public static string Size(long bytes) => bytes switch
-    {
-        < 1024 * 1024 => string.Format(CultureInfo.CurrentCulture, "{0:0} KB", Math.Ceiling(bytes / 1024.0)), // unit symbols: not UI text (D14e)
-        < 1024L * 1024 * 1024 => string.Format(CultureInfo.CurrentCulture, "{0:0.0} MB", bytes / (1024.0 * 1024)), // unit symbols: not UI text (D14e)
-        _ => string.Format(CultureInfo.CurrentCulture, "{0:0.0} GB", bytes / (1024.0 * 1024 * 1024)) // unit symbols: not UI text (D14e)
-    };
+    public static string Size(long bytes) => FileSizes.Format(bytes);
 
     private void Preview()
     {

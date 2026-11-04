@@ -4,7 +4,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:canvas="clr-namespace:PdfNotes.App.Canvas"
         xmlns:app="clr-namespace:PdfNotes.App"
-        Title="DeotPDF" Width="1200" Height="860" MinWidth="720" MinHeight="480"
+        xmlns:vm="clr-namespace:PdfNotes.ViewModels;assembly=PdfNotes.ViewModels"
+        Title="{Binding Title}" Width="1200" Height="860" MinWidth="720" MinHeight="480"
         FontFamily="{DynamicResource Font.Ui}" FontSize="{DynamicResource FontSize.Body}"
         Background="{DynamicResource Window.Background}" Foreground="{DynamicResource Text.Primary}"
         AllowDrop="True" PreviewDragOver="WindowDragOver" PreviewDragLeave="WindowDragLeave" PreviewDrop="WindowDrop"
@@ -46,10 +47,10 @@
                         <Button Style="{StaticResource ToolButton}" Command="ApplicationCommands.Save" ToolTip="{l:T ribbon.saveTip}">
                             <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE74E;" />
                         </Button>
-                        <Button x:Name="UndoButton" Style="{StaticResource ToolButton}" Command="ApplicationCommands.Undo" ToolTip="{l:T ribbon.undoTip}" ToolTipService.ShowOnDisabled="True">
+                        <Button x:Name="UndoButton" Style="{StaticResource ToolButton}" Command="ApplicationCommands.Undo" ToolTip="{Binding UndoTip}" ToolTipService.ShowOnDisabled="True">
                             <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE7A7;" />
                         </Button>
-                        <Button x:Name="RedoButton" Style="{StaticResource ToolButton}" Command="ApplicationCommands.Redo" ToolTip="{l:T ribbon.redoTip}" ToolTipService.ShowOnDisabled="True">
+                        <Button x:Name="RedoButton" Style="{StaticResource ToolButton}" Command="ApplicationCommands.Redo" ToolTip="{Binding RedoTip}" ToolTipService.ShowOnDisabled="True">
                             <TextBlock Style="{StaticResource Icon}" Margin="0" Text="&#xE7A6;" />
                         </Button>
                         <Separator />
@@ -72,7 +73,7 @@
                                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8E5;" /><TextBlock Text="{l:T ribbon.open}" /></StackPanel>
                                 </Button>
                                 <!-- 최근 문서 (spec 24.1): 목록은 ▾ 메뉴 -->
-                                <Button x:Name="RecentButton" Style="{StaticResource ToolButton}" ToolTip="{l:T ribbon.recent}" Click="RecentClick">
+                                <Button x:Name="RecentButton" Style="{StaticResource ToolButton}" ToolTip="{l:T ribbon.recent}" Click="RecentClick" IsEnabled="{Binding Recent.HasFiles}">
                                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE81C;" /><TextBlock Text="{l:T ribbon.recent}" />
                                         <TextBlock Style="{StaticResource Icon}" Margin="4,0,0,0" FontSize="9" Text="&#xE70D;" /></StackPanel>
                                 </Button>
@@ -162,7 +163,7 @@
                         </HeaderedContentControl>
                         <!-- 다른 프로그램 주석 편집 (spec 14.6, D14g): 그런 주석이 있는 문서에서만 보인다 -->
                         <Separator x:Name="ForeignSeparator" Visibility="Collapsed" />
-                        <Button x:Name="ForeignEditButton" Style="{StaticResource ToolButton}" ToolTip="{l:T foreign.convertTip}" Click="ConvertForeignClick" Visibility="Collapsed">
+                        <Button x:Name="ForeignEditButton" Style="{StaticResource ToolButton}" ToolTip="{l:T foreign.convertTip}" Click="ConvertForeignClick" IsEnabled="{Binding Foreign.CanConvert}" Visibility="Collapsed">
                             <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE70F;" /><TextBlock Text="{l:T foreign.convert}" /></StackPanel>
                         </Button>
                     </WrapPanel>
@@ -401,7 +402,7 @@
                 <!-- 새 버전 (roadmap 1.1): 누르면 릴리스 페이지 -->
                 <Button x:Name="UpdateButton" DockPanel.Dock="Right" Style="{StaticResource ToolButton}" Margin="12,0,0,0" Padding="6,2" Cursor="Hand" Focusable="False"
                         ToolTip="{l:T status.updateTip}" Click="UpdateClick" Visibility="Collapsed">
-                    <TextBlock x:Name="UpdateText" Foreground="{DynamicResource Accent}" />
+                    <TextBlock x:Name="UpdateText" Text="{Binding Update.AvailableText}" Foreground="{DynamicResource Accent}" />
                 </Button>
                 <TextBlock x:Name="NotesHiddenText" DockPanel.Dock="Right" Text="{l:T status.notesHidden}" VerticalAlignment="Center" Margin="12,0,0,0"
                            Foreground="{DynamicResource Accent}" Visibility="Collapsed" />
@@ -410,7 +411,7 @@
                         ToolTip="{l:T view.zoom}" Click="ZoomMenuClick">
                     <TextBlock x:Name="ZoomText" MinWidth="36" TextAlignment="Right" Foreground="{DynamicResource Text.Secondary}" />
                 </Button>
-                <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="16,0" Foreground="{DynamicResource Text.Muted}" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="StatusText" Text="{Binding Status}" VerticalAlignment="Center" Margin="16,0" Foreground="{DynamicResource Text.Muted}" TextTrimming="CharacterEllipsis" />
             </DockPanel>
         </Border>
 
@@ -424,7 +425,7 @@
                     </ToggleButton>
                     <!-- 목차 (spec 24.4): 기본 꺼짐, 목차 없는 PDF에서는 비활성 -->
                     <ToggleButton x:Name="OutlineButton" DockPanel.Dock="Right" Style="{StaticResource ToolButton}" Padding="5,2" ToolTip="{l:T panel.outline}"
-                                  Click="OutlineToggled">
+                                  Click="OutlineToggled" IsEnabled="{Binding Outline.IsAvailable}">
                         <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="13" Text="&#xE8FD;" />
                     </ToggleButton>
                     <TextBlock Text="{l:T export.pages}" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" />
@@ -444,7 +445,7 @@
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True"
                          VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel" HorizontalContentAlignment="Center">
                     <ListBox.Resources>
-                        <DataTemplate DataType="{x:Type app:PageThumb}">
+                        <DataTemplate DataType="{x:Type vm:PageItemViewModel}">
                             <StackPanel Margin="2,6,2,2">
                                 <Border x:Name="Frame" Background="{DynamicResource Paper}" BorderBrush="{DynamicResource Page.Border}" BorderThickness="1" HorizontalAlignment="Center">
                                     <Image Source="{Binding Image}" Width="{Binding ImageWidth}" Height="{Binding ImageHeight}" Stretch="Fill" Effect="{DynamicResource Page.Effect}" />
@@ -494,8 +495,11 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" Foreground="{DynamicResource Text.Muted}" FontSize="13" />
                 <TextBox x:Name="SearchBox" Width="210" VerticalContentAlignment="Center" BorderThickness="0" Background="Transparent"
-                         TextChanged="SearchTextChanged" PreviewKeyDown="SearchBoxKeyDown" />
-                <TextBlock x:Name="SearchCount" MinWidth="52" TextAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" Margin="6,0,4,0" />
+                         Text="{Binding Search.Query, UpdateSourceTrigger=PropertyChanged}" PreviewKeyDown="SearchBoxKeyDown" />
+                <ToggleButton x:Name="SearchCaseButton" Style="{StaticResource ToolButton}" Padding="5,1" Focusable="False" ToolTip="{l:T search.matchCase}" IsChecked="{Binding Search.MatchCase}">
+                    <TextBlock Text="Aa" FontSize="{DynamicResource FontSize.Caption}" />
+                </ToggleButton>
+                <TextBlock x:Name="SearchCount" Text="{Binding Search.CountText}" MinWidth="52" TextAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" Margin="6,0,4,0" />
                 <Button x:Name="SearchPreviousButton" Style="{StaticResource ToolButton}" Padding="5,3" Focusable="False" ToolTip="{l:T search.previous}" Click="SearchPreviousClick">
                     <TextBlock Style="{StaticResource Icon}" Margin="0" FontSize="{DynamicResource FontSize.IconSmall}" Text="&#xE70E;" />
                 </Button>
@@ -521,7 +525,7 @@
                             <RotateTransform />
                         </Ellipse.RenderTransform>
                     </Ellipse>
-                    <TextBlock x:Name="LoadingText" Margin="12,0,0,0" VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis"
+                    <TextBlock x:Name="LoadingText" Text="{Binding Loading.Text}" Margin="12,0,0,0" VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis"
                                Foreground="{DynamicResource Text.Primary}" />
                 </StackPanel>
             </Border>

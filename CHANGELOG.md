@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Search: an Aa button in the search bar turns on case-sensitive matching. It is off each time the app starts. `deot find` is unchanged.
+- Fixed: a highlight on italic PDF text was drawn slanted. The band now follows the baseline.
+- 검색: 검색 막대의 Aa 단추로 대소문자를 구분해서 찾습니다. 앱을 다시 켜면 꺼진 상태로 돌아갑니다. `deot find`는 그대로입니다.
+- 고침: 기울임체 PDF 글자에 형광펜을 칠하면 띠가 기울어지던 문제. 이제 글자의 기준선을 따라 칠해집니다.
+
 ## 1.1.0 (2026-10-27)
 
 - `deot mcp`: the CLI as an MCP server for Claude Desktop, Claude Code and other clients. Reading commands are tools of their own, writing goes through `apply` with the plan passed directly, `render` and `apply` previews come back as images, and files are limited to the `--root` folders. The command-line interface itself is unchanged.

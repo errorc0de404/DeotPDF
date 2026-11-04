@@ -279,6 +279,7 @@
     "saveError.inUse": "Another program is using the file, so it cannot be saved.",
     "saveError.verifyFailed": "The saved file could not be verified, so the original file was left unchanged.",
     "search.close": "Close (Esc)",
+    "search.matchCase": "Match case",
     "search.next": "Next (Enter)",
     "search.previous": "Previous (Shift+Enter)",
     "settings.accent": "Accent",

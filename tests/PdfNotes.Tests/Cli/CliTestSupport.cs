@@ -1,8 +1,6 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using PdfNotes.Cli;
 using PdfNotes.Cli.Commands;
 using PdfNotes.Core.Geometry;
@@ -46,15 +44,7 @@ internal static class CliRunner
 
     public static Affine Matrix(JsonNode? node) => Affine.FromArray(node!.AsArray().Select(n => n!.GetValue<double>()).ToList());
 
-    public static (int Width, int Height, byte[] Bgra) LoadPng(string path)
-    {
-        using var stream = File.OpenRead(path);
-        var frame = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad).Frames[0];
-        var bitmap = new FormatConvertedBitmap(frame, PixelFormats.Bgra32, null, 0);
-        var pixels = new byte[bitmap.PixelWidth * bitmap.PixelHeight * 4];
-        bitmap.CopyPixels(pixels, bitmap.PixelWidth * 4, 0);
-        return (bitmap.PixelWidth, bitmap.PixelHeight, pixels);
-    }
+    public static (int Width, int Height, byte[] Bgra) LoadPng(string path) => TestPng.Load(path);
 
     /// <summary>Centroid of the red registration-cross pixels within <paramref name="radius"/> of <paramref name="near"/>; null when none.</summary>
     public static Point2? RedCentroid((int Width, int Height, byte[] Bgra) image, Point2 near, int radius = 18)

@@ -279,6 +279,7 @@
     "saveError.inUse": "다른 프로그램이 파일을 사용 중이라 저장할 수 없습니다.",
     "saveError.verifyFailed": "저장한 파일을 확인하지 못해 원래 파일을 그대로 두었습니다.",
     "search.close": "닫기 (Esc)",
+    "search.matchCase": "대소문자 구분",
     "search.next": "다음 (Enter)",
     "search.previous": "이전 (Shift+Enter)",
     "settings.accent": "강조색",

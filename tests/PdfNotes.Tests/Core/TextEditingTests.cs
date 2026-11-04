@@ -28,11 +28,41 @@ public sealed class TextEditingTests
     {
         var box = Box(string.Join(" ", Enumerable.Repeat("한글 English", 10)), 180);
         var narrow = box with { WidthPt = 80 };
-        Assert.True(TextLayout.Measure(box).Height > 25, $"Wide={TextLayout.Measure(box).Height}, narrow={TextLayout.Measure(narrow).Height}, drawing={WpfText.Measure(box).Drawing.Bounds}");
-        Assert.True(TextLayout.Measure(narrow).Height > TextLayout.Measure(box).Height, $"Wide={TextLayout.Measure(box).Height}, narrow={TextLayout.Measure(narrow).Height}, drawing={WpfText.Measure(box).Drawing.Bounds}");
+        Assert.True(TextLayout.Measure(box).Height > 25, $"Wide={TextLayout.Measure(box).Height}, narrow={TextLayout.Measure(narrow).Height}");
+        Assert.True(TextLayout.Measure(narrow).Height > TextLayout.Measure(box).Height, $"Wide={TextLayout.Measure(box).Height}, narrow={TextLayout.Measure(narrow).Height}");
         var styled = TextEditing.Format(box, 0, 10, r => r with { SizePt = 32, Bold = true });
         Assert.True(TextLayout.Measure(styled).Height >= TextLayout.Measure(box).Height);
-        Assert.True(WpfText.Measure(box).Drawing.IsFrozen);
+#if !DEOT_SKIA
+        if (!TextEngineSetup.Skia) Assert.True(WpfText.Measure(box).Drawing.IsFrozen); // the WPF screen drawing is shared across threads
+#endif
+    }
+    [Fact] public void LayoutIsReusedForAMovedCopyButNotForChangedContent()
+    {
+        var box = Box(); var layout = TextLayout.Measure(box);
+        // A drag frame or re-read box is a new record with the same content: no second layout (it took 100-700 ms).
+        Assert.Same(layout, TextLayout.Measure(box with { Id = Guid.NewGuid(), Locked = true, Transform = Affine.Translation(5, 9).Then(box.Transform) }));
+        Assert.Same(layout, TextLayout.Measure(box with { Runs = [.. box.Runs] }));
+        Assert.NotSame(layout, TextLayout.Measure(box with { Text = box.Text.Replace('둘', '셋') }));
+        Assert.NotSame(layout, TextLayout.Measure(box with { WidthPt = box.WidthPt + 1 }));
+        Assert.NotSame(layout, TextLayout.Measure(box with { LayoutScale = 2 }));
+        Assert.NotSame(layout, TextLayout.Measure(box with { Runs = [box.Runs[0] with { Bold = true }] }));
+        Assert.NotSame(layout, TextLayout.Measure(box with { BoxStyle = box.BoxStyle with { BorderEnabled = true } }));
+        Assert.NotSame(layout, TextLayout.Measure(box with { Highlights = [new(0, 2, HighlightHeightMode.Auto, null, RgbColor.Black, .3)] }));
+        Assert.NotSame(layout, TextLayout.Measure(box with { Alignment = TextAlignment.Center }));
+    }
+    [Fact] public async Task BackgroundLayoutIsSharedWithWaitingCallersAndMatchesTheSynchronousOne()
+    {
+        var box = Box("배경에서 " + Guid.NewGuid());
+        Assert.False(TextLayout.TryMeasure(box, out _));
+        var queued = TextLayout.MeasureAsync(box, urgent: false);
+        var again = TextLayout.MeasureAsync(box with { Id = Guid.NewGuid() }); // same content: one build, moved forward
+        Assert.True(ReferenceEquals(queued, again) || queued.IsCompleted);
+        var waited = TextLayout.Measure(box with { Transform = Affine.Translation(3, 4) }); // a caller that needs it now waits for it
+        Assert.Same(waited, await queued);
+        Assert.True(TextLayout.TryMeasure(box, out var known)); Assert.Same(waited, known);
+        var direct = TextLayout.Engine.Build(box);
+        Assert.Equal(direct.Height, waited.Height);
+        Assert.Equal(direct.Characters.ToArray(), waited.Characters.ToArray());
     }
     [Fact] public void MixedGroupScaleBakesFontSizeOnceAndRotationHitsLocalBox()
     {

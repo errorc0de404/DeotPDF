@@ -146,6 +146,35 @@ public sealed class TextHighlightPdfTests : IDisposable
     }
 
     [Fact]
+    public void ItalicTextKeepsAStraightBaseline()
+    {
+        string sample = Path.Combine(folder, "sample.pdf");
+        ProbeSamplePdf.Create(sample, 1); // registers the sample font resolver
+        string path = Path.Combine(folder, "italic.pdf");
+        using (var doc = new PdfDocument())
+        {
+            var page = doc.AddPage();
+            page.Width = XUnit.FromPoint(400); page.Height = XUnit.FromPoint(400);
+            using (var gfx = XGraphics.FromPdfPage(page))
+            {
+                // Oblique (synthetic italic) text: the glyphs lean, the baseline stays horizontal.
+                gfx.MultiplyTransform(new XMatrix(1, 0, -.25, 1, .25 * 300, 0));
+                gfx.DrawString("Slanted text", new XFont("D01-Malgun", 20, XFontStyleEx.Regular, new XPdfFontOptions(PdfFontEncoding.Unicode)),
+                    XBrushes.Black, new XPoint(100, 300));
+            }
+            doc.Save(path);
+        }
+        using var source = PdfSourceDocument.Open(path);
+        var glyphs = PdfTextReader.Glyphs(source.Engine, source.Pages[0]);
+        int start = Find(glyphs, "Slanted");
+        Assert.True(start >= 0);
+        Assert.All(glyphs.Skip(start).Take(7), g => Assert.True(g.Direction.DistanceTo(new(1, 0)) < .01, $"{g.Text}: {g.Direction}"));
+        var quad = Assert.Single(TextSelection.LineQuads(glyphs, start, start + 7));
+        Assert.Equal(quad.UpperLeft.Y, quad.UpperRight.Y, 3);
+        Assert.Equal(quad.UpperLeft.X, quad.LowerLeft.X, 3);
+    }
+
+    [Fact]
     public void TextBoxHighlightsArePaintedBehindTheGlyphsAndReopen()
     {
         var model = DocumentModel.Create([new PageSetup(400, 300, 90, PageSource.Generated, PageBackground.Blank)]);

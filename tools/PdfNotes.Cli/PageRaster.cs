@@ -1,10 +1,4 @@
 using System.Collections.Immutable;
-using System.Globalization;
-using System.IO;
-using System.Text.Json.Nodes;
-using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
 using PdfNotes.Pdf.Engine;
@@ -17,8 +11,10 @@ namespace PdfNotes.Cli;
 /// Page pixels for <c>render</c> (cli_plan 4.2). The paper without annotations comes from the app's
 /// <see cref="PageRenderer"/>; annotations are drawn by rendering the page's Flatten PDF (the same appearance the app
 /// exports and external viewers show; PDFium ignores annotation /CA, so the editable PDF itself would lose opacity).
+/// Composing images (overlays, grids) and writing PNG files is the platform part (<c>Platform/Wpf</c> for the shipped
+/// Windows build, <c>Platform/Skia</c> for <c>-p:DeotEngine=Skia</c>, roadmap P2 S7).
 /// </summary>
-public static class PageRaster
+public static partial class PageRaster
 {
     public static (int Width, int Height) PixelSize(PageSetup setup, double pixelsPerPoint) => PageRenderer.PixelSize(setup, pixelsPerPoint);
 
@@ -43,49 +39,17 @@ public static class PageRaster
         }
         finally { pdf?.Dispose(); }
     }
+}
 
-    public static BitmapSource ToBitmap(RenderedPage page)
-    {
-        var bitmap = BitmapSource.Create(page.Width, page.Height, 96, 96, PixelFormats.Bgra32, null, page.Bgra, page.Stride);
-        bitmap.Freeze();
-        return bitmap;
-    }
+/// <summary>What <c>render</c> draws on a composed image (overlays, grid cells and labels), in pixels.</summary>
+public interface IRasterCanvas
+{
+    void Fill(int x, int y, int width, int height, RgbColor color);
+    void DrawImage(RenderedPage image, int x, int y);
 
-    /// <summary>A new image drawn by <paramref name="draw"/> at 1 DIP = 1 pixel.</summary>
-    public static BitmapSource Compose(int width, int height, Action<DrawingContext> draw)
-    {
-        var visual = new DrawingVisual();
-        using (var context = visual.RenderOpen()) draw(context);
-        var target = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
-        target.Render(visual);
-        target.Freeze();
-        return target;
-    }
+    /// <summary>A closed polygon filled with <paramref name="color"/> at <paramref name="opacity"/> and outlined 1 px opaque.</summary>
+    void Polygon(IReadOnlyList<Point2> points, RgbColor color, double opacity);
 
-    public static void SavePng(BitmapSource image, string path)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(image));
-        using var stream = File.Create(path);
-        encoder.Save(stream);
-    }
-
-    public static void DrawLabel(DrawingContext context, string text, double x, double y, double size)
-    {
-        var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), size, Brushes.Black, 1.0);
-        context.DrawText(formatted, new System.Windows.Point(x, y));
-    }
-
-    public static StreamGeometry Polygon(IReadOnlyList<Point2> points)
-    {
-        var geometry = new StreamGeometry();
-        using (var g = geometry.Open())
-        {
-            g.BeginFigure(new System.Windows.Point(points[0].X, points[0].Y), true, true);
-            for (int i = 1; i < points.Count; i++) g.LineTo(new System.Windows.Point(points[i].X, points[i].Y), true, false);
-        }
-        geometry.Freeze();
-        return geometry;
-    }
+    /// <summary>A short black label with its top left at (x, y).</summary>
+    void Label(string text, double x, double y, double size);
 }

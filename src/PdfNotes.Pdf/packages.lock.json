@@ -53,7 +53,7 @@
       "pdfnotes.text": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.0.1-dev, )"
+          "PdfNotes.Core": "[1.2.0-dev, )"
         }
       }
     },

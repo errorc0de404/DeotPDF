@@ -27,11 +27,12 @@ public static class AppCommands
     public static readonly RoutedUICommand Settings = new(Strings.Get("command.settings"), nameof(Settings), typeof(AppCommands));
 }
 
-public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
+public partial class MainWindow : Window, IMainView, IEditorDialogs
 {
-    private readonly AppSettings settings;
-    private readonly DocumentWorkflow workflow; // D14d: new/open/save/export flow of the editor
-    private readonly ToolSwitch tools;          // D14d: current tool and the automatic selection visit
+    private readonly MainViewModel viewModel; // P1: title, status line, undo tips; owns the workflow and the tool switch
+    private AppSettings settings => viewModel.Settings;
+    private DocumentWorkflow workflow => viewModel.Workflow; // D14d: new/open/save/export flow of the editor
+    private ToolSwitch tools => viewModel.Tools;             // D14d: current tool and the automatic selection visit
     private PageRenderScheduler? scheduler; // page bitmaps of the open document
     private bool closeConfirmed;
 
@@ -44,26 +45,29 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
     public MainWindow()
     {
         Theme.Attach(this);
-        settings = AppSettings.Load();
-        workflow = new DocumentWorkflow(this, this); // before the window: command bindings ask it while the XAML loads
-        tools = new ToolSwitch(settings);
+        viewModel = new MainViewModel(this, this, AppSettings.Load(), App.DisplayName, clipboard: clipboard, pageDialogs: this); // before the window: command bindings ask it while the XAML loads
         InitializeComponent();
+        DataContext = viewModel;
         RestoreWindowPlacement();
         Theme.Use(settings.Theme, settings.Accent);
-        showPageNumbers = settings.ShowPageNumbers;
-        pageNumberSize = settings.PageNumberSize;
         SourceInitialized += (_, _) => HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(SystemSettingHook);
         ShowDarkPages(settings.DarkPages);
         View.SetMode(settings.ViewMode);
-        View.ViewChanged += (_, _) => UpdateViewStatus();
+        View.ViewChanged += (_, _) => { viewModel.Navigation.ViewChanged(); UpdateViewStatus(); };
+        viewModel.Navigation.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(NavigationViewModel.Mode)) UpdateViewStatus(); };
+        viewModel.Favorites.PropertyChanged += (_, _) => BuildFavorites();
+        InitializeDisplay();
         View.ViewChanged += (_, _) => PositionNoteCard();
         InitializeTools();
         InitializeLinks();
         InitializePagePanel();
         InitializeOutline();
-        ShowFavorites(settings.ShowFavorites);
+        ShowFavorites(viewModel.Display.FavoritesShown);
         InitializeRibbon();
-        UpdateRecentButton();
+        InitializeUpdates();
+        InitializeLoading();
+        InitializeForeign();
+        InitializeSearch();
         InitializeBackup();
         ShowDocument(OpenDocument.CreateNote(NewPageSpec.Default));
     }
@@ -96,64 +100,49 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
     /// <summary>Replaces the current document. The old one is released only after the new one is shown.</summary>
     private void ShowDocument(OpenDocument next) => workflow.Replace(next);
 
-    void IDocumentHost.DocumentLeaving(OpenDocument? previous)
+    /// <summary>The view model behind this window (P1).</summary>
+    public MainViewModel ViewModel => viewModel;
+
+    void IMainView.DocumentLeaving(OpenDocument? previous)
     {
         RememberPosition(previous);
         if (NotesHidden) SetNotesHidden(false); // a new or opened document shows its notes (spec 24.10)
-        if (previous is not null) previous.Session.StateChanged -= SessionStateChanged;
     }
 
-    void IDocumentHost.DocumentReplaced(OpenDocument? previous, OpenDocument next)
+    void IMainView.DocumentReplaced(OpenDocument? previous, OpenDocument next)
     {
-        linkDocument = next; sourceLinks.Clear(); backPlaces.Clear(); forwardPlaces.Clear(); // links and jumps belong to one document
-        next.Session.StateChanged += SessionStateChanged;
+        linkDocument = next; sourceLinks.Clear(); // links belong to one document (the jumps are cleared by the view model)
         var previousScheduler = scheduler;
         scheduler = new PageRenderScheduler(next.Renderer, Dispatcher);
         View.SetDocument(next.Session.Current.Pages, scheduler);
         selectTool.Select(null);
-        activePageId = null; pageClipboard = null;
-        pageThumbs.Clear();
-        RefreshPagePanel();
-        searchRun?.Cancel();
-        ApplySearch([], null);
-        ScheduleSearch(keep: false);
+        pages.DocumentReplaced();
         previousScheduler?.Dispose();
         previous?.Dispose();
         ResetBackup();
         ShowingFile();
-        LoadOutline();
-        UpdateTitle();
         UpdateViewStatus();
         UpdateStyleBar();
-        CountForeign();
-        UpdateHistoryTips();
-        CommandManager.InvalidateRequerySuggested();
     }
 
-    /// <summary>The quick undo/redo buttons name the step they would take (spec 13.3, D14g): `실행 취소: 필기 삭제 (Ctrl+Z)`.</summary>
-    private void UpdateHistoryTips()
+    void IMainView.DocumentChanged()
     {
-        if (document?.Session is not { } session) return;
-        UndoButton.ToolTip = session.UndoLabel is { } undo ? Strings.Format("ribbon.undoNamed", ("name", Strings.Get(undo))) : Strings.Get("ribbon.undoTip");
-        RedoButton.ToolTip = session.RedoLabel is { } redo ? Strings.Format("ribbon.redoNamed", ("name", Strings.Get(redo))) : Strings.Get("ribbon.redoTip");
-    }
-
-    private void SessionStateChanged(object? sender, EventArgs e)
-    {
-        if (!ReferenceEquals(sender, document?.Session)) return;
         View.UpdatePages(document!.Session.Current.Pages);
         selectTool.Revalidate();
-        ScheduleSearch(keep: true); // text edits, deleted or moved pages: results follow the document
         // A page structure change makes glyph carets of the text selection refer to another page.
         if (!pageThumbs.Select(t => t.PageId).SequenceEqual(document.Session.Current.Pages.Select(p => p.Id)) ||
             pageThumbs.Any(t => document.Session.Current.GetPage(t.PageId).Setup != t.Rendered?.Setup)) selectTool.ClearTextSelection();
         RefreshPagePanel();
         RefreshOutline();
         UpdateStyleBar();
-        UpdateTitle();
-        CountForeign(); // imported pages may bring other apps' annotations
-        UpdateHistoryTips();
-        CommandManager.InvalidateRequerySuggested();
+    }
+
+    void IMainView.CommandsChanged() => CommandManager.InvalidateRequerySuggested();
+
+    void IMainView.OnUiThread(Action action)
+    {
+        if (Dispatcher.CheckAccess()) action();
+        else if (!Dispatcher.HasShutdownStarted) Dispatcher.BeginInvoke(action);
     }
 
     /// <summary>
@@ -176,31 +165,19 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
     /// <summary>Flatten PDF export (spec 14.5). Returns true when the file was written.</summary>
     public Task<bool> ExportFlattenedAsync() => workflow.ExportFlattenedAsync();
 
-    // ----- the workflow's host and dialogs (D14d) -----
+    // ----- the view model's view and the workflow's dialogs (D14d, P1) -----
 
-    void IDocumentHost.CancelTool() => View.CancelTool();
-    void IDocumentHost.SetStatus(string text) => StatusText.Text = text;
+    void IMainView.CancelTool() => View.CancelTool();
 
-    void IDocumentHost.StateChanged()
+    void IMainView.Opened(string path) => RestorePosition(path);
+
+    void IMainView.Saved(string path)
     {
-        UpdateTitle();
-        CommandManager.InvalidateRequerySuggested();
-    }
-
-    void IDocumentHost.Opened(string path)
-    {
-        AddRecent(path);
-        RestorePosition(path);
-    }
-
-    void IDocumentHost.Saved(string path)
-    {
-        AddRecent(path);
         BackupSaved();
         ShowingFile();
     }
 
-    bool IDocumentHost.ShowOpenElsewhere(string path)
+    bool IMainView.ShowOpenElsewhere(string path)
     {
         if (BackupStore.WindowShowing(Path.GetDirectoryName(AppSettings.DefaultPath)!, path, backupStore) is not { } other) return false;
         Services.WindowActivation.Bring(other);
@@ -259,20 +236,17 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
         else MessageBox.Show(this, text, App.DisplayName, MessageBoxButton.OK, image);
     }
 
-    private void UpdateTitle() =>
-        Title = document is null ? App.DisplayName : $"{document.DisplayName}{(document.Session.IsDirty ? " *" : "")} - {App.DisplayName}";
-
+    /// <summary>The status bar's page and zoom (<see cref="NavigationViewModel"/>); a box being typed in keeps its text.</summary>
     private void UpdateViewStatus()
     {
-        if (!PageBox.IsKeyboardFocusWithin) PageBox.Text = (View.CurrentPageIndex + 1).ToString(CultureInfo.CurrentCulture);
-        PageCountText.Text = $"/ {View.PageCount}";
-        if (!ZoomBox.IsKeyboardFocusWithin) ZoomBox.Text = FormatZoom(View.Zoom);
-        ZoomText.Text = FormatZoom(View.Zoom);
-        ContinuousButton.IsChecked = View.Mode == ViewMode.Continuous;
-        SinglePageButton.IsChecked = View.Mode == ViewMode.SinglePage;
+        var navigation = viewModel.Navigation;
+        if (!PageBox.IsKeyboardFocusWithin) PageBox.Text = navigation.PageNumberText;
+        PageCountText.Text = navigation.PageCountText;
+        if (!ZoomBox.IsKeyboardFocusWithin) ZoomBox.Text = navigation.ZoomText;
+        ZoomText.Text = navigation.ZoomText;
+        ContinuousButton.IsChecked = navigation.Mode == ViewMode.Continuous;
+        SinglePageButton.IsChecked = navigation.Mode == ViewMode.SinglePage;
     }
-
-    private static string FormatZoom(double zoom) => ZoomSteps.Format(zoom, CultureInfo.CurrentCulture);
 
     // ----- commands -----
 
@@ -319,41 +293,36 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
         return 0;
     }
 
-    private bool showPageNumbers;
-
     /// <summary>Page numbers drawn on the pages (spec 4.5; the settings window may be previewing a change).</summary>
-    public bool PageNumbersShown => showPageNumbers;
+    public bool PageNumbersShown => viewModel.Display.PageNumbers;
 
     /// <summary>The stored 화면 settings (spec 18.1).</summary>
-    public DisplayValues DisplaySettings => new(settings.Theme, settings.Accent, settings.ShowPageNumbers, settings.AutoSwitchTabs, settings.DarkPages, settings.ShowFavorites,
-        settings.PageNumberSize);
+    public DisplayValues DisplaySettings => viewModel.Display.Stored;
+
+    /// <summary>The display values (<see cref="DisplayViewModel"/>) shown on the window: dark pages, favorites, page numbers.</summary>
+    private void InitializeDisplay() => viewModel.Display.PropertyChanged += (_, e) =>
+    {
+        var display = viewModel.Display;
+        switch (e.PropertyName)
+        {
+            case nameof(DisplayViewModel.DarkPages): ShowDarkPages(display.DarkPages); break;
+            case nameof(DisplayViewModel.FavoritesShown): ShowFavorites(display.FavoritesShown); break;
+            case nameof(DisplayViewModel.PageNumbers) or nameof(DisplayViewModel.NumberSize): View.RefreshOverlays(); break;
+        }
+    };
 
     /// <summary>Shows theme, accent color and page numbers now without storing them (settings window preview).</summary>
     public void PreviewDisplay(DisplayValues values)
     {
         Theme.Use(values.Theme, values.Accent);
-        ShowDarkPages(values.DarkPages);
-        ShowFavorites(values.Favorites);
-        if (pageNumberSize != values.NumberSize) { pageNumberSize = values.NumberSize; View.RefreshOverlays(); }
-        if (showPageNumbers != values.PageNumbers)
-        {
-            showPageNumbers = values.PageNumbers;
-            View.RefreshOverlays();
-        }
+        viewModel.Display.Preview(values);
     }
 
     /// <summary>Applies and stores the 화면 settings (an app setting: no Undo, the document stays unchanged).</summary>
     public void SetDisplay(DisplayValues values)
     {
-        PreviewDisplay(values);
-        settings.Theme = values.Theme;
-        settings.Accent = values.Accent;
-        settings.ShowPageNumbers = values.PageNumbers;
-        settings.AutoSwitchTabs = values.AutoSwitchTabs;
-        settings.DarkPages = values.DarkPages;
-        settings.ShowFavorites = values.Favorites;
-        settings.PageNumberSize = values.NumberSize;
-        settings.Save();
+        Theme.Use(values.Theme, values.Accent);
+        viewModel.Display.Apply(values);
     }
 
     public bool QuickEraseEnabled => settings.QuickErase;
@@ -378,7 +347,7 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
             new(settings.AutoBackup, settings.BackupIntervalMinutes, settings.BackupMode, settings.EffectiveBackupFolder, settings.BackupKeep), display,
             settings.Language, settings.CheckUpdates == true),
             () => Prompt(Strings.Get("settings.backupInPlaceConfirm"), MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes,
-            PreviewDisplay, Strings.Discover(AppSettings.LanguageFolders), new(backupStore.Usage, ClearBackups), new(CheckForUpdatesAsync, OpenWebPage)) { Owner = this };
+            PreviewDisplay, Strings.Discover(AppSettings.LanguageFolders), new(backupStore.Usage, ClearBackups), new(viewModel.Update.CheckAsync, OpenWebPage)) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.Result is not { } values) { PreviewDisplay(display); return false; } // cancel undoes the preview
         SetDisplay(values.Display ?? display);
         settings.QuickErase = values.QuickErase;
@@ -410,7 +379,7 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
     private void WindowDragOver(object sender, DragEventArgs e)
     {
         bool images = DroppedImages(e) is not null;
-        bool pdfs = !busy && !importing && DroppedPdfs(e) is not null;
+        bool pdfs = !busy && !viewModel.ImportExport.Importing && DroppedPdfs(e) is not null;
         e.Effects = pdfs || images ? DragDropEffects.Copy : DragDropEffects.None;
         ShowDropMark(images ? e.GetPosition(View) : null);
         if (pdfs && OverPageList(e)) ShowDropLine(DropIndex(e.GetPosition(PageList)));
@@ -438,7 +407,7 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
         }
         if (DroppedPdfs(e) is not { } paths)
         {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop)) StatusText.Text = Strings.Get("drop.unsupported");
+            if (e.Data.GetDataPresent(DataFormats.FileDrop)) viewModel.Status = Strings.Get("drop.unsupported");
             return;
         }
         e.Handled = true;
@@ -461,18 +430,13 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
         if (FilterHeldKey(e)) return;
         if (textEditor is not null && Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.Z or Key.Y)
         { UndoTextAware(e.Key == Key.Y); e.Handled = true; return; }
-        if (Keyboard.Modifiers == ModifierKeys.Control && ZoomShortcut(e.Key)) { e.Handled = true; return; } // also while editing text (spec 24.2)
-        // Ctrl+1 … Ctrl+4: the pen favorites (spec 17, 24.7, D14g), also while editing text, not in other input boxes.
-        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is >= Key.D1 and <= Key.D4 or >= Key.NumPad1 and <= Key.NumPad4 && (textEditor is not null || !IsTextInputFocused))
+        // The view shortcuts (spec 4.4, 17, 24.2, 24.3, 24.7): zoom also while editing text, favorites not in other input
+        // boxes, back/forward outside text input. Page keys come after the selection's arrow moves.
+        var shortcut = ShortcutOf(e);
+        if (shortcut is { Scope: not ShortcutScope.Canvas } s && InScope(s.Scope))
         {
-            int slot = e.Key >= Key.NumPad1 ? e.Key - Key.NumPad1 : e.Key - Key.D1;
-            if (settings.Favorites[slot] is not null) ApplyFavorite(slot);
-            e.Handled = true;
-            return;
-        }
-        if (e.Key == Key.System && Keyboard.Modifiers == ModifierKeys.Alt && e.SystemKey is Key.Left or Key.Right && !IsTextInputFocused)
-        {
-            if (e.SystemKey == Key.Left) GoBack(); else GoForward(); // jumps of links and the outline (spec 24.3)
+            if (Shortcuts.FavoriteSlot(s.Command) is { } slot) { if (settings.Favorites[slot] is not null) ApplyFavorite(slot); }
+            else viewModel.Navigation.Run(s.Command, e.IsRepeat);
             e.Handled = true;
             return;
         }
@@ -484,7 +448,7 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
             e.Handled = true;
             return;
         }
-        if (IsCanvasKeyboardFocus && PageKey(e)) { e.Handled = true; return; }
+        if (shortcut is { Scope: ShortcutScope.Canvas } page && IsCanvasKeyboardFocus && viewModel.Navigation.Run(page.Command, e.IsRepeat)) { e.Handled = true; return; }
         if (textEditor is null && tools.Current == ToolKind.Select && tools.Return == ToolKind.Text && View.IsKeyboardFocusWithin && IsTypingKey(e) &&
             selectTool.SelectedAnnotations is [TextBoxAnnotation { Locked: false } typed])
         {
@@ -504,65 +468,38 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
     /// <summary>Zoom steps of Ctrl+= / Ctrl+- (spec 24.2): the zoom box presets, down to 10%.</summary>
     public static readonly int[] ZoomStepPercents = ZoomSteps.StepPercents;
 
-    /// <summary>Ctrl+= (and numpad +) next step, Ctrl+- previous step, Ctrl+0 fit width — around the view center (spec 24.2).</summary>
-    private bool ZoomShortcut(Key key)
-    {
-        switch (key)
-        {
-            case Key.OemPlus or Key.Add:
-                ZoomByStep(1);
-                return true;
-            case Key.OemMinus or Key.Subtract:
-                ZoomByStep(-1);
-                return true;
-            case Key.D0 or Key.NumPad0:
-                View.FitWidth();
-                return true;
-            default:
-                return false;
-        }
-    }
-
     /// <summary>The next (<paramref name="direction"/> 1) or previous (-1) zoom step around the view center (spec 24.2).</summary>
-    public void ZoomByStep(int direction)
-    {
-        View.SetZoom(ZoomSteps.Step(View.Zoom, direction));
-    }
+    public void ZoomByStep(int direction) => viewModel.Navigation.ZoomByStep(direction);
 
     /// <summary>
-    /// Keyboard page moves on the canvas (spec 4.4, 2026-10-14): ←/→ scroll sideways and turn the page at the edge, PageUp/PageDown
-    /// go to the previous/next page's top in both view modes, Ctrl+Home/Ctrl+End to the first/last page, ↑/↓ scroll a line;
-    /// arrows with a selection move it (handled before). A view change only: no Undo, no unsaved mark.
+    /// The key of the shortcut table (<see cref="Shortcuts"/>). ↑/↓ scroll here, not in the ScrollViewer: it first predicts
+    /// focus, and with no focusable element above the canvas (select, text, lasso, note tools) it predicts the canvas
+    /// itself and swallows ↑ without scrolling (2026-10-26).
     /// </summary>
-    private bool PageKey(KeyEventArgs e)
+    private static Shortcut? ShortcutOf(KeyEventArgs e)
     {
-        var modifiers = Keyboard.Modifiers;
-        // ↑/↓ scroll here, not in the ScrollViewer: it first predicts focus, and with no focusable element above the canvas
-        // (select, text, lasso, note tools) it predicts the canvas itself and swallows ↑ without scrolling (2026-10-26).
-        if (modifiers == ModifierKeys.None && e.Key is Key.Up or Key.Down)
+        ShortcutKey? key = (e.Key == Key.System ? e.SystemKey : e.Key) switch
         {
-            if (e.Key == Key.Up) View.LineUp(); else View.LineDown();
-            return true;
-        }
-        // While a stroke or another press is in progress the page stays (the 2026-10-15 crash: the page under the pen left the view).
-        if (View.IsToolActive) return e.Key is Key.Left or Key.Right or Key.PageUp or Key.PageDown || modifiers == ModifierKeys.Control && e.Key is Key.Home or Key.End;
-        if (modifiers == ModifierKeys.None && e.Key is Key.Left or Key.Right)
-        {
-            View.ArrowSideways(e.Key == Key.Left ? -1 : 1, e.IsRepeat);
-            return true;
-        }
-        if (modifiers == ModifierKeys.None && e.Key is Key.PageUp or Key.PageDown)
-        {
-            View.GoToPage(View.CurrentPageIndex + (e.Key == Key.PageUp ? -1 : 1));
-            return true;
-        }
-        if (modifiers == ModifierKeys.Control && e.Key is Key.Home or Key.End)
-        {
-            View.GoToPage(e.Key == Key.Home ? 0 : View.PageCount - 1);
-            return true;
-        }
-        return false;
+            Key.Left => ShortcutKey.Left, Key.Right => ShortcutKey.Right, Key.Up => ShortcutKey.Up, Key.Down => ShortcutKey.Down,
+            Key.PageUp => ShortcutKey.PageUp, Key.PageDown => ShortcutKey.PageDown, Key.Home => ShortcutKey.Home, Key.End => ShortcutKey.End,
+            Key.OemPlus or Key.Add => ShortcutKey.Plus, Key.OemMinus or Key.Subtract => ShortcutKey.Minus, Key.D0 or Key.NumPad0 => ShortcutKey.Zero,
+            Key.D1 or Key.NumPad1 => ShortcutKey.D1, Key.D2 or Key.NumPad2 => ShortcutKey.D2, Key.D3 or Key.NumPad3 => ShortcutKey.D3, Key.D4 or Key.NumPad4 => ShortcutKey.D4,
+            _ => null,
+        };
+        return key is { } k ? Shortcuts.Find(k, Modifiers(Keyboard.Modifiers)) : null;
     }
+
+    private static InputModifiers Modifiers(ModifierKeys keys) =>
+        (keys.HasFlag(ModifierKeys.Alt) ? InputModifiers.Alt : 0) | (keys.HasFlag(ModifierKeys.Control) ? InputModifiers.Control : 0) |
+        (keys.HasFlag(ModifierKeys.Shift) ? InputModifiers.Shift : 0) | (keys.HasFlag(ModifierKeys.Windows) ? InputModifiers.Windows : 0);
+
+    private bool InScope(ShortcutScope scope) => scope switch
+    {
+        ShortcutScope.Anywhere => true,
+        ShortcutScope.Writing => textEditor is not null || !IsTextInputFocused,
+        ShortcutScope.NotTextInput => !IsTextInputFocused,
+        _ => IsCanvasKeyboardFocus,
+    };
 
     private void WindowPreviewKeyUp(object sender, KeyEventArgs e)
     {
@@ -611,15 +548,14 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
 
     // ----- status bar: page and zoom -----
 
-    private void PreviousPageClick(object sender, RoutedEventArgs e) => View.PreviousPage();
-    private void NextPageClick(object sender, RoutedEventArgs e) => View.NextPage();
+    private void PreviousPageClick(object sender, RoutedEventArgs e) => viewModel.Navigation.PreviousPage();
+    private void NextPageClick(object sender, RoutedEventArgs e) => viewModel.Navigation.NextPage();
 
     private void PageBoxKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
-            if (int.TryParse(PageBox.Text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out int number))
-                View.GoToPage(number - 1);
+            viewModel.Navigation.GoToPageNumber(PageBox.Text);
             View.Focus();
             UpdateViewStatus();
             e.Handled = true;
@@ -633,10 +569,10 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
 
     private void PageBoxLostFocus(object sender, KeyboardFocusChangedEventArgs e) => UpdateViewStatus();
 
-    private void ZoomOutClick(object sender, RoutedEventArgs e) => View.ZoomBy(1 / 1.25);
-    private void ZoomInClick(object sender, RoutedEventArgs e) => View.ZoomBy(1.25);
-    private void FitWidthClick(object sender, RoutedEventArgs e) => View.FitWidth();
-    private void FitPageClick(object sender, RoutedEventArgs e) => View.FitPage();
+    private void ZoomOutClick(object sender, RoutedEventArgs e) => viewModel.Navigation.ZoomBy(1 / 1.25);
+    private void ZoomInClick(object sender, RoutedEventArgs e) => viewModel.Navigation.ZoomBy(1.25);
+    private void FitWidthClick(object sender, RoutedEventArgs e) => viewModel.Navigation.FitWidth();
+    private void FitPageClick(object sender, RoutedEventArgs e) => viewModel.Navigation.FitPage();
 
     /// <summary>Zoom presets of the status bar menu (spec 4.4).</summary>
     public static readonly int[] ZoomMenuPercents = ZoomSteps.MenuPercents;
@@ -648,19 +584,18 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
     private void ZoomMenuClick(object sender, RoutedEventArgs e)
     {
         var menu = new ContextMenu { PlacementTarget = ZoomButton, Placement = PlacementMode.Top };
-        int current = (int)Math.Round(View.Zoom * 100);
-        foreach (int percent in ZoomMenuPercents)
+        foreach (var (percent, current) in viewModel.Navigation.ZoomMenu())
         {
-            var item = new MenuItem { Header = percent.ToString(CultureInfo.CurrentCulture) + "%", IsChecked = percent == current };
-            item.Click += (_, _) => View.SetZoom(percent / 100.0);
+            var item = new MenuItem { Header = percent.ToString(CultureInfo.CurrentCulture) + "%", IsChecked = current };
+            item.Click += (_, _) => viewModel.Navigation.SetZoom(percent / 100.0);
             menu.Items.Add(item);
         }
         menu.Items.Add(new Separator());
         var width = new MenuItem { Header = Strings.Get("view.fitWidth") };
-        width.Click += (_, _) => View.FitWidth();
+        width.Click += (_, _) => viewModel.Navigation.FitWidth();
         menu.Items.Add(width);
         var page = new MenuItem { Header = Strings.Get("view.fitPage") };
-        page.Click += (_, _) => View.FitPage();
+        page.Click += (_, _) => viewModel.Navigation.FitPage();
         menu.Items.Add(page);
         menu.IsOpen = true;
         LastZoomMenu = menu;
@@ -668,7 +603,7 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
 
     private void ZoomBoxSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (ZoomBox.SelectedItem is ComboBoxItem { Content: string text } && TryParseZoom(text, out double zoom)) View.SetZoom(zoom);
+        if (ZoomBox.SelectedItem is ComboBoxItem { Content: string text }) viewModel.Navigation.SetZoomText(text);
         ZoomBox.SelectedIndex = -1;
         UpdateViewStatus();
     }
@@ -676,7 +611,7 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
     private void ZoomBoxKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter && e.Key != Key.Escape) return;
-        if (e.Key == Key.Enter && TryParseZoom(ZoomBox.Text, out double zoom)) View.SetZoom(zoom);
+        if (e.Key == Key.Enter) viewModel.Navigation.SetZoomText(ZoomBox.Text);
         View.Focus();
         UpdateViewStatus();
         e.Handled = true;
@@ -684,18 +619,10 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
 
     private void ZoomBoxLostFocus(object sender, KeyboardFocusChangedEventArgs e) => UpdateViewStatus();
 
-    private static bool TryParseZoom(string text, out double zoom) => ZoomSteps.TryParse(text, CultureInfo.CurrentCulture, out zoom);
-
     private void ContinuousClick(object sender, RoutedEventArgs e) => SetViewMode(ViewMode.Continuous);
     private void SinglePageClick(object sender, RoutedEventArgs e) => SetViewMode(ViewMode.SinglePage);
 
-    public void SetViewMode(ViewMode mode)
-    {
-        View.SetMode(mode);
-        settings.ViewMode = mode;
-        settings.Save();
-        UpdateViewStatus();
-    }
+    public void SetViewMode(ViewMode mode) => viewModel.Navigation.SetMode(mode);
 
     // ----- closing (spec 18) -----
 
@@ -726,13 +653,11 @@ public partial class MainWindow : Window, IDocumentHost, IEditorDialogs
 
     private void WindowClosed(object? sender, EventArgs e)
     {
-        backupTimer?.Stop();
-        if (backupTimer is not null) backupStore.End(); // a normal end: nothing to recover next time
+        if (backup.Started) { backup.Stop(); backupStore.End(); } // a normal end: nothing to recover next time
         RememberPosition(document);
         RememberWindowPlacement();
         settings.Save();
-        searchRun?.Cancel();
-        searchTimer?.Stop();
+        viewModel.Search.Cancel();
         View.Detach(); // a pending render tick must not reach the disposed scheduler
         scheduler?.Dispose();
         scheduler = null;

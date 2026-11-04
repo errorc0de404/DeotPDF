@@ -1,8 +1,6 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Windows;
-using System.Windows.Media;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
 using PdfNotes.Pdf.Engine;
@@ -78,19 +76,16 @@ public static class RenderCommand
         }
         CheckSize(area.Width, area.Height);
         var pageToPixel = toFull.Then(Affine.Translation(-area.X, -area.Y));
-        var rendered = PageRaster.Render(doc, page, ppp, region is null ? null : area, include, out int drawn);
-        var image = PageRaster.ToBitmap(rendered);
+        var image = PageRaster.Render(doc, page, ppp, region is null ? null : area, include, out int drawn);
         if (overlay.Count > 0)
-            image = PageRaster.Compose(area.Width, area.Height, dc =>
+        {
+            var rendered = image;
+            image = PageRaster.Draw(area.Width, area.Height, canvas =>
             {
-                dc.DrawImage(image, new Rect(0, 0, area.Width, area.Height));
-                foreach (var item in overlay)
-                {
-                    var fill = new SolidColorBrush(Color.FromArgb((byte)Math.Round(item.Opacity * 255), item.Color.R, item.Color.G, item.Color.B));
-                    var pen = new Pen(new SolidColorBrush(Color.FromRgb(item.Color.R, item.Color.G, item.Color.B)), 1);
-                    dc.DrawGeometry(fill, pen, PageRaster.Polygon(item.Ring.Select(pageToPixel.Transform).ToArray()));
-                }
+                canvas.DrawImage(rendered, 0, 0);
+                foreach (var item in overlay) canvas.Polygon([.. item.Ring.Select(pageToPixel.Transform)], item.Color, item.Opacity);
             });
+        }
         PageRaster.SavePng(image, output);
 
         var result = CliJson.Result("render", doc.SourceHash);
@@ -122,7 +117,7 @@ public static class RenderCommand
         CheckSize(width, height);
 
         var cells = new JsonArray();
-        var placed = new List<(System.Windows.Media.Imaging.BitmapSource Image, int X, int Y, string Label)>();
+        var placed = new List<(PdfNotes.Pdf.Engine.RenderedPage Image, int X, int Y, string Label)>();
         int drawnTotal = 0;
         for (int i = 0; i < pages.Count; i++)
         {
@@ -131,7 +126,7 @@ public static class RenderCommand
             var rendered = PageRaster.Render(doc, page, ppp, null, include, out int drawn);
             drawnTotal += drawn;
             int number = doc.NumberOf(page);
-            placed.Add((PageRaster.ToBitmap(rendered), x, y, number.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            placed.Add((rendered, x, y, number.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             var pageToPixel = PageRaster.PageToFullPixel(page.Setup, ppp).Then(Affine.Translation(x, y));
             cells.Add(new JsonObject
             {
@@ -142,13 +137,13 @@ public static class RenderCommand
                 ["pixelToPage"] = CliJson.Matrix(pageToPixel.Invert()),
             });
         }
-        var image = PageRaster.Compose(width, height, dc =>
+        var image = PageRaster.Draw(width, height, canvas =>
         {
-            dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(0xD9, 0xD9, 0xD9)), null, new Rect(0, 0, width, height));
+            canvas.Fill(0, 0, width, height, new RgbColor(0xD9, 0xD9, 0xD9));
             foreach (var (bitmap, x, y, label) in placed)
             {
-                PageRaster.DrawLabel(dc, label, x, y - GridLabel + 2, 13);
-                dc.DrawImage(bitmap, new Rect(x, y, bitmap.PixelWidth, bitmap.PixelHeight));
+                canvas.Label(label, x, y - GridLabel + 2, 13);
+                canvas.DrawImage(bitmap, x, y);
             }
         });
         PageRaster.SavePng(image, output);

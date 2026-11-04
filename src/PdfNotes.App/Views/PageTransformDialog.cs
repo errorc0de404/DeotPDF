@@ -11,12 +11,6 @@ using PdfNotes.Editor.Localization;
 
 namespace PdfNotes.App.Views;
 
-public sealed record PageTransformRequest(PageApplyScope Scope, double Percent, double WidthMm, double HeightMm, PageResizeMode Mode, int Alignment)
-{
-    public Point2? FreePosition { get; init; }
-    public Guid[]? TargetPageIds { get; init; }
-}
-
 /// <summary>Shared toolbar/panel dialog. Opening/cancelling does not edit the document or finish an active editor.</summary>
 public sealed class PageTransformDialog : Window
 {

@@ -13,10 +13,8 @@ namespace PdfNotes.App;
 /// </summary>
 public partial class MainWindow
 {
-    private PdfOutlineItem[] outline = [];
-
     /// <summary>The outline of the open document (validation harness).</summary>
-    public IReadOnlyList<PdfOutlineItem> Outline => outline;
+    public IReadOnlyList<PdfOutlineItem> Outline => viewModel.Outline.Items;
     public bool OutlineShown => OutlineTree.Visibility == Visibility.Visible;
 
     private void InitializeOutline()
@@ -31,6 +29,11 @@ public partial class MainWindow
             if (e.Key == Key.Enter && OutlineTree.SelectedItem is TreeViewItem { Tag: PdfOutlineItem item }) { FollowOutline(item); e.Handled = true; }
         };
         View.ViewChanged += (_, _) => HighlightOutline();
+        viewModel.Outline.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(OutlineViewModel.Items)) BuildOutline();
+            else if (e.PropertyName == nameof(OutlineViewModel.IsVisible)) ShowOutline(viewModel.Outline.IsVisible);
+        };
     }
 
     private static TreeViewItem? ItemOf(DependencyObject d, out bool expander)
@@ -44,15 +47,12 @@ public partial class MainWindow
         return null;
     }
 
-    /// <summary>Reads the outline of a newly shown document and shows the panel part as the setting says.</summary>
-    private void LoadOutline()
+    /// <summary>The newly shown document's outline: builds the tree and shows the panel part as the setting says.</summary>
+    private void BuildOutline()
     {
-        try { outline = document?.Sources.Outline() ?? []; }
-        catch (InvalidDataException) { outline = []; }
         OutlineTree.Items.Clear();
-        foreach (var item in outline) OutlineTree.Items.Add(Node(item, 0));
-        OutlineButton.IsEnabled = outline.Length > 0;
-        ShowOutline(settings.OutlineVisible && outline.Length > 0);
+        foreach (var item in viewModel.Outline.Items) OutlineTree.Items.Add(Node(item, 0));
+        ShowOutline(viewModel.Outline.IsVisible);
         RefreshOutline();
     }
 
@@ -68,25 +68,21 @@ public partial class MainWindow
     /// <summary>Shows or hides the outline and remembers it (app setting).</summary>
     public void SetOutlineVisible(bool visible)
     {
-        visible &= outline.Length > 0;
-        ShowOutline(visible);
-        settings.OutlineVisible = visible;
-        settings.Save();
+        viewModel.Outline.SetVisible(visible);
+        ShowOutline(viewModel.Outline.IsVisible); // also when unchanged: the toggle may have been clicked without an outline
     }
 
     private void ShowOutline(bool visible)
     {
         OutlineButton.IsChecked = visible;
         OutlineTree.Visibility = OutlineSplitter.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-        OutlineRow.Height = visible ? new GridLength(settings.OutlineHeight) : new GridLength(0);
+        OutlineRow.Height = visible ? new GridLength(viewModel.Outline.Height) : new GridLength(0);
         if (visible) HighlightOutline();
     }
 
     private void OutlineSplitterDragged(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
     {
-        if (OutlineRow.ActualHeight < 40) return;
-        settings.OutlineHeight = OutlineRow.ActualHeight;
-        settings.Save();
+        viewModel.Outline.RememberHeight(OutlineRow.ActualHeight);
     }
 
     /// <summary>After page edits: items of deleted pages are dimmed (they do nothing).</summary>
@@ -94,7 +90,7 @@ public partial class MainWindow
     {
         foreach (var node in Nodes(OutlineTree.Items))
             if (node.Tag is PdfOutlineItem item && node.Header is TextBlock text)
-                text.Opacity = item.TargetPage is null || TargetPage(item.TargetPage) is not null ? 1 : 0.45;
+                text.Opacity = viewModel.Outline.Reachable(item) ? 1 : 0.45;
         HighlightOutline();
     }
 
@@ -110,17 +106,14 @@ public partial class MainWindow
     /// <summary>A click on an item goes to its destination (remembered for Alt+←, like a link).</summary>
     public void FollowOutline(PdfOutlineItem item)
     {
-        if (TargetPage(item.TargetPage) is { } page) JumpTo(page, item.TargetPoint);
+        if (viewModel.Outline.Target(item) is { } page) JumpTo(page, item.TargetPoint);
     }
 
     /// <summary>Highlights the last item (in outline order) that points at the current page or a page before it.</summary>
     private void HighlightOutline()
     {
-        if (!OutlineShown || document is null) return;
-        int current = View.CurrentPageIndex;
-        TreeViewItem? best = null; int bestPage = -1;
-        foreach (var node in Nodes(OutlineTree.Items))
-            if (node.Tag is PdfOutlineItem item && TargetPage(item.TargetPage) is { } page && page <= current && page >= bestPage) { best = node; bestPage = page; }
+        if (!OutlineShown || document is null || viewModel.Outline.CurrentItem(View.CurrentPageIndex) is not { } item) return;
+        var best = Nodes(OutlineTree.Items).FirstOrDefault(n => ReferenceEquals(n.Tag, item));
         if (best is null || best.IsSelected) return;
         best.IsSelected = true; // only a highlight: following happens on a click or Enter
     }

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
@@ -113,16 +114,42 @@ public sealed class WpfTextLayout(DrawingGroup drawing, double height, Immutable
 /// <summary>One FlowDocument layout contract for editor, lightweight display, hit test and PDF outlines (D06).</summary>
 internal sealed class WpfTextEngine : ITextLayoutEngine
 {
-    private static readonly Lazy<Dispatcher> Worker = new(() =>
+    // A box takes 100-700 ms (mostly GetCharacterRect per character), and layouts on separate STA threads run in
+    // parallel: 102 boxes took 15.9 s on one thread and 5.6 s on four. Each worker is created on first use.
+    private static readonly Lazy<Dispatcher>[] Workers = [.. Enumerable.Range(0, Math.Clamp(Environment.ProcessorCount / 2, 1, 4)).Select(i => new Lazy<Dispatcher>(() =>
     {
         var ready = new TaskCompletionSource<Dispatcher>();
-        var thread = new Thread(() => { ready.SetResult(Dispatcher.CurrentDispatcher); Dispatcher.Run(); }) { IsBackground = true, Name = "Text layout" };
+        var thread = new Thread(() => { ready.SetResult(Dispatcher.CurrentDispatcher); Dispatcher.Run(); }) { IsBackground = true, Name = $"Text layout {i + 1}" };
         thread.SetApartmentState(ApartmentState.STA); thread.Start(); return ready.Task.GetAwaiter().GetResult();
-    });
+    }))];
+    private static int next = -1;
+    private static Dispatcher Worker => Workers[(int)((uint)Interlocked.Increment(ref next) % Workers.Length)].Value;
 
-    public TextLayout.Layout Build(TextBoxAnnotation box) => Worker.Value.Invoke(() => BuildOnWorker(box));
+    // Queued background layouts by box, so an urgent request for the same box raises its priority instead of waiting in line.
+    private static readonly ConditionalWeakTable<TextBoxAnnotation, DispatcherOperation<TextLayout.Layout>> Queued = new();
+
+    /// <summary>Waiting callers jump ahead of queued background layouts (Send runs after the layout in progress).</summary>
+    public TextLayout.Layout Build(TextBoxAnnotation box) => Worker.Invoke(() => BuildOnWorker(box), DispatcherPriority.Send);
+
+    public Task<TextLayout.Layout> BuildAsync(TextBoxAnnotation box, bool urgent)
+    {
+        var priority = urgent ? DispatcherPriority.Normal : DispatcherPriority.Background;
+        lock (Queued)
+        {
+            if (Queued.TryGetValue(box, out var queued) && queued.Status != DispatcherOperationStatus.Aborted)
+            {
+                if (queued.Status == DispatcherOperationStatus.Pending && queued.Priority < priority) queued.Priority = priority;
+                return queued.Task;
+            }
+            var operation = Worker.InvokeAsync(() => (TextLayout.Layout)BuildOnWorker(box), priority);
+            Queued.AddOrUpdate(box, operation);
+            return operation.Task;
+        }
+    }
+
     public bool FontAvailable(string name) => WpfText.FontAvailable(name);
-    public IReadOnlyList<TextFontUse> Fonts(TextBoxAnnotation box) => Worker.Value.Invoke(() => FontsOnWorker(TextLayout.Normalized(box)));
+    public string FallbackFont => "Malgun Gothic"; // not UI text (D14e): WPF's substitute family
+    public IReadOnlyList<TextFontUse> Fonts(TextBoxAnnotation box) => Worker.Invoke(() => FontsOnWorker(TextLayout.Normalized(box)), DispatcherPriority.Send);
     public IReadOnlyList<string> FontFamilies() => System.Windows.Media.Fonts.SystemFontFamilies
         .Select(f => f.FamilyNames.TryGetValue(English, out var name) ? name : f.Source)
         .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();

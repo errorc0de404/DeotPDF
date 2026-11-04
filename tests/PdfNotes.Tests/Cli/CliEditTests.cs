@@ -1,7 +1,5 @@
 using System.IO;
 using System.Text.Json.Nodes;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using PdfNotes.Cli;
 using PdfNotes.Cli.Commands;
 using PdfNotes.Core.Commands;
@@ -74,11 +72,8 @@ public sealed class CliEditTests : IDisposable
     {
         var pixels = new byte[width * height * 4];
         for (int i = 0; i < pixels.Length; i += 4) (pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]) = (40, 160, 90, 255);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, width * 4)));
         string path = Out($"image-{width}x{height}.png");
-        using var stream = File.Create(path);
-        encoder.Save(stream);
+        TestPng.Save(path, width, height, pixels);
         return path;
     }
 

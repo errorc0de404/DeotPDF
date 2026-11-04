@@ -1,0 +1,181 @@
+--- start (1.1 IME trial, Avalonia 12.1.4, Windows 11 Korean and Japanese IME; path removed)
+09:39:19.130 commit "d" [U+0064]
+09:39:20.716 key Back (preedit "" []) -> text "d" [U+0064] caret 1
+09:39:20.896 preedit "" [] cursor -
+09:39:20.899 preedit "ㅌ" [U+314C] cursor -
+09:39:20.973 preedit "테" [U+D14C] cursor -
+09:39:21.113 preedit "텟" [U+D15F] cursor -
+09:39:21.187 preedit "" [] cursor -
+09:39:21.188 commit "테" [U+D14C]
+09:39:21.190 preedit "" [] cursor -
+09:39:21.191 preedit "" [] cursor -
+09:39:21.192 preedit "스" [U+C2A4] cursor -
+09:39:21.333 preedit "슽" [U+C2BD] cursor -
+09:39:21.395 preedit "" [] cursor -
+09:39:21.397 commit "스" [U+C2A4]
+09:39:21.398 preedit "" [] cursor -
+09:39:21.399 preedit "" [] cursor -
+09:39:21.399 preedit "트" [U+D2B8] cursor -
+09:39:21.572 preedit "" [] cursor -
+09:39:21.573 commit "트" [U+D2B8]
+09:39:21.574 preedit "" [] cursor -
+09:39:21.577 key Return (preedit "" []) -> text "테스트" [U+D14C U+C2A4 U+D2B8] caret 3
+09:39:21.666 preedit "" [] cursor -
+09:39:21.668 preedit "ㅎ" [U+314E] cursor -
+09:39:21.773 preedit "하" [U+D558] cursor -
+09:39:21.835 preedit "한" [U+D55C] cursor -
+09:39:21.891 preedit "" [] cursor -
+09:39:21.897 commit "한" [U+D55C]
+09:39:21.899 preedit "" [] cursor -
+09:39:21.900 preedit "" [] cursor -
+09:39:21.901 preedit "ㄱ" [U+3131] cursor -
+09:39:21.959 preedit "구" [U+AD6C] cursor -
+09:39:22.060 preedit "국" [U+AD6D] cursor -
+09:39:22.201 preedit "" [] cursor -
+09:39:22.202 commit "국" [U+AD6D]
+09:39:22.202 preedit "" [] cursor -
+09:39:22.203 preedit "" [] cursor -
+09:39:22.204 preedit "ㅇ" [U+3147] cursor -
+09:39:22.246 preedit "어" [U+C5B4] cursor -
+09:39:22.473 preedit "" [] cursor -
+09:39:22.474 commit "어" [U+C5B4]
+09:39:22.485 preedit "" [] cursor -
+09:39:22.487 key Return (preedit "" []) -> text "테스트\n한국어" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4] caret 7
+09:39:22.720 commit "T" [U+0054]
+09:39:22.852 commit "h" [U+0068]
+09:39:23.013 commit "i" [U+0069]
+09:39:23.100 commit "s" [U+0073]
+09:39:23.169 commit " " [U+0020]
+09:39:23.334 commit "i" [U+0069]
+09:39:23.405 commit "s" [U+0073]
+09:39:23.535 commit " " [U+0020]
+09:39:24.039 commit "E" [U+0045]
+09:39:24.096 commit "N" [U+004E]
+09:39:24.247 commit "g" [U+0067]
+09:39:24.348 commit "l" [U+006C]
+09:39:24.514 commit "i" [U+0069]
+09:39:24.613 commit "s" [U+0073]
+09:39:24.695 commit "h" [U+0068]
+09:39:24.780 commit " " [U+0020]
+09:39:25.122 commit "t" [U+0074]
+09:39:25.293 commit "e" [U+0065]
+09:39:25.358 commit "s" [U+0073]
+09:39:25.458 commit "t" [U+0074]
+09:39:25.590 key Return (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074] caret 28
+09:39:27.605 preedit "" [] cursor -
+09:39:27.606 preedit "ｎ" [U+FF4E] cursor 1
+09:39:27.764 preedit "に" [U+306B] cursor 1
+09:39:27.917 preedit "にｈ" [U+306B U+FF48] cursor 2
+09:39:28.106 preedit "にほ" [U+306B U+307B] cursor 2
+09:39:28.278 preedit "にほｎ" [U+306B U+307B U+FF4E] cursor 3
+09:39:28.431 preedit "にほん" [U+306B U+307B U+3093] cursor 3
+09:39:28.502 preedit "にほんｇ" [U+306B U+307B U+3093 U+FF47] cursor 4
+09:39:29.058 preedit "日本" [U+65E5 U+672C] cursor 2
+09:39:29.262 preedit "日本語" [U+65E5 U+672C U+8A9E] cursor 3
+09:39:29.420 preedit "" [] cursor -
+09:39:29.421 commit "日本語" [U+65E5 U+672C U+8A9E]
+09:39:29.422 preedit "" [] cursor -
+09:39:29.606 preedit "" [] cursor -
+09:39:29.607 preedit "ｎ" [U+FF4E] cursor 1
+09:39:29.789 preedit "の" [U+306E] cursor 1
+09:39:29.842 preedit "" [] cursor -
+09:39:29.842 commit "の" [U+306E]
+09:39:29.843 preedit "" [] cursor -
+09:39:29.926 preedit "" [] cursor -
+09:39:29.928 preedit "ｂ" [U+FF42] cursor 1
+09:39:30.046 preedit "ぶ" [U+3076] cursor 1
+09:39:30.233 preedit "ぶｎ" [U+3076 U+FF4E] cursor 2
+09:39:30.368 preedit "ぶん" [U+3076 U+3093] cursor 2
+09:39:30.440 preedit "ぶんｓ" [U+3076 U+3093 U+FF53] cursor 3
+09:39:30.565 preedit "ぶんｓｙ" [U+3076 U+3093 U+FF53 U+FF59] cursor 4
+09:39:30.772 preedit "ぶんしょ" [U+3076 U+3093 U+3057 U+3087] cursor 4
+09:39:30.943 preedit "ぶんしょう" [U+3076 U+3093 U+3057 U+3087 U+3046] cursor 5
+09:39:30.993 preedit "ぶんしょうｄ" [U+3076 U+3093 U+3057 U+3087 U+3046 U+FF44] cursor 6
+09:39:31.067 preedit "ぶんしょうで" [U+3076 U+3093 U+3057 U+3087 U+3046 U+3067] cursor 6
+09:39:31.265 preedit "ぶんしょうでｓ" [U+3076 U+3093 U+3057 U+3087 U+3046 U+3067 U+FF53] cursor 7
+09:39:31.336 preedit "ぶんしょうです" [U+3076 U+3093 U+3057 U+3087 U+3046 U+3067 U+3059] cursor 7
+09:39:31.485 preedit "文章です" [U+6587 U+7AE0 U+3067 U+3059] cursor 4
+09:39:31.730 preedit "" [] cursor -
+09:39:31.731 commit "文章です" [U+6587 U+7AE0 U+3067 U+3059]
+09:39:31.732 preedit "" [] cursor -
+09:39:31.956 key Return (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059] caret 37
+09:39:32.740 commit "t" [U+0074]
+09:39:33.014 key Back (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\nt" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074] caret 39
+09:39:33.199 commit "t" [U+0074]
+09:39:33.462 commit "s" [U+0073]
+09:39:34.142 key Back (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\nts" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0073] caret 40
+09:39:34.212 commit "e" [U+0065]
+09:39:34.297 commit "s" [U+0073]
+09:39:34.399 commit "t" [U+0074]
+09:39:34.478 key Return (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\ntest" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0065 U+0073 U+0074] caret 42
+09:39:34.634 key Return (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\ntest\n" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0065 U+0073 U+0074 U+000A] caret 43
+09:39:34.789 preedit "" [] cursor -
+09:39:34.790 preedit "ㅇ" [U+3147] cursor -
+09:39:34.867 preedit "아" [U+C544] cursor -
+09:39:34.948 preedit "안" [U+C548] cursor -
+09:39:35.160 preedit "" [] cursor -
+09:39:35.162 commit "안" [U+C548]
+09:39:35.163 preedit "" [] cursor -
+09:39:35.165 preedit "" [] cursor -
+09:39:35.166 preedit "ㄴ" [U+3134] cursor -
+09:39:35.774 preedit "" [] cursor 0
+09:39:35.776 preedit "" [] cursor -
+09:39:35.934 key Back (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\ntest\n\n안" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0065 U+0073 U+0074 U+000A U+000A U+C548] caret 45
+09:39:36.156 preedit "" [] cursor -
+09:39:36.158 preedit "ㅇ" [U+3147] cursor -
+09:39:36.232 preedit "아" [U+C544] cursor -
+09:39:36.347 preedit "안" [U+C548] cursor -
+09:39:36.816 preedit "아" [U+C544] cursor -
+09:39:37.224 preedit "ㅇ" [U+3147] cursor -
+09:39:37.822 preedit "아" [U+C544] cursor -
+09:39:37.917 preedit "안" [U+C548] cursor -
+09:39:38.106 preedit "" [] cursor -
+09:39:38.108 commit "안" [U+C548]
+09:39:38.109 preedit "" [] cursor -
+09:39:38.110 preedit "" [] cursor -
+09:39:38.111 preedit "ㄴ" [U+3134] cursor -
+09:39:38.200 preedit "녀" [U+B140] cursor -
+09:39:38.549 preedit "ㄴ" [U+3134] cursor -
+09:39:39.178 preedit "녀" [U+B140] cursor -
+09:39:39.303 preedit "녕" [U+B155] cursor -
+09:39:39.690 preedit "" [] cursor -
+09:39:39.691 commit "녕" [U+B155]
+09:39:39.692 preedit "" [] cursor -
+09:39:39.693 preedit "" [] cursor -
+09:39:39.694 preedit "ㅇ" [U+3147] cursor -
+09:39:40.342 preedit "" [] cursor -
+09:39:40.344 commit "ㅇ" [U+3147]
+09:39:40.345 preedit "" [] cursor -
+09:39:40.587 commit "T" [U+0054]
+09:39:41.212 key Back (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\ntest\n\n안녕ㅇT" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0065 U+0073 U+0074 U+000A U+000A U+C548 U+B155 U+3147 U+0054] caret 48
+09:39:41.403 key Back (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\ntest\n\n안녕ㅇ" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0065 U+0073 U+0074 U+000A U+000A U+C548 U+B155 U+3147] caret 47
+09:39:41.539 commit "d" [U+0064]
+09:39:41.705 commit "d" [U+0064]
+09:39:41.859 commit "d" [U+0064]
+09:39:42.026 key Back (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\ntest\n\n안녕ddd" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0065 U+0073 U+0074 U+000A U+000A U+C548 U+B155 U+0064 U+0064 U+0064] caret 49
+09:39:42.214 key Back (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\ntest\n\n안녕dd" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0065 U+0073 U+0074 U+000A U+000A U+C548 U+B155 U+0064 U+0064] caret 48
+09:39:42.380 key Back (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\ntest\n\n안녕d" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0065 U+0073 U+0074 U+000A U+000A U+C548 U+B155 U+0064] caret 47
+09:39:42.887 key Return (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\ntest\n\n안녕" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0065 U+0073 U+0074 U+000A U+000A U+C548 U+B155] caret 46
+09:39:43.038 key Return (preedit "" []) -> text "테스트\n한국어\nThis is ENglish test\n日本語の文章です\ntest\n\n안녕\n" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0065 U+0073 U+0074 U+000A U+000A U+C548 U+B155 U+000A] caret 47
+09:39:43.174 commit "1" [U+0031]
+09:39:43.193 commit "2" [U+0032]
+09:39:43.264 commit "3" [U+0033]
+09:39:43.402 commit "1" [U+0031]
+09:39:43.477 commit "4" [U+0034]
+09:39:43.704 commit "5" [U+0035]
+09:39:44.172 commit "!" [U+0021]
+09:39:44.248 commit "@" [U+0040]
+09:39:44.272 commit "#" [U+0023]
+09:39:44.691 commit "%" [U+0025]
+09:39:44.956 commit "$" [U+0024]
+09:39:44.971 commit "!" [U+0021]
+09:39:45.017 commit "(" [U+0028]
+09:39:45.026 commit "#" [U+0023]
+09:39:45.194 commit "@" [U+0040]
+09:39:45.202 commit "(" [U+0028]
+09:39:45.233 commit "#" [U+0023]
+09:39:45.300 commit "!" [U+0021]
+09:39:45.367 commit "(" [U+0028]
+09:39:45.441 commit "#" [U+0023]
+09:39:47.362 final text: "테스트\n한국어\nThis is ENglish test\n日本語の文章です\ntest\n\n안녕\n\n123145!@#%$!(#@(#!(#" [U+D14C U+C2A4 U+D2B8 U+000A U+D55C U+AD6D U+C5B4 U+000A U+0054 U+0068 U+0069 U+0073 U+0020 U+0069 U+0073 U+0020 U+0045 U+004E U+0067 U+006C U+0069 U+0073 U+0068 U+0020 U+0074 U+0065 U+0073 U+0074 U+000A U+65E5 U+672C U+8A9E U+306E U+6587 U+7AE0 U+3067 U+3059 U+000A U+0074 U+0065 U+0073 U+0074 U+000A U+000A U+C548 U+B155 U+000A U+000A U+0031 U+0032 U+0033 U+0031 U+0034 U+0035 U+0021 U+0040 U+0023 U+0025 U+0024 U+0021 U+0028 U+0023 U+0040 U+0028 U+0023 U+0021 U+0028 U+0023]
+09:39:47.370 preedit "" [] cursor -

@@ -3,7 +3,7 @@ using System.Text;
 namespace PdfNotes.Core.Geometry;
 
 /// <summary>
-/// Plain document search (spec 12): case-insensitive substring matching over a sequence of text units (PDF glyphs or
+/// Plain document search (spec 12): substring matching, case-insensitive unless asked to match case, over a sequence of text units (PDF glyphs or
 /// laid-out text box characters). Runs of white space — including the line ends an engine reports — match one space,
 /// and a unit that starts a new line counts as a space before it, so a phrase broken across lines is still found.
 /// No regular expressions, no OCR.
@@ -25,9 +25,10 @@ public static class TextSearch
     /// <summary>
     /// Unit ranges [start, end) of the non-overlapping matches of <paramref name="query"/> in reading order.
     /// <paramref name="breakBefore"/> marks units that begin a new line or follow a gap (null: never).
-    /// A match never starts or ends on the space that stands for a line break.
+    /// A match never starts or ends on the space that stands for a line break. <paramref name="matchCase"/> tells
+    /// capitals from small letters (the search bar's Aa).
     /// </summary>
-    public static IReadOnlyList<(int Start, int End)> Find(IReadOnlyList<string> units, string query, Func<int, bool>? breakBefore = null)
+    public static IReadOnlyList<(int Start, int End)> Find(IReadOnlyList<string> units, string query, Func<int, bool>? breakBefore = null, bool matchCase = false)
     {
         query = NormalizeQuery(query);
         if (query.Length == 0 || units.Count == 0) return [];
@@ -46,7 +47,7 @@ public static class TextSearch
         var hits = new List<(int, int)>();
         for (int at = 0; at <= haystack.Length - query.Length;)
         {
-            int found = haystack.IndexOf(query, at, StringComparison.OrdinalIgnoreCase);
+            int found = haystack.IndexOf(query, at, matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
             if (found < 0) break;
             int first = owner[found], last = owner[found + query.Length - 1];
             hits.Add((first, last + 1));

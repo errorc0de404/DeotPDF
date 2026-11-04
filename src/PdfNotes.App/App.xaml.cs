@@ -15,6 +15,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
         PdfNotes.Text.WpfText.Register();
+        Canvas.AnnotationPainter.DeferTextLayout = true; // text boxes never block the screen while they are laid out
         UseLanguage(AppSettings.Load().Language);
         // An unexpected error ends the app, but first the open document is saved as a crash backup (2026-10-15).
         DispatcherUnhandledException += (_, args) => { args.Handled = true; Crash(args.Exception); };

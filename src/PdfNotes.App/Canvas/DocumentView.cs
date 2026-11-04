@@ -17,7 +17,7 @@ namespace PdfNotes.App.Canvas;
 /// and view mode, realizes only the pages intersecting the viewport, and asks the render scheduler for exactly
 /// the bitmaps those pages (plus their neighbours) need. View state never touches the document model.
 /// </summary>
-public sealed class DocumentView : Panel, IScrollInfo, ICanvasView
+public sealed class DocumentView : Panel, IScrollInfo, ICanvasView, IDocumentViewport
 {
     private const double WheelStepDip = 20;
     private static readonly TimeSpan ScrollPlanDelay = TimeSpan.FromMilliseconds(16);
@@ -368,6 +368,28 @@ public sealed class DocumentView : Panel, IScrollInfo, ICanvasView
         if (spaceHeld || panning) Cursor = Cursors.Hand;
         else if (SelectionCursors.For(ActiveTool?.Cursor) is { } cursor) Cursor = cursor;
         else ClearValue(CursorProperty);
+    }
+
+    void IDocumentViewport.SetZoom(double zoom) => SetZoom(zoom);
+
+    /// <summary>All of <paramref name="quads"/> on page <paramref name="page"/> is in the viewport.</summary>
+    public bool IsInView(int page, IEnumerable<Quad> quads) => ViewportExtent(page, quads) is { } r &&
+        r.MinX >= 0 && r.MinY >= 0 && r.MaxX <= ViewportWidth && r.MaxY <= ViewportHeight;
+
+    /// <summary>Some part of <paramref name="quads"/> on page <paramref name="page"/> is in the viewport.</summary>
+    public bool IsPartlyInView(int page, IEnumerable<Quad> quads) => ViewportExtent(page, quads) is { } r &&
+        r.MaxX >= 0 && r.MaxY >= 0 && r.MinX <= ViewportWidth && r.MinY <= ViewportHeight;
+
+    private (double MinX, double MinY, double MaxX, double MaxY)? ViewportExtent(int page, IEnumerable<Quad> quads)
+    {
+        if (Mode == ViewMode.SinglePage && page != CurrentPageIndex) return null;
+        try
+        {
+            var m = PageTransform(page).PageToDip;
+            var ring = quads.SelectMany(TextSelection.Ring).Select(m.Transform).ToArray();
+            return (ring.Min(p => p.X), ring.Min(p => p.Y), ring.Max(p => p.X), ring.Max(p => p.Y));
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException) { return null; }
     }
 
     /// <summary>Page element transform for a laid-out page: canonical points → viewport DIPs (snapped like the bitmaps).</summary>

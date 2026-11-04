@@ -8,19 +8,6 @@ using PdfNotes.Editor.Localization;
 
 namespace PdfNotes.App.Views;
 
-/// <summary>One PDF of a merge: the opened file (checked like opening), its renderer for the range picker, and the range text.</summary>
-public sealed class MergeFile(string name, PdfSourceDocument file, PdfiumDocument shown)
-{
-    public string Name { get; } = name;
-    public PdfSourceDocument File { get; } = file;
-    public PdfiumDocument Shown { get; } = shown;
-    public int PageCount => Shown.PageCount;
-    public string Range { get; set; } = PageRanges.All;
-}
-
-/// <summary>Where the pages of several PDFs go (spec 11.9 여러 PDF, D13j).</summary>
-public enum MergePosition { AfterCurrent, Start, End }
-
 /// <summary>
 /// Several PDFs at once (spec 11.9, D13j): the files in the order they will be inserted (▲ ▼ to reorder, ✕ to leave out,
 /// `파일 추가…`), a range per file (`전체`, `1-3, 5`, or picked on thumbnails with `고르기…`), and for an insert where the

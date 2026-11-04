@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- P2: the Avalonia text box editor control (drawing, pointer, keys, IME). The P4 app uses it as is. -->
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Skia" Version="12.1.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PdfNotes.TextEditor\PdfNotes.TextEditor.csproj" />
+    <ProjectReference Include="..\PdfNotes.Text.Skia\PdfNotes.Text.Skia.csproj" />
+  </ItemGroup>
+</Project>

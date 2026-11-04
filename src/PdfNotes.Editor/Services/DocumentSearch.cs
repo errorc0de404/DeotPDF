@@ -53,21 +53,21 @@ public sealed record SearchHit(Guid PageId, Guid? BoxId, int Start, int End, Imm
 /// </summary>
 public static class DocumentSearch
 {
-    public static IReadOnlyList<SearchHit> Run(DocumentModel model, Func<PageSetup, IReadOnlyList<TextGlyph>> glyphs, string query, CancellationToken token)
+    public static IReadOnlyList<SearchHit> Run(DocumentModel model, Func<PageSetup, IReadOnlyList<TextGlyph>> glyphs, string query, CancellationToken token, bool matchCase = false)
     {
         var results = new List<SearchHit>();
         if (TextSearch.NormalizeQuery(query).Length == 0) return results;
         foreach (var page in model.Pages)
         {
             token.ThrowIfCancellationRequested();
-            results.AddRange(SearchPage(page, glyphs(page.Setup), query, token));
+            results.AddRange(SearchPage(page, glyphs(page.Setup), query, token, matchCase));
         }
         return results;
     }
 
-    public static IReadOnlyList<SearchHit> SearchPage(Page page, IReadOnlyList<TextGlyph> glyphs, string query, CancellationToken token = default)
+    public static IReadOnlyList<SearchHit> SearchPage(Page page, IReadOnlyList<TextGlyph> glyphs, string query, CancellationToken token = default, bool matchCase = false)
     {
-        var pdf = TextSearch.Find(glyphs.Select(g => g.Text).ToArray(), query)
+        var pdf = TextSearch.Find(glyphs.Select(g => g.Text).ToArray(), query, matchCase: matchCase)
             .Select(r => new SearchHit(page.Id, null, r.Start, r.End, TextSelection.LineQuads(glyphs, r.Start, r.End)))
             .Where(h => !h.Quads.IsEmpty).ToList();
         var boxes = new List<SearchHit>();
@@ -76,7 +76,7 @@ public static class DocumentSearch
         foreach (var note in page.Annotations.OfType<StickyNote>())
         {
             var icon = AnnotationGeometry.Corners(new(0, 0, StickyNote.IconPt, StickyNote.IconPt), note.Transform);
-            foreach (var r in TextSearch.Find([.. note.Text.EnumerateRunes().Select(r => r.ToString())], query))
+            foreach (var r in TextSearch.Find([.. note.Text.EnumerateRunes().Select(r => r.ToString())], query, matchCase: matchCase))
                 boxes.Add(new SearchHit(page.Id, note.Id, r.Start, r.End, [new Quad(icon[0], icon[1], icon[3], icon[2])]));
         }
         foreach (var box in page.Annotations.OfType<TextBoxAnnotation>())
@@ -86,7 +86,7 @@ public static class DocumentSearch
             // Characters cut off the paper entirely are not found; a gap they leave breaks words like a line end.
             var visible = TextLayout.Measure(box).Characters.Where(c => Visible(Corners(c.Bounds, box.Transform), paper)).ToArray();
             var found = TextSearch.Find(visible.Select(c => c.Text).ToArray(), query, i =>
-                visible[i].Line != visible[i - 1].Line || visible[i].Offset != visible[i - 1].Offset + visible[i - 1].Text.Length);
+                visible[i].Line != visible[i - 1].Line || visible[i].Offset != visible[i - 1].Offset + visible[i - 1].Text.Length, matchCase);
             foreach (var (start, end) in found)
             {
                 var quads = visible[start..end].GroupBy(c => c.Line).Select(line =>

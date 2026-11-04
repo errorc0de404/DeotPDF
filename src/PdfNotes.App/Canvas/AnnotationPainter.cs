@@ -32,16 +32,64 @@ public static class AnnotationPainter
         foreach (var annotation in page.Annotations) Paint(context, annotation, transform);
     }
 
-    public static void Paint(DrawingContext context, Annotation annotation, ViewTransform transform)
+    /// <summary>
+    /// The app sets this: a text box whose layout is not ready is drawn as it last looked (or not at all) while its layout
+    /// is built in the background, and <see cref="TextLaidOut"/> asks for a redraw. Off (tests, Probe), painting waits.
+    /// </summary>
+    public static bool DeferTextLayout { get; set; }
+
+    /// <summary>Raised on the UI thread, once per batch, after deferred text layouts finished.</summary>
+    public static event Action? TextLaidOut;
+
+    // The last layout drawn for each text box ID (UI thread): what an edited or re-read box shows until its new layout is ready.
+    private static readonly Dictionary<Guid, PdfNotes.Text.WpfTextLayout> Shown = new();
+    private static bool arrivalQueued;
+
+    /// <summary>
+    /// The layout to draw for <paramref name="box"/>: the current one, or with <see cref="DeferTextLayout"/> the one it
+    /// last showed (null if none) while the current one is requested. <paramref name="current"/> is false for the latter.
+    /// </summary>
+    public static PdfNotes.Text.WpfTextLayout? TextLayoutFor(TextBoxAnnotation box, out bool current, bool background = false)
+    {
+        current = true;
+        PdfNotes.Text.WpfTextLayout layout;
+        if (!DeferTextLayout) layout = PdfNotes.Text.WpfText.Measure(box);
+        else if (PdfNotes.Text.TextLayout.TryMeasure(box, out var known)) layout = (PdfNotes.Text.WpfTextLayout)known;
+        else
+        {
+            current = false;
+            var dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+            PdfNotes.Text.TextLayout.MeasureAsync(box, urgent: !background).ContinueWith(t =>
+            {
+                if (t.IsCompletedSuccessfully) dispatcher.BeginInvoke(ArrivedOnUi);
+            }, TaskScheduler.Default);
+            return Shown.GetValueOrDefault(box.Id);
+        }
+        if (Shown.Count > 4096) Shown.Clear();
+        Shown[box.Id] = layout;
+        return layout;
+
+        void ArrivedOnUi()
+        {
+            if (arrivalQueued) return;
+            arrivalQueued = true;
+            System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(() => { arrivalQueued = false; TextLaidOut?.Invoke(); }, System.Windows.Threading.DispatcherPriority.Background);
+        }
+    }
+
+    /// <summary>Paints one annotation. False when a text box was not drawn with its current layout yet (see <see cref="DeferTextLayout"/>).</summary>
+    public static bool Paint(DrawingContext context, Annotation annotation, ViewTransform transform, bool background = false)
     {
         switch (annotation)
         {
             case TextBoxAnnotation text:
+                var layout = TextLayoutFor(text, out bool current, background);
+                if (layout is null) return false;
                 var m = text.Transform.Then(transform.PageToDip);
                 context.PushTransform(new MatrixTransform(new Matrix(m.M11, m.M12, m.M21, m.M22, m.OffsetX, m.OffsetY)));
-                context.DrawDrawing(PdfNotes.Text.WpfText.Measure(text).Drawing);
+                context.DrawDrawing(layout.Drawing);
                 context.Pop();
-                break;
+                return current;
             case StrokeAnnotation stroke:
                 PaintStroke(context, stroke, Geometries.GetValue(stroke, BuildGeometry), transform);
                 break;
@@ -62,6 +110,7 @@ public static class AnnotationPainter
                 break;
             // Other kinds get their painter in the stage that implements them; the reader never restores them before that.
         }
+        return true;
     }
 
     public static void PaintImage(DrawingContext context, ImageAnnotation image, Resource resource, ViewTransform transform)

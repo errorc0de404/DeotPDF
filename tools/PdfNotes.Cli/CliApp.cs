@@ -35,9 +35,15 @@ public static class CliApp
     public static readonly IReadOnlyDictionary<string, CliOp> Ops =
         PageCommand.Ops.Concat(AddCommand.Ops).Concat(AnnotCommand.Ops).ToDictionary(op => op.OpName);
 
-    /// <summary>Runs one command; WPF text and imaging need an STA thread, so other callers (tests) are moved onto one.</summary>
+    /// <summary>
+    /// Runs one command. In the shipped Windows build WPF text and imaging need an STA thread, so other callers (tests)
+    /// are moved onto one; the Skia build (<c>-p:DeotEngine=Skia</c>, roadmap P2 S7) runs on the caller's thread.
+    /// </summary>
     public static int Run(IReadOnlyList<string> args, TextWriter stdout, TextWriter stderr)
     {
+#if DEOT_SKIA
+        return RunHere(args, stdout, stderr);
+#else
         if (Thread.CurrentThread.GetApartmentState() == ApartmentState.STA) return RunHere(args, stdout, stderr);
         int exit = ExitCodes.Internal;
         var thread = new Thread(() => exit = RunHere(args, stdout, stderr));
@@ -45,6 +51,7 @@ public static class CliApp
         thread.Start();
         thread.Join();
         return exit;
+#endif
     }
 
     private static int RunHere(IReadOnlyList<string> args, TextWriter stdout, TextWriter stderr)
@@ -54,7 +61,11 @@ public static class CliApp
         int exit;
         try
         {
+#if DEOT_SKIA
+            PdfNotes.Text.SkiaText.Register();
+#else
             PdfNotes.Text.WpfText.Register();
+#endif
             var (command, rest) = Find(args);
             output = command.Run(rest);
             exit = ExitCodes.Ok;

@@ -153,7 +153,7 @@ public sealed class CliWrite
             path = CliPaths.Full(path);
             if (string.Equals(path, Input, StringComparison.OrdinalIgnoreCase)) throw new CliException("SAME_AS_INPUT", "A preview path is the input file.");
             var rendered = PageRaster.Render(doc, page, ppp, null, _ => true, out _);
-            PageRaster.SavePng(PageRaster.ToBitmap(rendered), path);
+            PageRaster.SavePng(rendered, path);
             var toPixel = PageRaster.PageToFullPixel(page.Setup, ppp);
             list.Add(new JsonObject
             {

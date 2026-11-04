@@ -329,13 +329,32 @@ public static class ProbeSamplePdf
         doc.Save(path);
     }
 
-    // Sample generation only. Production appearance uses WPF outlines, not this resolver.
+    // Sample generation only. Production appearance uses the text engine's outlines, not this resolver.
     private sealed class SampleFontResolver : IFontResolver
     {
         public FontResolverInfo? ResolveTypeface(string familyName, bool isBold, bool isItalic) =>
             familyName == "D01-Malgun" ? new FontResolverInfo("malgun") : null;
         public byte[] GetFont(string faceName) => faceName == "malgun"
-            ? File.ReadAllBytes(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "malgun.ttf"))
+            ? File.ReadAllBytes(SampleFontFile())
             : throw new InvalidOperationException("Unknown sample font.");
+    }
+
+    /// <summary>
+    /// A TrueType Korean font for the sample text: PDFNOTES_SAMPLE_FONT, Malgun Gothic on Windows, else NanumGothic where
+    /// Linux and macOS install it (fonts-nanum, the font-nanum-gothic cask; roadmap P2 S7 runs the CLI tests there).
+    /// </summary>
+    private static string SampleFontFile()
+    {
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        string?[] candidates =
+        [
+            Environment.GetEnvironmentVariable("PDFNOTES_SAMPLE_FONT"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "malgun.ttf"),
+            "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+            Path.Combine(home, "Library", "Fonts", "NanumGothic.ttf"),
+            "/Library/Fonts/NanumGothic.ttf",
+        ];
+        return candidates.FirstOrDefault(f => !string.IsNullOrEmpty(f) && File.Exists(f))
+            ?? throw new FileNotFoundException("No Korean TrueType font for the sample PDF (malgun.ttf or NanumGothic.ttf); set PDFNOTES_SAMPLE_FONT.");
     }
 }
