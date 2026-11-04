@@ -112,7 +112,7 @@ public sealed class EraseGesture
                 removed.Add(stroke.Id);
                 preview[stroke.Id] = [];
             }
-            else preview[stroke.Id] = [stroke with { Points = [], Outline = rings }];
+            else preview[stroke.Id] = [StrokeRegion.Outlined(stroke, stroke.Id, rings)];
             changed = true;
         }
         if (marks.Count == 0 && boxes.Count == 0) return changed;
@@ -182,5 +182,5 @@ public sealed class EraseGesture
     }
 
     private static StrokeAnnotation Piece(StrokeAnnotation stroke, Guid id, ImmutableArray<ImmutableArray<Point2>> rings) =>
-        stroke with { Id = id, Points = [], Outline = rings };
+        StrokeRegion.Outlined(stroke, id, rings);
 }

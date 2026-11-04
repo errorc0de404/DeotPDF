@@ -152,6 +152,12 @@ public sealed class AppSettings
     /// <summary>Settings window (spec 18.1): middle button erases while held in the pen and highlighter (7.5), on by default.</summary>
     public bool QuickErase { get; set; } = true;
 
+    /// <summary>One finger draws with the current tool instead of moving the page (spec 7.6, default off).</summary>
+    public bool FingerDrawing { get; set; }
+
+    /// <summary>Pen strokes follow pen pressure (spec 7.6, default on).</summary>
+    public bool PenPressure { get; set; } = true;
+
     /// <summary>Settings window 필기 (spec 5.3, 18.1, D14g): drag selections to another page in the continuous view, off by default.</summary>
     public bool PageDrag { get; set; }
 

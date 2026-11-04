@@ -37,7 +37,7 @@ public static class EditablePdfWriter
             if (original is not null) { sourcePdf = original; sourcePages = PdfPageGeometryReader.Read(original); }
         }
         model = model with { Pages = model.Pages.Select(p => p with { Annotations = p.Annotations.Where(a => a is not (TextBoxAnnotation { IsBlank: true } or StickyNote { IsBlank: true })).ToImmutableList() }).ToImmutableList() };
-        var serialized = SchemaV7.Serialize(model);
+        var serialized = SchemaV8.Serialize(model);
         if (model.AllAnnotations.FirstOrDefault(a => !AnnotationAppearance.IsSupported(a.Kind)) is { } unsupported)
             throw new NotSupportedException($"{unsupported.Kind} annotations cannot be saved yet.");
         var envelopes = serialized.Annotations.ToDictionary(a => a.AnnotationId, a => a.Envelope);
@@ -153,6 +153,17 @@ public static class EditablePdfWriter
     /// Re-reads a written file and requires it to restore exactly <paramref name="expected"/>: the renderer opens it,
     /// the header is valid, every app annotation is restored and the metadata is byte-identical.
     /// </summary>
+    /// <summary>Where two envelopes part, as a short JSON excerpt of each (for the verification error).</summary>
+    private static string FirstDifference(byte[] read, byte[] wanted)
+    {
+        string a = System.Text.Encoding.UTF8.GetString(read), b = System.Text.Encoding.UTF8.GetString(wanted);
+        int i = 0;
+        while (i < a.Length && i < b.Length && a[i] == b[i]) i++;
+        int from = Math.Max(0, i - 40);
+        string Cut(string s) => s.Substring(Math.Min(from, s.Length), Math.Min(120, Math.Max(0, s.Length - from)));
+        return $"read …{Cut(a)}… expected …{Cut(b)}…";
+    }
+
     public static void Verify(byte[] written, DocumentModel expected)
     {
         using (var engine = new PdfiumDocument(written))
@@ -160,12 +171,16 @@ public static class EditablePdfWriter
         var read = EditablePdfReader.Read(written, PdfPageGeometryReader.Read(written));
         if (read.HeaderStatus != HeaderStatus.Valid)
             throw new InvalidDataException("The written PDF does not restore all annotations.");
-        var a = SchemaV7.Serialize(read.Model);
+        var a = SchemaV8.Serialize(read.Model);
         expected = expected with { Pages = expected.Pages.Select(p => p with { Annotations = p.Annotations.Where(a => a is not (TextBoxAnnotation { IsBlank: true } or StickyNote { IsBlank: true })).ToImmutableList() }).ToImmutableList() };
-        var b = SchemaV7.Serialize(expected);
-        if (!a.Header.AsSpan().SequenceEqual(b.Header) || a.Annotations.Length != b.Annotations.Length ||
-            a.Annotations.Zip(b.Annotations).Any(p => p.First.AnnotationId != p.Second.AnnotationId || !p.First.Envelope.AsSpan().SequenceEqual(p.Second.Envelope)))
-            throw new InvalidDataException("The written PDF does not restore the saved document.");
+        var b = SchemaV8.Serialize(expected);
+        if (!a.Header.AsSpan().SequenceEqual(b.Header))
+            throw new InvalidDataException("The written PDF does not restore the saved document (header).");
+        if (a.Annotations.Length != b.Annotations.Length)
+            throw new InvalidDataException($"The written PDF does not restore the saved document ({a.Annotations.Length} of {b.Annotations.Length} annotations).");
+        foreach (var (got, wanted) in a.Annotations.Zip(b.Annotations))
+            if (got.AnnotationId != wanted.AnnotationId || !got.Envelope.AsSpan().SequenceEqual(wanted.Envelope))
+                throw new InvalidDataException($"The written PDF does not restore the saved document (annotation {wanted.AnnotationId}: {FirstDifference(got.Envelope, wanted.Envelope)}).");
     }
 
     /// <summary>

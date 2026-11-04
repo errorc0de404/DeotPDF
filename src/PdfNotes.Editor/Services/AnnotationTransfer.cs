@@ -27,7 +27,8 @@ public static class AnnotationTransfer
         var data = AnnotationClipboard.Capture(model, pageId, ids);
         if (data.Annotations.Length == 0) return null;
         var page = model.GetPage(pageId) with { Annotations = data.Annotations.ToImmutableList() };
-        var encoded = SchemaV6.Serialize(model with { Pages = [page], Resources = data.Resources.ToImmutableDictionary(r => r.Id) });
+        // Tags stay with the document (a pasted copy is the user's own); pen pressure travels with the strokes (schema v8).
+        var encoded = SchemaV8.Serialize(model with { Pages = [page], Resources = data.Resources.ToImmutableDictionary(r => r.Id), Tags = ImmutableDictionary<Guid, AnnotationTag>.Empty });
         return JsonSerializer.Serialize(new Packet(encoded.Header, encoded.Annotations.Select(a => a.Envelope).ToArray(),
             encoded.Resources.ToDictionary(r => r.Id, r => r.Payload.ToArray())));
     }
@@ -42,7 +43,7 @@ public static class AnnotationTransfer
         var packet = JsonSerializer.Deserialize<Packet>(text) ?? throw new InvalidDataException();
         if (packet.Header is null || packet.Envelopes is null || packet.Resources is null || packet.Envelopes.Any(e => e is null) || packet.Resources.Values.Any(v => v is null))
             throw new InvalidDataException();
-        var read = SchemaV6.Read(packet.Header, packet.Envelopes, id => packet.Resources.GetValueOrDefault(id));
+        var read = SchemaV8.Read(packet.Header, packet.Envelopes, id => packet.Resources.GetValueOrDefault(id));
         if (read.Model is not { } model || read.HeaderStatus != HeaderStatus.Valid || read.Annotations.Any(a => a.Status != AnnotationReadStatus.Restored) ||
             model.AllAnnotations.Any(a => !AnnotationAppearance.IsSupported(a.Kind))) throw new InvalidDataException();
         foreach (var r in model.Resources.Values) checkImage(r.Payload.ToArray());

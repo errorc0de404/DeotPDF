@@ -18,8 +18,10 @@ public sealed record BackupValues(bool Enabled, int IntervalMinutes, BackupMode 
 /// <param name="PageDrag">필기 › 페이지 사이 끌어 옮기기 (spec 5.3, D14g), off by default.</param>
 /// <param name="Language">화면 › 언어 (D14e): the language pack, applied at the next start.</param>
 /// <param name="CheckUpdates">정보 › 시작할 때 업데이트 확인 (roadmap 1.1).</param>
+/// <param name="FingerDrawing">필기 › 손가락으로 필기 (spec 7.6), off by default.</param>
+/// <param name="PenPressure">필기 › 펜 필압 (spec 7.6), on by default.</param>
 public sealed record SettingsValues(bool QuickErase, bool PageDrag, BackupValues Backup, DisplayValues? Display = null, string Language = Strings.BuiltInLanguage,
-    bool CheckUpdates = false);
+    bool CheckUpdates = false, bool FingerDrawing = false, bool PenPressure = true);
 
 /// <summary>What 정보 does (roadmap 1.1): check for a new version now, and open a web page.</summary>
 public sealed record AboutActions(Func<Task<UpdateResult>> Check, Action<string> Open);
@@ -38,6 +40,8 @@ public sealed class SettingsDialog : Window
 {
     private readonly CheckBox quickErase = new() { Name = "QuickEraseBox", Content = Strings.Get("settings.quickErase") };
     private readonly CheckBox pageDrag = new() { Name = "PageDragBox", Content = Strings.Get("settings.pageDrag") };
+    private readonly CheckBox fingerDrawing = new() { Name = "FingerDrawingBox", Content = Strings.Get("settings.fingerDrawing") };
+    private readonly CheckBox penPressure = new() { Name = "PenPressureBox", Content = Strings.Get("settings.penPressure") };
     private readonly ComboBox numberSize = new() { Name = "PageNumberSizeBox", Width = 80, Items = { Strings.Get("settings.small"), Strings.Get("settings.normal"), Strings.Get("settings.large") } };
     private readonly CheckBox darkPages = new() { Name = "DarkPagesBox", Content = Strings.Get("settings.darkPages") };
     private readonly CheckBox favorites = new() { Name = "FavoritesBox", Content = Strings.Get("settings.favorites") };
@@ -85,6 +89,8 @@ public sealed class SettingsDialog : Window
         categories.SetResourceReference(Control.BorderBrushProperty, "Divider");
         quickErase.IsChecked = current.QuickErase;
         pageDrag.IsChecked = current.PageDrag;
+        fingerDrawing.IsChecked = current.FingerDrawing;
+        penPressure.IsChecked = current.PenPressure;
         backup.IsChecked = current.Backup.Enabled;
         foreach (int minutes in AppSettings.BackupIntervals) interval.Items.Add(new ComboBoxItem { Content = Strings.Format("settings.minutes", ("minutes", minutes)), Tag = minutes });
         interval.SelectedIndex = Math.Max(0, Array.IndexOf(AppSettings.BackupIntervals, current.Backup.IntervalMinutes));
@@ -167,7 +173,7 @@ public sealed class SettingsDialog : Window
 
         var pages = new (string Name, UIElement Content)[]
         {
-            (Strings.Get("settings.sectionNotes"), Section(quickErase, pageDrag)),
+            (Strings.Get("settings.sectionNotes"), Section(quickErase, pageDrag, penPressure, fingerDrawing)),
             (Strings.Get("settings.sectionSave"), Section(backup, backupItems, usageRow)),
             (Strings.Get("settings.sectionDisplay"), Section(displayItems, Row(Strings.Get("settings.pageNumberRow"), pageNumbers, Spaced(new TextBlock { Text = Strings.Get("settings.size"), VerticalAlignment = VerticalAlignment.Center }), numberSize),
                 darkPages, favorites, autoTabs)),
@@ -204,7 +210,7 @@ public sealed class SettingsDialog : Window
         int count = int.TryParse(keep.Text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out int n) ? n : 10;
         Result = new(quickErase.IsChecked == true, pageDrag.IsChecked == true, new(backup.IsChecked == true,
             (int)((ComboBoxItem)interval.SelectedItem).Tag, mode, folder.Text, Math.Clamp(count, AppSettings.MinBackupKeep, AppSettings.MaxBackupKeep)), Display,
-            (string)((ComboBoxItem)language.SelectedItem).Tag, checkUpdates.IsChecked == true);
+            (string)((ComboBoxItem)language.SelectedItem).Tag, checkUpdates.IsChecked == true, fingerDrawing.IsChecked == true, penPressure.IsChecked == true);
         DialogResult = true;
     }
 

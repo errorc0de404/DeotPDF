@@ -17,7 +17,7 @@ namespace PdfNotes.App.Canvas;
 /// and view mode, realizes only the pages intersecting the viewport, and asks the render scheduler for exactly
 /// the bitmaps those pages (plus their neighbours) need. View state never touches the document model.
 /// </summary>
-public sealed class DocumentView : Panel, IScrollInfo, ICanvasView, IDocumentViewport
+public sealed partial class DocumentView : Panel, IScrollInfo, ICanvasView, IDocumentViewport
 {
     private const double WheelStepDip = 20;
     private static readonly TimeSpan ScrollPlanDelay = TimeSpan.FromMilliseconds(16);
@@ -53,6 +53,7 @@ public sealed class DocumentView : Panel, IScrollInfo, ICanvasView, IDocumentVie
         Focusable = true;
         FocusVisualStyle = null;
         ClipToBounds = true;
+        PrepareStylus(this);
         planTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = ScrollPlanDelay };
         planTimer.Tick += (_, _) => { planTimer.Stop(); PlanRenders(); };
     }
@@ -110,7 +111,7 @@ public sealed class DocumentView : Panel, IScrollInfo, ICanvasView, IDocumentVie
     }
 
     /// <summary>True while the active tool has an operation in progress (for example a stroke being drawn).</summary>
-    public bool IsToolActive => tool?.IsActive == true || middleTool is not null;
+    public bool IsToolActive => tool?.IsActive == true || middleTool is not null || touchTool is not null;
 
     /// <summary>
     /// The middle mouse button (spec 7.5 quick erase): <c>Reserved</c> means the current tool owns the button, so it never
@@ -121,7 +122,7 @@ public sealed class DocumentView : Panel, IScrollInfo, ICanvasView, IDocumentVie
     private ICanvasTool? middleTool;
 
     /// <summary>The tool whose operation is in progress: the temporary middle-button tool while it is held, else <see cref="Tool"/>.</summary>
-    public ICanvasTool? ActiveTool => middleTool ?? tool;
+    public ICanvasTool? ActiveTool => middleTool ?? touchTool ?? tool;
 
     /// <summary>Raised when a middle-button operation ends (committed or cancelled): the original tool is back.</summary>
     public event EventHandler? MiddleButtonEnded;
@@ -142,6 +143,7 @@ public sealed class DocumentView : Panel, IScrollInfo, ICanvasView, IDocumentVie
     /// <summary>Cancels the active tool's operation; the document is not changed (Esc, spec 4.3).</summary>
     public void CancelTool()
     {
+        CancelTouch();
         if (tool?.IsActive == true) tool.Cancel();
         EndMiddle(commit: null);
         if (toolCaptured)
@@ -661,6 +663,8 @@ public sealed class DocumentView : Panel, IScrollInfo, ICanvasView, IDocumentVie
     protected override void OnMouseDown(MouseButtonEventArgs e)
     {
         base.OnMouseDown(e);
+        if (FromStylus(e)) { e.Handled = true; return; } // pen and touch: DocumentView.Touch
+        LastPressDevice = PointerDevice.Mouse;
         Focus();
         if (middleTool is not null)
         {
@@ -720,6 +724,7 @@ public sealed class DocumentView : Panel, IScrollInfo, ICanvasView, IDocumentVie
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+        if (FromStylus(e) && (touchTool is not null || e.StylusDevice!.InAir == false)) { e.Handled = true; return; }
         var position = e.GetPosition(this);
         if (panning)
         {
@@ -750,6 +755,7 @@ public sealed class DocumentView : Panel, IScrollInfo, ICanvasView, IDocumentVie
     protected override void OnMouseUp(MouseButtonEventArgs e)
     {
         base.OnMouseUp(e);
+        if (FromStylus(e)) { e.Handled = true; return; }
         if (e.ChangedButton == MouseButton.Middle && middleTool is not null)
         {
             EndMiddle(commit: e.GetPosition(this));

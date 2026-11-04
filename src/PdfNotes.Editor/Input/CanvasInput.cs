@@ -14,10 +14,13 @@ public enum PointerButton { Left, Middle, Right }
 
 /// <summary>
 /// A pointer event on the document view, in viewport DIPs. <see cref="ClickCount"/> is 2 on a double-click press.
-/// <see cref="Pressure"/> is 0–1 when the device reports it, null otherwise.
+/// <see cref="Pressure"/> is 0–1 when the device reports it, null otherwise. For pen and touch (spec 7.6):
+/// <see cref="PointerId"/> tells contacts apart, <see cref="Eraser"/> is a pen's eraser end or a held barrel button,
+/// <see cref="ContactSize"/> is the longer side of a finger's contact in DIPs (0 when the device does not say).
 /// </summary>
 public readonly record struct CanvasPointer(Point2 Position, InputModifiers Modifiers, int ClickCount = 1,
-    PointerButton Button = PointerButton.Left, PointerDevice Device = PointerDevice.Mouse, double? Pressure = null);
+    PointerButton Button = PointerButton.Left, PointerDevice Device = PointerDevice.Mouse, double? Pressure = null,
+    int PointerId = 0, bool Eraser = false, double ContactSize = 0);
 
 /// <summary>Cursor shapes a tool asks for; the platform maps them to its own cursors.</summary>
 public enum CursorShape { Arrow, Pen, Cross, IBeam, Hand, Move, SizeAll, Rotate, Resize, Lock }

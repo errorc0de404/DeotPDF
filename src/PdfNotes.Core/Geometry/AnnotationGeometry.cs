@@ -9,7 +9,7 @@ public static class AnnotationGeometry
     public static Rect2 LocalBounds(Annotation a, Func<TextBoxAnnotation, Rect2>? textBounds = null) => a switch
     {
         StrokeAnnotation { IsOutlined: true } s => StrokeRegion.Bounds(s.Outline),
-        StrokeAnnotation s => StrokeGeometry.Bounds(s.Points, s.WidthPt),
+        StrokeAnnotation s => StrokeGeometry.Bounds(s),
         ImageAnnotation i => i.LocalBounds,
         LineAnnotation l => LineGeometry.Bounds(l),
         PdfTextHighlight h => TextSelection.Bounds(TextSelection.PaintedQuads(h)),
@@ -38,7 +38,7 @@ public static class AnnotationGeometry
         return a switch
         {
             StrokeAnnotation { IsOutlined: true } s => StrokeRegion.Contains(s.Outline, local) || StrokeRegion.DistanceToEdges(s.Outline, local, local) <= tolerance,
-            StrokeAnnotation s => StrokeGeometry.DistanceToPolyline(s.Points, local) <= s.WidthPt / 2 + tolerance,
+            StrokeAnnotation s => StrokeGeometry.Reaches(s, local, tolerance),
             ImageAnnotation i => local.X >= i.LocalBounds.X && local.X <= i.LocalBounds.X + i.LocalBounds.Width &&
                 local.Y >= i.LocalBounds.Y && local.Y <= i.LocalBounds.Y + i.LocalBounds.Height,
             TextBoxAnnotation t => Contains(LocalBounds(t, textBounds), local),

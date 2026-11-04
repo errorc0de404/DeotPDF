@@ -92,7 +92,7 @@ public partial class MainWindow : IToolView
         // Drawing, typing or erasing on the canvas shows the 필기 tab; the selection tool's panning and PDF text
         // selection do not (spec 3.2 automatic tab switch).
         View.ToolPressed += (_, _) => { if (View.ActiveTool != selectTool || selectTool.SelectedIds.Count > 0) AutoRibbonTab(RibbonTab.Home); };
-        penTool = new StrokeTool(View, () => document?.Session, () => styles.Pen, AnnotationKind.Ink);
+        penTool = new StrokeTool(View, () => document?.Session, () => styles.Pen, AnnotationKind.Ink, () => settings.PenPressure);
         highlighterStrokeTool = new StrokeTool(View, () => document?.Session, () => styles.Highlighter, AnnotationKind.FreeHighlight);
         textTool = new TextTool(View, BeginNewTextAtClick, SelectTextAt);
         // Clicking an existing line or shape with a shape group tool edits it with the selection tool and comes back
@@ -134,6 +134,10 @@ public partial class MainWindow : IToolView
         // Spec 7.5: in the pen and the highlighter (any kind) the middle button is the area eraser while held (when
         // enabled); the toolbar and the style bar keep showing the drawing tool.
         View.MiddleButton = () => tools.Current is ToolKind.Pen or ToolKind.FreeHighlight ? (true, settings.QuickErase ? areaEraserTool : null) : (false, null);
+        // Spec 7.6: a pen's eraser end or barrel button erases with the toolbar's eraser for that stroke; fingers follow
+        // the finger drawing setting.
+        View.PenEraser = () => settings.Eraser == ToolKind.StrokeEraser ? strokeEraserTool : areaEraserTool;
+        View.TouchOptions = () => new PointerRouterOptions { FingerDrawing = settings.FingerDrawing };
         InitializeLineOptions();
         InitializeShapeOptions();
         InitializeTextEditing();

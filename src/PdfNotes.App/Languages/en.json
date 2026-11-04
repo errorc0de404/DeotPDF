@@ -306,6 +306,8 @@
     "settings.mode": "Mode",
     "settings.normal": "Normal",
     "settings.openFolder": "Open folder",
+    "settings.fingerDrawing": "Draw with a finger",
+    "settings.penPressure": "Pen pressure",
     "settings.pageDrag": "Drag between pages (continuous scroll)",
     "settings.pageNumberRow": "Page numbers",
     "settings.quickErase": "Quick erase (middle button)",

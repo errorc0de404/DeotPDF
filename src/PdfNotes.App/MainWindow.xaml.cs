@@ -345,13 +345,15 @@ public partial class MainWindow : Window, IMainView, IEditorDialogs
         var display = DisplaySettings;
         var dialog = new SettingsDialog(new(settings.QuickErase, settings.PageDrag,
             new(settings.AutoBackup, settings.BackupIntervalMinutes, settings.BackupMode, settings.EffectiveBackupFolder, settings.BackupKeep), display,
-            settings.Language, settings.CheckUpdates == true),
+            settings.Language, settings.CheckUpdates == true, settings.FingerDrawing, settings.PenPressure),
             () => Prompt(Strings.Get("settings.backupInPlaceConfirm"), MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes,
             PreviewDisplay, Strings.Discover(AppSettings.LanguageFolders), new(backupStore.Usage, ClearBackups), new(viewModel.Update.CheckAsync, OpenWebPage)) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.Result is not { } values) { PreviewDisplay(display); return false; } // cancel undoes the preview
         SetDisplay(values.Display ?? display);
         settings.QuickErase = values.QuickErase;
         settings.PageDrag = values.PageDrag;
+        settings.FingerDrawing = values.FingerDrawing;
+        settings.PenPressure = values.PenPressure;
         settings.AutoBackup = values.Backup.Enabled;
         settings.BackupIntervalMinutes = values.Backup.IntervalMinutes;
         settings.BackupMode = values.Backup.Mode;

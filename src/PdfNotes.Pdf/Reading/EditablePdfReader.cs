@@ -69,7 +69,7 @@ public static class EditablePdfReader
             var fontWarnings = new HashSet<string>();
             while (true)
             {
-                read = SchemaV7.Read(header, included.Select(c => c.Envelope!).ToList(), id =>
+                read = SchemaV8.Read(header, included.Select(c => c.Envelope!).ToList(), id =>
                     ReadImageResource(document.Internals.Catalog.Elements.GetDictionary("/PdfNotesResources")?.Elements.GetDictionary("/R" + id.ToString("N"))), frames);
                 if (read.Model is null) break;
                 var mismatched = included.Where((c, k) =>
@@ -86,7 +86,7 @@ public static class EditablePdfReader
 
             byte[]? original = null;
             bool v4 = false; // v4 and later keep the original source archive and page placement
-            try { v4 = header is not null && System.Text.Json.Nodes.JsonNode.Parse(header)?["schemaVersion"]?.GetValue<int>() is SchemaV4.Version or SchemaV5.Version or SchemaV6.Version or SchemaV7.Version; }
+            try { v4 = header is not null && System.Text.Json.Nodes.JsonNode.Parse(header)?["schemaVersion"]?.GetValue<int>() is SchemaV4.Version or SchemaV5.Version or SchemaV6.Version or SchemaV7.Version or SchemaV8.Version; }
             catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException or FormatException) { }
             if (v4 && read.Model is { } restoredModel)
             {

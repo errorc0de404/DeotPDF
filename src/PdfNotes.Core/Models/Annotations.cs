@@ -38,6 +38,15 @@ public sealed record InkStroke(Guid Id, bool Locked, Affine Transform, Immutable
     : StrokeAnnotation(Id, Locked, Transform, Points, WidthPt, Color, Opacity)
 {
     public override AnnotationKind Kind => AnnotationKind.Ink;
+
+    /// <summary>
+    /// Pen pressure (0–1) of each point of <see cref="StrokeAnnotation.Points"/>, or default/empty for a stroke of even width
+    /// (mouse, a pen without pressure, the pressure setting off, an area-eraser piece). The width at a point is
+    /// <see cref="StrokeAnnotation.WidthPt"/> × <see cref="Geometry.StrokeGeometry.PressureFactor"/> (spec 7.6, schema v8).
+    /// </summary>
+    public ImmutableArray<double> Pressures { get; init; }
+
+    public bool HasPressure => !Pressures.IsDefaultOrEmpty;
 }
 
 /// <summary>Freehand highlighter. A single stroke is composited once with its opacity (no self-overlap darkening).</summary>

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
@@ -394,7 +395,7 @@ public static class AnnotationPainter
 
     /// <summary>Paints a stroke that is not in the model yet (live preview) without caching its geometry.</summary>
     public static void PaintPreview(DrawingContext context, StrokeAnnotation stroke, ViewTransform transform) =>
-        PaintStroke(context, stroke, BuildGeometry(stroke), transform);
+        PaintStroke(context, stroke, stroke is InkStroke { HasPressure: true } ink ? PressurePieces(ink) : BuildGeometry(stroke), transform);
 
     private static void PaintStroke(DrawingContext context, StrokeAnnotation stroke, Geometry geometry, ViewTransform transform)
     {
@@ -404,7 +405,8 @@ public static class AnnotationPainter
         if (layered) context.PushOpacity(stroke.Opacity);
         var brush = new SolidColorBrush(Color.FromRgb(stroke.Color.R, stroke.Color.G, stroke.Color.B));
         brush.Freeze();
-        if (stroke.IsOutlined) context.DrawGeometry(brush, null, geometry); // area-eraser piece: filled region (D08)
+        // Area-eraser piece (D08) or pressure stroke (spec 7.6): a filled region.
+        if (stroke.IsOutlined || stroke is InkStroke { HasPressure: true }) context.DrawGeometry(brush, null, geometry);
         else if (stroke.Points.Length == 1)
         {
             double r = stroke.WidthPt / 2;
@@ -425,10 +427,22 @@ public static class AnnotationPainter
 
     private static Geometry BuildGeometry(StrokeAnnotation stroke)
     {
+        if (stroke is InkStroke { HasPressure: true } ink) return Rings(StrokeRegion.PressureOutline(ink), FillRule.EvenOdd);
         if (!stroke.IsOutlined) return BuildGeometry(stroke.Points);
-        var outline = new StreamGeometry { FillRule = FillRule.EvenOdd };
+        return Rings(stroke.Outline, FillRule.EvenOdd);
+    }
+
+    /// <summary>
+    /// The overlapping pieces of a pressure stroke as one figure set filled non-zero: their union without polygon
+    /// arithmetic, cheap enough for every preview frame.
+    /// </summary>
+    private static Geometry PressurePieces(InkStroke stroke) => Rings([.. StrokeRegion.PressurePieces(stroke)], FillRule.Nonzero);
+
+    private static Geometry Rings(ImmutableArray<ImmutableArray<Point2>> rings, FillRule rule)
+    {
+        var outline = new StreamGeometry { FillRule = rule };
         using (var c = outline.Open())
-            foreach (var ring in stroke.Outline)
+            foreach (var ring in rings)
             {
                 c.BeginFigure(new Point(ring[0].X, ring[0].Y), true, true);
                 var rest = new Point[ring.Length - 1];

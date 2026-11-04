@@ -345,8 +345,17 @@ public partial class MainWindow : ITextEditorSession
         TextEditorLayer.Children.Add(textEditor); loadingText = false;
         PositionTextEditor(); textEditor.Focus(); textEditor.CaretPosition = textEditor.Document.ContentEnd;
         View.RefreshOverlays(); UpdateStyleBar();
-        Dispatcher.BeginInvoke(DispatcherPriority.Input, () => { PositionTextEditor(); textEditor?.Focus(); });
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            PositionTextEditor(); textEditor?.Focus();
+            // Started with a finger tap: bring up the touch keyboard (spec 7.6).
+            if (textEditor is not null && View.LastPressDevice == PointerDevice.Touch)
+                TouchKeyboardShown = PdfNotes.App.Services.TouchKeyboard.Show(new System.Windows.Interop.WindowInteropHelper(this).Handle);
+        });
     }
+
+    /// <summary>For Probes: whether the last finger-started text edit asked the touch keyboard to show and it agreed.</summary>
+    public bool? TouchKeyboardShown { get; private set; }
     private static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
     private TextBoxAnnotation ReadEditor()
     {

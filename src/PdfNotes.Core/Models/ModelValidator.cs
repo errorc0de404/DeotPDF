@@ -150,11 +150,15 @@ public static class ModelValidator
             if (stroke.Outline.Length > ModelLimits.MaxQuads || stroke.Outline.Any(r => r.IsDefault || r.Length < 3) ||
                 stroke.Outline.Sum(r => (long)r.Length) > ModelLimits.MaxStrokePoints) return "Stroke outline is invalid.";
             if (!stroke.Outline.All(r => r.All(Coordinate))) return "Stroke outline point is invalid.";
+            if (stroke is InkStroke { Pressures.IsDefault: false } piece && piece.Pressures.Length != 0) return "An outlined stroke has no pressures.";
             return ValidatePaint(stroke.WidthPt, stroke.Opacity);
         }
         if (!stroke.Outline.IsDefault) return "Stroke outline is empty.";
         if (stroke.Points.IsDefaultOrEmpty || stroke.Points.Length > ModelLimits.MaxStrokePoints) return "Stroke point count is invalid.";
         if (!stroke.Points.All(Coordinate)) return "Stroke point is invalid.";
+        if (stroke is InkStroke { HasPressure: true } ink &&
+            (ink.Pressures.Length != ink.Points.Length || !ink.Pressures.All(p => double.IsFinite(p) && p >= 0 && p <= 1)))
+            return "Stroke pressures are invalid.";
         return ValidatePaint(stroke.WidthPt, stroke.Opacity);
     }
 

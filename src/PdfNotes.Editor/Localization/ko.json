@@ -306,6 +306,8 @@
     "settings.mode": "방식",
     "settings.normal": "보통",
     "settings.openFolder": "폴더 열기",
+    "settings.fingerDrawing": "손가락으로 필기",
+    "settings.penPressure": "펜 필압",
     "settings.pageDrag": "페이지 사이 끌어 옮기기 (연속 스크롤)",
     "settings.pageNumberRow": "페이지 번호",
     "settings.quickErase": "빠른 지우기 (가운데 버튼)",

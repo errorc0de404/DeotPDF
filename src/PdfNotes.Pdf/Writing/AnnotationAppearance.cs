@@ -69,11 +69,12 @@ public static class AnnotationAppearance
         code.Append("q ").Append(Numbers(toUser.ToArray())).Append(" cm /GS0 gs\n");
         var c = stroke.Color;
         string rgb = $"{N(c.R / 255d)} {N(c.G / 255d)} {N(c.B / 255d)}";
-        if (stroke.IsOutlined)
+        if (stroke.IsOutlined || stroke is InkStroke { HasPressure: true })
         {
-            // Area-eraser piece (D08): its painted region as one even-odd filled path, composited once.
+            // Area-eraser piece (D08) or pressure stroke (spec 7.6): its painted region as one even-odd filled path,
+            // composited once.
             code.Append(rgb).Append(" rg\n");
-            foreach (var ring in stroke.Outline)
+            foreach (var ring in stroke is InkStroke { HasPressure: true } ink ? StrokeRegion.PressureOutline(ink) : stroke.Outline)
             {
                 for (int i = 0; i < ring.Length; i++)
                     code.Append(N(ring[i].X)).Append(' ').Append(N(ring[i].Y)).Append(i == 0 ? " m\n" : " l\n");

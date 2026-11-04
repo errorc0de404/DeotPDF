@@ -25,6 +25,7 @@ public static class StrokeRegion
     public static PathsD Region(StrokeAnnotation stroke)
     {
         if (stroke.IsOutlined) return ToPaths(stroke.Outline);
+        if (stroke is InkStroke { HasPressure: true } ink) return PressureRegion(ink);
         var points = stroke.Points;
         double r = stroke.WidthPt / 2;
         if (points.All(p => p == points[0])) return [Circle(points[0], r)];
@@ -32,6 +33,55 @@ public static class StrokeRegion
         foreach (var p in points) path.Add(new(p.X, p.Y));
         return Clipper.InflatePaths([path], r, JoinType.Round, EndType.Round, 2, Precision, ArcTolerancePt);
     }
+
+    /// <summary>
+    /// The painted region of a pressure stroke (spec 7.6): a circle of the local half-width at every point and, between
+    /// two points, the band touching both circles (their outer tangents), all joined.
+    /// </summary>
+    public static PathsD PressureRegion(InkStroke stroke) =>
+        Clipper.Union(ToPaths([.. PressurePieces(stroke)]), [], FillRule.NonZero, Precision);
+
+    /// <summary>
+    /// The overlapping pieces of <see cref="PressureRegion"/>, all turning the same way, so a painter that fills them as
+    /// one figure set with the non-zero rule paints their union without polygon arithmetic (the live preview does).
+    /// </summary>
+    public static IEnumerable<ImmutableArray<Point2>> PressurePieces(InkStroke stroke)
+    {
+        var points = stroke.Points;
+        for (int i = 0; i < points.Length; i++)
+        {
+            double r = StrokeGeometry.Radius(stroke, i);
+            yield return [.. Circle(points[i], r).Select(p => new Point2(p.x, p.y))];
+            if (i == 0) continue;
+            Point2 a = points[i - 1], b = points[i];
+            double ra = StrokeGeometry.Radius(stroke, i - 1), dx = b.X - a.X, dy = b.Y - a.Y, d = Math.Sqrt(dx * dx + dy * dy);
+            if (d <= Math.Abs(r - ra)) continue; // one circle holds the other
+            // Outer tangents: the normal tilts by asin((ra - r) / d) toward the smaller circle.
+            double phi = Math.Atan2(dy, dx), beta = Math.Asin((ra - r) / d);
+            double up = phi + Math.PI / 2 + beta, down = phi - Math.PI / 2 - beta;
+            // Same turning direction as Circle (increasing angle): a, then the "down" side, then b, then "up".
+            yield return
+            [
+                new(a.X + ra * Math.Cos(down), a.Y + ra * Math.Sin(down)),
+                new(b.X + r * Math.Cos(down), b.Y + r * Math.Sin(down)),
+                new(b.X + r * Math.Cos(up), b.Y + r * Math.Sin(up)),
+                new(a.X + ra * Math.Cos(up), a.Y + ra * Math.Sin(up)),
+            ];
+        }
+    }
+
+    /// <summary>The outline rings of a pressure stroke, for painters that fill it (even-odd, like an eraser piece).</summary>
+    public static ImmutableArray<ImmutableArray<Point2>> PressureOutline(InkStroke stroke) => ToRings(PressureRegion(stroke));
+
+    /// <summary>
+    /// An area-eraser piece of <paramref name="stroke"/>: the same paint with <paramref name="rings"/> as its region and no
+    /// centerline. Pressures go with the centerline; the rings already hold the pressure widths.
+    /// </summary>
+    public static StrokeAnnotation Outlined(StrokeAnnotation stroke, Guid id, ImmutableArray<ImmutableArray<Point2>> rings) => stroke switch
+    {
+        InkStroke ink => ink with { Id = id, Points = [], Outline = rings, Pressures = default },
+        _ => stroke with { Id = id, Points = [], Outline = rings }
+    };
 
     /// <summary>The area one eraser step sweeps: the segment <paramref name="a"/>–<paramref name="b"/> grown by <paramref name="radius"/>.</summary>
     public static PathsD Capsule(Point2 a, Point2 b, double radius)
@@ -172,6 +222,7 @@ public static class StrokeRegion
     {
         if (stroke.IsOutlined)
             return Contains(stroke.Outline, a) || DistanceToEdges(stroke.Outline, a, b) < radius;
+        if (stroke is InkStroke { HasPressure: true }) return StrokeGeometry.PaintedDistance(stroke, a, b) < radius;
         var points = stroke.Points;
         double reach = stroke.WidthPt / 2 + radius;
         if (points.Length == 1) return StrokeGeometry.DistanceToSegment(points[0], a, b) < reach;

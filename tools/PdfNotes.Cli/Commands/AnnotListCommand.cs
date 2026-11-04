@@ -122,6 +122,7 @@ public static class AnnotListCommand
                 item["opacity"] = CliJson.Num(s.Opacity);
                 item["lineWidth"] = CliJson.Num(s.WidthPt);
                 item["pointCount"] = s.Points.Length;
+                if (s is InkStroke { HasPressure: true }) item["pressure"] = true; // width follows pen pressure (schema v8)
                 break;
             case LineAnnotation l:
                 item["lineKind"] = l.LineKind.ToString().ToLowerInvariant();

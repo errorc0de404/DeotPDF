@@ -47,7 +47,8 @@ public static class SizeEstimator
 
     public static long Estimate(Annotation annotation) => ObjectOverhead + annotation switch
     {
-        StrokeAnnotation s => (long)s.Points.Length * 16 + (s.IsOutlined ? s.Outline.Sum(r => 32L + r.Length * 16L) : 0),
+        StrokeAnnotation s => (long)s.Points.Length * 16 + (s is InkStroke { HasPressure: true } ink ? ink.Pressures.Length * 8L : 0) +
+            (s.IsOutlined ? s.Outline.Sum(r => 32L + r.Length * 16L) : 0),
         LineAnnotation l => 64 + l.Controls.Length * 16L,
         PdfTextHighlight h => h.Quads.Length * 64L + (h.SourceTextHint?.Length ?? 0) * 2L,
         PdfTextMarkup m => m.Quads.Length * 64L + (m.SourceTextHint?.Length ?? 0) * 2L,
