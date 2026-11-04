@@ -3,6 +3,9 @@
   "Boxes": [
     {
       "Index": 0,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "55.8828",
       "Characters": [
         "회|0|0|4,4,12,15.9609",
@@ -62,6 +65,9 @@
     },
     {
       "Index": 1,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "55.8828",
       "Characters": [
         "회|0|0|4,4,12,15.9609",
@@ -121,6 +127,10 @@
     },
     {
       "Index": 2,
+      "Fonts": [
+        "Arial",
+        "Malgun Gothic"
+      ],
       "Height": "55.9883",
       "Characters": [
         "회|0|0|4,4,12,15.9609",
@@ -180,6 +190,10 @@
     },
     {
       "Index": 3,
+      "Fonts": [
+        "Malgun Gothic",
+        "Times New Roman"
+      ],
       "Height": "54.1309",
       "Characters": [
         "회|0|0|4,4,12,15.9609",
@@ -239,6 +253,10 @@
     },
     {
       "Index": 4,
+      "Fonts": [
+        "Malgun Gothic",
+        "Segoe UI"
+      ],
       "Height": "56.1055",
       "Characters": [
         "회|0|0|4,4,12,15.9609",
@@ -298,6 +316,9 @@
     },
     {
       "Index": 5,
+      "Fonts": [
+        "Gulim"
+      ],
       "Height": "49.3438",
       "Characters": [
         "회|0|0|4,4,12,13.7812",
@@ -357,6 +378,9 @@
     },
     {
       "Index": 6,
+      "Fonts": [
+        "Batang"
+      ],
       "Height": "49.3438",
       "Characters": [
         "회|0|0|4,4,12,13.7812",
@@ -416,6 +440,10 @@
     },
     {
       "Index": 7,
+      "Fonts": [
+        "Consolas",
+        "Malgun Gothic"
+      ],
       "Height": "62.5977",
       "Characters": [
         "회|0|0|4,4,12,15.9609",
@@ -475,6 +503,9 @@
     },
     {
       "Index": 8,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "55.8828",
       "Characters": [
         "회|0|0|4,4,12,15.9609",
@@ -534,6 +565,9 @@
     },
     {
       "Index": 9,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "23.9609",
       "Characters": [
         "한|0|0|4,4,6,7.9805",
@@ -586,6 +620,9 @@
     },
     {
       "Index": 10,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "31.9414",
       "Characters": [
         "한|0|0|4,4,9,11.9707",
@@ -638,6 +675,9 @@
     },
     {
       "Index": 11,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "37.2617",
       "Characters": [
         "한|0|0|4,4,11,14.6309",
@@ -690,6 +730,9 @@
     },
     {
       "Index": 12,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "55.8828",
       "Characters": [
         "한|0|0|4,4,12,15.9609",
@@ -742,6 +785,9 @@
     },
     {
       "Index": 13,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "65.8584",
       "Characters": [
         "한|0|0|4,4,14.5,19.2861",
@@ -794,6 +840,9 @@
     },
     {
       "Index": 14,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "103.7656",
       "Characters": [
         "한|0|0|4,4,18,23.9414",
@@ -846,6 +895,9 @@
     },
     {
       "Index": 15,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "167.6094",
       "Characters": [
         "한|0|0|4,4,24,31.9219",
@@ -898,6 +950,9 @@
     },
     {
       "Index": 16,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "343.1797",
       "Characters": [
         "한|0|0|4,4,36,47.8828",
@@ -950,6 +1005,9 @@
     },
     {
       "Index": 17,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "1444.4844",
       "Characters": [
         "한|0|0|4,4,72,95.7656",
@@ -1002,6 +1060,9 @@
     },
     {
       "Index": 18,
+      "Fonts": [
+        "Arial"
+      ],
       "Height": "1248.7446",
       "Characters": [
         "T|0|0|4,4,7.9409,14.9487",
@@ -1106,6 +1167,9 @@
     },
     {
       "Index": 19,
+      "Fonts": [
+        "Arial"
+      ],
       "Height": "351.8208",
       "Characters": [
         "T|0|0|4,4,7.9409,14.9487",
@@ -1210,6 +1274,9 @@
     },
     {
       "Index": 20,
+      "Fonts": [
+        "Arial"
+      ],
       "Height": "157.4873",
       "Characters": [
         "T|0|0|4,4,7.9409,14.9487",
@@ -1314,6 +1381,9 @@
     },
     {
       "Index": 21,
+      "Fonts": [
+        "Arial"
+      ],
       "Height": "82.7437",
       "Characters": [
         "T|0|0|4,4,7.9409,14.9487",
@@ -1418,6 +1488,9 @@
     },
     {
       "Index": 22,
+      "Fonts": [
+        "Arial"
+      ],
       "Height": "37.8975",
       "Characters": [
         "T|0|0|4,4,7.9409,14.9487",
@@ -1522,6 +1595,9 @@
     },
     {
       "Index": 23,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "71.8438",
       "Characters": [
         "첫|0|0|4,4,12,15.9609",
@@ -1559,6 +1635,9 @@
     },
     {
       "Index": 24,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "71.8438",
       "Characters": [
         "첫|0|0|75.8906,4,12,15.9609",
@@ -1596,6 +1675,9 @@
     },
     {
       "Index": 25,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "71.8438",
       "Characters": [
         "첫|0|0|147.7812,4,12,15.9609",
@@ -1633,6 +1715,10 @@
     },
     {
       "Index": 26,
+      "Fonts": [
+        "Malgun Gothic",
+        "Times New Roman"
+      ],
       "Height": "51.8501",
       "Characters": [
         "굵|0|0|4,12.707,12,15.9609",
@@ -1665,6 +1751,10 @@
     },
     {
       "Index": 27,
+      "Fonts": [
+        "Malgun Gothic",
+        "Segoe UI Emoji"
+      ],
       "Height": "41.123",
       "Characters": [
         "이|0|0|4,4,12,15.9609",
@@ -1698,6 +1788,9 @@
     },
     {
       "Index": 28,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "39.9219",
       "Characters": [
         " |0|0|4,4,4.2188,15.9609",
@@ -1733,6 +1826,9 @@
     },
     {
       "Index": 29,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "39.9219",
       "Characters": [
         "끝|0|0|4,4,12,15.9609",
@@ -1744,6 +1840,9 @@
     },
     {
       "Index": 30,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "39.9219",
       "Characters": [
         "회|0|0|4,4,12,15.9609",
@@ -1803,6 +1902,9 @@
     },
     {
       "Index": 31,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "39.9219",
       "Characters": [
         "회|0|0|4,4,12,15.9609",
@@ -1862,6 +1964,9 @@
     },
     {
       "Index": 32,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "39.9219",
       "Characters": [
         "회|0|0|4,4,12,15.9609",
@@ -1921,6 +2026,9 @@
     },
     {
       "Index": 33,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "34.6016",
       "Characters": [
         "투|0|0|4,4,20,26.6016",
@@ -1933,6 +2041,9 @@
     },
     {
       "Index": 34,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "51.8828",
       "Characters": [
         "한|0|0|2,2,6,7.9805",
@@ -2083,6 +2194,9 @@
     },
     {
       "Index": 35,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "75.7489",
       "Characters": [
         "한|0|0|2.92,2.92,8.76,11.6515",
@@ -2233,6 +2347,9 @@
     },
     {
       "Index": 36,
+      "Fonts": [
+        "Malgun Gothic"
+      ],
       "Height": "166.025",
       "Characters": [
         "한|0|0|6.4,6.4,19.2,25.5375",

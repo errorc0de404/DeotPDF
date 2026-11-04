@@ -217,7 +217,8 @@ public sealed class CliQueryTests : IDisposable
         var lines = measured["lines"]!.AsArray();
         Assert.Equal(0, lines[0]!["start"]!.GetValue<int>());
         Assert.Equal(text.Length, lines[^1]!["end"]!.GetValue<int>());
-        Assert.Empty(measured["warnings"]!.AsArray());
+        // Where the default family is not installed (Linux, macOS CI) the CLI rightly warns about the substitute.
+        if (TextLayout.FontAvailable(d.FontFamily)) Assert.Empty(measured["warnings"]!.AsArray());
         Assert.Equal(4, measured["effectiveStyle"]!["padding"]!.GetValue<double>());
 
         // No width: one line per written line.

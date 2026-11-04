@@ -355,6 +355,10 @@ public static class ProbeSamplePdf
             "/Library/Fonts/NanumGothic.ttf",
         ];
         return candidates.FirstOrDefault(f => !string.IsNullOrEmpty(f) && File.Exists(f))
+            ?? new[] { "/usr/share/fonts", Path.Combine(home, "Library", "Fonts"), "/Library/Fonts" }.Where(Directory.Exists)
+                .SelectMany(d => Directory.EnumerateFiles(d, "NanumGothic*.ttf", SearchOption.AllDirectories))
+                .Where(f => !Path.GetFileName(f).Contains("Bold", StringComparison.OrdinalIgnoreCase) && !Path.GetFileName(f).Contains("Light", StringComparison.OrdinalIgnoreCase))
+                .Order(StringComparer.Ordinal).FirstOrDefault()
             ?? throw new FileNotFoundException("No Korean TrueType font for the sample PDF (malgun.ttf or NanumGothic.ttf); set PDFNOTES_SAMPLE_FONT.");
     }
 }

@@ -199,6 +199,7 @@ public class SkiaEngineTests
         return new
         {
             Index = i,
+            Fonts = SkiaText.Engine.Fonts(box).Select(f => f.Font).Distinct().Order(StringComparer.Ordinal).ToArray(),
             Height = R(layout.Height),
             Characters = layout.Characters.Select(c => $"{c.Text}|{c.Line}|{c.Offset}|{R(c.Bounds.X)},{R(c.Bounds.Y)},{R(c.Bounds.Width)},{R(c.Bounds.Height)}").ToArray(),
         };
@@ -224,8 +225,14 @@ public class SkiaEngineTests
         var e = expected.RootElement.GetProperty("Boxes").EnumerateArray().ToArray();
         var a = actual.RootElement.GetProperty("Boxes").EnumerateArray().ToArray();
         Assert.Equal(e.Length, a.Length);
+        int compared = 0;
         for (int i = 0; i < e.Length; i++)
         {
+            // A box whose fonts this machine resolves differently (the CI image has no Batang, Gulim, …) cannot match
+            // positions measured with other font files; the boxes with the same fonts still must.
+            if (!e[i].GetProperty("Fonts").EnumerateArray().Select(f => f.GetString()).SequenceEqual(a[i].GetProperty("Fonts").EnumerateArray().Select(f => f.GetString())))
+                continue;
+            compared++;
             Assert.True(Math.Abs(double.Parse(e[i].GetProperty("Height").GetString()!, CultureInfo.InvariantCulture)
                 - double.Parse(a[i].GetProperty("Height").GetString()!, CultureInfo.InvariantCulture)) <= .01, $"box {i} height");
             var ec = e[i].GetProperty("Characters").EnumerateArray().Select(x => x.GetString()!).ToArray();
@@ -240,5 +247,6 @@ public class SkiaEngineTests
                 Assert.True(er.Zip(ar).All(p => Math.Abs(p.First - p.Second) <= .01), $"box {i}: {ac[k]} instead of {ec[k]}");
             }
         }
+        Assert.True(compared >= e.Length / 2, $"only {compared} of {e.Length} boxes have this machine's fonts");
     }
 }

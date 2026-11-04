@@ -384,6 +384,9 @@ public sealed class EditablePdfTests : IDisposable
     {
         string target = Path.Combine(folder, "locked.pdf");
         File.WriteAllBytes(target, new byte[] { 1, 2, 3 });
+        // Sharing locks and the read-only attribute are Windows behaviour; Linux and macOS replace such a file freely.
+        if (OperatingSystem.IsWindows())
+        {
         using (new FileStream(target, FileMode.Open, FileAccess.Read, FileShare.None))
         {
             var locked = Assert.Throws<SaveFailedException>(() => SafeFileSaver.Save(target, new byte[] { 9, 9 }, _ => { }));
@@ -395,6 +398,7 @@ public sealed class EditablePdfTests : IDisposable
         var readOnly = Assert.Throws<SaveFailedException>(() => SafeFileSaver.Save(target, new byte[] { 9, 9 }, _ => { }));
         Assert.Equal(SaveFailure.AccessDenied, readOnly.Failure);
         Assert.Equal(new byte[] { 1, 2, 3 }, File.ReadAllBytes(target));
+        }
 
         var missing = Assert.Throws<SaveFailedException>(() => SafeFileSaver.Save(Path.Combine(folder, "nope", "x.pdf"), new byte[] { 1 }, _ => { }));
         Assert.Equal(SaveFailure.FolderMissing, missing.Failure);
