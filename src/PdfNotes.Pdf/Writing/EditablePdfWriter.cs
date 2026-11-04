@@ -181,7 +181,7 @@ public static class EditablePdfWriter
         expected = expected with { Pages = expected.Pages.Select(p => p with { Annotations = p.Annotations.Where(a => a is not (TextBoxAnnotation { IsBlank: true } or StickyNote { IsBlank: true }) && !FontMissing(a)).ToImmutableList() }).ToImmutableList() };
         var b = SchemaV8.Serialize(expected);
         if (!a.Header.AsSpan().SequenceEqual(b.Header))
-            throw new InvalidDataException("The written PDF does not restore the saved document (header).");
+            throw new InvalidDataException($"The written PDF does not restore the saved document (header: {FirstDifference(a.Header, b.Header)}).");
         if (a.Annotations.Length != b.Annotations.Length)
             throw new InvalidDataException($"The written PDF does not restore the saved document ({a.Annotations.Length} of {b.Annotations.Length} annotations).");
         foreach (var (got, wanted) in a.Annotations.Zip(b.Annotations))

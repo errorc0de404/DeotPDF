@@ -28,8 +28,7 @@ internal static class TextEngineSetup
         public Task<TextLayout.Layout> BuildAsync(PdfNotes.Core.Models.TextBoxAnnotation box, bool urgent) => inner.BuildAsync(box, urgent);
         public bool FontAvailable(string name) => name == DefaultFamily || inner.FontAvailable(name);
         public string FallbackFont => inner.FallbackFont;
-        public IReadOnlyList<TextFontUse> Fonts(PdfNotes.Core.Models.TextBoxAnnotation box) =>
-            [.. inner.Fonts(box).Select(f => f.Requested == DefaultFamily && !f.Missing ? f with { Font = DefaultFamily } : f)];
+        public IReadOnlyList<TextFontUse> Fonts(PdfNotes.Core.Models.TextBoxAnnotation box) => inner.Fonts(box); // what really drew
         public IReadOnlyList<string> FontFamilies() => [.. inner.FontFamilies().Append(DefaultFamily).Distinct()];
     }
 }

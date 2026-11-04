@@ -72,8 +72,8 @@ public sealed class SkiaFontFace
 
     private static (int Upm, double Ascent, double Descent, double Gap) ReadMetrics(SKTypeface face)
     {
-        var hhea = face.GetTableData(Tag("hhea"));
-        var head = face.GetTableData(Tag("head"));
+        var hhea = Table(face, "hhea");
+        var head = Table(face, "head");
         if (hhea is { Length: >= 10 } && head is { Length: >= 20 })
         {
             int upm = BinaryPrimitives.ReadUInt16BigEndian(head.AsSpan(18));
@@ -90,8 +90,8 @@ public sealed class SkiaFontFace
 
     private static (int Weight, bool Italic) ReadStyle(SKTypeface face)
     {
-        var os2 = face.GetTableData(Tag("OS/2"));
-        var post = face.GetTableData(Tag("post"));
+        var os2 = Table(face, "OS/2");
+        var post = Table(face, "post");
         bool slanted = post is { Length: >= 8 } && BinaryPrimitives.ReadInt32BigEndian(post.AsSpan(4)) != 0;
         if (os2 is { Length: >= 64 })
         {
@@ -103,6 +103,12 @@ public sealed class SkiaFontFace
     }
 
     internal static uint Tag(string t) => (uint)(t[0] << 24 | t[1] << 16 | t[2] << 8 | t[3]);
+
+    /// <summary>
+    /// A font table, or null when the font has none (some macOS system fonts lack OS/2 or post; Skia's GetTableData
+    /// throws for a missing table, which stopped every layout that fell back to such a font — CI 2026-11-04).
+    /// </summary>
+    private static byte[]? Table(SKTypeface face, string tag) => face.TryGetTableData(Tag(tag), out var data) ? data : null;
 }
 
 /// <summary>
