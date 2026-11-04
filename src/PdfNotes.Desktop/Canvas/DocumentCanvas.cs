@@ -81,9 +81,6 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     /// <summary>The annotation layer (inverted with the page on dark pages).</summary>
     public PagePainter? OverlayPainter { get; set; }
 
-    /// <summary>Screen marks above the page content (selection, search): never inverted.</summary>
-    public PagePainter? MarksPainter { get; set; }
-
     /// <summary>Dark pages for reading (spec 24.12): paper, PDF and annotations inverted.</summary>
     public bool DarkPages
     {
@@ -486,17 +483,20 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
             var transform = PageTransform(index);
             var b = bases.TryGetValue(page.Id, out var bb) && bb.Key.Setup.Equals(page.Setup) ? bb : default;
             var d = details.TryGetValue(page.Id, out var dd) && dd.Key.Setup.Equals(page.Setup) ? dd : default;
-            shots.Add(new(index, page, transform, b.Image, d.Key, d.Image));
+            var live = PreviewPainter(index, page, transform);
+            shots.Add(new(index, page, transform, b.Image, d.Key, d.Image, previewIsMark ? null : live, previewIsMark ? live : null,
+                MarksFor?.Invoke(index, page, transform)));
         }
-        context.Custom(new CanvasDrawOperation(new Rect(0, 0, viewportWidth, viewportHeight), shots, this.Snapshot()));
+        context.Custom(new CanvasDrawOperation(new Rect(0, 0, viewportWidth, viewportHeight), shots, Snapshot()));
     }
 
     /// <summary>One visible page as it is drawn this frame (immutable: the draw runs on the render thread).</summary>
-    internal sealed record PageShot(int Index, Page Page, ViewTransform Transform, SKImage? Base, RenderKey? DetailKey, SKImage? Detail);
+    internal sealed record PageShot(int Index, Page Page, ViewTransform Transform, SKImage? Base, RenderKey? DetailKey, SKImage? Detail,
+        PagePainter? Preview = null, PagePainter? MarkPreview = null, PagePainter? Marks = null);
 
     /// <summary>What the render thread needs from the control for one frame.</summary>
     internal sealed record CanvasLook(bool DarkPages, double PageNumberSize, SKColor Paper, SKColor Shadow, SKColor Edge, SKColor PageNumber,
-        PagePainter? Overlay, PagePainter? Preview, int PreviewPage, PagePainter? Marks, PagePainter? MarkPreview);
+        PagePainter? Overlay);
 
     private CanvasLook Snapshot()
     {
@@ -505,6 +505,6 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
                 ? new SKColor(brush.Color.R, brush.Color.G, brush.Color.B, (byte)(brush.Color.A * brush.Opacity)) : fallback;
         return new(darkPages, pageNumberSize, Color("Paper", SKColors.White), Color("Page.Shadow", new SKColor(0, 0, 0, 0x30)),
             Color("Page.Border", new SKColor(0xC8, 0xC8, 0xC8)), Color("Overlay.PageNumber", new SKColor(0x80, 0x80, 0x80, 0x99)),
-            OverlayPainter, previewIsMark ? null : previewPainter, previewPage, MarksPainter, previewIsMark ? previewPainter : null);
+            OverlayPainter);
     }
 }

@@ -70,14 +70,14 @@ public static class PageDrawing
                 canvas.DrawImage(d, SKRect.Create((float)(o.X + region.X / dpi), (float)(o.Y + region.Y / dpi), (float)(region.Width / dpi), (float)(region.Height / dpi)), sampling, image);
             if (look.PageNumberSize > 0) DrawPageNumber(canvas, shot.Index + 1, rect, look);
             look.Overlay?.Invoke(canvas, shot.Index, shot.Page, t);
-            if (shot.Index == look.PreviewPage) look.Preview?.Invoke(canvas, shot.Index, shot.Page, t);
+            shot.Preview?.Invoke(canvas, shot.Index, shot.Page, t);
             canvas.Restore();
 
             using (var edge = new SKPaint { Color = look.Edge, Style = SKPaintStyle.Stroke, StrokeWidth = (float)(1 / dpi), IsAntialias = false })
                 canvas.DrawRect(rect, edge);
             // Screen marks are never inverted and not clipped to the page (handles may stick out).
-            look.Marks?.Invoke(canvas, shot.Index, shot.Page, t);
-            if (shot.Index == look.PreviewPage) look.MarkPreview?.Invoke(canvas, shot.Index, shot.Page, t);
+            shot.Marks?.Invoke(canvas, shot.Index, shot.Page, t);
+            shot.MarkPreview?.Invoke(canvas, shot.Index, shot.Page, t);
         }
     }
 

@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using PdfNotes.Desktop.Canvas;
 using PdfNotes.Editor.Layout;
 using PdfNotes.Editor.Services;
+using PdfNotes.Render.Skia;
 using SkiaSharp;
 
 namespace PdfNotes.Desktop.Views;
@@ -17,10 +18,19 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         Canvas.ViewChanged += (_, _) => ZoomText.Text = $"{Math.Round(Canvas.Zoom * 100)}%";
+        // The annotation layer (A2): the immutable page of the frame, its resources from the document at that moment.
+        Canvas.OverlayPainter = (canvas, _, page, transform) =>
+        {
+            var resources = document?.Session.Current.Resources;
+            SkiaAnnotationPainter.PaintPage(canvas, page, transform, id => resources?.GetValueOrDefault(id), HiddenOnCanvas);
+        };
         Closed += (_, _) => CloseDocument();
     }
 
     public DocumentCanvas DocumentCanvas => Canvas;
+
+    /// <summary>Annotations not drawn by the layer (the text box being edited is drawn by its editor, A4).</summary>
+    public Func<PdfNotes.Core.Models.Annotation, bool>? HiddenOnCanvas { get; set; }
     public OpenDocument? Document => document;
 
     /// <summary>Opens a PDF (spec 4.2). Returns false and says why in the status bar when it cannot be opened.</summary>
