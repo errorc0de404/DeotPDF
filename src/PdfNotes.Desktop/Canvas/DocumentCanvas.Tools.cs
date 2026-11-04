@@ -1,8 +1,9 @@
+using PdfNotes.Editor.Input;
 using PdfNotes.Editor.Tools;
 
 namespace PdfNotes.Desktop.Canvas;
 
-/// <summary>The active canvas tool (roadmap P4 A3 adds the pointer and key input in DocumentCanvas.Input).</summary>
+/// <summary>The active canvas tool (input in DocumentCanvas.Input).</summary>
 public sealed partial class DocumentCanvas
 {
     private ICanvasTool? tool;
@@ -15,15 +16,25 @@ public sealed partial class DocumentCanvas
         {
             if (ReferenceEquals(tool, value)) return;
             CancelTool();
+            (tool as IHoverTool)?.PointerHover(null, InputModifiers.None);
             tool = value;
+            UpdateCursor();
         }
     }
 
-    public bool IsToolActive => tool?.IsActive == true;
+    /// <summary>True while a tool has an operation in progress (a stroke being drawn, a temporary tool held).</summary>
+    public bool IsToolActive => tool?.IsActive == true || middleTool is not null || touchTool is not null;
 
     /// <summary>Cancels the active tool's operation; the document is not changed (Esc, spec 4.3).</summary>
     public void CancelTool()
     {
+        CancelTouch();
         if (tool?.IsActive == true) tool.Cancel();
+        EndMiddle(commit: null);
+        if (toolCaptured)
+        {
+            toolCaptured = false;
+            Release();
+        }
     }
 }

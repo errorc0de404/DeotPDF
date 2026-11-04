@@ -78,8 +78,11 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     /// <summary>Screen pixels per DIP (the monitor's scale).</summary>
     public double DpiScale => TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
 
-    /// <summary>The annotation layer (inverted with the page on dark pages).</summary>
-    public PagePainter? OverlayPainter { get; set; }
+    /// <summary>
+    /// The annotation layer of a page for this frame (inverted with the page on dark pages), taken on the UI thread — what
+    /// it shows depends on UI state (a selection being moved, an erase in progress). The default draws the page as it is.
+    /// </summary>
+    public Func<int, Page, ViewTransform, PagePainter?>? OverlayFor { get; set; }
 
     /// <summary>Dark pages for reading (spec 24.12): paper, PDF and annotations inverted.</summary>
     public bool DarkPages
@@ -485,18 +488,17 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
             var d = details.TryGetValue(page.Id, out var dd) && dd.Key.Setup.Equals(page.Setup) ? dd : default;
             var live = PreviewPainter(index, page, transform);
             shots.Add(new(index, page, transform, b.Image, d.Key, d.Image, previewIsMark ? null : live, previewIsMark ? live : null,
-                MarksFor?.Invoke(index, page, transform)));
+                MarksFor?.Invoke(index, page, transform), OverlayFor?.Invoke(index, page, transform)));
         }
         context.Custom(new CanvasDrawOperation(new Rect(0, 0, viewportWidth, viewportHeight), shots, Snapshot()));
     }
 
     /// <summary>One visible page as it is drawn this frame (immutable: the draw runs on the render thread).</summary>
     internal sealed record PageShot(int Index, Page Page, ViewTransform Transform, SKImage? Base, RenderKey? DetailKey, SKImage? Detail,
-        PagePainter? Preview = null, PagePainter? MarkPreview = null, PagePainter? Marks = null);
+        PagePainter? Preview = null, PagePainter? MarkPreview = null, PagePainter? Marks = null, PagePainter? Overlay = null);
 
     /// <summary>What the render thread needs from the control for one frame.</summary>
-    internal sealed record CanvasLook(bool DarkPages, double PageNumberSize, SKColor Paper, SKColor Shadow, SKColor Edge, SKColor PageNumber,
-        PagePainter? Overlay);
+    internal sealed record CanvasLook(bool DarkPages, double PageNumberSize, SKColor Paper, SKColor Shadow, SKColor Edge, SKColor PageNumber);
 
     private CanvasLook Snapshot()
     {
@@ -504,7 +506,6 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
             this.TryFindResource(key, ActualThemeVariant, out var v) && v is ISolidColorBrush brush
                 ? new SKColor(brush.Color.R, brush.Color.G, brush.Color.B, (byte)(brush.Color.A * brush.Opacity)) : fallback;
         return new(darkPages, pageNumberSize, Color("Paper", SKColors.White), Color("Page.Shadow", new SKColor(0, 0, 0, 0x30)),
-            Color("Page.Border", new SKColor(0xC8, 0xC8, 0xC8)), Color("Overlay.PageNumber", new SKColor(0x80, 0x80, 0x80, 0x99)),
-            OverlayPainter);
+            Color("Page.Border", new SKColor(0xC8, 0xC8, 0xC8)), Color("Overlay.PageNumber", new SKColor(0x80, 0x80, 0x80, 0x99)));
     }
 }

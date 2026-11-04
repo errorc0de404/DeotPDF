@@ -20,7 +20,11 @@
             </DockPanel>
         </Border>
         <Border x:Name="CanvasHost" Background="{DynamicResource Canvas.Background}" ClipToBounds="True">
-            <canvas:DocumentCanvas x:Name="Canvas" />
+            <Grid>
+                <canvas:DocumentCanvas x:Name="Canvas" />
+                <!-- Controls over the pages: the text box editor (A4); it never covers the scroll bars. -->
+                <Canvas x:Name="TextLayer" Margin="0,0,12,12" ClipToBounds="True" />
+            </Grid>
         </Border>
     </DockPanel>
 </Window>

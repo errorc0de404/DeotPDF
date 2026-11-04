@@ -76,7 +76,7 @@ public sealed class ShellTests
         Assert.NotNull(window.FindControl<Border>("RibbonHost"));
         Assert.NotNull(window.FindControl<Border>("StatusBar"));
         Assert.Same(window.DocumentCanvas, window.FindControl<PdfNotes.Desktop.Canvas.DocumentCanvas>("Canvas"));
-        Assert.Equal(0, window.DocumentCanvas.PageCount);
+        Assert.Equal(1, window.DocumentCanvas.PageCount); // a new note until a file is opened
         window.Close();
     });
 }
