@@ -195,6 +195,18 @@ public sealed class PointerRouterTests
     }
 
     [Fact]
+    public void APenLeavingRangeWhileDownEndsItsStrokeWhereItWasLastSeen()
+    {
+        router.PenInRange(true);
+        router.Down(Pen(10, 10));
+        router.Move(Pen(40, 12));
+        var up = Assert.IsType<A.ToolUp>(Assert.Single(router.PenInRange(false)));
+        Assert.Equal(new Point2(40, 12), up.Pointer.Position);
+        Assert.False(router.IsDrawing);
+        Assert.Empty(router.Up(Pen(40, 12))); // a late lift report changes nothing
+    }
+
+    [Fact]
     public void ASecondPenOrAMouseIsNotRouted()
     {
         router.Down(Pen(10, 10, id: 1));

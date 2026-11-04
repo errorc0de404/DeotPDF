@@ -74,7 +74,7 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
         if (p.DistanceTo(raw[^1]) >= transform.DevicePixelLengthToPoints(MinStepPixels))
         {
             raw.Add(p);
-            AddPressure(pointer);
+            AddPressure(pointer with { Pressure = null }); // a pen reports no pressure as it lifts: the end keeps the last one
         }
         double tolerance = Math.Min(transform.DevicePixelLengthToPoints(SimplifyPixels), MaxSimplifyPt);
         StrokeAnnotation stroke;

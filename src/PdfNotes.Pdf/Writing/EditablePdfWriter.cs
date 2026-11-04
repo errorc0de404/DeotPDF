@@ -172,7 +172,13 @@ public static class EditablePdfWriter
         if (read.HeaderStatus != HeaderStatus.Valid)
             throw new InvalidDataException("The written PDF does not restore all annotations.");
         var a = SchemaV8.Serialize(read.Model);
-        expected = expected with { Pages = expected.Pages.Select(p => p with { Annotations = p.Annotations.Where(a => a is not (TextBoxAnnotation { IsBlank: true } or StickyNote { IsBlank: true })).ToImmutableList() }).ToImmutableList() };
+        // A text box in a family this machine does not have reopens read-only by design (its appearance was drawn with a
+        // substitute; editing needs the original font). Such boxes must be exactly the ones missing from the read model.
+        static bool FontMissing(Annotation x) => x is TextBoxAnnotation t && t.Runs.Any(r => !PdfNotes.Text.TextLayout.FontAvailable(r.FontFamily));
+        int missingFont = expected.AllAnnotations.Count(x => FontMissing(x) && x is not TextBoxAnnotation { IsBlank: true });
+        if (read.ReadOnlyCount != missingFont)
+            throw new InvalidDataException($"The written PDF does not restore the saved document ({read.ReadOnlyCount} read-only, {missingFont} expected).");
+        expected = expected with { Pages = expected.Pages.Select(p => p with { Annotations = p.Annotations.Where(a => a is not (TextBoxAnnotation { IsBlank: true } or StickyNote { IsBlank: true }) && !FontMissing(a)).ToImmutableList() }).ToImmutableList() };
         var b = SchemaV8.Serialize(expected);
         if (!a.Header.AsSpan().SequenceEqual(b.Header))
             throw new InvalidDataException("The written PDF does not restore the saved document (header).");

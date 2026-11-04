@@ -71,6 +71,7 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
     private readonly HashSet<int> ignored = [];
     private TouchState state;
     private int? penId;
+    private CanvasPointer? lastPen;
     private bool penNear;
     private long penLeftTicks = long.MinValue;
     private (long Ticks, Point2 At)? lastTap;
@@ -88,7 +89,14 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
     {
         if (penNear && !inRange) penLeftTicks = clock.GetTimestamp();
         penNear = inRange;
-        return inRange ? DropTouches() : [];
+        if (inRange) return DropTouches();
+        // A pen that leaves while still down lost its lift report: the stroke ends where it was last seen.
+        if (penId is not null && lastPen is { } last)
+        {
+            penId = null;
+            return [new PointerAction.ToolUp(last)];
+        }
+        return [];
     }
 
     public IReadOnlyList<PointerAction> Down(CanvasPointer pointer)
@@ -101,6 +109,7 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
                 // The pen wins: a finger stroke or gesture in progress is dropped (the palm usually touched first).
                 var actions = DropTouches().ToList();
                 penId = pointer.PointerId;
+                lastPen = pointer;
                 penNear = true;
                 actions.Add(new PointerAction.ToolDown(pointer, pointer.Eraser));
                 return actions;
@@ -115,7 +124,11 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
     public IReadOnlyList<PointerAction> Move(CanvasPointer pointer)
     {
         if (pointer.Device == PointerDevice.Pen)
-            return penId == pointer.PointerId ? [new PointerAction.ToolMove(pointer)] : [];
+        {
+            if (penId != pointer.PointerId) return [];
+            lastPen = pointer;
+            return [new PointerAction.ToolMove(pointer)];
+        }
         if (pointer.Device != PointerDevice.Touch || ignored.Contains(pointer.PointerId) || !touches.TryGetValue(pointer.PointerId, out var contact)) return [];
         if (pointer.ContactSize >= options().PalmContactDip) return Ignore(pointer.PointerId);
         var previous = contact.Last;

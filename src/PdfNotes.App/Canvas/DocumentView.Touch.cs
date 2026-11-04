@@ -127,7 +127,7 @@ public sealed partial class DocumentView
         return size;
     }
 
-    private void Run(IReadOnlyList<PointerAction> actions, StylusDevice device)
+    private void Run(IReadOnlyList<PointerAction> actions, StylusDevice? device)
     {
         foreach (var action in actions)
             switch (action)
@@ -158,7 +158,7 @@ public sealed partial class DocumentView
             }
     }
 
-    private void PenOrFingerDown(CanvasPointer pointer, bool erase, StylusDevice device)
+    private void PenOrFingerDown(CanvasPointer pointer, bool erase, StylusDevice? device)
     {
         if (middleTool is not null || toolCaptured || panning) return; // the mouse is busy
         LastPressDevice = pointer.Device;
@@ -169,11 +169,11 @@ public sealed partial class DocumentView
         ToolPressed?.Invoke(this, EventArgs.Empty);
         if (!target.IsActive) return; // a click that finished at once (a new text box)
         touchTool = target;
-        if (device.Capture(this)) touchCapture = device;
+        if (device?.Capture(this) == true) touchCapture = device;
         (tool as IHoverTool)?.PointerHover(null, Modifiers);
     }
 
-    private void EndTouchTool(StylusDevice device)
+    private void EndTouchTool(StylusDevice? device)
     {
         bool eraser = touchTool is not null && !ReferenceEquals(touchTool, tool);
         touchTool = null;
@@ -202,6 +202,17 @@ public sealed partial class DocumentView
         if (tool.IsActive) tool.PointerUp(pointer);
         UpdateCursor();
     }
+
+    /// <summary>
+    /// For Probes: a pen event (0 down, 1 move, 2 up) through the router and the view's actions, as if WPF had reported
+    /// it. Injected pen input cannot carry the eraser end or barrel button through WPF's default stylus stack.
+    /// </summary>
+    public void ProbePen(CanvasPointer pointer, int phase) => Run(phase switch
+    {
+        0 => Router.Down(pointer),
+        1 => Router.Move(pointer),
+        _ => Router.Up(pointer)
+    }, null);
 
     /// <summary>Drops a pen or finger operation (Esc, tool switch, document change).</summary>
     private void CancelTouch()
