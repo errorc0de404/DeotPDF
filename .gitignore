@@ -16,6 +16,7 @@ AGENTS.md
 # Development checks (app-driving harness, verification scripts)
 tools/PdfNotes.Probe/
 tools/PdfNotes.EditorTrial/
+tools/PdfNotes.DesktopProbe/
 tools/*.py
 !tools/compile-shader.py
 !tools/make-linebreak-data.py
