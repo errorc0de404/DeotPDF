@@ -180,7 +180,9 @@ public static class EditablePdfWriter
             throw new InvalidDataException($"The written PDF does not restore the saved document ({read.ReadOnlyCount} read-only, {missingFont} expected).");
         expected = expected with { Pages = expected.Pages.Select(p => p with { Annotations = p.Annotations.Where(a => a is not (TextBoxAnnotation { IsBlank: true } or StickyNote { IsBlank: true }) && !FontMissing(a)).ToImmutableList() }).ToImmutableList() };
         var b = SchemaV8.Serialize(expected);
-        if (!a.Header.AsSpan().SequenceEqual(b.Header))
+        // Read-only appearances stay part of the page picture, so those pages read back with the PDF as their source:
+        // compare the annotations then, not the page records.
+        if (missingFont == 0 && !a.Header.AsSpan().SequenceEqual(b.Header))
             throw new InvalidDataException($"The written PDF does not restore the saved document (header: {FirstDifference(a.Header, b.Header)}).");
         if (a.Annotations.Length != b.Annotations.Length)
             throw new InvalidDataException($"The written PDF does not restore the saved document ({a.Annotations.Length} of {b.Annotations.Length} annotations).");

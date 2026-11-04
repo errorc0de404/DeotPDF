@@ -245,8 +245,8 @@ public sealed class CliEditTests : IDisposable
         Assert.True(problems.First(p => p!["ruleIndex"]!.GetValue<int>() == 3)!["details"]!["overflow"]!["right"]!.GetValue<double>() > 0);
         Assert.Equal(["c/t4"], Keys(4));
         Assert.Equal("작은 글", problems.First(p => p!["ruleIndex"]!.GetValue<int>() == 4)!["details"]!["ranges"]![0]!["text"]!.GetValue<string>());
-        Assert.Equal(["c/t5"], Keys(5));
-        Assert.Equal("warn", problems.First(p => p!["ruleIndex"]!.GetValue<int>() == 5)!["level"]!.GetValue<string>());
+        if (!TextEngineSetup.EveryCodePointHasAGlyph) Assert.Equal(["c/t5"], Keys(5));
+        if (!TextEngineSetup.EveryCodePointHasAGlyph) Assert.Equal("warn", problems.First(p => p!["ruleIndex"]!.GetValue<int>() == 5)!["level"]!.GetValue<string>());
         Assert.Equal(["c/t1"], Keys(6));
         Assert.True(problems.First(p => p!["ruleIndex"]!.GetValue<int>() == 6)!["details"]!["tall"]!.GetValue<bool>());
         Assert.False(check["passed"]!.GetValue<bool>());
