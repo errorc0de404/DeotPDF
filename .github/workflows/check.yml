@@ -1,11 +1,11 @@
-# Checks the text engine work of roadmap P2 (1.2) on every push to main and on demand. Nothing is uploaded.
+# Checks the text engine work of roadmap P2 (1.2) on every push to main or a dev-* branch, and on demand. Nothing is uploaded.
 # - Windows: the full test suite with the WPF engine and again with the Skia engine (PDFNOTES_TEXT_ENGINE=skia).
 # - Windows, Ubuntu, macOS: the CLI and PDF tests against the WPF-free CLI build (-p:DeotEngine=Skia).
 name: Check
 
 on:
   push:
-    branches: [main]
+    branches: [main, "dev-*"]
   workflow_dispatch:
 
 permissions:
