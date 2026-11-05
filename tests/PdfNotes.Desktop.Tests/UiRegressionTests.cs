@@ -187,11 +187,12 @@ public sealed class UiRegressionTests
         var one = Assert.IsType<PdfTextHighlight>(Assert.Single(Annotations(w)));
         Assert.Single(one.Quads);
         Assert.Equal("Original", one.SourceTextHint);
-        DragAlong(w, Edge(glyphs[pdf], false), Edge(glyphs[english], false), Edge(glyphs[english + 6], true));
-        var two = Assert.IsType<PdfTextHighlight>(Annotations(w)[^1]);
-        Assert.Equal(2, two.Quads.Length);
-
+        // A press on an existing highlight selects it (spec 9); with another font (macOS) the first one can reach "PDF".
         w.Undo();
+        DragAlong(w, Edge(glyphs[pdf], false), Edge(glyphs[english], false), Edge(glyphs[english + 6], true));
+        var two = Assert.IsType<PdfTextHighlight>(Assert.Single(Annotations(w)));
+        Assert.True(two.Quads.Length == 2, $"{two.Quads.Length} quads, '{two.SourceTextHint}'");
+
         w.Undo();
         Assert.Empty(Annotations(w));
         w.SetTool(ToolKind.Select);
