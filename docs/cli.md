@@ -15,13 +15,13 @@ Contents: [Setup](#setup) · [Output and exit codes](#output-and-exit-codes) · 
 
 ## Setup
 
-`deot.exe` ships in the same zip as `DeotPDF.exe` (see the [README](../README.md#download-and-run)). Add that folder to `PATH`, or call it by its full path.
+`deot` ships in every DeotPDF package (see the [README](../README.md#download-and-run)): `deot.exe` next to `DeotPDF.exe` on Windows, `deot` next to `DeotPDF` on Linux, and `DeotPDF.app/Contents/MacOS/deot` on macOS. Add that folder to `PATH`, or call it by its full path. It works the same on all three systems; the fonts it can use are the ones installed there (`deot fonts`).
 
 From source:
 
 ```powershell
 dotnet build PdfNotes.slnx -c Release
-tools\PdfNotes.Cli\bin\Release\net10.0-windows\win-x64\deot.exe schema
+dotnet run --project tools/PdfNotes.Cli -c Release -- schema
 ```
 
 `deot schema` lists every command, the exit codes and the error codes. `deot schema <command>` (for example `deot schema add text`) gives that command's options and a JSON Schema for its output. When this guide and `deot schema` disagree, `deot schema` is right.

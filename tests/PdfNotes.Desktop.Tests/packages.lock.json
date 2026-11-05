@@ -352,7 +352,7 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
-      "DeotPDF.Next": {
+      "DeotPDF": {
         "type": "Project",
         "dependencies": {
           "Avalonia": "[12.1.4, )",

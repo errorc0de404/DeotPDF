@@ -1,10 +1,5 @@
 using System.IO;
 using System.Text.Json.Nodes;
-#if !DEOT_SKIA
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using PdfNotes.App.Canvas;
-#endif
 using PdfNotes.Cli;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
@@ -138,112 +133,6 @@ public sealed class CliAddTests : IDisposable
         Assert.Equal(steps.Length, CliRunner.Ok("annot", "list", resaved, "--batch-id", "run-c4")["count"]!.GetValue<int>());
     }
 
-#if !DEOT_SKIA // the WPF app painter: the Windows test project only
-    /// <summary>
-    /// cli_plan 4.2 left from C1: <c>render</c> draws annotations from the Flatten PDF; the app screen draws them with
-    /// <see cref="AnnotationPainter"/>. On every page of every kind both must look the same: of the pixels either one
-    /// paints, only edge pixels may differ by up to 1 px. <c>PDFNOTES_RENDER_COMPARE_OUT</c> keeps the images for a look.
-    /// </summary>
-    [Fact]
-    public void RenderedAnnotationsMatchTheAppPainter()
-    {
-        var (output, _) = AddAll(AllKinds());
-        string? keep = Environment.GetEnvironmentVariable("PDFNOTES_RENDER_COMPARE_OUT");
-        var report = new List<string>();
-        Sta(() =>
-        {
-            using var doc = CliDocument.Open(output);
-            const double ppp = 2;
-            foreach (var page in doc.Model.Pages.Where(p => p.Annotations.Count > 0))
-            {
-                var paper = PageRaster.Render(doc, page, ppp, null, _ => false, out _);
-                var flat = PageRaster.Render(doc, page, ppp, null, _ => true, out _);
-                var view = new ViewTransform(page.Setup.Frame, ppp / Units.DipsPerPoint, 1, default);
-                var app = PageRaster.Compose(paper.Width, paper.Height, context =>
-                {
-                    context.DrawImage(PageRaster.ToBitmap(paper), new System.Windows.Rect(0, 0, paper.Width, paper.Height));
-                    foreach (var a in page.Annotations)
-                        if (a is ImageAnnotation image) AnnotationPainter.PaintImage(context, image, doc.Model.Resources[image.ResourceId], view);
-                        else if (a is TextBoxAnnotation text && TextEngineSetup.Skia) PaintSkiaText(context, text, view, paper.Width, paper.Height);
-                        else AnnotationPainter.Paint(context, a, view);
-                });
-                var appPixels = new byte[paper.Width * paper.Height * 4];
-                new FormatConvertedBitmap(app, PixelFormats.Bgra32, null, 0).CopyPixels(appPixels, paper.Width * 4, 0);
-                int painted = 0, different = 0;
-                static int Diff(byte[] a, int ia, byte[] b, int ib) => Math.Max(Math.Abs(a[ia] - b[ib]), Math.Max(Math.Abs(a[ia + 1] - b[ib + 1]), Math.Abs(a[ia + 2] - b[ib + 2])));
-                int F(int x, int y) => y * paper.Stride + x * 4;
-                int A(int x, int y) => (y * paper.Width + x) * 4;
-                // Edge pixels are anti-aliased differently (PDFium and WPF cover a partly painted pixel by other amounts and
-                // round edges to other sides), so a pixel only differs when its color is outside the range of the other
-                // image's colors within 1 px.
-                bool Near(byte[] a, Func<int, int, int> ai, byte[] b, Func<int, int, int> bi, int x, int y)
-                {
-                    for (int c = 0; c < 3; c++)
-                    {
-                        int low = 255, high = 0;
-                        for (int dy = -1; dy <= 1; dy++)
-                            for (int dx = -1; dx <= 1; dx++)
-                                if (x + dx >= 0 && y + dy >= 0 && x + dx < paper.Width && y + dy < paper.Height)
-                                {
-                                    int v = b[bi(x + dx, y + dy) + c];
-                                    low = Math.Min(low, v);
-                                    high = Math.Max(high, v);
-                                }
-                        int own = a[ai(x, y) + c];
-                        if (own < low - 16 || own > high + 16) return false;
-                    }
-                    return true;
-                }
-                for (int y = 0; y < paper.Height; y++)
-                    for (int x = 0; x < paper.Width; x++)
-                    {
-                        if (Diff(flat.Bgra, F(x, y), paper.Bgra, F(x, y)) <= 8 && Diff(appPixels, A(x, y), paper.Bgra, F(x, y)) <= 8) continue;
-                        painted++;
-                        if (Diff(flat.Bgra, F(x, y), appPixels, A(x, y)) > 48 &&
-                            !(Near(flat.Bgra, F, appPixels, A, x, y) && Near(appPixels, A, flat.Bgra, F, x, y))) different++;
-                    }
-                double share = (double)different / Math.Max(1, painted);
-                report.Add($"page {doc.NumberOf(page)}: painted {painted}, different {different} ({share:P2})");
-                if (keep is not null)
-                {
-                    PageRaster.SavePng(PageRaster.ToBitmap(flat), Path.Combine(keep, $"render-p{doc.NumberOf(page)}.png"));
-                    PageRaster.SavePng(app, Path.Combine(keep, $"painter-p{doc.NumberOf(page)}.png"));
-                }
-                Assert.True(painted > 100, report[^1]);
-                Assert.True(share < 0.002, string.Join("\n", report));
-            }
-        });
-        if (keep is not null) File.WriteAllLines(Path.Combine(keep, "compare.txt"), report);
-    }
-
-    /// <summary>
-    /// With the Skia engine (PDFNOTES_TEXT_ENGINE=skia) the WPF app painter cannot draw a text box; its screen drawing
-    /// is the Skia renderer the P4 app will use (roadmap P2 S3), laid over the page like the painter would.
-    /// </summary>
-    private static void PaintSkiaText(System.Windows.Media.DrawingContext context, TextBoxAnnotation text, ViewTransform view, int width, int height)
-    {
-        var m = text.Transform.Then(view.PageToDip);
-        using var bitmap = new SkiaSharp.SKBitmap(new SkiaSharp.SKImageInfo(width, height, SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Premul));
-        using (var canvas = new SkiaSharp.SKCanvas(bitmap))
-        {
-            canvas.Clear(SkiaSharp.SKColors.Transparent);
-            canvas.SetMatrix(new SkiaSharp.SKMatrix((float)m.M11, (float)m.M21, (float)m.OffsetX, (float)m.M12, (float)m.M22, (float)m.OffsetY, 0, 0, 1));
-            PdfNotes.Text.SkiaTextRenderer.Draw(canvas, (PdfNotes.Text.SkiaTextLayout)TextLayout.Measure(text));
-        }
-        var layer = System.Windows.Media.Imaging.BitmapSource.Create(width, height, 96, 96, PixelFormats.Pbgra32, null, bitmap.GetPixels(), bitmap.ByteCount, bitmap.RowBytes);
-        context.DrawImage(layer, new System.Windows.Rect(0, 0, width, height));
-    }
-
-    private static void Sta(Action action)
-    {
-        Exception? failure = null;
-        var thread = new Thread(() => { try { action(); } catch (Exception e) { failure = e; } }) { IsBackground = true };
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(60)), "timed out");
-        if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
-    }
-#endif
 
     [Fact]
     public void FindNeedsExactlyOneCandidate()

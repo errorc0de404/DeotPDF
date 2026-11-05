@@ -338,6 +338,22 @@ public sealed class PlatformTests
     private static List<Border> Frames(MainWindow w) =>
         [.. w.FindControl<ListBox>("PageList")!.GetVisualDescendants().OfType<Border>().Where(t => t.Name == "Frame").OrderBy(t => t.TranslatePoint(default, w)!.Value.Y)];
 
+    [Fact]
+    public void ColorPlaneConvertsBetweenRgbAndHsv()
+    {
+        // The + picker's plane/strip (spec 3.2, 2026-10-13): hue 0–360, saturation and brightness 0–1.
+        Assert.Equal(new RgbColor(255, 0, 0), ColorPickerPanel.FromHsv(0, 1, 1));
+        Assert.Equal(new RgbColor(0, 255, 0), ColorPickerPanel.FromHsv(120, 1, 1));
+        Assert.Equal(new RgbColor(0, 0, 255), ColorPickerPanel.FromHsv(240, 1, 1));
+        Assert.Equal(RgbColor.White, ColorPickerPanel.FromHsv(200, 0, 1));
+        Assert.Equal(RgbColor.Black, ColorPickerPanel.FromHsv(200, 1, 0));
+        foreach (var color in ColorPalette.Basic.Append(new RgbColor(0x12, 0x80, 0x40)).Append(new RgbColor(0xFF, 0xF2, 0xA8)))
+        {
+            var (h, s, v) = ColorPickerPanel.ToHsv(color);
+            Assert.Equal(color, ColorPickerPanel.FromHsv(h, s, v));
+        }
+    }
+
     /// <summary>macOS and Linux: a window comes forward when another DeotPDF signals its pipe.</summary>
     [Fact]
     public async Task TheActivationPipeCarriesTheRequest()

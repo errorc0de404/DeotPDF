@@ -70,20 +70,19 @@ public class ArchitectureTests
     }
 
     /// <summary>
-    /// P2 (decision B, roadmap): in 1.2 the app and the shipped CLI keep the WPF engine and editor. Nothing they load may
-    /// reference the Skia engine, the new editor or Avalonia until P4 switches both at once.
+    /// The projects without a platform (model, PDF, text layout, editor services, view models, editor model) take no
+    /// drawing or UI library, so the desktop app, the CLI and a later Android app (P5) choose their own. The Skia engine,
+    /// the Avalonia editor control, the painters and the apps are the only ones that do.
     /// </summary>
     [Theory]
-    [InlineData(typeof(PdfNotes.App.App))]
-    [InlineData(typeof(PdfNotes.Cli.CliApp))]
     [InlineData(typeof(PdfNotes.ViewModels.MainViewModel))]
     [InlineData(typeof(PdfNotes.Editor.Services.AppSettings))]
     [InlineData(typeof(PdfNotes.Pdf.Writing.EditablePdfWriter))]
     [InlineData(typeof(PdfNotes.Text.TextLayout))]
-    [InlineData(typeof(PdfNotes.Text.WpfText))]
-    public void ShippedProjectsDoNotUseTheP2Projects(Type marker)
+    [InlineData(typeof(PdfNotes.TextEditor.TextEditorModel))]
+    public void PlatformFreeProjectsTakeNoUiOrDrawingLibrary(Type marker)
     {
-        string[] forbidden = ["PdfNotes.Text.Skia", "PdfNotes.TextEditor", "Avalonia", "SkiaSharp", "HarfBuzzSharp"];
+        string[] forbidden = ["PdfNotes.Text.Skia", "PdfNotes.TextEditor.Avalonia", "PdfNotes.Render", "Avalonia", "SkiaSharp", "HarfBuzzSharp"];
         var references = marker.Assembly.GetReferencedAssemblies().Select(a => a.Name!).ToArray();
         Assert.DoesNotContain(references, name => forbidden.Any(f => name.StartsWith(f, StringComparison.OrdinalIgnoreCase)));
     }

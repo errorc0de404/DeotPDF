@@ -21,21 +21,22 @@ public sealed class ShellTests
 
     private static XElement Load(params string[] path) => XElement.Load(Path.Combine([Headless.Repository, .. path]));
 
+    /// <summary>
+    /// The design tokens (D13a, kept when the WPF app was retired): light and dark define the same keys, neither repeats a
+    /// key of the theme-independent colors and tokens, and every color parses.
+    /// </summary>
     [Fact]
-    public void TheTokensAreTheWpfTokens()
+    public void LightAndDarkDefineTheSameTokens()
     {
-        // Until the WPF app is retired both apps must look the same: same keys, same values (roadmap P4, decision record 18).
-        var wpf = Path.Combine("src", "PdfNotes.App", "Themes");
         var desktop = Path.Combine("src", "PdfNotes.Desktop", "Themes");
-        Assert.Equal(Entries(Load(wpf, "Tokens.xaml")), Entries(Load(desktop, "Tokens.axaml")));
         var colors = Load(desktop, "Colors.axaml");
         var themes = colors.Elements().Single(e => e.Name.LocalName == "ResourceDictionary.ThemeDictionaries").Elements()
             .ToDictionary(e => (string)e.Attribute(X + "Key")!, Entries);
-        Assert.Equal(Entries(Load(wpf, "Light.xaml")), themes["Light"]);
-        Assert.Equal(Entries(Load(wpf, "Dark.xaml")), themes["Dark"]);
-        var shared = Entries(colors);
-        foreach (var (key, value) in Entries(Load(wpf, "Canvas.xaml")).Concat(Entries(Load(wpf, "Accents.xaml"))))
-            Assert.Equal(value, shared[key]);
+        Assert.Equal(themes["Light"].Keys.Order(), themes["Dark"].Keys.Order());
+        var fixedKeys = Entries(colors).Keys.Concat(Entries(Load(desktop, "Tokens.axaml")).Keys).ToHashSet();
+        Assert.DoesNotContain(themes["Light"].Keys, fixedKeys.Contains);
+        foreach (var value in themes.Values.SelectMany(t => t.Values).Where(v => v.StartsWith('#')))
+            Assert.True(Color.TryParse(value, out _), value);
     }
 
     [Fact]

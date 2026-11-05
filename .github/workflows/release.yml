@@ -1,7 +1,7 @@
 # Builds the release packages on GitHub-hosted runners.
-# - windows: the two Windows zips (WPF app and CLI), signed when SignPath is set up.
-# - desktop: the cross-platform app with the WPF-free CLI for Linux (tar.gz) and macOS (Apple silicon and Intel zips),
-#   by tools/package-desktop.ps1 on the system it is for (file modes, ad hoc codesign).
+# - windows: the two Windows zips (needs the .NET runtime / portable), signed when SignPath is set up.
+# - desktop: Linux (tar.gz) and macOS (Apple silicon and Intel zips), each on the system it is for (file modes, ad hoc
+#   codesign). All of them by tools/package-release.ps1: the app and the deot CLI.
 # - Manual run (Actions tab): builds and uploads the packages as workflow artifacts.
 # - Tag push (v1.2.3): also checks the tag against Directory.Build.props and creates one draft release with all of them.
 # Signing runs only once the SignPath repository variables are set (SIGNPATH_ORGANIZATION_ID,
@@ -52,7 +52,7 @@ jobs:
 
       - name: Build release folders
         shell: pwsh
-        run: ./tools/package-release.ps1 -Version ${{ needs.version.outputs.version }} -Stage folders
+        run: ./tools/package-release.ps1 -Rid win-x64 -Version ${{ needs.version.outputs.version }} -Stage folders
 
       - name: Upload unsigned folders
         id: unsigned
@@ -90,7 +90,7 @@ jobs:
 
       - name: Zip
         shell: pwsh
-        run: ./tools/package-release.ps1 -Version ${{ needs.version.outputs.version }} -Stage zip
+        run: ./tools/package-release.ps1 -Rid win-x64 -Version ${{ needs.version.outputs.version }} -Stage zip
 
       - name: Upload zips
         uses: actions/upload-artifact@v7
@@ -126,7 +126,7 @@ jobs:
 
       - name: Package
         shell: pwsh
-        run: ./tools/package-desktop.ps1 -Rid ${{ matrix.rid }} -Version ${{ needs.version.outputs.version }}
+        run: ./tools/package-release.ps1 -Rid ${{ matrix.rid }} -Version ${{ needs.version.outputs.version }}
 
       - name: Upload package
         uses: actions/upload-artifact@v7

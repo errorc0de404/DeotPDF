@@ -1,0 +1,4 @@
+# Files read on macOS and Linux keep LF line ends.
+*.sh text eol=lf
+*.desktop text eol=lf
+*.plist text eol=lf

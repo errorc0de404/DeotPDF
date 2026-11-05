@@ -15,13 +15,13 @@ AI 에이전트나 스크립트가 쓰라고 만든 도구라서 동작 방식�
 
 ## 준비
 
-`deot.exe`는 `DeotPDF.exe`와 같은 zip에 들어 있습니다([README](../README.md#다운로드와-실행) 참고). 그 폴더를 `PATH`에 넣거나 전체 경로로 실행하세요.
+`deot`는 모든 덧PDF 패키지에 들어 있습니다([README](../README.md#다운로드와-실행) 참고). 윈도우는 `DeotPDF.exe` 옆의 `deot.exe`, 리눅스는 `DeotPDF` 옆의 `deot`, 맥은 `DeotPDF.app/Contents/MacOS/deot`입니다. 그 폴더를 `PATH`에 넣거나 전체 경로로 실행하세요. 세 시스템에서 똑같이 동작하고, 쓸 수 있는 글꼴은 그 시스템에 깔린 것입니다(`deot fonts`).
 
 소스에서 빌드했다면:
 
 ```powershell
 dotnet build PdfNotes.slnx -c Release
-tools\PdfNotes.Cli\bin\Release\net10.0-windows\win-x64\deot.exe schema
+dotnet run --project tools/PdfNotes.Cli -c Release -- schema
 ```
 
 `deot schema`는 명령 목록, 종료 코드, 오류 코드를 보여 줍니다. `deot schema <명령>`(예: `deot schema add text`)은 그 명령의 옵션과 출력 JSON Schema를 보여 줍니다. 이 문서와 `deot schema`가 다르면 `deot schema`가 맞습니다.

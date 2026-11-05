@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
-using PdfNotes.App.Services;
 
 namespace PdfNotes.Tests.App;
 

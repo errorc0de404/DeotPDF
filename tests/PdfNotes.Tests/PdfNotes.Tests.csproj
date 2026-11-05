@@ -1,8 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -18,7 +17,8 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
-    <ProjectReference Include="..\..\src\PdfNotes.App\PdfNotes.App.csproj" />
+    <ProjectReference Include="..\..\src\PdfNotes.ViewModels\PdfNotes.ViewModels.csproj" />
+    <ProjectReference Include="..\..\src\PdfNotes.Render.Skia\PdfNotes.Render.Skia.csproj" />
     <ProjectReference Include="..\..\tools\PdfNotes.Cli\PdfNotes.Cli.csproj" />
     <ProjectReference Include="..\..\src\PdfNotes.Text.Skia\PdfNotes.Text.Skia.csproj" />
     <ProjectReference Include="..\..\src\PdfNotes.TextEditor\PdfNotes.TextEditor.csproj" />

@@ -1,46 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- deot, the command-line tool for AI agents (cli_plan). Skia text engine and imaging, PDFium for each system: the
+       same build on Windows, macOS and Linux (roadmap P2 S7; the WPF build was retired with the WPF app, decision 21). -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
-    <AssemblyName>deot</AssemblyName>
-    <ApplicationIcon>../../src/PdfNotes.App/Assets/DeotPDF.ico</ApplicationIcon>
-    <RootNamespace>PdfNotes.Cli</RootNamespace>
-    <ApplicationManifest>../../src/PdfNotes.App/app.manifest</ApplicationManifest>
-  </PropertyGroup>
-  <!-- Roadmap P2 S7: -p:DeotEngine=Skia builds the CLI without WPF (net10.0, Skia text engine and imaging, PDFium for
-       Linux and macOS). P4 A7: it is the CLI of the cross-platform packages (tools/package-desktop.ps1, every system).
-       The default build stays the WPF one while the WPF app and its test project use it; it turns when the WPF app is
-       retired (roadmap P4, user decision). -->
-  <PropertyGroup Condition="'$(DeotEngine)' == 'Skia'">
     <TargetFramework>net10.0</TargetFramework>
-    <UseWPF>false</UseWPF>
-    <ApplicationManifest />
-    <DefineConstants>$(DefineConstants);DEOT_SKIA</DefineConstants>
-    <!-- Not shipped and built for several runtimes: no tracked lock file (the Windows one stays for the shipped build). -->
-    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
-    <NuGetLockFilePath>obj/skia-not-locked.json</NuGetLockFilePath>
+    <AssemblyName>deot</AssemblyName>
+    <ApplicationIcon>../../src/PdfNotes.Desktop/Assets/DeotPDF.ico</ApplicationIcon>
+    <RootNamespace>PdfNotes.Cli</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/PdfNotes.Core/PdfNotes.Core.csproj" />
     <ProjectReference Include="../../src/PdfNotes.Editor/PdfNotes.Editor.csproj" />
     <ProjectReference Include="../../src/PdfNotes.Pdf/PdfNotes.Pdf.csproj" />
     <ProjectReference Include="../../src/PdfNotes.Text/PdfNotes.Text.csproj" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(DeotEngine)' != 'Skia'">
-    <ProjectReference Include="../../src/PdfNotes.Text.Wpf/PdfNotes.Text.Wpf.csproj" />
-    <Compile Remove="Platform/Skia/**" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(DeotEngine)' == 'Skia'">
     <ProjectReference Include="../../src/PdfNotes.Text.Skia/PdfNotes.Text.Skia.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.Core" Version="2.3.0" />
     <PackageReference Include="bblanchon.PDFium.Linux" Version="156.0.8076" />
     <PackageReference Include="bblanchon.PDFium.macOS" Version="156.0.8076" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
     <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.5" />
-    <Compile Remove="Platform/Wpf/**" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="ModelContextProtocol.Core" Version="2.3.0" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Schemas/*.json" LogicalName="PdfNotes.Cli.Schemas.%(Filename)%(Extension)" />

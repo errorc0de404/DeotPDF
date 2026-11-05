@@ -1,8 +1,5 @@
 using System.IO;
 using System.Collections.Immutable;
-using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using PdfNotes.Core.Commands;
 using PdfNotes.Core.Models;
 using PdfNotes.Core.Geometry;
@@ -40,36 +37,12 @@ public sealed class TextPdfTests
         Assert.True(blank.Bgra.Where((v, i) => i % 4 != 3 && v < 210).Count() < 10);
         // Independent rasterization of the engine's own screen drawing verifies real glyph positions/orientation and fill alpha.
         var setup = model.Pages[0].Setup; var m = box.Transform.Then(setup.Frame.CanonicalToDisplay).Then(Affine.Scale(2));
-        var expected = TextEngineSetup.Skia ? SkiaRaster(box, m, actual.Width, actual.Height, actual.Stride) : WpfRaster(box, m, actual.Width, actual.Height, actual.Stride);
+        var expected = SkiaRaster(box, m, actual.Width, actual.Height, actual.Stride);
         long error = 0; int colored = 0;
         for (int i = 0; i < expected.Length; i += 4)
             if (expected[i] < 250 || expected[i + 1] < 250 || expected[i + 2] < 250 || actual.Bgra[i] < 250 || actual.Bgra[i + 1] < 250 || actual.Bgra[i + 2] < 250)
             { error += Math.Abs(expected[i] - actual.Bgra[i]) + Math.Abs(expected[i + 1] - actual.Bgra[i + 1]) + Math.Abs(expected[i + 2] - actual.Bgra[i + 2]); colored++; }
         Assert.True(error / (double)(colored * 3) < 12, $"Mean painted-pixel RGB error: {error / (double)(colored * 3)}");
-    }
-
-    /// <summary>The box drawn by the WPF engine's screen drawing on white, BGRA.</summary>
-    private static byte[] WpfRaster(TextBoxAnnotation box, Affine m, int width, int height, int stride)
-    {
-        byte[]? result = null; Exception? failure = null;
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                var visual = new DrawingVisual(); using (var c = visual.RenderOpen())
-                {
-                    c.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
-                    c.PushTransform(new MatrixTransform(new Matrix(m.M11, m.M12, m.M21, m.M22, m.OffsetX, m.OffsetY)));
-                    c.DrawDrawing(WpfText.Measure(box).Drawing); c.Pop();
-                }
-                var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(visual);
-                result = new byte[stride * height]; bitmap.CopyPixels(result, stride, 0);
-            }
-            catch (Exception e) { failure = e; }
-        });
-        thread.SetApartmentState(ApartmentState.STA); thread.Start(); Assert.True(thread.Join(TimeSpan.FromSeconds(20)));
-        if (failure is not null) throw failure;
-        return result!;
     }
 
     /// <summary>The box drawn by the Skia engine's screen renderer on white, BGRA (roadmap P2 S2).</summary>

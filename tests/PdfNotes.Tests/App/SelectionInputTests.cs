@@ -1,5 +1,3 @@
-using System.Windows.Input;
-using PdfNotes.App.Tools;
 using PdfNotes.Core.Geometry;
 
 namespace PdfNotes.Tests.App;
@@ -42,20 +40,5 @@ public sealed class SelectionInputTests
         Assert.Equal(88, Final(0, 88, alt: true), 9);
         Assert.Equal(2, Final(0, 2, alt: true), 9);
         Assert.Equal(45, Final(0, 46, shift: true, alt: true), 9); // Shift wins
-    }
-
-    [Theory]
-    [InlineData(1, 0)]
-    [InlineData(-1, 0.2)]
-    [InlineData(0, 1)]
-    [InlineData(0.1, -1)]
-    [InlineData(1, 1)]
-    [InlineData(-1, -1)]
-    [InlineData(1, -1)]
-    [InlineData(-1, 1)]
-    public void ResizeCursorFollowsTheHandleDirection(double x, double y)
-    {
-        var expected = Math.Abs(y) < .3 ? Cursors.SizeWE : Math.Abs(x) < .3 ? Cursors.SizeNS : x * y > 0 ? Cursors.SizeNWSE : Cursors.SizeNESW;
-        Assert.Same(expected, SelectionCursors.Resize(new Point2(x, y)));
     }
 }

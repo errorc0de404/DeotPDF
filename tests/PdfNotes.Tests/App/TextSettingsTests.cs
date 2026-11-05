@@ -1,5 +1,4 @@
 using System.IO;
-using PdfNotes.App.Services;
 using PdfNotes.Core.Commands;
 
 namespace PdfNotes.Tests.App;

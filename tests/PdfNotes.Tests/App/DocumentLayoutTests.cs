@@ -1,4 +1,3 @@
-using PdfNotes.App.Canvas;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
 

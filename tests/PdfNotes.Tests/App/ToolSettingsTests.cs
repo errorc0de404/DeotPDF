@@ -1,6 +1,4 @@
 using System.IO;
-using PdfNotes.App.Services;
-using PdfNotes.App.Tools;
 using PdfNotes.Core.Models;
 
 namespace PdfNotes.Tests.App;
@@ -26,22 +24,6 @@ public sealed class ToolSettingsTests : IDisposable
         Assert.Equal(40, (StrokeStyle.DefaultPen with { WidthPt = 99 }).ClampFor(AnnotationKind.Ink).WidthPt);
         Assert.Equal(2, (StrokeStyle.DefaultPen with { WidthPt = 0.5 }).ClampFor(AnnotationKind.FreeHighlight).WidthPt);
         Assert.Equal(100, (StrokeStyle.DefaultPen with { TransparencyPercent = 150 }).ClampFor(AnnotationKind.Ink).TransparencyPercent);
-    }
-
-    [Fact]
-    public void ColorPlaneConvertsBetweenRgbAndHsv()
-    {
-        // The + picker's plane/strip (spec 3.2, 2026-10-13): hue 0–360, saturation and brightness 0–1.
-        Assert.Equal(new RgbColor(255, 0, 0), PdfNotes.App.Views.ColorPickerPanel.FromHsv(0, 1, 1));
-        Assert.Equal(new RgbColor(0, 255, 0), PdfNotes.App.Views.ColorPickerPanel.FromHsv(120, 1, 1));
-        Assert.Equal(new RgbColor(0, 0, 255), PdfNotes.App.Views.ColorPickerPanel.FromHsv(240, 1, 1));
-        Assert.Equal(RgbColor.White, PdfNotes.App.Views.ColorPickerPanel.FromHsv(200, 0, 1));
-        Assert.Equal(RgbColor.Black, PdfNotes.App.Views.ColorPickerPanel.FromHsv(200, 1, 0));
-        foreach (var color in ColorPalette.Basic.Append(new RgbColor(0x12, 0x80, 0x40)).Append(new RgbColor(0xFF, 0xF2, 0xA8)))
-        {
-            var (h, s, v) = PdfNotes.App.Views.ColorPickerPanel.ToHsv(color);
-            Assert.Equal(color, PdfNotes.App.Views.ColorPickerPanel.FromHsv(h, s, v));
-        }
     }
 
     [Fact]

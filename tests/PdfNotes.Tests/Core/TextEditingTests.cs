@@ -32,9 +32,6 @@ public sealed class TextEditingTests
         Assert.True(TextLayout.Measure(narrow).Height > TextLayout.Measure(box).Height, $"Wide={TextLayout.Measure(box).Height}, narrow={TextLayout.Measure(narrow).Height}");
         var styled = TextEditing.Format(box, 0, 10, r => r with { SizePt = 32, Bold = true });
         Assert.True(TextLayout.Measure(styled).Height >= TextLayout.Measure(box).Height);
-#if !DEOT_SKIA
-        if (!TextEngineSetup.Skia) Assert.True(WpfText.Measure(box).Drawing.IsFrozen); // the WPF screen drawing is shared across threads
-#endif
     }
     [Fact] public void LayoutIsReusedForAMovedCopyButNotForChangedContent()
     {

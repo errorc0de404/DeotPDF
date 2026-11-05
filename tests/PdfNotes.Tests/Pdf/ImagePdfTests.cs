@@ -1,6 +1,4 @@
 using System.IO;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using PdfNotes.Core.Commands;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
@@ -25,10 +23,23 @@ public sealed class ImagePdfTests
             pixels[i + 2] = y < 2 ? (byte)255 : (byte)0;
             pixels[i + 3] = x < 4 ? (byte)0 : y < 2 ? (byte)255 : (byte)128;
         }
-        var bitmap = BitmapSource.Create(8, 4, 96, 96, PixelFormats.Bgra32, null, pixels, 32);
-        BitmapEncoder encoder = media switch { "image/jpeg" => new JpegBitmapEncoder(), "image/bmp" => new BmpBitmapEncoder(), _ => new PngBitmapEncoder() };
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var buffer = new MemoryStream(); encoder.Save(buffer); return buffer.ToArray();
+        if (media == "image/bmp") return Bmp(8, 4, pixels);
+        using var bitmap = new SkiaSharp.SKBitmap(new SkiaSharp.SKImageInfo(8, 4, SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Unpremul));
+        System.Runtime.InteropServices.Marshal.Copy(pixels, 0, bitmap.GetPixels(), pixels.Length);
+        using var data = bitmap.Encode(media == "image/jpeg" ? SkiaSharp.SKEncodedImageFormat.Jpeg : SkiaSharp.SKEncodedImageFormat.Png, 90);
+        return data.ToArray();
+    }
+
+    /// <summary>A 32-bit top-down BMP (BITMAPINFOHEADER) of BGRA pixels.</summary>
+    private static byte[] Bmp(int width, int height, byte[] bgra)
+    {
+        using var buffer = new MemoryStream();
+        using var w = new BinaryWriter(buffer);
+        w.Write((byte)'B'); w.Write((byte)'M'); w.Write(54 + bgra.Length); w.Write(0); w.Write(54);
+        w.Write(40); w.Write(width); w.Write(-height); w.Write((short)1); w.Write((short)32); w.Write(0); w.Write(bgra.Length);
+        w.Write(2835); w.Write(2835); w.Write(0); w.Write(0);
+        w.Write(bgra);
+        return buffer.ToArray();
     }
     private static DocumentModel Model(byte[] payload, string media, int rotation = 0)
     {

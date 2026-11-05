@@ -112,7 +112,7 @@ public sealed partial class LanguagePackTests(ITestOutputHelper output) : IDispo
     [Fact]
     public void TheShippedEnglishPackMatchesTheKoreanKeysAndPlaceholders()
     {
-        string file = Path.Combine(Path.GetDirectoryName(SourceRoot())!, "src", "PdfNotes.App", "Languages", "en.json");
+        string file = Path.Combine(Path.GetDirectoryName(SourceRoot())!, "src", "PdfNotes.Desktop", "Languages", "en.json");
         Strings.Use(LanguagePack.Parse(File.ReadAllText(file), file));
         Assert.Equal("en", Strings.Language);
         Assert.Equal("Saved", Strings.Get("status.saved"));

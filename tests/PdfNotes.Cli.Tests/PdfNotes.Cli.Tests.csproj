@@ -1,12 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Roadmap P2 S7: the CLI and PDF tests against the WPF-free CLI (-p:DeotEngine=Skia), for Windows, Linux and macOS in
-       the check workflow. The test files are the Windows test project's, compiled with DEOT_SKIA. Not part of the
-       solution. Build and run with the property set for every project (restore does not pass a reference's own):
-         dotnet test tests/PdfNotes.Cli.Tests -c Release -p:DeotEngine=Skia -->
+  <!-- The CLI and PDF tests of tests/PdfNotes.Tests (its files, linked) for Windows, Linux and macOS in the check
+       workflow, with the fonts each system has. Not part of the solution:
+         dotnet test tests/PdfNotes.Cli.Tests -c Release -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
-    <DefineConstants>$(DefineConstants);DEOT_SKIA</DefineConstants>
     <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
     <RootNamespace>PdfNotes.Tests</RootNamespace>
   </PropertyGroup>
@@ -28,11 +26,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../PdfNotes.Tests/Cli/*.cs" Link="Cli/%(Filename)%(Extension)" />
-    <Compile Include="../PdfNotes.Tests/Pdf/*.cs" Exclude="../PdfNotes.Tests/Pdf/ImagePdfTests.cs;../PdfNotes.Tests/Pdf/ProbePdfTests.cs;../PdfNotes.Tests/Pdf/SaveCompatibilityTests.cs;../PdfNotes.Tests/Pdf/TextPdfTests.cs" Link="Pdf/%(Filename)%(Extension)" />
+    <Compile Include="../PdfNotes.Tests/Pdf/*.cs" Exclude="../PdfNotes.Tests/Pdf/ImagePdfTests.cs;../PdfNotes.Tests/Pdf/SaveCompatibilityTests.cs;../PdfNotes.Tests/Pdf/TextPdfTests.cs" Link="Pdf/%(Filename)%(Extension)" />
     <Compile Include="../PdfNotes.Tests/Core/TestModels.cs;../PdfNotes.Tests/Core/ShapeTests.cs;../PdfNotes.Tests/Core/TextEditingTests.cs" Link="Core/%(Filename)%(Extension)" />
     <Compile Include="../PdfNotes.Tests/TextEngine/LineBreakerTests.cs" Link="TextEngine/LineBreakerTests.cs" />
   </ItemGroup>
-  <Target Name="RequireSkiaEngine" BeforeTargets="CollectPackageReferences;Build">
-    <Error Condition="'$(DeotEngine)' != 'Skia'" Text="Build this project with -p:DeotEngine=Skia (the CLI under test is the WPF-free build)." />
-  </Target>
 </Project>

@@ -1,7 +1,4 @@
 using System.IO;
-using PdfNotes.App.Services;
-using PdfNotes.App.Themes;
-using PdfNotes.App.Tools;
 using PdfNotes.Core.Models;
 
 namespace PdfNotes.Tests.App;

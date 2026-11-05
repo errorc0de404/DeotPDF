@@ -1,9 +1,9 @@
 # Adds DeotPDF to the "Open with" list for .pdf files for the current user (HKCU, no admin rights).
 # It does not make DeotPDF the default PDF app (spec 2.3, 4.6); Windows asks the user for that.
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File tools/register-open-with.ps1 [-Exe <DeotPDF.exe>] [-Unregister]
-# Default exe: DeotPDF.exe next to this script, else DeotPDF.Next.exe there (the Avalonia app before it takes the name),
-# else artifacts/publish/win-x64/DeotPDF.exe (a later publish to that folder keeps the registration valid).
-# The application entry is named after the exe, so registering one app replaces the other's command in the ProgId.
+# Default exe: DeotPDF.exe next to this script, else artifacts/publish/win-x64/DeotPDF.exe (a later publish to that
+# folder keeps the registration valid). The application entry is named after the exe; -Unregister also removes the
+# entry of DeotPDF.Next.exe, the name the cross-platform app had before 1.2.1.
 param([string]$Exe = "", [switch]$Unregister)
 
 $progId = "PdfNotes.Pdf"
@@ -30,7 +30,7 @@ if ($Unregister) {
 }
 
 # In a release zip the script sits next to DeotPDF.exe.
-foreach ($name in $appNames) { if ($Exe -eq "" -and (Test-Path (Join-Path $PSScriptRoot $name))) { $Exe = Join-Path $PSScriptRoot $name } }
+if ($Exe -eq "" -and (Test-Path (Join-Path $PSScriptRoot "DeotPDF.exe"))) { $Exe = Join-Path $PSScriptRoot "DeotPDF.exe" }
 if ($Exe -eq "") { $Exe = Join-Path (Split-Path $PSScriptRoot -Parent) "artifacts\publish\win-x64\DeotPDF.exe" }
 $Exe = [System.IO.Path]::GetFullPath($Exe)
 if (-not (Test-Path $Exe)) { throw "Not found: $Exe (publish first)" }

@@ -90,7 +90,6 @@ public sealed class PageTransformTests
         Assert.Equal(a.Characters.Length, b.Characters.Length); Assert.InRange(Math.Abs(a.Height * .8 - b.Height), 0, .01);
         for (int i = 0; i < a.Characters.Length; i++)
         { Assert.Equal(a.Characters[i].Line, b.Characters[i].Line); Assert.InRange(Math.Abs(a.Characters[i].Bounds.X * .8 - b.Characters[i].Bounds.X), 0, .01); }
-        Assert.Equal(3.2, WpfText.Document(scaled).PagePadding.Left);
     }
     [Fact]
     public void V4RoundTripsAndOldReadersRejectExtendedDataAndLegacyStillMigrates()

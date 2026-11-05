@@ -24,9 +24,7 @@ fi
 
 exe=${1:-}
 if [ -z "$exe" ]; then
-    for name in DeotPDF DeotPDF.Next; do
-        if [ -z "$exe" ] && [ -x "$here/$name" ]; then exe=$here/$name; fi
-    done
+    if [ -x "$here/DeotPDF" ]; then exe=$here/DeotPDF; fi
 fi
 if [ -z "$exe" ] || [ ! -x "$exe" ]; then echo "Not found: the DeotPDF executable (give its path)" >&2; exit 1; fi
 exe=$(CDPATH= cd -- "$(dirname -- "$exe")" && pwd)/$(basename -- "$exe")

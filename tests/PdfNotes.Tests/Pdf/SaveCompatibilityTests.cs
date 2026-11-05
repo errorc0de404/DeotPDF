@@ -1,7 +1,5 @@
 using System.Collections.Immutable;
 using System.IO;
-using System.Windows.Threading;
-using PdfNotes.App.Services;
 using PdfNotes.Core.Commands;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;

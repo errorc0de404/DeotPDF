@@ -1,5 +1,3 @@
-using System.Windows;
-using System.Windows.Media;
 using PdfNotes.Core.Geometry;
 
 namespace PdfNotes.Tests.Core;
@@ -107,23 +105,21 @@ public class GeometryTests
     [InlineData(-180, 180)]
     public void RawPdfRotationNormalizesLikePdfium(int raw, int expected) => Assert.Equal(expected, PageRotation.FromPdfValue(raw));
 
+    /// <summary>Row vectors (as PDF and the 1.x WPF matrices): a point is p·M, and a.Then(b) applies a first, then b.</summary>
     [Fact]
-    public void AffineUsesTheSameRowVectorConventionAsWpfMatrix()
+    public void AffineUsesRowVectorsAndThenAppliesTheLeftFirst()
     {
         var a = Affine.Rigid(0.7, 12, -3).Then(Affine.Scale(1.5, 0.5));
         var b = new Affine(0.2, -1.1, 3.3, 0.9, 5, 6);
-        var wa = new Matrix(a.M11, a.M12, a.M21, a.M22, a.OffsetX, a.OffsetY);
-        var wb = new Matrix(b.M11, b.M12, b.M21, b.M22, b.OffsetX, b.OffsetY);
-        var point = new Point(3.25, -8.5);
-        var expected = Matrix.Multiply(wa, wb).Transform(point); // WPF: wa first, then wb
-        var actual = a.Then(b).Transform(new(point.X, point.Y));
+        static Point2 Apply(Affine m, Point2 p) => new(p.X * m.M11 + p.Y * m.M21 + m.OffsetX, p.X * m.M12 + p.Y * m.M22 + m.OffsetY);
+        var point = new Point2(3.25, -8.5);
+        var expected = Apply(b, Apply(a, point));
+        var actual = a.Then(b).Transform(point);
         Assert.Equal(expected.X, actual.X, 9);
         Assert.Equal(expected.Y, actual.Y, 9);
-        var inverse = a.Invert();
-        wa.Invert();
-        Assert.Equal(wa.M11, inverse.M11, 12);
-        Assert.Equal(wa.OffsetX, inverse.OffsetX, 9);
-        Assert.Equal(wa.OffsetY, inverse.OffsetY, 9);
+        var back = a.Invert().Transform(a.Transform(point));
+        Assert.Equal(point.X, back.X, 9);
+        Assert.Equal(point.Y, back.Y, 9);
     }
 
     [Fact]

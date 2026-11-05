@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Roadmap P4: the Avalonia desktop app for Windows, macOS and Linux (1.3). Until it replaces the WPF app (A7) the
-       executable is DeotPDF.Next so both can sit in one folder. Build another OS with -p:RuntimeIdentifier=linux-x64 etc. -->
+  <!-- DeotPDF, the desktop app for Windows, macOS and Linux (roadmap P4; the WPF app it replaced was retired in 1.2.1,
+       decision 21). Build another system with -p:RuntimeIdentifier=linux-x64 etc.; release packages: tools/package-release.ps1. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>DeotPDF.Next</AssemblyName>
+    <AssemblyName>DeotPDF</AssemblyName>
     <RootNamespace>PdfNotes.Desktop</RootNamespace>
-    <ApplicationIcon>..\PdfNotes.App\Assets\DeotPDF.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\DeotPDF.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
   <ItemGroup>
@@ -28,7 +28,7 @@
     <ProjectReference Include="..\PdfNotes.Render.Skia\PdfNotes.Render.Skia.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- The language packs the WPF app ships; the same files until it is retired. -->
-    <None Include="..\PdfNotes.App\Languages\*.json" Link="Languages\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The language packs shipped next to the app (D14e: the app folder's Languages, then the settings folder's). -->
+    <None Include="Languages\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

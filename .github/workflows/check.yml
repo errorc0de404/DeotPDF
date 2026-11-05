@@ -1,7 +1,7 @@
-# Checks the text engine work of roadmap P2 (1.2) on every push to main or a dev-* branch, and on demand. Nothing is uploaded.
-# - Windows: the full test suite with the WPF engine and again with the Skia engine (PDFNOTES_TEXT_ENGINE=skia).
-# - Windows, Ubuntu, macOS: the CLI and PDF tests against the WPF-free CLI build (-p:DeotEngine=Skia), and the
-#   Avalonia app under Avalonia.Headless with a smoke test of its release package.
+# Checks every push to main, p4 or a dev-* branch, and on demand. Nothing is uploaded.
+# - Windows: the shared test suite (model, PDF, text engine, editor, view models, CLI).
+# - Windows, Ubuntu, macOS: the CLI and PDF tests with each system's fonts, and the app under Avalonia.Headless with a
+#   smoke test of its release package.
 name: Check
 
 on:
@@ -25,13 +25,8 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Tests (WPF text engine)
+      - name: Tests
         run: dotnet test tests/PdfNotes.Tests -c Release
-
-      - name: Tests (Skia text engine)
-        env:
-          PDFNOTES_TEXT_ENGINE: skia
-        run: dotnet test tests/PdfNotes.Tests -c Release --no-build
 
   skia-cli:
     strategy:
@@ -69,8 +64,8 @@ jobs:
           echo "sample font: $font"
           echo "PDFNOTES_SAMPLE_FONT=$font" >> "$GITHUB_ENV"
 
-      - name: CLI and PDF tests (Skia build)
-        run: dotnet test tests/PdfNotes.Cli.Tests -c Release -p:DeotEngine=Skia -p:RuntimeIdentifier=${{ matrix.rid }}
+      - name: CLI and PDF tests
+        run: dotnet test tests/PdfNotes.Cli.Tests -c Release -p:RuntimeIdentifier=${{ matrix.rid }}
 
   desktop:
     # Roadmap P4: the Avalonia app (PdfNotes.Desktop) under Avalonia.Headless on all three systems.
@@ -113,8 +108,8 @@ jobs:
       - name: Package (smoke test)
         shell: pwsh
         run: |
-          ./tools/package-desktop.ps1 -Rid ${{ matrix.rid }} -OutDir artifacts/check
-          $folder = Get-ChildItem artifacts/check -Directory | Select-Object -First 1
+          ./tools/package-release.ps1 -Rid ${{ matrix.rid }} -OutDir artifacts/check
+          $folder = Get-ChildItem artifacts/check -Directory | Sort-Object Name | Select-Object -Last 1 # the portable one on Windows
           $deot = switch ("${{ runner.os }}") {
             "Windows" { Join-Path $folder.FullName "deot.exe" }
             "macOS" { Join-Path $folder.FullName "DeotPDF.app/Contents/MacOS/deot" }

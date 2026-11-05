@@ -1,8 +1,8 @@
 # DeotPDF (덧PDF)
 
-**A lightweight PDF annotation and note-taking app for Windows, with a command-line tool (`deot`) that lets scripts and AI agents write on PDFs too.**
+**A lightweight PDF annotation and note-taking app for Windows, macOS and Linux, with a command-line tool (`deot`) that lets scripts and AI agents write on PDFs too.**
 
-**윈도우용 가벼운 PDF 필기·주석 프로그램입니다. 스크립트나 AI 에이전트가 PDF에 필기할 수 있는 명령줄 도구(`deot`)도 함께 들어 있습니다.**
+**윈도우·맥·리눅스에서 쓰는 가벼운 PDF 필기·주석 프로그램입니다. 스크립트나 AI 에이전트가 PDF에 필기할 수 있는 명령줄 도구(`deot`)도 함께 들어 있습니다.**
 
 [English](#english) · [한국어](#한국어) · [Download / 다운로드](https://github.com/errorc0de404/DeotPDF/releases/latest) · [CLI guide](docs/cli.md) · [CLI 설명서](docs/cli.ko.md)
 
@@ -12,7 +12,7 @@
 
 ## English
 
-DeotPDF is a free, open-source PDF note-taking app for Windows 10 and 11. You open a PDF (lecture slides, a paper, a manual) and write on it with a pen, highlighter, text boxes, shapes and images, using an ordinary mouse and keyboard. When you save, you get a normal PDF back. Other PDF viewers show your notes, and DeotPDF can still edit them the next time you open the file.
+DeotPDF is a free, open-source PDF note-taking app for Windows 10 and 11, macOS and Linux. You open a PDF (lecture slides, a paper, a manual) and write on it with a pen, highlighter, text boxes, shapes and images, with a mouse and keyboard or a tablet pen. When you save, you get a normal PDF back. Other PDF viewers show your notes, and DeotPDF can still edit them the next time you open the file.
 
 I built it because I wanted something between a heavy PDF editor and a plain viewer: it opens fast, doesn't need an account or an internet connection, and handles Korean text input properly.
 
@@ -21,7 +21,7 @@ The name comes from the Korean prefix 덧 (*deot*), "added on top". The original
 ### What you can do
 
 **Writing and marking up**
-- Pen and freehand highlighter with adjustable color, width and opacity
+- Pen and freehand highlighter with adjustable color, width and opacity. A tablet pen draws with pressure, its eraser end erases, and a resting palm is ignored
 - Highlighter that snaps to the PDF's text: highlight, underline or strikeout exactly along the words
 - Text boxes with per-character formatting (font, size, color, bold/italic/underline/strikeout, background, border) and full Korean IME support
 - Straight lines and Bézier curves with arrowheads and dash styles; rectangles, ellipses, triangles and polygons
@@ -31,6 +31,7 @@ The name comes from the Korean prefix 덧 (*deot*), "added on top". The original
 
 **Selecting and editing**
 - Click, Shift-click, rectangle or lasso selection; move, resize and rotate; lock items so they stay put
+- Two fingers zoom and scroll on a touch screen; drawing with a finger can be turned on in Settings
 - Copy and paste between pages and between windows; full undo/redo
 
 **Pages**
@@ -53,23 +54,32 @@ The name comes from the Korean prefix 덧 (*deot*), "added on top". The original
 
 ### Download and run
 
-1. Grab a zip from the [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) page:
-   - `DeotPDF-1.1.0-win-x64.zip` (small). Needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64). If it isn't installed, Windows will tell you when you start the app.
-   - `DeotPDF-1.1.0-win-x64-portable.zip` (bigger, includes the runtime). Unzip and run, nothing else to install.
-2. Unzip anywhere and run `DeotPDF.exe`.
-3. Optional: to have DeotPDF show up under *Open with* for `.pdf` files, run this in the unzipped folder. It only touches your user account, needs no admin rights, and doesn't change your default PDF app.
-   ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File .\register-open-with.ps1
-   # undo: add -Unregister
-   ```
+Grab the file for your system from the [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) page.
 
-There's no installer yet. Settings and backups live in `%LOCALAPPDATA%\PdfNotes`.
+**Windows**
+- `DeotPDF-<version>-win-x64.zip` (small) needs the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64). If it isn't installed, Windows tells you when you start the app.
+- `DeotPDF-<version>-win-x64-portable.zip` (bigger) has the runtime inside. Unzip and run.
 
-Windows may show a blue *Windows protected your PC* (SmartScreen) box the first time, because the app is new and not widely downloaded yet. Click **More info**, then **Run anyway**. If you want to check the download first, compare the zip's SHA256 with the one on the release page.
+Unzip anywhere and run `DeotPDF.exe`. To have DeotPDF show up under *Open with* for `.pdf` files, run this in the unzipped folder. It only touches your user account, needs no admin rights, and doesn't change your default PDF app.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\register-open-with.ps1
+# undo: add -Unregister
+```
+Windows may show a blue *Windows protected your PC* (SmartScreen) box the first time, because the app is new and not widely downloaded yet. Click **More info**, then **Run anyway**.
+
+**macOS** (Apple silicon: `macos-arm64`, Intel: `macos-x64`)
+
+Unzip and move `DeotPDF.app` to Applications. The app isn't signed with an Apple developer ID, so the first time, right-click it, choose **Open**, then **Open** again. After that it starts normally and shows up under *Open With* for PDF files.
+
+**Linux** (`linux-x64.tar.gz`)
+
+Unpack and run `./DeotPDF`. Korean text needs a Korean font such as Noto Sans CJK KR (`sudo apt install fonts-noto-cjk` on Debian and Ubuntu). `./register-open-with.sh` adds DeotPDF to *Open with* for your user.
+
+There's no installer yet; the macOS and Linux packages include the .NET runtime. Settings and backups live in `%LOCALAPPDATA%\PdfNotes` on Windows, `~/Library/Application Support/PdfNotes` on macOS and `~/.config/PdfNotes` on Linux. To check a download, compare its SHA256 with the one on the release page.
 
 ### The `deot` command-line tool
 
-The zip also contains `deot.exe`. It uses the same engine as the app, so whatever it writes looks and behaves exactly like something you drew yourself, and you can keep editing it in DeotPDF afterwards.
+Every package also contains `deot` (`deot.exe` on Windows, `DeotPDF.app/Contents/MacOS/deot` on macOS). It uses the same engine as the app, so whatever it writes looks and behaves exactly like something you drew yourself, and you can keep editing it in DeotPDF afterwards.
 
 It was made with AI agents in mind: every command prints a single JSON object, errors come with stable codes, and `deot schema` describes every command's input and output. For example:
 
@@ -92,21 +102,22 @@ The full guide is in [docs/cli.md](docs/cli.md).
 
 ### Build from source
 
-You need Windows and the .NET SDK 10.0.401 (pinned in `global.json`).
+You need the .NET SDK 10.0.401 (pinned in `global.json`) on Windows, macOS or Linux.
 
 ```powershell
 git clone https://github.com/errorc0de404/DeotPDF.git
 cd DeotPDF
-dotnet restore PdfNotes.slnx --locked-mode
-dotnet build PdfNotes.slnx -c Release --no-restore
+dotnet build PdfNotes.slnx -c Release
 dotnet test PdfNotes.slnx -c Release --no-build
-dotnet run --project src/PdfNotes.App -c Release -- path\to\file.pdf
+dotnet run --project src/PdfNotes.Desktop -c Release -- path/to/file.pdf
 ```
 
-To build the two release zips (they land in `artifacts/release`):
+The lock files are for Windows (`dotnet restore --locked-mode` works there). On macOS and Linux add `-p:RuntimeIdentifier=osx-arm64`, `linux-x64` and so on.
+
+To build the release packages for one system (they land in `artifacts/release`), use PowerShell:
 
 ```powershell
-powershell -NoProfile -File tools/package-release.ps1
+pwsh tools/package-release.ps1 -Rid win-x64     # or linux-x64, osx-arm64, osx-x64
 ```
 
 Releases are built the same way by GitHub Actions (`.github/workflows/release.yml`).
@@ -115,20 +126,23 @@ Releases are built the same way by GitHub Actions (`.github/workflows/release.ym
 
 | Folder | What's in it |
 |---|---|
-| `src/PdfNotes.App` | The WPF app: windows, ribbon, canvas, tools |
-| `src/PdfNotes.Editor` | Tool state, sessions, settings, search, backups (no WPF) |
+| `src/PdfNotes.Desktop` | The app (Avalonia): windows, ribbon, canvas, dialogs |
+| `src/PdfNotes.ViewModels` | What the windows show and do, without a UI library |
+| `src/PdfNotes.Editor` | Tools, sessions, settings, search, backups |
 | `src/PdfNotes.Core` | Document model, geometry, edit commands, undo/redo, serialization |
 | `src/PdfNotes.Pdf` | Everything that talks to PDFium and PDFsharp: rendering, text extraction, saving, flatten |
-| `src/PdfNotes.Text`, `src/PdfNotes.Text.Wpf` | Text layout shared by the screen, saved PDFs and the CLI |
+| `src/PdfNotes.Text`, `src/PdfNotes.Text.Skia` | Text layout (Skia and HarfBuzz) shared by the screen, saved PDFs and the CLI |
+| `src/PdfNotes.TextEditor`, `src/PdfNotes.TextEditor.Avalonia` | The text box editor and its IME handling |
+| `src/PdfNotes.Render.Skia` | Drawing annotations on screen |
 | `tools/PdfNotes.Cli` | The `deot` command-line tool |
-| `tests/PdfNotes.Tests` | Unit and integration tests |
+| `tests/` | Unit and integration tests, and the app's window tests (Avalonia.Headless) |
 | `docs/` | CLI guide, and [the format of the editing data stored in PDFs](docs/file-format.md) (Korean) |
 
-Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](https://pdfium.googlesource.com/pdfium/), reading and writing use [PDFsharp](https://github.com/empira/PDFsharp), and the eraser and lasso use [Clipper2](https://github.com/AngusJohnson/Clipper2).
+Built with C#, .NET 10 and [Avalonia](https://avaloniaui.net). Text and drawing use [SkiaSharp](https://github.com/mono/SkiaSharp) and HarfBuzz, PDF rendering and text extraction use [PDFium](https://pdfium.googlesource.com/pdfium/), reading and writing use [PDFsharp](https://github.com/empira/PDFsharp), and the eraser and lasso use [Clipper2](https://github.com/AngusJohnson/Clipper2).
 
 ### Known limitations
 
-- Mouse and keyboard only for now. Pen pressure, palm rejection and touch gestures aren't there yet.
+- The macOS and Linux versions pass the automated tests on both systems, but I haven't used them on a real Mac or Linux PC yet. Korean input on Linux depends on your input method setup. Reports are welcome.
 - PDFs that need a password to open, and digitally signed PDFs, aren't opened.
 - No printing. Export a flattened PDF and print it from another viewer.
 - If another app re-saves the PDF, DeotPDF may no longer be able to edit its notes (they stay visible).
@@ -141,7 +155,7 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 
 **Will my notes show up in other PDF readers?** Yes. They're saved as standard PDF annotations with their own appearance, so Chrome, Edge, Firefox and most other readers display them.
 
-**Does it work on macOS or Linux?** Not yet. The core is plain .NET, but the app UI is WPF, which is Windows-only.
+**Does it work on macOS or Linux?** Yes, since 1.2.1. Up to 1.1 it was Windows-only (the UI was WPF); the app was rebuilt on Avalonia so the same code runs on all three. Files, settings and backups carry over from 1.1.
 
 **Can an AI agent use it?** Yes, through `deot`. See [docs/cli.md](docs/cli.md).
 
@@ -149,7 +163,7 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 
 ## 한국어
 
-덧PDF(DeotPDF)는 윈도우 10·11용 무료 오픈소스 PDF 필기 프로그램입니다. 강의 자료, 논문, 매뉴얼 같은 PDF를 열어서 마우스와 키보드로 펜, 형광펜, 텍스트 상자, 도형, 이미지를 얹을 수 있습니다. 저장하면 일반 PDF가 됩니다. 다른 PDF 뷰어에서도 필기가 그대로 보이고, 덧PDF로 다시 열면 이어서 고칠 수 있습니다.
+덧PDF(DeotPDF)는 윈도우 10·11, 맥, 리눅스에서 쓰는 무료 오픈소스 PDF 필기 프로그램입니다. 강의 자료, 논문, 매뉴얼 같은 PDF를 열어서 마우스·키보드나 태블릿 펜으로 펜, 형광펜, 텍스트 상자, 도형, 이미지를 얹을 수 있습니다. 저장하면 일반 PDF가 됩니다. 다른 PDF 뷰어에서도 필기가 그대로 보이고, 덧PDF로 다시 열면 이어서 고칠 수 있습니다.
 
 무거운 PDF 편집기와 단순 뷰어 사이쯤 되는 프로그램이 필요해서 만들었습니다. 빨리 열리고, 계정이나 인터넷 연결이 필요 없고, 한글 입력이 제대로 되는 것을 목표로 했습니다.
 
@@ -158,7 +172,7 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 ### 주요 기능
 
 **필기와 표시**
-- 펜, 자유 형광펜 (색·굵기·투명도 조절)
+- 펜, 자유 형광펜 (색·굵기·투명도 조절). 태블릿 펜은 필압대로 굵기가 바뀌고, 펜 뒤쪽 지우개로 지울 수 있고, 화면에 손바닥을 대도 그려지지 않습니다
 - PDF 글자에 맞춰 붙는 형광펜: 글자 위에서 그으면 형광·밑줄·취소선이 글자 줄에 딱 맞게 들어갑니다
 - 텍스트 상자: 글자마다 글꼴·크기·색·굵게·기울임·밑줄·취소선을 따로 줄 수 있고, 배경과 테두리도 넣을 수 있습니다. 한글 입력도 문제없이 됩니다
 - 직선, 곡선(화살표·점선 포함), 사각형, 타원, 삼각형, 다각형
@@ -168,6 +182,7 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 
 **선택과 편집**
 - 클릭, Shift 클릭, 사각형 선택, 올가미 선택. 옮기기, 크기 조절, 회전, 잠금
+- 터치 화면에서는 두 손가락으로 확대하고 움직입니다. 손가락으로 그리기는 설정에서 켤 수 있습니다
 - 페이지 사이, 창 사이 복사·붙여넣기, 실행 취소·다시 실행
 
 **페이지**
@@ -190,23 +205,32 @@ Built with C#, WPF and .NET 10. PDF rendering and text extraction use [PDFium](h
 
 ### 다운로드와 실행
 
-1. [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) 페이지에서 zip을 받습니다.
-   - `DeotPDF-1.1.0-win-x64.zip`: 용량이 작은 대신 [.NET 10 데스크톱 런타임](https://dotnet.microsoft.com/download/dotnet/10.0)(x64)이 필요합니다. 없으면 실행할 때 윈도우가 알려 줍니다.
-   - `DeotPDF-1.1.0-win-x64-portable.zip`: 런타임이 들어 있어 용량이 큽니다. 압축만 풀면 바로 됩니다.
-2. 아무 데나 압축을 풀고 `DeotPDF.exe`를 실행합니다.
-3. (선택) PDF 파일 우클릭 › '연결 프로그램'에 덧PDF가 뜨게 하려면 압축 푼 폴더에서 아래를 실행합니다. 지금 사용자 계정에만 등록되고, 관리자 권한이 필요 없고, 기본 PDF 프로그램은 바꾸지 않습니다.
-   ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File .\register-open-with.ps1
-   # 지우려면 뒤에 -Unregister
-   ```
+[Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) 페이지에서 쓰는 시스템에 맞는 파일을 받습니다.
 
-아직 설치 프로그램은 없습니다. 설정과 백업은 `%LOCALAPPDATA%\PdfNotes`에 저장됩니다.
+**윈도우**
+- `DeotPDF-<버전>-win-x64.zip`: 용량이 작은 대신 [.NET 10 런타임](https://dotnet.microsoft.com/download/dotnet/10.0)(x64)이 필요합니다. 없으면 실행할 때 윈도우가 알려 줍니다.
+- `DeotPDF-<버전>-win-x64-portable.zip`: 런타임이 들어 있어 용량이 큽니다. 압축만 풀면 바로 됩니다.
 
-처음 실행할 때 파란색 'Windows의 PC 보호'(SmartScreen) 창이 뜰 수 있습니다. 새로 나온 프로그램이라 아직 받은 사람이 적어서 그렇습니다. '추가 정보'를 누른 다음 '실행'을 누르면 됩니다. 받은 파일이 맞는지 확인하고 싶으면 zip의 SHA256을 릴리스 페이지에 적힌 값과 비교해 보세요.
+아무 데나 압축을 풀고 `DeotPDF.exe`를 실행합니다. PDF 파일 우클릭 › '연결 프로그램'에 덧PDF가 뜨게 하려면 압축 푼 폴더에서 아래를 실행합니다. 지금 사용자 계정에만 등록되고, 관리자 권한이 필요 없고, 기본 PDF 프로그램은 바꾸지 않습니다.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\register-open-with.ps1
+# 지우려면 뒤에 -Unregister
+```
+처음 실행할 때 파란색 'Windows의 PC 보호'(SmartScreen) 창이 뜰 수 있습니다. 새로 나온 프로그램이라 아직 받은 사람이 적어서 그렇습니다. '추가 정보'를 누른 다음 '실행'을 누르면 됩니다.
+
+**맥** (Apple 실리콘은 `macos-arm64`, 인텔은 `macos-x64`)
+
+압축을 풀고 `DeotPDF.app`을 '응용 프로그램' 폴더로 옮깁니다. Apple 개발자 서명이 없어서 처음 한 번은 앱을 우클릭해 '열기'를 고르고, 한 번 더 '열기'를 눌러야 합니다. 그다음부터는 그냥 열리고, Finder의 PDF '다음으로 열기' 목록에도 나옵니다.
+
+**리눅스** (`linux-x64.tar.gz`)
+
+압축을 풀고 `./DeotPDF`를 실행합니다. 한글을 보려면 Noto Sans CJK KR 같은 한글 글꼴이 있어야 합니다(Debian·Ubuntu는 `sudo apt install fonts-noto-cjk`). `./register-open-with.sh`를 실행하면 '다른 프로그램으로 열기'에 덧PDF가 들어갑니다.
+
+아직 설치 프로그램은 없습니다. 맥·리눅스 판에는 .NET 런타임이 들어 있습니다. 설정과 백업은 윈도우 `%LOCALAPPDATA%\PdfNotes`, 맥 `~/Library/Application Support/PdfNotes`, 리눅스 `~/.config/PdfNotes`에 저장됩니다. 받은 파일이 맞는지 확인하고 싶으면 SHA256을 릴리스 페이지에 적힌 값과 비교해 보세요.
 
 ### 명령줄 도구 `deot`
 
-zip 안에 `deot.exe`도 들어 있습니다. 앱과 같은 엔진을 써서, `deot`로 넣은 필기도 앱에서 직접 그린 것과 똑같이 보이고 덧PDF에서 이어서 고칠 수 있습니다.
+모든 패키지에 `deot`도 들어 있습니다(윈도우는 `deot.exe`, 맥은 `DeotPDF.app/Contents/MacOS/deot`). 앱과 같은 엔진을 써서, `deot`로 넣은 필기도 앱에서 직접 그린 것과 똑같이 보이고 덧PDF에서 이어서 고칠 수 있습니다.
 
 처음부터 AI 에이전트가 쓰기 좋게 만들었습니다. 모든 명령이 JSON 하나를 출력하고, 오류에는 정해진 코드가 붙고, `deot schema`로 명령마다 입력과 출력 형식을 확인할 수 있습니다. 예를 들면 이런 식입니다.
 
@@ -229,27 +253,27 @@ claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\Lectures
 
 ### 소스에서 빌드하기
 
-윈도우와 .NET SDK 10.0.401(`global.json`에 고정)이 필요합니다.
+.NET SDK 10.0.401(`global.json`에 고정)이 있으면 윈도우·맥·리눅스 어디서든 됩니다.
 
 ```powershell
 git clone https://github.com/errorc0de404/DeotPDF.git
 cd DeotPDF
-dotnet restore PdfNotes.slnx --locked-mode
-dotnet build PdfNotes.slnx -c Release --no-restore
+dotnet build PdfNotes.slnx -c Release
 dotnet test PdfNotes.slnx -c Release --no-build
-dotnet run --project src/PdfNotes.App -c Release -- 열고싶은파일.pdf
+dotnet run --project src/PdfNotes.Desktop -c Release -- 열고싶은파일.pdf
 ```
 
-배포용 폴더는 이렇게 만듭니다. 포터블 버전은 `--self-contained true`로 바꾸면 됩니다.
+잠금 파일은 윈도우 기준이라 `dotnet restore --locked-mode`는 윈도우에서 됩니다. 맥·리눅스에서는 `-p:RuntimeIdentifier=osx-arm64`, `linux-x64`처럼 붙여 주세요.
+
+배포용 패키지는 PowerShell로 만듭니다(`artifacts/release`에 생김).
 
 ```powershell
-dotnet publish src/PdfNotes.App -c Release -r win-x64 --self-contained false -o out/DeotPDF
-dotnet publish tools/PdfNotes.Cli -c Release -r win-x64 --self-contained false -o out/DeotPDF
+pwsh tools/package-release.ps1 -Rid win-x64     # linux-x64, osx-arm64, osx-x64도 됨
 ```
 
 ### 아직 안 되는 것
 
-- 지금은 마우스·키보드 전용입니다. 펜 필압, 손바닥 무시, 터치 제스처는 아직 없습니다.
+- 맥·리눅스 판은 두 시스템에서 자동 테스트를 통과했지만, 실제 맥이나 리눅스 PC에서는 아직 써 보지 못했습니다. 리눅스의 한글 입력은 입력기 설정에 따라 다를 수 있습니다. 문제가 있으면 알려 주세요.
 - 열 때 암호가 필요한 PDF와 전자서명된 PDF는 열지 않습니다.
 - 인쇄 기능이 없습니다. 필기 합친 PDF로 내보내서 다른 뷰어에서 인쇄해 주세요.
 - 다른 프로그램에서 다시 저장한 PDF는 필기가 보이기는 하지만 덧PDF에서 다시 고치지 못할 수 있습니다.
@@ -262,7 +286,7 @@ dotnet publish tools/PdfNotes.Cli -c Release -r win-x64 --self-contained false -
 
 **다른 PDF 뷰어에서도 필기가 보이나요?** 보입니다. 표준 PDF 주석으로 저장하기 때문에 크롬, 엣지, 파이어폭스 등 대부분의 뷰어에서 그대로 보입니다.
 
-**맥이나 리눅스에서도 되나요?** 아직은 윈도우 전용입니다. 핵심 코드는 일반 .NET이지만 화면이 WPF라서 윈도우에서만 돌아갑니다.
+**맥이나 리눅스에서도 되나요?** 1.2.1부터 됩니다. 1.1까지는 화면이 WPF라 윈도우 전용이었는데, 화면을 Avalonia로 다시 만들어 같은 코드가 세 시스템에서 돌아갑니다. 파일, 설정, 백업은 1.1에서 그대로 이어집니다.
 
 **AI 에이전트가 PDF에 필기하게 할 수 있나요?** `deot`로 할 수 있습니다. [docs/cli.ko.md](docs/cli.ko.md)를 보세요.
 
