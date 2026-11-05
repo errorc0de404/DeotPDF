@@ -110,13 +110,20 @@ public sealed partial class MainWindow : IPageListView, IPageThumbnailSource
         image.Bind(HeightProperty, new Binding(nameof(PageItemViewModel.ImageHeight)));
         var frame = new Border { Name = "Frame", BorderThickness = new(1), HorizontalAlignment = HorizontalAlignment.Center, Child = image };
         frame.Bind(Border.BackgroundProperty, frame.GetResourceObservable("Paper"));
-        frame.Bind(Border.BorderBrushProperty, new Binding(nameof(PageItemViewModel.IsActive)) { Converter = new FuncValueConverter<bool, IBrush?>(on => Brush(frame, on ? "Accent" : "Page.Border")) });
         frame.Bind(Border.BorderThicknessProperty, new Binding(nameof(PageItemViewModel.IsActive)) { Converter = new FuncValueConverter<bool, Thickness>(on => new(on ? 2 : 1)) });
         var number = new TextBlock { Name = "Number", HorizontalAlignment = HorizontalAlignment.Center, Margin = new(0, 3, 0, 0) };
         number.Bind(TextBlock.TextProperty, new Binding(nameof(PageItemViewModel.Number)));
         number.Bind(TextBlock.FontSizeProperty, number.GetResourceObservable("FontSize.Caption"));
         number.Bind(TextBlock.FontWeightProperty, new Binding(nameof(PageItemViewModel.IsActive)) { Converter = new FuncValueConverter<bool, FontWeight>(on => on ? FontWeight.Bold : FontWeight.Normal) });
-        number.Bind(TextBlock.ForegroundProperty, new Binding(nameof(PageItemViewModel.IsActive)) { Converter = new FuncValueConverter<bool, IBrush?>(on => Brush(number, on ? "Accent" : "Text.Muted")) });
+        // The colors are looked up when the binding converts: bound again when the theme or the accent changes (system theme, A6).
+        void BindColors()
+        {
+            frame.Bind(Border.BorderBrushProperty, new Binding(nameof(PageItemViewModel.IsActive)) { Converter = new FuncValueConverter<bool, IBrush?>(on => Brush(frame, on ? "Accent" : "Page.Border")) });
+            number.Bind(TextBlock.ForegroundProperty, new Binding(nameof(PageItemViewModel.IsActive)) { Converter = new FuncValueConverter<bool, IBrush?>(on => Brush(number, on ? "Accent" : "Text.Muted")) });
+        }
+        BindColors();
+        frame.ActualThemeVariantChanged += (_, _) => BindColors();
+        frame.ResourcesChanged += (_, _) => BindColors();
         return new StackPanel { Margin = new(2, 6, 2, 2), Children = { frame, number } };
     }
 

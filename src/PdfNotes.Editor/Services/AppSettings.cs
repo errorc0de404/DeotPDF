@@ -8,10 +8,13 @@ using PdfNotes.Editor.Tools;
 namespace PdfNotes.Editor.Services;
 
 /// <summary>
-/// Per-user app settings (spec 18) in %LOCALAPPDATA%\PdfNotes\settings.json. Not document state: changing them
+/// Per-user app settings (spec 18) in <see cref="AppSettings.Folder"/>/settings.json. Not document state: changing them
 /// never marks a document dirty or enters Undo. A missing or unreadable file falls back to defaults.
 /// </summary>
 public enum PageNumberSize { Small, Normal, Large }
+
+/// <summary>The systems with their own settings folder (<see cref="AppSettings.FolderFor"/>).</summary>
+public enum SettingsPlatform { Windows, MacOS, Linux }
 
 /// <summary>The theme setting (spec 3.2, 2026-10-13): follow Windows (default), light or dark.</summary>
 public enum ThemeChoice { System, Light, Dark }
@@ -189,7 +192,7 @@ public sealed class AppSettings
     public DateTime? UpdateCheckedAt { get; set; }
 
     /// <summary>Where language packs are looked for: the app folder's <c>Languages</c>, then the settings folder's (the user's copy wins).</summary>
-    public static string[] LanguageFolders => [Path.Combine(AppContext.BaseDirectory, "Languages"), Path.Combine(Path.GetDirectoryName(DefaultPath)!, "Languages")];
+    public static string[] LanguageFolders => [Path.Combine(AppContext.BaseDirectory, "Languages"), Path.Combine(Folder, "Languages")];
 
     /// <summary>
     /// The highlighter kind (spec 9.1: null = highlight, underline or strikeout) and the underline and strikeout styles,
@@ -238,8 +241,8 @@ public sealed class AppSettings
     public static readonly int[] BackupIntervals = [1, 3, 5, 10, 15, 30];
     public const int MinBackupKeep = 1, MaxBackupKeep = 50;
 
-    /// <summary>Backups go next to the settings (%LOCALAPPDATA%\PdfNotes\Backups).</summary>
-    public static string DefaultBackupFolder => Path.Combine(Path.GetDirectoryName(DefaultPath)!, "Backups");
+    /// <summary>Backups go next to the settings (<see cref="Folder"/>/Backups).</summary>
+    public static string DefaultBackupFolder => Path.Combine(Folder, "Backups");
 
     [JsonIgnore] public string EffectiveBackupFolder => string.IsNullOrWhiteSpace(BackupFolder) ? DefaultBackupFolder : BackupFolder;
 
@@ -263,12 +266,30 @@ public sealed class AppSettings
         (RecentColors ?? []).Select(text => RgbColor.TryParse(text, out var c) ? c : (RgbColor?)null)
             .OfType<RgbColor>().Distinct().Take(ColorPalette.MaxUser).ToList();
 
-    /// <summary>Settings folder override for tests and validation runs (environment variable PDFNOTES_SETTINGS_DIR).</summary>
-    public static string DefaultPath => Path.Combine(
-        Environment.GetEnvironmentVariable("PDFNOTES_SETTINGS_DIR") is { Length: > 0 } dir
-            ? dir
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PdfNotes"),
-        "settings.json");
+    /// <summary>The settings file, <c>settings.json</c> in <see cref="Folder"/>.</summary>
+    public static string DefaultPath => Path.Combine(Folder, "settings.json");
+
+    /// <summary>
+    /// The app's settings folder (decision 18): settings, backups, the running windows' markers and the user's language
+    /// packs. The environment variable PDFNOTES_SETTINGS_DIR replaces it for tests and validation runs.
+    /// </summary>
+    public static string Folder =>
+        Environment.GetEnvironmentVariable("PDFNOTES_SETTINGS_DIR") is { Length: > 0 } dir ? dir
+        : FolderFor(OperatingSystem.IsWindows() ? SettingsPlatform.Windows : OperatingSystem.IsMacOS() ? SettingsPlatform.MacOS : SettingsPlatform.Linux,
+            Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+
+    /// <summary>
+    /// The settings folder of each system (decision 18): Windows %LOCALAPPDATA%\PdfNotes (as 1.0–1.1), macOS
+    /// ~/Library/Application Support/PdfNotes, Linux $XDG_CONFIG_HOME/PdfNotes or ~/.config/PdfNotes (a relative
+    /// XDG_CONFIG_HOME is ignored, as the XDG base directory rules say).
+    /// </summary>
+    public static string FolderFor(SettingsPlatform platform, Func<string, string?> environment, string home, string localAppData) => platform switch
+    {
+        SettingsPlatform.Windows => Path.Combine(localAppData, "PdfNotes"),
+        SettingsPlatform.MacOS => Path.Combine(home, "Library", "Application Support", "PdfNotes"),
+        _ => Path.Combine(environment("XDG_CONFIG_HOME") is { Length: > 0 } config && Path.IsPathRooted(config) ? config : Path.Combine(home, ".config"), "PdfNotes")
+    };
 
     public static AppSettings Load(string? path = null)
     {
@@ -352,14 +373,21 @@ public sealed class AppSettings
     /// <summary>
     /// What a save writes when several windows share the file (spec 4.6, D14g): the items this window changed since it
     /// last read or wrote them, and the file's current value of every other item, so another window's change is kept.
+    /// Items this version does not know (written by a later one, P4 A6) stay in the file; the ones it retired do not.
     /// </summary>
     internal static System.Text.Json.Nodes.JsonObject Merge(System.Text.Json.Nodes.JsonObject mine, System.Text.Json.Nodes.JsonObject? before,
         System.Text.Json.Nodes.JsonObject? onDisk)
     {
         var merged = (System.Text.Json.Nodes.JsonObject)mine.DeepClone();
-        if (before is null || onDisk is null) return merged;
+        if (onDisk is null) return merged;
         foreach (var (key, value) in onDisk)
-            if (mine.ContainsKey(key) && System.Text.Json.Nodes.JsonNode.DeepEquals(mine[key], before[key])) merged[key] = value?.DeepClone();
+        {
+            bool unknown = !mine.ContainsKey(key) && !Retired.Contains(key);
+            if (unknown || mine.ContainsKey(key) && before is not null && System.Text.Json.Nodes.JsonNode.DeepEquals(mine[key], before[key])) merged[key] = value?.DeepClone();
+        }
         return merged;
     }
+
+    /// <summary>Items earlier versions wrote that this one read once and moved (D14g): never written back.</summary>
+    private static readonly HashSet<string> Retired = ["markup", "textHighlight", "textHighlightAuto", "editForeignAnnotations"];
 }

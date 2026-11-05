@@ -148,8 +148,17 @@ public sealed partial class MainWindow
         UpdateStyleBar();
         if (!focus) return; // the canvas keeps the keyboard until the first composition is committed
         textEditor.Focus();
-        Dispatcher.UIThread.Post(() => textEditor?.Focus(), DispatcherPriority.Input);
+        Dispatcher.UIThread.Post(() =>
+        {
+            textEditor?.Focus();
+            // Started with a finger tap: bring up the touch keyboard (spec 7.6, as the WPF window).
+            if (textEditor is not null && Canvas.LastPressDevice == PointerDevice.Touch)
+                TouchKeyboardShown = Platform.TouchKeyboard.Show(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
+        }, DispatcherPriority.Input);
     }
+
+    /// <summary>Whether the last finger-started text edit asked the touch keyboard to show and it agreed (null: not asked).</summary>
+    public bool? TouchKeyboardShown { get; private set; }
 
     /// <summary>Puts the editor over its box: the box's origin, rotation and the page zoom (points → DIPs).</summary>
     private void PositionTextEditor()

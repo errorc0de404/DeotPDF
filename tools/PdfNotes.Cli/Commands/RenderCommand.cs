@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
 using PdfNotes.Pdf.Engine;
+using PdfNotes.Editor.Services;
 
 namespace PdfNotes.Cli.Commands;
 
@@ -24,7 +25,7 @@ public static class RenderCommand
         var args = CliArgs.Parse(tokens, ["--page", "--pages", "--out", "--dpi", "--region", "--annotations", "--overlay", "--columns"], ["--grid"]);
         string input = args.InputPath();
         string output = CliPaths.Full(args.Required("--out"));
-        if (string.Equals(output, CliPaths.Full(input), StringComparison.OrdinalIgnoreCase))
+        if (FilePaths.Same(output, CliPaths.Full(input)))
             throw new CliException("SAME_AS_INPUT", "The output path is the input file.");
         var filter = AnnotationFilter(args.Value("--annotations") ?? "all");
         if (args.Flag("--grid"))

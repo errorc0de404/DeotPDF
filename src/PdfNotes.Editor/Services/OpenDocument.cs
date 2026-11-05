@@ -15,13 +15,13 @@ namespace PdfNotes.Editor.Services;
 /// </summary>
 public sealed class OpenDocument : IDisposable
 {
-    private OpenDocument(DocumentSession session, PdfSourceDocument? source, string? filePath)
+    private OpenDocument(DocumentSession session, PdfSourceDocument? source, DocumentLocation? location)
     {
         Session = session;
         Source = source;
         Sources = new DocumentSources(source);
-        FilePath = filePath;
-        if (source is not null) Baseline = new(source.FileLength, source.LastWriteTimeUtc);
+        Location = location;
+        Baseline = location is FileLocation && source is not null ? new(source.FileLength, source.LastWriteTimeUtc) : location?.Stamp();
         Renderer = new PageRenderer(Sources);
     }
 
@@ -32,42 +32,42 @@ public sealed class OpenDocument : IDisposable
     public DocumentSources Sources { get; }
     public PageRenderer Renderer { get; }
 
-    /// <summary>Current file path; null for a new note that was never saved. Save As changes it.</summary>
-    public string? FilePath { get; private set; }
+    /// <summary>Where the document lives; null for a new note that was never saved. Save As changes it.</summary>
+    public DocumentLocation? Location { get; private set; }
 
-    /// <summary>Length and write time of <see cref="FilePath"/> when this app last read or wrote it.</summary>
+    /// <summary>The document's local file; null for a new note or a location that is not a file.</summary>
+    public string? FilePath => Location?.FilePath;
+
+    /// <summary>Length and write time of <see cref="Location"/> when this app last read or wrote it.</summary>
     public FileBaseline? Baseline { get; private set; }
 
-    /// <summary>True when the file at <see cref="FilePath"/> was changed by someone else since it was opened or saved.</summary>
-    public bool FileChangedExternally()
-    {
-        if (FilePath is null || Baseline is not { } baseline) return false;
-        var info = new FileInfo(FilePath);
-        return info.Exists && (info.Length != baseline.Length || info.LastWriteTimeUtc != baseline.LastWriteTimeUtc);
-    }
+    /// <summary>True when <see cref="Location"/> was changed by someone else since it was opened or saved.</summary>
+    public bool FileChangedExternally() =>
+        Location?.Stamp() is { } now && Baseline is { } baseline && (now.Length != baseline.Length || now.LastWriteTimeUtc != baseline.LastWriteTimeUtc);
 
     /// <summary>
     /// Saves an editable PDF (spec 14.1, 14.4): snapshot on the calling (UI) thread, write + verify + replace in the
     /// background, then mark the snapshot saved and adopt the path. Edits made meanwhile stay unsaved. On failure
     /// nothing changes and <see cref="SaveFailedException"/> (or the writer's exception) propagates.
     /// </summary>
-    public async Task SaveAsync(string path)
+    public Task SaveAsync(string path) => SaveAsync(DocumentLocation.File(path));
+
+    /// <inheritdoc cref="SaveAsync(string)"/>
+    public async Task SaveAsync(DocumentLocation target)
     {
         Session.Execute(DocumentEdits.RemoveBlankTextBoxes(Session.Current));
         var snapshot = Session.CreateSnapshot();
-        string target = Path.GetFullPath(path);
         var sourcePages = Source?.Pages;
         var (sourceBytes, model, imported) = Sources.ForSave(snapshot.Model);
         bool written = await WriteSerializedAsync(target, () => Task.Run(() =>
         {
             byte[] pdf = EditablePdfWriter.Write(sourceBytes, sourcePages, model, imported);
-            SafeFileSaver.Save(target, pdf, written => EditablePdfWriter.Verify(written, model));
+            target.Replace(pdf, written => EditablePdfWriter.Verify(written, model));
         }));
         if (!written) return; // a newer save of this document reached the file first: never mark an older state saved
         Session.MarkSaved(snapshot);
-        FilePath = target;
-        var info = new FileInfo(target);
-        Baseline = new(info.Length, info.LastWriteTimeUtc);
+        Location = target;
+        Baseline = target.Stamp();
     }
 
     /// <summary>
@@ -89,13 +89,13 @@ public sealed class OpenDocument : IDisposable
     public async Task<long> WriteCopyAsync(string path)
     {
         var snapshot = Session.CreateSnapshot();
-        string target = Path.GetFullPath(path);
+        var target = DocumentLocation.File(path);
         var sourcePages = Source?.Pages;
         var (sourceBytes, model, imported) = Sources.ForSave(snapshot.Model);
         await WriteSerializedAsync(target, () => Task.Run(() =>
         {
             byte[] pdf = EditablePdfWriter.Write(sourceBytes, sourcePages, model, imported);
-            SafeFileSaver.Save(target, pdf, written => EditablePdfWriter.Verify(written, model));
+            target.Replace(pdf, written => EditablePdfWriter.Verify(written, model));
         }));
         return snapshot.Revision;
     }
@@ -105,23 +105,25 @@ public sealed class OpenDocument : IDisposable
     /// save point and unsaved mark do not change. When annotations of other apps cannot be merged, <paramref name="keepForeign"/>
     /// is asked with their number before anything is written; false cancels. Returns false when cancelled.
     /// </summary>
-    public async Task<bool> ExportFlattenedAsync(string path, Func<int, bool> keepForeign)
+    public Task<bool> ExportFlattenedAsync(string path, Func<int, bool> keepForeign) => ExportFlattenedAsync(DocumentLocation.File(path), keepForeign);
+
+    /// <inheritdoc cref="ExportFlattenedAsync(string, Func{int, bool})"/>
+    public async Task<bool> ExportFlattenedAsync(DocumentLocation target, Func<int, bool> keepForeign)
     {
         var snapshot = Session.CreateSnapshot();
-        string target = Path.GetFullPath(path);
         var sourcePages = Source?.Pages;
         var (sourceBytes, model, imported) = Sources.ForSave(snapshot.Model);
         var flat = await Task.Run(() => FlattenWriter.Write(sourceBytes, sourcePages, model, imported));
         if (flat.KeptForeign > 0 && !keepForeign(flat.KeptForeign)) return false;
-        if (FilePath is { } current && string.Equals(current, target, StringComparison.OrdinalIgnoreCase))
+        if (Location is { } current && current.Key == target.Key)
             throw new InvalidOperationException("A merged export never replaces the document's own file (spec 14.5, D14g).");
         await WriteSerializedAsync(target, () => Task.Run(() =>
-            SafeFileSaver.Save(target, flat.Pdf, written => FlattenWriter.Verify(written, snapshot.Model.Pages.Count))));
+            target.Replace(flat.Pdf, written => FlattenWriter.Verify(written, snapshot.Model.Pages.Count))));
         return true;
     }
 
     private readonly SemaphoreSlim writeGate = new(1, 1);
-    private readonly Dictionary<string, long> lastWrite = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, long> lastWrite = new(StringComparer.Ordinal); // by DocumentLocation.Key
     private long writeTickets;
 
     /// <summary>
@@ -129,15 +131,15 @@ public sealed class OpenDocument : IDisposable
     /// waited while a newer request for the same file finished is skipped so an older state never replaces a newer one.
     /// Returns false when skipped.
     /// </summary>
-    private async Task<bool> WriteSerializedAsync(string target, Func<Task> write)
+    private async Task<bool> WriteSerializedAsync(DocumentLocation target, Func<Task> write)
     {
         long ticket = Interlocked.Increment(ref writeTickets);
         await writeGate.WaitAsync();
         try
         {
-            if (lastWrite.TryGetValue(target, out long newer) && newer > ticket) return false;
+            if (lastWrite.TryGetValue(target.Key, out long newer) && newer > ticket) return false;
             await write();
-            lastWrite[target] = ticket;
+            lastWrite[target.Key] = ticket;
             return true;
         }
         finally { writeGate.Release(); }
@@ -146,7 +148,7 @@ public sealed class OpenDocument : IDisposable
     /// <summary>True while a write of this document is in progress or waiting.</summary>
     public bool IsWriting => writeGate.CurrentCount == 0;
 
-    public string DisplayName => FilePath is null ? Strings.Get("file.newNoteName") : Path.GetFileName(FilePath);
+    public string DisplayName => Location?.Name ?? Strings.Get("file.newNoteName");
 
     /// <summary>A permission-restricted original (spec 24.6) whose first save has not yet told that the restriction is dropped.</summary>
     public bool RestrictionNoticePending { get; set; }
@@ -155,16 +157,22 @@ public sealed class OpenDocument : IDisposable
     /// Opens and validates the PDF off the UI thread. <paramref name="prepare"/> may adjust the opened model before the
     /// session starts (the CLI gives a fresh model stable page IDs).
     /// </summary>
-    public static async Task<OpenDocument> OpenPdfAsync(string path, CancellationToken cancellationToken = default,
+    public static Task<OpenDocument> OpenPdfAsync(string path, CancellationToken cancellationToken = default,
+        Func<PdfSourceDocument, DocumentModel, DocumentModel>? prepare = null) => OpenPdfAsync(DocumentLocation.File(path), cancellationToken, prepare);
+
+    /// <inheritdoc cref="OpenPdfAsync(string, CancellationToken, Func{PdfSourceDocument, DocumentModel, DocumentModel})"/>
+    public static async Task<OpenDocument> OpenPdfAsync(DocumentLocation location, CancellationToken cancellationToken = default,
         Func<PdfSourceDocument, DocumentModel, DocumentModel>? prepare = null)
     {
         var (source, model) = await Task.Run(() =>
         {
-            var opened = PdfSourceDocument.Open(path, cancellationToken, allowPermissionRestricted: true);
+            var opened = location is FileLocation file
+                ? PdfSourceDocument.Open(file.Path, cancellationToken, allowPermissionRestricted: true)
+                : PdfSourceDocument.Open(location.Name, location.ReadAll, cancellationToken, allowPermissionRestricted: true);
             try { return (opened, prepare is null ? opened.CreateModel() : prepare(opened, opened.CreateModel())); }
             catch { opened.Dispose(); throw; }
         }, cancellationToken);
-        try { return new OpenDocument(new DocumentSession(model), source, source.Path) { RestrictionNoticePending = source.PermissionRestricted }; }
+        try { return new OpenDocument(new DocumentSession(model), source, location) { RestrictionNoticePending = source.PermissionRestricted }; }
         catch { source.Dispose(); throw; }
     }
 
@@ -276,11 +284,14 @@ public sealed class OpenDocument : IDisposable
     /// pages they show go into the file. The document's path, save point and unsaved mark do not change. For a flattened
     /// export, foreign annotations that cannot be merged ask <paramref name="keepForeign"/> first; false cancels (returns false).
     /// </summary>
-    public async Task<bool> ExportPagesAsync(string path, IReadOnlyList<Guid> pageIds, bool flatten, Func<int, bool>? keepForeign = null)
+    public Task<bool> ExportPagesAsync(string path, IReadOnlyList<Guid> pageIds, bool flatten, Func<int, bool>? keepForeign = null) =>
+        ExportPagesAsync(DocumentLocation.File(path), pageIds, flatten, keepForeign);
+
+    /// <inheritdoc cref="ExportPagesAsync(string, IReadOnlyList{Guid}, bool, Func{int, bool})"/>
+    public async Task<bool> ExportPagesAsync(DocumentLocation target, IReadOnlyList<Guid> pageIds, bool flatten, Func<int, bool>? keepForeign = null)
     {
         Session.Execute(DocumentEdits.RemoveBlankTextBoxes(Session.Current));
         var snapshot = Session.CreateSnapshot();
-        string target = Path.GetFullPath(path);
         var (model, pdf) = await Task.Run(() => Sources.Subset(snapshot.Model, pageIds));
         try
         {
@@ -290,14 +301,14 @@ public sealed class OpenDocument : IDisposable
                 var flat = await Task.Run(() => FlattenWriter.Write(null, null, model, parts));
                 if (flat.KeptForeign > 0 && keepForeign?.Invoke(flat.KeptForeign) == false) return false;
                 await WriteSerializedAsync(target, () => Task.Run(() =>
-                    SafeFileSaver.Save(target, flat.Pdf, written => FlattenWriter.Verify(written, model.Pages.Count))));
+                    target.Replace(flat.Pdf, written => FlattenWriter.Verify(written, model.Pages.Count))));
             }
             else
             {
                 await WriteSerializedAsync(target, () => Task.Run(() =>
                 {
                     byte[] bytes = EditablePdfWriter.Write(null, null, model, parts);
-                    SafeFileSaver.Save(target, bytes, written => EditablePdfWriter.Verify(written, model));
+                    target.Replace(bytes, written => EditablePdfWriter.Verify(written, model));
                 }));
             }
             return true;

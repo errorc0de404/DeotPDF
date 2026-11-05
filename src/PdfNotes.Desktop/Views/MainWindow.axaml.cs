@@ -27,16 +27,20 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
     private readonly DesktopClipboard clipboard;
     private PageRenderQueue<SKImage>? queue;
     private bool closeConfirmed;
+    private readonly string appFolder;
 
     public MainWindow() : this(AppSettings.Load(), saveSettings: null) { }
 
     /// <param name="saveSettings">How settings are stored (tests pass one that does nothing).</param>
-    public MainWindow(AppSettings settings, Action<AppSettings>? saveSettings)
+    /// <param name="appFolder">The settings folder for backups and the running windows' markers (tests pass their own).</param>
+    public MainWindow(AppSettings settings, Action<AppSettings>? saveSettings, string? appFolder = null)
     {
+        this.appFolder = appFolder ?? AppSettings.Folder;
         InitializeComponent();
         dialogs = new DesktopDialogs(this);
         clipboard = new DesktopClipboard(this);
-        viewModel = new MainViewModel(this, dialogs, settings, App.DisplayName, saveSettings: saveSettings ?? (s => s.Save()), clipboard: clipboard, pageDialogs: this);
+        viewModel = new MainViewModel(this, dialogs, settings, App.DisplayName, saveSettings: saveSettings ?? (s => s.Save()), clipboard: clipboard, pageDialogs: this,
+            backupFolder: this.appFolder);
         viewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.Title)) Title = viewModel.Title;
@@ -65,6 +69,7 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
         InitializeLoading();
         InitializeForeign();
         InitializeUpdates();
+        InitializeBackup();
         Closing += WindowClosing;
         Closed += (_, _) => WindowClosed();
         Activated += (_, _) => viewModel.Pages.CommandsChanged(); // another window may have copied pages meanwhile (spec 11.4, D14g)
@@ -145,6 +150,8 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
         viewModel.Pages.DocumentReplaced();
         previousQueue?.Dispose();
         previous?.Dispose();
+        backup.Reset();
+        ShowingFile();
         Title = viewModel.Title;
         StatusText.Text = viewModel.Status;
         UpdateViewStatus();
@@ -170,8 +177,19 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
     void IMainView.FinishTextEditing() => FinishTextEditing();
     void IMainView.CancelTool() => Canvas.CancelTool();
     void IMainView.Opened(string path) => RestorePosition(path);
-    void IMainView.Saved(string path) { }
-    bool IMainView.ShowOpenElsewhere(string path) => false; // several windows of one file: A6
+    void IMainView.Saved(string path)
+    {
+        backup.Saved();
+        ShowingFile();
+    }
+
+    /// <summary>The file is open in another window (spec 4.6): that window comes forward and this one keeps its document.</summary>
+    bool IMainView.ShowOpenElsewhere(string path)
+    {
+        if (BackupStore.WindowShowing(appFolder, path, backup.Store) is not { } other) return false;
+        (BringOverride ?? Platform.WindowActivation.Bring)(other);
+        return true;
+    }
     void IMainView.CommandsChanged() => UpdateCommands();
 
     void IMainView.OnUiThread(Action action)
@@ -184,8 +202,6 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
     IPageListView IMainView.Pages => this;
     IWindowCoordinator IMainView.Window => this;
     IToolView IMainView.Tools => this;
-
-    bool IWindowCoordinator.InputPending => Canvas.IsToolActive || dialogs.IsOpen || IsEditingText;
 
     // ----- commands -----
 
@@ -290,13 +306,17 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
         if (closeConfirmed) { RememberWindowPlacement(); return; } // while the window still has its screen
         FinishTextEditing();
         CloseNote();
-        switch (viewModel.Workflow.CloseStep(backupRunning: false))
+        switch (viewModel.Workflow.CloseStep(backup.IsRunning))
         {
             case CloseStep.Close:
                 RememberWindowPlacement();
                 return;
-            case CloseStep.WaitForSave or CloseStep.WaitForBackup:
+            case CloseStep.WaitForSave:
                 e.Cancel = true; // a save is writing the file; close after it finishes
+                return;
+            case CloseStep.WaitForBackup:
+                e.Cancel = true; // an automatic backup is writing: close when it is done
+                Dispatcher.UIThread.Post(async () => { while (backup.IsRunning) await Task.Delay(50); Close(); });
                 return;
         }
         e.Cancel = true;
@@ -310,6 +330,7 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
 
     private void WindowClosed()
     {
+        EndBackup();
         RememberPosition(Document);
         viewModel.SaveSettings();
         viewModel.Search.Cancel();

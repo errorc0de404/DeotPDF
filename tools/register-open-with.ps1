@@ -1,12 +1,14 @@
 # Adds DeotPDF to the "Open with" list for .pdf files for the current user (HKCU, no admin rights).
 # It does not make DeotPDF the default PDF app (spec 2.3, 4.6); Windows asks the user for that.
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File tools/register-open-with.ps1 [-Exe <DeotPDF.exe>] [-Unregister]
-# Default exe: DeotPDF.exe next to this script, else artifacts/publish/win-x64/DeotPDF.exe (a later publish to that folder keeps the registration valid).
+# Default exe: DeotPDF.exe next to this script, else DeotPDF.Next.exe there (the Avalonia app before it takes the name),
+# else artifacts/publish/win-x64/DeotPDF.exe (a later publish to that folder keeps the registration valid).
+# The application entry is named after the exe, so registering one app replaces the other's command in the ProgId.
 param([string]$Exe = "", [switch]$Unregister)
 
 $progId = "PdfNotes.Pdf"
 $classes = "HKCU:\Software\Classes"
-$appKey = "$classes\Applications\DeotPDF.exe"
+$appNames = @("DeotPDF.exe", "DeotPDF.Next.exe")
 # Before the rename to DeotPDF (2026-10-24) the exe was PdfNotes.App.exe; its entry is removed so the list does not show both.
 $legacyAppKey = "$classes\Applications\PdfNotes.App.exe"
 $capabilities = "HKCU:\Software\PdfNotes\Capabilities"
@@ -17,7 +19,7 @@ function Remove-KeyIfPresent([string]$path) { if (Test-Path $path) { Remove-Item
 
 if ($Unregister) {
     Remove-KeyIfPresent "$classes\$progId"
-    Remove-KeyIfPresent $appKey
+    foreach ($name in $appNames) { Remove-KeyIfPresent "$classes\Applications\$name" }
     Remove-KeyIfPresent $legacyAppKey
     Remove-KeyIfPresent "HKCU:\Software\PdfNotes"
     if (Test-Path "$classes\.pdf\OpenWithProgids") { Remove-ItemProperty -Path "$classes\.pdf\OpenWithProgids" -Name $progId -ErrorAction SilentlyContinue }
@@ -28,11 +30,12 @@ if ($Unregister) {
 }
 
 # In a release zip the script sits next to DeotPDF.exe.
-if ($Exe -eq "" -and (Test-Path (Join-Path $PSScriptRoot "DeotPDF.exe"))) { $Exe = Join-Path $PSScriptRoot "DeotPDF.exe" }
+foreach ($name in $appNames) { if ($Exe -eq "" -and (Test-Path (Join-Path $PSScriptRoot $name))) { $Exe = Join-Path $PSScriptRoot $name } }
 if ($Exe -eq "") { $Exe = Join-Path (Split-Path $PSScriptRoot -Parent) "artifacts\publish\win-x64\DeotPDF.exe" }
 $Exe = [System.IO.Path]::GetFullPath($Exe)
 if (-not (Test-Path $Exe)) { throw "Not found: $Exe (publish first)" }
 $command = "`"$Exe`" `"%1`""
+$appKey = "$classes\Applications\" + [System.IO.Path]::GetFileName($Exe)
 
 # Creates a key only when missing: New-Item -Force on an existing key can drop its values (other apps' entries).
 function Ensure-Key([string]$path) { if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null } }

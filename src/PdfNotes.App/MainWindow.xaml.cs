@@ -179,7 +179,7 @@ public partial class MainWindow : Window, IMainView, IEditorDialogs
 
     bool IMainView.ShowOpenElsewhere(string path)
     {
-        if (BackupStore.WindowShowing(Path.GetDirectoryName(AppSettings.DefaultPath)!, path, backupStore) is not { } other) return false;
+        if (BackupStore.WindowShowing(AppSettings.Folder, path, backupStore) is not { } other) return false;
         Services.WindowActivation.Bring(other);
         return true;
     }

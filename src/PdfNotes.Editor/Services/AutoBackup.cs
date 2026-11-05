@@ -87,7 +87,8 @@ public sealed class BackupStore
     public const string NewNotesKey = "new", CrashKey = "crash";
 
     /// <summary>The group of a document's backups: its full path, or <see cref="NewNotesKey"/> for a note without a file.</summary>
-    public static string DocumentKey(string? path) => path is null ? NewNotesKey : "file:" + Path.GetFullPath(path).ToUpperInvariant();
+    public static string DocumentKey(string? path) => path is null ? NewNotesKey
+        : "file:" + (FilePaths.Comparison == StringComparison.Ordinal ? Path.GetFullPath(path) : Path.GetFullPath(path).ToUpperInvariant()); // upper case where case does not matter (as 1.0–1.1)
 
     /// <summary>Before D14g each never-saved note had its own group ("session:…"); they all count as the new notes now.</summary>
     private static string Group(string key) => key.StartsWith("session:", StringComparison.Ordinal) ? NewNotesKey : key;
@@ -95,7 +96,7 @@ public sealed class BackupStore
     /// <summary>Records a written backup and deletes the oldest backups of its group beyond <paramref name="keep"/> (at least the newest stays).</summary>
     public void Added(string group, string file, int keep)
     {
-        var entries = ReadIndex().Where(e => File.Exists(e.File) && !string.Equals(e.File, file, StringComparison.OrdinalIgnoreCase)).ToList();
+        var entries = ReadIndex().Where(e => File.Exists(e.File) && !FilePaths.Same(e.File, file)).ToList();
         entries.Add(new(group, Path.GetFullPath(file), clock()));
         var own = entries.Where(e => Group(e.Document) == group).OrderByDescending(e => e.Created).ToList();
         foreach (var old in own.Skip(Math.Max(1, keep)))
@@ -193,11 +194,11 @@ public sealed class BackupStore
         string wanted = Path.GetFullPath(path);
         foreach (string file in Directory.EnumerateFiles(folder, "*.json"))
         {
-            if (except is not null && string.Equals(file, except.markerPath, StringComparison.OrdinalIgnoreCase)) continue;
+            if (except is not null && FilePaths.Same(file, except.markerPath)) continue;
             Marker? marker;
             try { marker = JsonSerializer.Deserialize<Marker>(File.ReadAllText(file), Json); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { continue; }
-            if (marker is { DocumentPath: { } shown, Window: not 0 } && string.Equals(shown, wanted, StringComparison.OrdinalIgnoreCase) && Running(marker))
+            if (marker is { DocumentPath: { } shown, Window: not 0 } && FilePaths.Same(shown, wanted) && Running(marker))
                 return marker.Window;
         }
         return null;
@@ -221,7 +222,7 @@ public sealed class BackupStore
         if (!Directory.Exists(folder)) return result;
         foreach (string file in Directory.EnumerateFiles(folder, "*.json"))
         {
-            if (string.Equals(file, markerPath, StringComparison.OrdinalIgnoreCase)) continue;
+            if (FilePaths.Same(file, markerPath)) continue;
             Marker? marker;
             try { marker = JsonSerializer.Deserialize<Marker>(File.ReadAllText(file), Json); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { continue; }

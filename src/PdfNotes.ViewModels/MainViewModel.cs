@@ -109,7 +109,7 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         ImportExport = new ImportExportViewModel(this, view, dialogs, pageDialogs ?? NoPageDialogs.Instance);
         ToolStyles = new ToolStylesViewModel(this);
         ToolBar = new ToolBarViewModel(this, view);
-        Backup = new BackupViewModel(this, view, dialogs, this.time, backupFolder ?? Path.GetDirectoryName(AppSettings.DefaultPath)!);
+        Backup = new BackupViewModel(this, view, dialogs, this.time, backupFolder ?? AppSettings.Folder);
     }
 
     /// <summary>Page windows that always cancel (a view model made without them).</summary>

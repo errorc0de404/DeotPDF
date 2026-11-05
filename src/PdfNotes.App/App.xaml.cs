@@ -23,7 +23,7 @@ public partial class App : Application
             Dispatcher.Invoke(() => Crash(args.ExceptionObject as Exception), System.Windows.Threading.DispatcherPriority.Send);
         // A file another window shows already: that window comes forward and this one does not start (spec 4.6, D14g).
         if (e.Args.Length == 1 && File.Exists(e.Args[0]) &&
-            BackupStore.WindowShowing(Path.GetDirectoryName(AppSettings.DefaultPath)!, e.Args[0]) is { } other)
+            BackupStore.WindowShowing(AppSettings.Folder, e.Args[0]) is { } other)
         {
             Services.WindowActivation.Bring(other);
             Shutdown();

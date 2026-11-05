@@ -55,7 +55,7 @@ public sealed class CliWrite
         if (output is null && !dryRun) throw CliException.Invalid("Option -o <output pdf> is required (or --dry-run).");
         if (output is not null)
         {
-            if (string.Equals(output, full, StringComparison.OrdinalIgnoreCase))
+            if (FilePaths.Same(output, full))
                 throw new CliException("SAME_AS_INPUT", "The output path is the input file; the input is never changed.", ExitCodes.InvalidInput,
                     new JsonObject { ["path"] = output });
             if (!dryRun && File.Exists(output) && !args.Flag("--overwrite"))
@@ -66,7 +66,7 @@ public sealed class CliWrite
         string? hash = Either(args, "--expect-hash", expectHash, "expectHash");
         if (batch is not null && new AnnotationTag(AnnotationTag.AiAuthor, batch).Validate() is not null)
             throw CliException.Invalid("--batch-id is empty, too long or has control characters.");
-        string appFolder = args.Value("--app-folder") ?? Path.GetDirectoryName(AppSettings.DefaultPath)!;
+        string appFolder = args.Value("--app-folder") ?? AppSettings.Folder;
         string? previewPath = args.Value("--preview") ?? preview;
         if (previewPath is not null) previewPath = CliPaths.Full(previewPath);
         var options = new CliWrite(full, output, dryRun, previewPath, hash,
@@ -151,7 +151,7 @@ public sealed class CliWrite
                 ? pages.Count == 1 ? Preview : Path.Combine(Path.GetDirectoryName(CliPaths.Full(Preview))!, $"{Path.GetFileNameWithoutExtension(Preview)}-{number}.png")
                 : Path.Combine(Preview, $"page-{number}.png");
             path = CliPaths.Full(path);
-            if (string.Equals(path, Input, StringComparison.OrdinalIgnoreCase)) throw new CliException("SAME_AS_INPUT", "A preview path is the input file.");
+            if (FilePaths.Same(path, Input)) throw new CliException("SAME_AS_INPUT", "A preview path is the input file.");
             var rendered = PageRaster.Render(doc, page, ppp, null, _ => true, out _);
             PageRaster.SavePng(rendered, path);
             var toPixel = PageRaster.PageToFullPixel(page.Setup, ppp);

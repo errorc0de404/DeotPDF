@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=DeotPDF
+GenericName=PDF Notes
+GenericName[ko]=PDF 필기
+Comment=Write notes on PDF files
+Comment[ko]=PDF에 필기하기
+Exec="{EXEC}" %f
+Icon=deotpdf
+Terminal=false
+Categories=Office;Viewer;Education;
+MimeType=application/pdf;
+StartupWMClass=DeotPDF

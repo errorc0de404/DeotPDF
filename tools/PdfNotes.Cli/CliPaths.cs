@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json.Nodes;
+using PdfNotes.Editor.Services;
 
 namespace PdfNotes.Cli;
 
@@ -32,7 +33,7 @@ public static class CliPaths
     public static bool Inside(string full, string root)
     {
         string folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
-        return string.Equals(full, folder, StringComparison.OrdinalIgnoreCase) ||
-            full.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        return FilePaths.Same(full, folder) ||
+            full.StartsWith(folder + Path.DirectorySeparatorChar, FilePaths.Comparison);
     }
 }

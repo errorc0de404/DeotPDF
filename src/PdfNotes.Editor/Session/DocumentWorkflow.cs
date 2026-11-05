@@ -277,7 +277,7 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
         string title = groups.Count == 1 ? Strings.Get("export.title") : Strings.Format("export.titleSplit", ("files", groups.Count));
         if (dialogs.ChooseSavePath(new(title, suggested, FolderOf(doc), OverwritePrompt: groups.Count == 1)) is not { } path) return 0;
         var targets = ExportTargets(path, groups.Count);
-        if (doc.FilePath is { } current && targets.Any(t => string.Equals(Path.GetFullPath(t), Path.GetFullPath(current), StringComparison.OrdinalIgnoreCase)))
+        if (doc.FilePath is { } current && targets.Any(t => FilePaths.Same(Path.GetFullPath(t), Path.GetFullPath(current))))
         {
             dialogs.Tell(Strings.Get("export.ownFile"), NoticeKind.Information);
             return 0;
@@ -323,7 +323,7 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
 
     /// <summary>True when <paramref name="path"/> is the document's own file.</summary>
     public static bool IsOwnFile(OpenDocument doc, string path) =>
-        doc.FilePath is { } current && string.Equals(Path.GetFullPath(path), current, StringComparison.OrdinalIgnoreCase);
+        doc.FilePath is { } current && FilePaths.Same(Path.GetFullPath(path), current);
 
     private static string? FolderOf(OpenDocument doc) => doc.FilePath is null ? null : Path.GetDirectoryName(doc.FilePath);
 

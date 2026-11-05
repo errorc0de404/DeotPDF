@@ -114,6 +114,33 @@ public sealed class PdfSourceDocument : IDisposable
         {
             throw new PdfOpenException(PdfOpenFailure.AccessDenied, "File cannot be read.", e);
         }
+        return Open(fullPath, bytes, info.Length, info.LastWriteTimeUtc, cancellationToken, allowPermissionRestricted, allowSigned);
+    }
+
+    /// <summary>
+    /// Opens a PDF that is not a local file (roadmap P4 A6: a document location such as an Android content URI):
+    /// <paramref name="read"/> gives its bytes. <paramref name="name"/> takes the place of <see cref="Path"/>; the file length
+    /// and write time are the content's length and unknown. Read errors are reported as for a file.
+    /// </summary>
+    public static PdfSourceDocument Open(string name, Func<byte[]> read, CancellationToken cancellationToken = default, bool allowPermissionRestricted = false,
+        bool allowSigned = false)
+    {
+        byte[] bytes;
+        try { bytes = read(); }
+        catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
+        {
+            throw new PdfOpenException(PdfOpenFailure.NotFound, "File not found.", e);
+        }
+        catch (Exception e) when (e is UnauthorizedAccessException or IOException)
+        {
+            throw new PdfOpenException(PdfOpenFailure.AccessDenied, "File cannot be read.", e);
+        }
+        return Open(name, bytes, bytes.LongLength, default, cancellationToken, allowPermissionRestricted, allowSigned);
+    }
+
+    private static PdfSourceDocument Open(string fullPath, byte[] bytes, long length, DateTime lastWriteUtc, CancellationToken cancellationToken,
+        bool allowPermissionRestricted, bool allowSigned)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         if (!HasPdfHeader(bytes)) throw new PdfOpenException(PdfOpenFailure.NotPdf, "Missing %PDF header.");
 
@@ -202,7 +229,7 @@ public sealed class PdfSourceDocument : IDisposable
                 engine.Dispose();
                 engine = background;
             }
-            return new(fullPath, bytes, rendered, engine, pages, appData, info.Length, info.LastWriteTimeUtc, restricted, signed);
+            return new(fullPath, bytes, rendered, engine, pages, appData, length, lastWriteUtc, restricted, signed);
         }
         catch
         {

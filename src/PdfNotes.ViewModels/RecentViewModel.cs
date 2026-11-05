@@ -48,5 +48,5 @@ public sealed class RecentViewModel(AppSettings settings, Action save) : Observa
     /// <summary>Where <paramref name="path"/> was left, or null for a document seen for the first time.</summary>
     public AppSettings.DocumentPosition? PositionOf(string path) => settings.Positions.FirstOrDefault(p => Same(p.Path, Path.GetFullPath(path)));
 
-    private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    private static bool Same(string a, string b) => FilePaths.Same(a, b);
 }

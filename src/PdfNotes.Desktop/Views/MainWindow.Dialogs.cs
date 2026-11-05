@@ -32,7 +32,7 @@ public sealed partial class MainWindow : IPageDialogs
         settings.AutoBackup = values.Backup.Enabled;
         settings.BackupIntervalMinutes = values.Backup.IntervalMinutes;
         settings.BackupMode = values.Backup.Mode;
-        settings.BackupFolder = string.Equals(values.Backup.Folder, AppSettings.DefaultBackupFolder, StringComparison.OrdinalIgnoreCase) ? null : values.Backup.Folder;
+        settings.BackupFolder = FilePaths.Same(values.Backup.Folder, AppSettings.DefaultBackupFolder) ? null : values.Backup.Folder;
         settings.BackupKeep = values.Backup.Keep;
         bool languageChanged = !string.Equals(settings.Language, values.Language, StringComparison.OrdinalIgnoreCase);
         settings.Language = values.Language;

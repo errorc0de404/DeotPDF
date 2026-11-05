@@ -49,6 +49,7 @@ public static class SafeFileSaver
 
     private static SaveFailure Classify(IOException e) => (e.HResult & 0xFFFF) switch
     {
+        28 when !OperatingSystem.IsWindows() => SaveFailure.DiskFull, // ENOSPC (macOS and Linux report errno)
         32 or 33 or 1175 or 1176 => SaveFailure.Locked,          // sharing/lock violation, replace could not move files
         39 or 112 => SaveFailure.DiskFull,                       // ERROR_HANDLE_DISK_FULL, ERROR_DISK_FULL
         5 => SaveFailure.AccessDenied,
