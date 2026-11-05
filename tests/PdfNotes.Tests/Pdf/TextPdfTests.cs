@@ -95,7 +95,7 @@ public sealed class TextPdfTests
         using var stream = new MemoryStream(pdf); using var doc = PdfReader.Open(stream, PdfDocumentOpenMode.Modify);
         Assert.True(doc.Pages[0].Elements.GetArray("/Annots") is null or { Elements.Count: 0 });
     }
-    [Fact] public void MissingFontKeepsOriginalAppearanceAndWarnsWithoutChangingLayout()
+    [Fact] public void MissingFontRestoresTheBoxWithItsFamilyAndWarns()
     {
         var model = Model(Sample()); byte[] pdf = EditablePdfWriter.Write(null, null, model);
         using (var stream = new MemoryStream(pdf)) using (var doc = PdfReader.Open(stream, PdfDocumentOpenMode.Modify))
@@ -107,10 +107,12 @@ public sealed class TextPdfTests
             using var output = new MemoryStream(); doc.Save(output, false); pdf = output.ToArray();
         }
         var read = EditablePdfReader.Read(pdf, PdfPageGeometryReader.Read(pdf));
-        Assert.Equal(1, read.ReadOnlyCount); Assert.Empty(read.Model.AllAnnotations); Assert.Contains(read.Warnings, w => w.StartsWith("Missing font:"));
+        // Decision 20: the box is editable with a substitute font; the stored family stays for machines that have it.
+        Assert.Equal(0, read.ReadOnlyCount); Assert.Contains(read.Warnings, w => w.StartsWith("Missing font:"));
+        var box = Assert.IsType<TextBoxAnnotation>(Assert.Single(read.Model.AllAnnotations));
+        Assert.All(box.Runs, r => Assert.Equal("MissingFont-D06-12345", r.FontFamily));
         var again = EditablePdfWriter.Write(pdf, PdfPageGeometryReader.Read(pdf), read.Model);
-        using var a = new PdfiumDocument(pdf); using var b = new PdfiumDocument(again);
-        Assert.Equal(a.Render(0, annotations: true).Bgra, b.Render(0, annotations: true).Bgra);
+        EditablePdfWriter.Verify(again, read.Model);
     }
     [Fact] public void ChangedTextStrokeAlphaIsReadOnlyInsteadOfHiddenBehindMetadata()
     {

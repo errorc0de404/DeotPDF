@@ -2,15 +2,18 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="PdfNotes.Desktop.App"
              RequestedThemeVariant="Default">
-    <!-- Roadmap P4 A0: Fluent controls under the app's own design tokens (Themes/Tokens, Themes/Colors — the WPF values). -->
+    <!-- Roadmap P4: Fluent controls (compact, like the WPF app's field heights) under the app's design tokens (Themes/Tokens,
+         Themes/Colors — the WPF values) and its own looks (Themes/Controls: tool buttons, ribbon, swatches). -->
     <Application.Styles>
-        <FluentTheme />
+        <FluentTheme DensityStyle="Compact" />
+        <StyleInclude Source="avares://DeotPDF.Next/Themes/Styles.axaml" />
     </Application.Styles>
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://DeotPDF.Next/Themes/Tokens.axaml" />
                 <ResourceInclude Source="avares://DeotPDF.Next/Themes/Colors.axaml" />
+                <ResourceInclude Source="avares://DeotPDF.Next/Themes/Controls.axaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

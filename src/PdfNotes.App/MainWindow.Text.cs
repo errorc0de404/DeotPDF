@@ -132,7 +132,7 @@ public partial class MainWindow : ITextEditorSession
     private TextBlock BarUnit(string text) => new() { Text = text, Style = (Style)FindResource("FieldUnit") };
     private void ApplyFont()
     {
-        if (!syncingTextBar) textStyle.SetFont(fontBox.Text);
+        if (!syncingTextBar && fontBox.Text is { Length: > 0 } family && family != textStyle.CurrentStyle.FontFamily) textStyle.SetFont(family);
     }
     public TextColorTarget TextColorTarget => textStyle.ColorTarget;
 
@@ -357,6 +357,9 @@ public partial class MainWindow : ITextEditorSession
     /// <summary>For Probes: whether the last finger-started text edit asked the touch keyboard to show and it agreed.</summary>
     public bool? TouchKeyboardShown { get; private set; }
     private static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+    /// <summary>A missing font is shown in Malgun Gothic but keeps its own name (decision 20); a run the user restyled keeps what WPF gave it.</summary>
+    private static string StoredFamily(Inline inline) =>
+        inline.Tag is string stored && inline.FontFamily.Source == "Malgun Gothic" ? stored : inline.FontFamily.Source;
     private TextBoxAnnotation ReadEditor()
     {
         if (textEditor is null || editingText is null) throw new InvalidOperationException();
@@ -368,7 +371,7 @@ public partial class MainWindow : ITextEditorSession
         void ReadInline(Inline inline)
         {
             var c = inline.Foreground is SolidColorBrush brush ? new RgbColor(brush.Color.R, brush.Color.G, brush.Color.B) : RgbColor.Black;
-            var style = new TextRun(0, 0, inline.FontFamily.Source, inline.FontSize * editingText.LayoutScale, c, inline.FontWeight >= FontWeights.Bold, inline.FontStyle == FontStyles.Italic,
+            var style = new TextRun(0, 0, StoredFamily(inline), inline.FontSize * editingText.LayoutScale, c, inline.FontWeight >= FontWeights.Bold, inline.FontStyle == FontStyles.Italic,
                 inline.TextDecorations.Any(d => d.Location == TextDecorationLocation.Underline), inline.TextDecorations.Any(d => d.Location == TextDecorationLocation.Strikethrough));
             if (inline is Run run) Append(run.Text, style);
             else if (inline is LineBreak) Append("\n", style);

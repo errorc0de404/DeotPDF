@@ -1,0 +1,207 @@
+<!--
+  Control looks of the app (roadmap P4 A5): the WPF Themes/Controls.xaml rules on Avalonia — tool buttons, ribbon tabs and
+  groups, palette swatches, the page list handle. Colors, spacing and corners are the tokens (Tokens.axaml, Colors.axaml),
+  so a theme change follows. Button states: normal (transparent) · over (Control.Hover) · pressed (Control.Pressed) ·
+  on (Accent.Subtle) · disabled (Text.Disabled). The other Fluent controls keep their Fluent templates (compact density).
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Tool buttons (ribbon, style bars, status bar). Clicking one leaves the keyboard focus where it was (spec 17). -->
+    <ControlTheme x:Key="ToolButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="{DynamicResource Space.ToolButton}" />
+        <Setter Property="Margin" Value="{DynamicResource Space.ToolButtonGap}" />
+        <Setter Property="Foreground" Value="{DynamicResource Text.Primary}" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="ToolTip.ShowOnDisabled" Value="True" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Border Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource Radius.Control}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                    <!-- The tool an automatic selection visit goes back to (spec 5.4, D14g): an accent border that keeps the size. -->
+                    <Border Name="ReturnMark" BorderThickness="1.5" BorderBrush="{DynamicResource Accent}" CornerRadius="{DynamicResource Radius.Control}"
+                            IsHitTestVisible="False" IsVisible="False" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#Chrome">
+            <Setter Property="Background" Value="{DynamicResource Control.Hover}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Chrome">
+            <Setter Property="Background" Value="{DynamicResource Control.Pressed}" />
+        </Style>
+        <Style Selector="^:checked /template/ Border#Chrome">
+            <Setter Property="Background" Value="{DynamicResource Accent.Subtle}" />
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Foreground" Value="{DynamicResource Text.Disabled}" />
+        </Style>
+        <Style Selector="^.return /template/ Border#ReturnMark">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+    </ControlTheme>
+
+    <!-- Ribbon tab heads (D13b): the tab that is on has the accent text and an underline; the weight stays, so tabs do not move. -->
+    <ControlTheme x:Key="RibbonTab" TargetType="RadioButton">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Foreground" Value="{DynamicResource Text.Secondary}" />
+        <Setter Property="Padding" Value="{DynamicResource Space.RibbonTab}" />
+        <Setter Property="Margin" Value="1,0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel Background="Transparent">
+                    <Border Name="Chrome" Background="Transparent" CornerRadius="{DynamicResource Radius.Control}" Padding="{TemplateBinding Padding}" Margin="0,0,0,3">
+                        <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Border Name="Underline" Height="2" CornerRadius="1" Margin="10,0" VerticalAlignment="Bottom" Background="{DynamicResource Accent}" Opacity="0" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#Chrome">
+            <Setter Property="Background" Value="{DynamicResource Control.Hover}" />
+        </Style>
+        <Style Selector="^:checked">
+            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+        </Style>
+        <Style Selector="^:checked /template/ Border#Underline">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+    </ControlTheme>
+
+    <!-- A ribbon group: the commands, and the small group name under them (PowerPoint). -->
+    <ControlTheme x:Key="RibbonGroup" TargetType="HeaderedContentControl">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel Margin="2,0">
+                    <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" HorizontalAlignment="Left" />
+                    <ContentPresenter Name="PART_HeaderPresenter" Content="{TemplateBinding Header}" HorizontalAlignment="Center" Margin="0,1,0,0"
+                                      FontSize="{DynamicResource FontSize.Caption}" Foreground="{DynamicResource Text.Muted}" />
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <!-- A palette swatch: the annotation color (Background) in a circle; the current color has an accent ring (class current). -->
+    <ControlTheme x:Key="Swatch" TargetType="Button">
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Margin" Value="1,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel Background="Transparent">
+                    <Ellipse Name="Ring" Width="22" Height="22" Stroke="Transparent" StrokeThickness="2" />
+                    <Ellipse Width="16" Height="16" Fill="{TemplateBinding Background}" Stroke="{DynamicResource Swatch.Outline}" StrokeThickness="1" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Ellipse#Ring">
+            <Setter Property="Stroke" Value="{DynamicResource Swatch.Hover}" />
+        </Style>
+        <Style Selector="^.current /template/ Ellipse#Ring">
+            <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+        </Style>
+    </ControlTheme>
+
+    <!-- The page list handle (2026-10-14): a small tab on the document's left edge; with the list hidden it is the accent (class closed). -->
+    <ControlTheme x:Key="PanelHandle" TargetType="Button">
+        <Setter Property="Width" Value="14" />
+        <Setter Property="Height" Value="56" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{DynamicResource Text.Secondary}" />
+        <Setter Property="Background" Value="{DynamicResource Panel.Background}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,1,1" CornerRadius="0,6,6,0">
+                    <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource Text.Primary}" />
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#Chrome">
+            <Setter Property="Background" Value="{DynamicResource Control.Hover}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Chrome">
+            <Setter Property="Background" Value="{DynamicResource Control.Pressed}" />
+        </Style>
+        <Style Selector="^.closed">
+            <Setter Property="Foreground" Value="{DynamicResource Accent.Foreground}" />
+        </Style>
+        <Style Selector="^.closed /template/ Border#Chrome">
+            <Setter Property="Background" Value="{DynamicResource Accent}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+        </Style>
+        <Style Selector="^.closed:pointerover /template/ Border#Chrome">
+            <Setter Property="Background" Value="{DynamicResource Accent}" />
+            <Setter Property="Opacity" Value="0.85" />
+        </Style>
+    </ControlTheme>
+
+    <!-- Sliders (the WPF Slider style): a 4 DIP groove, the part before the thumb in the accent, a 14 DIP thumb with an accent dot. -->
+    <ControlTheme x:Key="SliderRepeat" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel Background="Transparent">
+                    <Border Height="4" CornerRadius="2" Margin="7,0,0,0" VerticalAlignment="Center" Background="{TemplateBinding Background}" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+    <ControlTheme x:Key="{x:Type Slider}" TargetType="Slider">
+        <Setter Property="Foreground" Value="{DynamicResource Text.Primary}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="MinHeight" Value="22" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel Name="Root" Background="Transparent" MinHeight="22">
+                    <Border Height="4" CornerRadius="2" Margin="7,0" VerticalAlignment="Center" Background="{DynamicResource Control.Pressed}" />
+                    <Track Name="PART_Track" Orientation="Horizontal" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                           Value="{TemplateBinding Value, Mode=TwoWay}" IsDirectionReversed="{TemplateBinding IsDirectionReversed}">
+                        <Track.DecreaseButton>
+                            <RepeatButton Name="PART_DecreaseButton" Theme="{StaticResource SliderRepeat}" Background="{DynamicResource Accent}" />
+                        </Track.DecreaseButton>
+                        <Track.IncreaseButton>
+                            <RepeatButton Name="PART_IncreaseButton" Theme="{StaticResource SliderRepeat}" Background="Transparent" />
+                        </Track.IncreaseButton>
+                        <Thumb Name="SliderThumb" Width="14" Height="14">
+                            <Thumb.Template>
+                                <ControlTemplate>
+                                    <Panel Background="Transparent">
+                                        <Ellipse Fill="{DynamicResource Control.Background}" Stroke="{DynamicResource Control.Border}" StrokeThickness="1" />
+                                        <Ellipse Name="Dot" Width="6" Height="6" Fill="{DynamicResource Accent}" />
+                                    </Panel>
+                                </ControlTemplate>
+                            </Thumb.Template>
+                        </Thumb>
+                    </Track>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Ellipse#Dot">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="8" />
+        </Style>
+        <Style Selector="^:disabled /template/ Panel#Root">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

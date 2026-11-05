@@ -343,10 +343,9 @@ public sealed class EditablePdfTests : IDisposable
         byte[] pdf = EditablePdfWriter.Write(null, null, model);
         EditablePdfWriter.Verify(pdf, model);
         var read = EditablePdfReader.Read(pdf, PdfPageGeometryReader.Read(pdf));
-        // A text box in a family this machine lacks (Segoe UI off Windows) stays read-only by design.
-        int missingFont = model.AllAnnotations.Count(a => a is TextBoxAnnotation t && t.Runs.Any(r => !PdfNotes.Text.TextLayout.FontAvailable(r.FontFamily)));
-        Assert.Equal(model.AllAnnotations.Count() - missingFont, read.RestoredCount);
-        Assert.Equal(missingFont, read.ReadOnlyCount);
+        // A text box in a family this machine lacks (Segoe UI off Windows) is restored too (decision 20).
+        Assert.Equal(model.AllAnnotations.Count(), read.RestoredCount);
+        Assert.Equal(0, read.ReadOnlyCount);
     }
 
     [Fact]

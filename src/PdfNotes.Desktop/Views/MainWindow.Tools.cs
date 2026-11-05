@@ -6,6 +6,7 @@ using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
 using Page = PdfNotes.Core.Models.Page;
 using PdfNotes.Desktop.Canvas;
+using PdfNotes.Desktop.Themes;
 using PdfNotes.Editor.Input;
 using PdfNotes.Editor.Layout;
 using PdfNotes.Editor.Localization;
@@ -20,8 +21,8 @@ namespace PdfNotes.Desktop.Views;
 
 /// <summary>
 /// The canvas tools (roadmap P4 A3): the same Editor tools and the same wiring as the WPF window (MainWindow.Tools), with
-/// the tool state in the view model (<see cref="ToolBarViewModel"/>, <see cref="ToolSwitch"/>). A plain tool row stands in
-/// for the ribbon until A5.
+/// the tool state in the view model (<see cref="ToolBarViewModel"/>, <see cref="ToolSwitch"/>). A5: the 필기 tab's tool
+/// buttons, the shape menu and the return mark.
 /// </summary>
 public sealed partial class MainWindow : IToolView
 {
@@ -34,7 +35,6 @@ public sealed partial class MainWindow : IToolView
     private LassoTool lassoTool = null!;
     private ShapeTool shapeTool = null!;
     private EraserTool strokeEraserTool = null!, areaEraserTool = null!;
-    private readonly Dictionary<ToolKind, ToggleButton> toolButtons = [];
 
     private ToolStylesViewModel styles => viewModel.ToolStyles;
     private ToolSwitch tools => viewModel.Tools;
@@ -85,14 +85,20 @@ public sealed partial class MainWindow : IToolView
         Canvas.OverlayFor = OverlayFor;
         Canvas.MarksFor = MarksFor;
         viewModel.ToolBar.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ToolBarViewModel.Buttons)) ShowToolButtons(); };
-        BuildToolRow();
+        selectTool.SelectionChanged += (_, _) =>
+        {
+            UpdateStyleBar();
+            if (selectTool.SelectedIds.Count > 0) viewModel.Ribbon.Auto(RibbonTab.Home);
+        };
+        // Drawing, typing or erasing on the canvas shows the 필기 tab; the selection tool's panning and PDF text
+        // selection do not (spec 3.2 automatic tab switch).
+        Canvas.ToolPressed += (_, _) => { if (Canvas.ActiveTool != selectTool || selectTool.SelectedIds.Count > 0) viewModel.Ribbon.Auto(RibbonTab.Home); };
+        Canvas.TemporaryToolEnded += (_, _) => ShowToolButtons();
+        InitializeToolButtons();
         SetTool(ToolKind.Pen);
     }
 
-    private static void CheckImage(byte[] bytes)
-    {
-        using var codec = SKCodec.Create(new SKMemoryStream(bytes)) ?? throw new InvalidDataException();
-    }
+    private static void CheckImage(byte[] bytes) => ImageFiles.Check(bytes);
 
     void IToolView.UseTool(ToolKind kind)
     {
@@ -114,7 +120,7 @@ public sealed partial class MainWindow : IToolView
         if (!ToolSwitch.KeepsSelection(kind)) selectTool.Select(null);
     }
 
-    void IToolView.ShowNotes() => viewModel.Display.NotesHidden = false;
+    void IToolView.ShowNotes() => SetNotesHidden(false);
 
     void IToolView.ReturnAfterAutoSelect() => ReturnAfterAutoSelect();
 
@@ -124,69 +130,93 @@ public sealed partial class MainWindow : IToolView
         Dispatcher.UIThread.Post(() => { if (tools.Current == ToolKind.Select && !Canvas.IsToolActive) SetTool(previous); });
     }
 
-    // ----- the plain tool row (A3; the ribbon is A5) -----
+    // ----- the tool buttons of the 필기 tab (spec 3.2) -----
 
-    private void BuildToolRow()
+    private RadioButton[] ToolRadios => [SelectToolButton, LassoToolButton, PenToolButton, HighlighterToolButton, EraserToolButton, TextToolButton, ShapeToolButton, NoteToolButton];
+
+    private void InitializeToolButtons()
     {
-        Button Command(string name, string tip, Action run)
-        {
-            var button = new Button { Name = name, Content = tip, Margin = new(0, 0, 4, 0) };
-            ToolTip.SetTip(button, tip);
-            button.Click += (_, _) => run();
-            ToolRow.Children.Add(button);
-            return button;
-        }
-        Command("OpenButton", Strings.Get("ribbon.open"), () => _ = OpenWithDialogAsync());
-        Command("SaveButton", Strings.Get("ribbon.save"), () => _ = SaveAsync(saveAs: false));
-        Command("UndoButton", Strings.Get("ribbon.undoTip"), Undo);
-        Command("RedoButton", Strings.Get("ribbon.redoTip"), Redo);
-        foreach (var (kind, key) in new (ToolKind, string)[]
-        {
-            (ToolKind.Select, "tool.select"), (ToolKind.Pen, "tool.pen"), (ToolKind.FreeHighlight, "ribbon.highlighter"), (ToolKind.AreaEraser, "tool.areaEraser"),
-            (ToolKind.StrokeEraser, "tool.strokeEraser"), (ToolKind.Lasso, "tool.lasso"), (ToolKind.Line, "tool.line"), (ToolKind.Curve, "tool.curve"),
-            (ToolKind.Shape, "ribbon.shape"), (ToolKind.Text, "ribbon.text"), (ToolKind.Note, "ribbon.note"),
-        })
-        {
-            var button = new ToggleButton { Name = kind + "ToolButton", Content = Strings.Get(key), Margin = new(0, 0, 2, 0) };
-            button.Click += (_, _) => SetTool(kind);
-            toolButtons[kind] = button;
-            ToolRow.Children.Add(button);
-        }
+        foreach (var button in ToolRadios.Concat([StrokeEraserButton, AreaEraserButton]))
+            button.Click += (_, _) =>
+            {
+                if (button.Tag is not string tag) return;
+                // Clicking the selection button, even while it is on, is a direct choice: no automatic return (spec 5.4).
+                if (tag == "Select" && tools.Current == ToolKind.Select) tools.Return = null;
+                viewModel.ToolBar.Press(tag); // the eraser button takes the eraser used last, the eraser bar picks one
+                ShowToolButtons();
+            };
+        ShapeMenuButton.Click += (_, _) => OpenShapeMenu();
+        tools.ReturnChanged += (_, _) => MarkReturnTool();
         ShowToolButtons();
     }
 
+    /// <summary>Shows which tool buttons are on (<see cref="ToolBarViewModel.Buttons"/>); showing never switches tools.</summary>
     private void ShowToolButtons()
     {
-        foreach (var (kind, button) in toolButtons) button.IsChecked = tools.Current == kind;
+        var b = viewModel.ToolBar.Buttons;
+        TextToolButton.IsChecked = b.Current == ToolKind.Text;
+        SelectToolButton.IsChecked = b.Current == ToolKind.Select;
+        PenToolButton.IsChecked = b.Current == ToolKind.Pen;
+        HighlighterToolButton.IsChecked = b.Current == ToolKind.FreeHighlight;
+        ShapeToolButton.IsChecked = b.ShapeGroup;
+        ShapeToolLabel.SetOutline(AppIcon.ShapeOutline(b.ShapeGroupTool, b.ShapeKind));
+        LassoToolButton.IsChecked = b.Current == ToolKind.Lasso;
+        EraserToolButton.IsChecked = b.EraserOn;
+        NoteToolButton.IsChecked = b.Current == ToolKind.Note;
+        StrokeEraserButton.IsChecked = b.Eraser == ToolKind.StrokeEraser;
+        AreaEraserButton.IsChecked = b.Eraser == ToolKind.AreaEraser;
     }
 
-    private void UpdateCommands()
+    /// <summary>The tool button an automatic selection visit goes back to has an accent border (spec 5.4, D14g).</summary>
+    private void MarkReturnTool()
     {
-        if (this.FindControl<Button>("UndoButton") is { } undo) undo.IsEnabled = Document?.Session.CanUndo == true;
-        if (this.FindControl<Button>("RedoButton") is { } redo) redo.IsEnabled = Document?.Session.CanRedo == true;
+        Control? target = tools.Return switch
+        {
+            ToolKind.Pen => PenToolButton,
+            ToolKind.FreeHighlight => HighlighterToolButton,
+            ToolKind.Text => TextToolButton,
+            ToolKind.Lasso => LassoToolButton,
+            ToolKind.Line or ToolKind.Curve or ToolKind.Shape => ShapeToolButton,
+            ToolKind.Note => NoteToolButton,
+            ToolKind.StrokeEraser or ToolKind.AreaEraser => EraserToolButton,
+            _ => null
+        };
+        foreach (var button in ToolRadios) button.Classes.Set("return", ReferenceEquals(button, target));
     }
 
-    public void Undo()
+    /// <summary>The shape button menu opened last (tests).</summary>
+    public ContextMenu? LastShapeMenu { get; private set; }
+
+    /// <summary>The menu of the shape button (spec 8): line, curve, then the four shapes; the current one checked.</summary>
+    public ContextMenu OpenShapeMenu()
     {
-        FinishTextEditing();
-        Canvas.CancelTool();
-        Document?.Session.Undo();
+        var menu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedLeft };
+        void Add(string header, ToolKind tool, ShapeKind shape, Action choose)
+        {
+            bool current = tools.Current == tool && (tool != ToolKind.Shape || settings.ShapeKind == shape);
+            menu.Items.Add(Menus.Item(header, () => { choose(); Canvas.Focus(); }, isChecked: current, outline: AppIcon.ShapeOutline(tool, shape)));
+        }
+        Add(Strings.Get("tool.line"), ToolKind.Line, default, () => SetTool(ToolKind.Line));
+        Add(Strings.Get("tool.curve"), ToolKind.Curve, default, () => SetTool(ToolKind.Curve));
+        menu.Items.Add(new Separator());
+        foreach (var (name, kind) in new[] { (Strings.Get("shape.rectangle"), ShapeKind.Rectangle), (Strings.Get("shape.ellipse"), ShapeKind.Ellipse), (Strings.Get("shape.triangle"), ShapeKind.Triangle), (Strings.Get("shape.polygon"), ShapeKind.Polygon) })
+            Add(name, ToolKind.Shape, kind, () => viewModel.ToolBar.SetShapeKind(kind));
+        menu.Open(ShapeToolButton);
+        return LastShapeMenu = menu;
     }
 
-    public void Redo()
+    /// <summary>The ribbon icon of a tool (the quick menu, 2026-10-15).</summary>
+    private AppIcon ToolIcon(ToolKind kind) => kind switch
     {
-        FinishTextEditing();
-        Canvas.CancelTool();
-        Document?.Session.Redo();
-    }
+        ToolKind.Lasso => new AppIcon { Glyph = "Lasso" },
+        ToolKind.Pen => new AppIcon { Glyph = "Pen" },
+        ToolKind.FreeHighlight => new AppIcon { Glyph = "Highlighter" },
+        ToolKind.StrokeEraser or ToolKind.AreaEraser => new AppIcon { Glyph = "Eraser" },
+        ToolKind.Line or ToolKind.Curve => new AppIcon { Outline = AppIcon.ShapeOutline(kind, settings.ShapeKind) },
+        _ => new AppIcon { Glyph = "Select" }
+    };
 
-    // ----- notes (the card that types into them comes with A5) -----
-
-    private void CreateNote(int pageIndex, Point2 point)
-    {
-        if (Document is not { } doc || viewModel.NoteCard.Create(pageIndex, point) is not { } note) return;
-        doc.Session.Execute(DocumentEdits.AddAnnotation(doc.Session.Current, doc.Session.Current.Pages[pageIndex].Id, note));
-    }
+    // ----- notes: the note tool (the card is MainWindow.Notes.cs) -----
 
     private bool SelectNoteAt(CanvasPointer pointer)
     {
@@ -220,10 +250,30 @@ public sealed partial class MainWindow : IToolView
             shown.Add(replacements.GetValueOrDefault(original.Id, original));
         }
         if (across is { } landing && landing.PageIndex == index) shown.AddRange(landing.Annotations);
+        // A new sticky note is drawn while its card is open (it joins the document when closed with text).
+        if (viewModel.NoteCard is { IsNew: true, Note: { } open } card && card.PageId == page.Id) shown.Add(open);
         var resources = doc.Session.Current.Resources;
+        // The box being edited has its edit frame (the WPF overlay): a thin frame with a white halo when the box has no
+        // border of its own, so it shows on dark pages too (D13c); a real border is the box's and the editor draws it.
+        (Affine Transform, double Width, double Height)? editFrame = null;
+        if (editSession is { } editing && editingPageId == page.Id && !editing.Model.Box.BoxStyle.BorderEnabled)
+        {
+            var box = editing.Model.DisplayBox;
+            editFrame = (box.Transform, box.WidthPt, PdfNotes.TextEditor.Avalonia.SkiaMeasure.Layout(box).Height);
+        }
         return (canvas, _, _, t) =>
         {
             foreach (var a in shown) SkiaAnnotationPainter.Paint(canvas, a, t, id => resources.GetValueOrDefault(id));
+            if (editFrame is { } f)
+            {
+                var m = f.Transform.Then(t.PageToDip);
+                using var path = new SKPath();
+                path.AddPoly([.. new[] { new Point2(0, 0), new Point2(f.Width, 0), new Point2(f.Width, f.Height), new Point2(0, f.Height) }.Select(p => m.Transform(p)).Select(p => new SKPoint((float)p.X, (float)p.Y))], close: true);
+                using var halo = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f, Color = SKColors.White }; // Overlay.Halo
+                using var line = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 0.5f, Color = new SKColor(0x64, 0x95, 0xED) }; // Overlay.TextEditFrame
+                canvas.DrawPath(path, halo);
+                canvas.DrawPath(path, line);
+            }
         };
     }
 
@@ -232,6 +282,11 @@ public sealed partial class MainWindow : IToolView
     {
         var colors = Canvas.MarkColors;
         var quads = selectTool.TextSelectionPage == index ? selectTool.TextSelectionQuads(index).ToArray() : null;
+        // Search results (spec 12): temporary marks inside the page, the current one outlined.
+        var search = viewModel.Search;
+        var hits = search.HitsOn(page.Id);
+        var matches = hits.Where(i => i != search.Index).SelectMany(i => search.Hits[i].Quads).ToArray();
+        var current = hits.Contains(search.Index) ? search.Hits[search.Index].Quads.ToArray() : [];
         Action<SKCanvas>? frame = null;
         if (selectTool.CrossPage is null && selectTool.PageId == page.Id)
         {
@@ -253,9 +308,18 @@ public sealed partial class MainWindow : IToolView
                 frame = c => SkiaMarkPainter.PaintSelectionFrame(c, handles, frameCorners, colors);
             }
         }
-        if (quads is null && frame is null) return null;
+        var drop = DropMarkOn(index);
+        if (quads is null && frame is null && hits.Count == 0 && drop is null) return null;
         return (canvas, _, _, t) =>
         {
+            if (hits.Count > 0)
+            {
+                canvas.Save();
+                canvas.ClipRect(SKRect.Create((float)t.PageOriginDip.X, (float)t.PageOriginDip.Y, (float)t.PageWidthDip, (float)t.PageHeightDip));
+                SkiaMarkPainter.PaintSearch(canvas, matches, current, t, colors);
+                canvas.Restore();
+            }
+            if (drop is { } d) PaintDropMark(canvas, d);
             if (quads is not null) SkiaMarkPainter.PaintTextSelection(canvas, quads, t, colors);
             frame?.Invoke(canvas);
         };

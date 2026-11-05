@@ -1,0 +1,63 @@
+<!-- Small layout rules of the bars (roadmap P4 A5, the WPF FieldGroup/FieldLabel/FieldUnit/Separator styles). -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- A vertical divider inside a bar -->
+    <Style Selector="Border.sep">
+        <Setter Property="Width" Value="1" />
+        <Setter Property="Margin" Value="{DynamicResource Space.Separator}" />
+        <Setter Property="Background" Value="{DynamicResource Divider}" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+    </Style>
+    <!-- The text bar is the densest: narrower dividers keep it on one row at 1200 DIP (D13e). -->
+    <Style Selector="WrapPanel#TextStylePanel Border.sep">
+        <Setter Property="Margin" Value="4" />
+    </Style>
+
+    <!-- [label field unit] stay one unit when a bar wraps in a narrow window (D13c) -->
+    <Style Selector="StackPanel.field">
+        <Setter Property="Orientation" Value="Horizontal" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.label">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="{DynamicResource Space.FieldLabel}" />
+        <Setter Property="Foreground" Value="{DynamicResource Text.Secondary}" />
+    </Style>
+    <Style Selector="TextBlock.unit">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="3,0,0,0" />
+        <Setter Property="Foreground" Value="{DynamicResource Text.Muted}" />
+    </Style>
+
+    <!-- Fields of the bars and the status bar are one bar row high (Height.Field), so a tool change never moves the page. -->
+    <Style Selector="TextBox.bar">
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Height" Value="{DynamicResource Height.Field}" />
+        <Setter Property="Padding" Value="4,3" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+    </Style>
+    <Style Selector="ComboBox.bar">
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Height" Value="{DynamicResource Height.Field}" />
+        <Setter Property="Padding" Value="6,2,0,2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+    </Style>
+    <Style Selector="AutoCompleteBox.bar">
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Height" Value="{DynamicResource Height.Field}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+    </Style>
+    <Style Selector="AutoCompleteBox.bar /template/ TextBox">
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Height" Value="{DynamicResource Height.Field}" />
+        <Setter Property="Padding" Value="4,3" />
+    </Style>
+    <Style Selector="Slider.bar">
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+</Styles>

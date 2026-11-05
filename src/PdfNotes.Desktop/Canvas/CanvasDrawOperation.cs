@@ -33,7 +33,8 @@ internal sealed class CanvasDrawOperation(Rect bounds, IReadOnlyList<DocumentCan
 /// </summary>
 public static class PageDrawing
 {
-    private static readonly SKColorFilter Invert = SKColorFilter.CreateColorMatrix(
+    /// <summary>The reading dark page (spec 24.12): colors inverted, alpha kept.</summary>
+    public static readonly SKColorFilter Invert = SKColorFilter.CreateColorMatrix(
     [
         -1, 0, 0, 0, 1,
         0, -1, 0, 0, 1,
@@ -65,9 +66,25 @@ public static class PageDrawing
             canvas.ClipRect(rect);
             fill.Color = look.Paper;
             canvas.DrawRect(rect, fill);
-            if (shot.Base is { } b) canvas.DrawImage(b, rect, sampling, image);
-            if (shot.Detail is { } d && shot.DetailKey?.Region is { } region)
-                canvas.DrawImage(d, SKRect.Create((float)(o.X + region.X / dpi), (float)(o.Y + region.Y / dpi), (float)(region.Width / dpi), (float)(region.Height / dpi)), sampling, image);
+            // Pictures go where their own pixels per point put them (the WPF PixelRectToLocal): 1:1 at the zoom they were made
+            // for, stretched in place while a new one renders after a zoom.
+            if (shot.Base is { } b)
+            {
+                double perPixel = shot.BaseKey is { } bk ? t.DipsPerPagePoint / bk.PixelsPerPoint : 1 / dpi;
+                canvas.DrawImage(b, SKRect.Create(rect.Left, rect.Top, (float)(b.Width * perPixel), (float)(b.Height * perPixel)), sampling, image);
+            }
+            if (shot.Detail is { } d && shot.DetailKey is { Region: { } region } dk)
+            {
+                double perPixel = t.DipsPerPagePoint / dk.PixelsPerPoint;
+                canvas.DrawImage(d, SKRect.Create((float)(o.X + region.X * perPixel), (float)(o.Y + region.Y * perPixel), (float)(region.Width * perPixel), (float)(region.Height * perPixel)), sampling, image);
+            }
+            if (shot.Failed && look.FailedText.Length > 0)
+            {
+                using var font = new SKFont(SKTypeface.Default, 14);
+                using var ink = new SKPaint { Color = look.PaperText, IsAntialias = true };
+                float w = font.MeasureText(look.FailedText);
+                canvas.DrawText(look.FailedText, rect.Left + Math.Max(4, (rect.Width - w) / 2), rect.Top + Math.Max(18, rect.Height / 2), SKTextAlign.Left, font, ink);
+            }
             if (look.PageNumberSize > 0) DrawPageNumber(canvas, shot.Index + 1, rect, look);
             shot.Overlay?.Invoke(canvas, shot.Index, shot.Page, t);
             shot.Preview?.Invoke(canvas, shot.Index, shot.Page, t);
@@ -77,7 +94,14 @@ public static class PageDrawing
                 canvas.DrawRect(rect, edge);
             // Screen marks are never inverted and not clipped to the page (handles may stick out).
             shot.Marks?.Invoke(canvas, shot.Index, shot.Page, t);
-            shot.MarkPreview?.Invoke(canvas, shot.Index, shot.Page, t);
+            if (shot.MarkPreview is { } preview)
+            {
+                // Tool marks (eraser circle, lasso) stay inside the page like the WPF view's.
+                canvas.Save();
+                canvas.ClipRect(rect);
+                preview(canvas, shot.Index, shot.Page, t);
+                canvas.Restore();
+            }
         }
     }
 

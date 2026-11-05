@@ -183,11 +183,11 @@ public sealed class TextStyleViewModel(MainViewModel owner, IEditorDialogs dialo
         if (double.TryParse(text, out double size) && double.IsFinite(size)) Format(r => r with { SizePt = TextEditing.InputSize(size) });
     }
 
-    /// <summary>A font name; a font this PC does not have is reported and Malgun Gothic used instead.</summary>
+    /// <summary>A font name; a font this PC does not have is reported and the fallback font (TextLayout.FallbackFont) used instead.</summary>
     public void SetFont(string family)
     {
         if (string.IsNullOrWhiteSpace(family)) return;
-        if (!TextLayout.FontAvailable(family)) { dialogs.Tell(Strings.Get("text.fontMissing"), NoticeKind.Information); family = "Malgun Gothic"; }
+        if (!TextLayout.FontAvailable(family)) { dialogs.Tell(Strings.Get("text.fontMissing"), NoticeKind.Information); family = TextLayout.FallbackFont; }
         Format(r => r with { FontFamily = family });
     }
 

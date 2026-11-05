@@ -141,13 +141,19 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
     public static string OpenedStatus(OpenDocument opened) =>
         Strings.Format("status.opened", ("pages", opened.Session.Current.Pages.Count)) + (opened.Source is { PermissionRestricted: true } ? Strings.Get("status.restricted") : "");
 
-    /// <summary>The one-time notice about view-only notes of an opened file, or null.</summary>
-    public static string? OpenedNotice(OpenDocument opened) => opened.Source?.AppData is { ReadOnlyCount: > 0 } data
-        ? data.HeaderStatus == HeaderStatus.Unsupported
-            ? Strings.Get("notice.unsupportedVersion")
-            : data.Warnings.Any(w => w.StartsWith("Missing font:", StringComparison.Ordinal)) ? Strings.Get("notice.missingFont")
-            : Strings.Format("notice.readOnlyNotes", ("count", data.ReadOnlyCount))
-        : null;
+    /// <summary>The one-time notice about view-only notes and missing fonts of an opened file, or null; both show when both apply (spec 6.2).</summary>
+    public static string? OpenedNotice(OpenDocument opened)
+    {
+        if (opened.Source?.AppData is not { } data) return null;
+        string? readOnly = data switch
+        {
+            { ReadOnlyCount: > 0, HeaderStatus: HeaderStatus.Unsupported } => Strings.Get("notice.unsupportedVersion"),
+            { ReadOnlyCount: > 0 } => Strings.Format("notice.readOnlyNotes", ("count", data.ReadOnlyCount)),
+            _ => null,
+        };
+        string? font = data.Warnings.Any(w => w.StartsWith("Missing font:", StringComparison.Ordinal)) ? Strings.Get("notice.missingFont") : null;
+        return readOnly is null ? font : font is null ? readOnly : readOnly + "\n\n" + font;
+    }
 
     private void TellOpenFailure(string path, string message)
     {

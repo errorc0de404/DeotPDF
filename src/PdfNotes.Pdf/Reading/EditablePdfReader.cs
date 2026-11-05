@@ -72,13 +72,7 @@ public static class EditablePdfReader
                 read = SchemaV8.Read(header, included.Select(c => c.Envelope!).ToList(), id =>
                     ReadImageResource(document.Internals.Catalog.Elements.GetDictionary("/PdfNotesResources")?.Elements.GetDictionary("/R" + id.ToString("N"))), frames);
                 if (read.Model is null) break;
-                var mismatched = included.Where((c, k) =>
-                {
-                    if (read.Annotations[k].AnnotationId is { } id && read.Model.FindAnnotation(id)?.Annotation is TextBoxAnnotation t &&
-                        t.Runs.Any(r => !PdfNotes.Text.TextLayout.FontAvailable(r.FontFamily)))
-                    { fontWarnings.Add("Missing font: original text appearance is preserved read-only; editing requires the original font."); return true; }
-                    return !Consistent(c, read.Annotations[k], read.Model);
-                }).ToList();
+                var mismatched = included.Where((c, k) => !Consistent(c, read.Annotations[k], read.Model)).ToList();
                 if (mismatched.Count == 0) break;
                 // Physical placement or kind does not match the data: keep those appearances visible and read again.
                 included.RemoveAll(mismatched.Contains);
@@ -112,6 +106,11 @@ public static class EditablePdfReader
                     original = null;
                 }
             }
+            // A text box in a family this machine lacks is restored and edited with the substitute font (decision 20):
+            // the stored family stays, so the original font returns where it is installed. Line breaks may differ here.
+            if (read.Model is { } fontModel && fontModel.AllAnnotations.Any(a => a is TextBoxAnnotation t && !t.IsBlank &&
+                t.Runs.Any(r => !PdfNotes.Text.TextLayout.FontAvailable(r.FontFamily))))
+                fontWarnings.Add("Missing font: text in a family this machine lacks is shown and edited with a substitute font.");
             var hidden = read.Model is null ? [] : included.Where((_, k) => read.Annotations[k].Status != AnnotationReadStatus.Rejected).ToList();
             foreach (var group in hidden.GroupBy(c => c.PageIndex))
             {

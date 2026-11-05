@@ -31,7 +31,8 @@ internal static class Headless
 
     public static T Run<T>(Func<T> test) => Session.Value.Dispatch(test, CancellationToken.None).GetAwaiter().GetResult();
 
-    public static void Run(Func<Task> test) => Session.Value.Dispatch(test, CancellationToken.None).GetAwaiter().GetResult();
+    /// <summary>An async test body, awaited to the end (a plain Func&lt;Task&gt; would bind to Dispatch&lt;T&gt;(Func&lt;T&gt;) and return at its first await).</summary>
+    public static void Run(Func<Task> test) => Session.Value.Dispatch(async () => { await test(); return true; }, CancellationToken.None).GetAwaiter().GetResult();
 
     /// <summary>Runs queued UI work until <paramref name="done"/> or the time is up (background renders post back here).</summary>
     public static void Pump(Func<bool> done, int timeoutMs = 10_000)

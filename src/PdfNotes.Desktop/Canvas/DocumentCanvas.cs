@@ -56,8 +56,12 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
         Children.Add(horizontal);
         vertical.ValueChanged += (_, e) => { if (!syncingBars) SetOffset(new(offset.X, e.NewValue)); };
         horizontal.ValueChanged += (_, e) => { if (!syncingBars) SetOffset(new(e.NewValue, offset.Y)); };
+        vertical.Scroll += (_, e) => BarPaged(e.ScrollEventType);
+        vertical.Cursor = horizontal.Cursor = Cursor.Default; // not the tool's cursor over the bars
+        ActualThemeVariantChanged += (_, _) => Redraw(); // shadow, border and paper colors are read per frame
         planTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = ScrollPlanDelay };
         planTimer.Tick += (_, _) => { planTimer.Stop(); PlanRenders(); };
+        InitializeIme();
     }
 
     /// <summary>Zoom, current page, page count or view mode changed.</summary>
@@ -235,23 +239,40 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     public void LineUp() => SetOffset(new(offset.X, offset.Y - WheelStepDip));
     public void LineDown() => SetOffset(new(offset.X, offset.Y + WheelStepDip));
 
-    public bool ArrowSideways(int direction, bool repeat)
+    /// <summary>A held ←/→ turns one page per this many milliseconds (2026-10-15 user request: 0.3 s), as the WPF view.</summary>
+    public const int HeldPageTurnMs = 300;
+    private long lastPageTurn = long.MinValue / 2, edgeReached = long.MinValue / 2;
+
+    /// <summary>
+    /// ←/→ (spec 24.2): scroll sideways inside a page wider than the view, then turn the page at its edge. Held down it
+    /// turns one page per <see cref="HeldPageTurnMs"/> and pauses that long when it reaches an edge; a page wider than the
+    /// view is entered from the side the move came from.
+    /// </summary>
+    public bool ArrowSideways(int direction, bool repeat) => ArrowSideways(direction, repeat, Environment.TickCount64);
+
+    public bool ArrowSideways(int direction, bool repeat, long now)
     {
         if (pages.Count == 0 || EnsureLayout() is not { } l) return false;
         var r = l.PageRect(CurrentPageIndex);
         double max = Math.Max(0, ExtentWidth - viewportWidth);
-        bool atEdge = direction < 0
+        bool AtEdge() => direction < 0
             ? offset.X <= 0.5 || r.X - DocumentLayout.MarginDip >= offset.X - 0.5
             : offset.X >= max - 0.5 || r.X + r.Width + DocumentLayout.MarginDip <= offset.X + viewportWidth + 0.5;
-        if (!atEdge)
+        if (!AtEdge())
         {
             var before = offset;
             SetOffset(new(offset.X + direction * WheelStepDip, offset.Y));
+            if (AtEdge()) edgeReached = now;
             return offset != before;
         }
         int target = CurrentPageIndex + direction;
-        if (target < 0 || target >= pages.Count || repeat) return false;
+        if (target < 0 || target >= pages.Count) return false;
+        if (repeat && now - Math.Max(lastPageTurn, edgeReached) < HeldPageTurnMs) return false;
+        lastPageTurn = now;
         GoToPage(target);
+        var t = EnsureLayout()!.PageRect(target);
+        if (t.Width + 2 * DocumentLayout.MarginDip > viewportWidth) // wider than the view: start at the side we came from
+            SetOffset(new(direction > 0 ? t.X - DocumentLayout.MarginDip : t.X + t.Width + DocumentLayout.MarginDip - viewportWidth, offset.Y));
         return true;
     }
 
@@ -350,6 +371,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     {
         if (layout is not null) CurrentPageIndex = layout.CurrentPage(new(offset.X, offset.Y, viewportWidth, viewportHeight));
         SyncScrollBars();
+        if (NeedBars(Bounds.Size) != (vertical.IsVisible, horizontal.IsVisible)) InvalidateArrange(); // a zoom or mode change needs or frees a bar
         Redraw();
         planTimer.Stop();
         planTimer.Interval = planDelay;
@@ -371,9 +393,66 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
         return new(width, height);
     }
 
+    /// <summary>The pages' own size at the current zoom with the margins (the layout's extent without the viewport).</summary>
+    private (double Width, double Height) ContentSize()
+    {
+        if (pages.Count == 0) return (0, 0);
+        double scale = zoom * Units.DipsPerPoint;
+        if (mode == ViewMode.SinglePage)
+        {
+            var f = pages[Math.Clamp(singlePage, 0, pages.Count - 1)].Setup.Frame;
+            return (f.DisplayWidthPt * scale + 2 * DocumentLayout.MarginDip, f.DisplayHeightPt * scale + 2 * DocumentLayout.MarginDip);
+        }
+        double height = pages.Sum(p => p.Setup.Frame.DisplayHeightPt * scale) + (pages.Count - 1) * DocumentLayout.PageGapDip + 2 * DocumentLayout.MarginDip;
+        return (pages.Max(p => p.Setup.Frame.DisplayWidthPt) * scale + 2 * DocumentLayout.MarginDip, height);
+    }
+
+    /// <summary>Scroll bars only when the pages do not fit (the WPF view's ScrollBarVisibility Auto); a bar takes room from the other way.</summary>
+    private (bool Vertical, bool Horizontal) NeedBars(Size size)
+    {
+        var (contentWidth, contentHeight) = ContentSize();
+        bool needV = contentHeight > size.Height + 0.5, needH = contentWidth > size.Width - (needV ? BarSize : 0) + 0.5;
+        if (needH && !needV) needV = contentHeight > size.Height - BarSize + 0.5;
+        return (needV, needH);
+    }
+
+    private TopLevel? scaledTop;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        // Another monitor scale: the pages are rendered again at its pixels (the WPF OnDpiChanged), the drawn cursors too.
+        scaledTop = TopLevel.GetTopLevel(this);
+        if (scaledTop is not null) scaledTop.ScalingChanged += OnScalingChanged;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (scaledTop is not null) scaledTop.ScalingChanged -= OnScalingChanged;
+        scaledTop = null;
+    }
+
+    private void OnScalingChanged(object? sender, EventArgs e)
+    {
+        bases.Clear();
+        details.Clear();
+        Invalidate(ScrollPlanDelay);
+        UpdateCursor();
+    }
+
+    /// <summary>The scroll bars shown changed (layers over the pages leave room only for bars that are there).</summary>
+    public event EventHandler<Thickness>? BarsChanged;
+    private Thickness barRoom = new(-1);
+
     protected override Size ArrangeOverride(Size finalSize)
     {
-        double width = Math.Max(0, finalSize.Width - BarSize), height = Math.Max(0, finalSize.Height - BarSize);
+        var (needV, needH) = NeedBars(finalSize);
+        vertical.IsVisible = needV;
+        horizontal.IsVisible = needH;
+        var room = new Thickness(0, 0, needV ? BarSize : 0, needH ? BarSize : 0);
+        if (room != barRoom) { barRoom = room; Avalonia.Threading.Dispatcher.UIThread.Post(() => BarsChanged?.Invoke(this, room)); }
+        double width = Math.Max(0, finalSize.Width - (needV ? BarSize : 0)), height = Math.Max(0, finalSize.Height - (needH ? BarSize : 0));
         surface.Arrange(new Rect(0, 0, width, height));
         vertical.Arrange(new Rect(width, 0, BarSize, height));
         horizontal.Arrange(new Rect(0, height, width, BarSize));
@@ -415,14 +494,30 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
         base.OnPointerWheelChanged(e);
         if (pages.Count == 0) return;
         var at = e.GetPosition(this);
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        if (IsControl(e.KeyModifiers))
         {
             // Ctrl+wheel zooms around the pointer (spec 4.4). One notch = ×1.1.
             ZoomBy(Math.Pow(1.1, e.Delta.Y), new(at.X, at.Y));
         }
         else if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) ScrollBy(-e.Delta.Y * WheelNotchDip, 0);
+        else if (e.Delta.Y > 0 && mode == ViewMode.SinglePage && offset.Y <= 0.5 && CurrentPageIndex > 0 && !IsToolActive)
+        {
+            // Single page (spec 4.4): scroll inside the page first, turn it at its edge; up shows the previous page's bottom.
+            GoToPage(CurrentPageIndex - 1);
+            SetOffset(new(offset.X, double.MaxValue / 4));
+        }
+        else if (e.Delta.Y < 0 && mode == ViewMode.SinglePage && offset.Y >= ExtentHeight - viewportHeight - 0.5 && CurrentPageIndex < pages.Count - 1 && !IsToolActive)
+            NextPage();
         else ScrollBy(-e.Delta.X * WheelNotchDip, -e.Delta.Y * WheelNotchDip);
         e.Handled = true;
+    }
+
+    /// <summary>A click on the scroll bar's track: in single page mode it turns the page (the WPF view's PageUp/PageDown).</summary>
+    private void BarPaged(Avalonia.Controls.Primitives.ScrollEventType type)
+    {
+        if (mode != ViewMode.SinglePage) return;
+        if (type == Avalonia.Controls.Primitives.ScrollEventType.LargeIncrement) NextPage();
+        else if (type == Avalonia.Controls.Primitives.ScrollEventType.LargeDecrement) PreviousPage();
     }
 
     // ----- rendering -----
@@ -445,6 +540,10 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
             else if (queue.TryGet(wantedDetail, out var detail)) details[page.Id] = (wantedDetail, detail);
         }
         queue.Request(plan);
+        // Pictures of pages neither visible nor planned are dropped (the queue's cache keeps what it can afford).
+        var keep = plan.Select(k => k.PageId).Concat(l.VisiblePages(viewport).Select(i => pages[i].Id)).ToHashSet();
+        foreach (var id in bases.Keys.Where(id => !keep.Contains(id)).ToList()) bases.Remove(id);
+        foreach (var id in details.Keys.Where(id => !keep.Contains(id)).ToList()) details.Remove(id);
         Redraw();
     }
 
@@ -485,20 +584,38 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
             var page = pages[index];
             var transform = PageTransform(index);
             var b = bases.TryGetValue(page.Id, out var bb) && bb.Key.Setup.Equals(page.Setup) ? bb : default;
+            if (b.Image is null && queue is not null)
+            {
+                var wanted = RenderPlanner.BaseKey(page, RenderPlanner.TargetPixelsPerPoint(zoom, DpiScale));
+                if (queue.TryGet(wanted, out var cached)) b = bases[page.Id] = (wanted, cached);
+                else if (queue.BestBase(wanted) is { } best) b = bases[page.Id] = best;
+            }
+            bool failed = b.Image is null && queue is not null && queue.HasFailed(RenderPlanner.BaseKey(page, RenderPlanner.TargetPixelsPerPoint(zoom, DpiScale)), out _);
             var d = details.TryGetValue(page.Id, out var dd) && dd.Key.Setup.Equals(page.Setup) ? dd : default;
             var live = PreviewPainter(index, page, transform);
             shots.Add(new(index, page, transform, b.Image, d.Key, d.Image, previewIsMark ? null : live, previewIsMark ? live : null,
-                MarksFor?.Invoke(index, page, transform), OverlayFor?.Invoke(index, page, transform)));
+                MarksFor?.Invoke(index, page, transform), OverlayFor?.Invoke(index, page, transform)) { BaseKey = b.Image is null ? null : b.Key, Failed = failed });
         }
         context.Custom(new CanvasDrawOperation(new Rect(0, 0, viewportWidth, viewportHeight), shots, Snapshot()));
     }
 
     /// <summary>One visible page as it is drawn this frame (immutable: the draw runs on the render thread).</summary>
     internal sealed record PageShot(int Index, Page Page, ViewTransform Transform, SKImage? Base, RenderKey? DetailKey, SKImage? Detail,
-        PagePainter? Preview = null, PagePainter? MarkPreview = null, PagePainter? Marks = null, PagePainter? Overlay = null);
+        PagePainter? Preview = null, PagePainter? MarkPreview = null, PagePainter? Marks = null, PagePainter? Overlay = null)
+    {
+        /// <summary>The key the base picture was made for (its pixels per point place it 1:1).</summary>
+        public RenderKey? BaseKey { get; init; }
+
+        /// <summary>The page could not be rendered: its paper says so (the WPF page.renderFailed).</summary>
+        public bool Failed { get; init; }
+    }
 
     /// <summary>What the render thread needs from the control for one frame.</summary>
-    internal sealed record CanvasLook(bool DarkPages, double PageNumberSize, SKColor Paper, SKColor Shadow, SKColor Edge, SKColor PageNumber);
+    internal sealed record CanvasLook(bool DarkPages, double PageNumberSize, SKColor Paper, SKColor Shadow, SKColor Edge, SKColor PageNumber)
+    {
+        public string FailedText { get; init; } = "";
+        public SKColor PaperText { get; init; } = new(0x69, 0x69, 0x69);
+    }
 
     private CanvasLook Snapshot()
     {
@@ -506,6 +623,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
             this.TryFindResource(key, ActualThemeVariant, out var v) && v is ISolidColorBrush brush
                 ? new SKColor(brush.Color.R, brush.Color.G, brush.Color.B, (byte)(brush.Color.A * brush.Opacity)) : fallback;
         return new(darkPages, pageNumberSize, Color("Paper", SKColors.White), Color("Page.Shadow", new SKColor(0, 0, 0, 0x30)),
-            Color("Page.Border", new SKColor(0xC8, 0xC8, 0xC8)), Color("Overlay.PageNumber", new SKColor(0x80, 0x80, 0x80, 0x99)));
+            Color("Page.Border", new SKColor(0xC8, 0xC8, 0xC8)), Color("Overlay.PageNumber", new SKColor(0x80, 0x80, 0x80, 0x99)))
+            { FailedText = PdfNotes.Editor.Localization.Strings.Get("page.renderFailed"), PaperText = Color("Paper.Text", new SKColor(0x69, 0x69, 0x69)) };
     }
 }

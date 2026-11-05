@@ -20,7 +20,7 @@ public sealed class EditingTests
     private static MainWindow Window()
     {
         var settings = new AppSettings();
-        var window = new MainWindow(settings, _ => { }) { Width = 1100, Height = 800 };
+        var window = new MainWindow(settings, _ => { }) { Width = 1200, Height = 1000 }; // the ribbon, the bars and the page list take room (A5)
         window.PromptOverride = (_, _) => Answer.No;
         window.MessageSink = _ => { };
         window.Show();
@@ -240,11 +240,22 @@ public sealed class EditingTests
         Assert.Equal(steps + 1, w.Document.Session.UndoCount);
         w.Undo();
         Assert.Equal("첫 글", ((TextBoxAnnotation)Annotations(w)[0]).Text);
+        Assert.Equal([box.Id], w.Selection.SelectedIds); // the Undo shows what it changed (spec 13.3)
+        Key(w, Avalonia.Input.Key.Escape);
+        Assert.Empty(w.Selection.SelectedIds);
 
-        // A key typed with the box selected starts editing it with that key.
+        // With the selection tool chosen directly a typed key does not edit the box (spec 5.4: only a visit from the text tool).
         w.SetTool(ToolKind.Select);
         Thread.Sleep(700); // a new click, not the second half of a double click
-        Click(w, inside); // selects it (and the canvas has the keyboard)
+        Click(w, inside);
+        Assert.Equal([box.Id], w.Selection.SelectedIds);
+        w.KeyTextInput("?");
+        Assert.False(w.IsEditingText);
+        // Selected from the text tool, a typed key starts editing it with that key.
+        Key(w, Avalonia.Input.Key.Escape);
+        w.SetTool(ToolKind.Text);
+        Thread.Sleep(700);
+        Click(w, inside); // the text tool selects it (and the canvas has the keyboard)
         Assert.Equal([box.Id], w.Selection.SelectedIds);
         Assert.False(w.IsEditingText);
         w.KeyTextInput("!");

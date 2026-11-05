@@ -28,7 +28,9 @@ public static class WpfText
     public static bool FontAvailable(string name) => FontNames.Value.Contains(name);
     public static void SetRun(Inline inline, TextRun r)
     {
-        inline.FontFamily = new FontFamily(FontAvailable(r.FontFamily) ? r.FontFamily : "Malgun Gothic");
+        bool available = FontAvailable(r.FontFamily);
+        inline.FontFamily = new FontFamily(available ? r.FontFamily : "Malgun Gothic");
+        inline.Tag = available ? null : r.FontFamily; // the stored name of a missing font, read back by the editor (decision 20)
         inline.FontSize = r.SizePt; inline.Foreground = Brush(r.Color);
         inline.FontWeight = r.Bold ? FontWeights.Bold : FontWeights.Normal;
         inline.FontStyle = r.Italic ? FontStyles.Italic : FontStyles.Normal;

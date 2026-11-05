@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Editor.Input;
 using PdfNotes.Editor.Tools;
@@ -49,13 +51,29 @@ public sealed partial class DocumentCanvas
     /// <summary>Raised when a middle-button or pen-eraser operation ends: the original tool is back.</summary>
     public event EventHandler? TemporaryToolEnded;
 
-    private static InputModifiers Modifiers(KeyModifiers k) =>
-        (k.HasFlag(KeyModifiers.Alt) ? InputModifiers.Alt : 0) | (k.HasFlag(KeyModifiers.Control) ? InputModifiers.Control : 0) |
-        (k.HasFlag(KeyModifiers.Shift) ? InputModifiers.Shift : 0) | (k.HasFlag(KeyModifiers.Meta) ? InputModifiers.Windows : 0);
+    /// <summary>
+    /// PDF links (spec 24.3): the tooltip of a link under a viewport point, null where there is none. With
+    /// <see cref="LinkFollowsClick"/> (the selection tool) a click that does not drag follows it; with any tool Ctrl+click
+    /// does, before the tool sees the press (a drawing tool otherwise draws over links).
+    /// </summary>
+    public Func<Point2, string?>? LinkTip { get; set; }
+    public Func<bool>? LinkFollowsClick { get; set; }
+    public event EventHandler<Point2>? LinkClicked;
+    private Point? linkPress;
+    private const double LinkClickDip = 4;
+    private string? shownTip;
 
-    private CanvasPointer Pointer(PointerEventArgs e, PointerButton button = PointerButton.Left, int clicks = 1)
+    /// <summary>On macOS ⌘ is the Ctrl of every shortcut and modifier gesture (as the window's keys).</summary>
+    private static InputModifiers Modifiers(KeyModifiers k) =>
+        (k.HasFlag(KeyModifiers.Alt) ? InputModifiers.Alt : 0) | (IsControl(k) ? InputModifiers.Control : 0) |
+        (k.HasFlag(KeyModifiers.Shift) ? InputModifiers.Shift : 0) | (k.HasFlag(KeyModifiers.Meta) && !OperatingSystem.IsMacOS() ? InputModifiers.Windows : 0);
+
+    private static bool IsControl(KeyModifiers k) => k.HasFlag(KeyModifiers.Control) || OperatingSystem.IsMacOS() && k.HasFlag(KeyModifiers.Meta);
+
+    private CanvasPointer Pointer(PointerEventArgs e, PointerButton button = PointerButton.Left, int clicks = 1) => Pointer(e, e.GetCurrentPoint(this), button, clicks);
+
+    private CanvasPointer Pointer(PointerEventArgs e, PointerPoint point, PointerButton button = PointerButton.Left, int clicks = 1)
     {
-        var point = e.GetCurrentPoint(this);
         var device = e.Pointer.Type switch { PointerType.Pen => PointerDevice.Pen, PointerType.Touch => PointerDevice.Touch, _ => PointerDevice.Mouse };
         var p = point.Properties;
         double? pressure = device == PointerDevice.Pen ? Math.Clamp(p.Pressure, 0, 1) : null;
@@ -71,9 +89,13 @@ public sealed partial class DocumentCanvas
         UpdateCursor();
     }
 
+    /// <summary>The event came from the canvas's own scroll bars (they are its children): not a press or a move on the pages.</summary>
+    public static bool FromScrollBar(RoutedEventArgs e) => e.Source is Visual v && v.FindAncestorOfType<Avalonia.Controls.Primitives.ScrollBar>(includeSelf: true) is not null;
+
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+        if (FromScrollBar(e)) return;
         Focus();
         if (e.Pointer.Type != PointerType.Mouse)
         {
@@ -110,6 +132,17 @@ public sealed partial class DocumentCanvas
         var at = e.GetPosition(this);
         LastClickCount = e.ClickCount;
         LastPress = new(at.X, at.Y);
+        linkPress = null;
+        if (!spaceHeld && !IsToolActive && LinkTip?.Invoke(new(at.X, at.Y)) is not null)
+        {
+            if (IsControl(e.KeyModifiers))
+            {
+                LinkClicked?.Invoke(this, new(at.X, at.Y));
+                e.Handled = true;
+                return;
+            }
+            if (LinkFollowsClick?.Invoke() == true) linkPress = at;
+        }
         if (spaceHeld && !IsToolActive)
         {
             panning = true;
@@ -132,13 +165,21 @@ public sealed partial class DocumentCanvas
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        if (FromScrollBar(e) && captured is null && touchPointer is null)
+        {
+            (tool as IHoverTool)?.PointerHover(null, InputModifiers.None); // no eraser circle over the bars
+            if (shownTip is not null) { shownTip = null; Avalonia.Controls.ToolTip.SetTip(this, null); Avalonia.Controls.ToolTip.SetIsOpen(this, false); } // nor a link tip
+            return;
+        }
         if (e.Pointer.Type != PointerType.Mouse)
         {
             var pointer = Pointer(e);
             // A pen moving without contact is near the screen: touches are the palm meanwhile.
             if (e.Pointer.Type == PointerType.Pen && !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && !Router.IsDrawing)
                 Run(Router.PenInRange(true), e.Pointer);
-            else Run(Router.Move(pointer), e.Pointer);
+            else
+                // Every sample of the report, so fast strokes keep their shape and their pressure changes (as the WPF view).
+                foreach (var sample in e.GetIntermediatePoints(this)) Run(Router.Move(Pointer(e, sample)), e.Pointer);
             return;
         }
         var at = e.GetPosition(this);
@@ -149,6 +190,14 @@ public sealed partial class DocumentCanvas
         {
             (tool as IHoverTool)?.PointerHover(spaceHeld ? null : new Point2(at.X, at.Y), Modifiers(e.KeyModifiers));
             UpdateCursor();
+            string? tip = spaceHeld ? null : LinkTip?.Invoke(new(at.X, at.Y));
+            if (tip is not null && cursorOverride is null && (LinkFollowsClick?.Invoke() == true || IsControl(e.KeyModifiers))) Cursor = new Cursor(StandardCursorType.Hand);
+            if (tip != shownTip)
+            {
+                shownTip = tip;
+                Avalonia.Controls.ToolTip.SetTip(this, tip); // opens after the usual delay, as a WPF tooltip
+                if (tip is null) Avalonia.Controls.ToolTip.SetIsOpen(this, false);
+            }
         }
     }
 
@@ -169,10 +218,15 @@ public sealed partial class DocumentCanvas
             return;
         }
         if (kind != PointerUpdateKind.LeftButtonReleased) return;
+        var press = linkPress;
+        linkPress = null;
+        if (press is { } pressed && Point.Distance(e.GetPosition(this), pressed) < LinkClickDip)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => LinkClicked?.Invoke(this, new(pressed.X, pressed.Y))); // after the tool finished the click
         if (panning)
         {
             panning = false;
             Release();
+            UpdateCursor(); // the hand goes when Space is up again
             e.Handled = true;
         }
         else if (toolCaptured && tool is { IsActive: true })
@@ -277,6 +331,7 @@ public sealed partial class DocumentCanvas
     {
         if (middleTool is not null || toolCaptured || panning) return; // the mouse is busy
         LastPressDevice = pointer.Device;
+        (tool as IHoverTool)?.PointerHover(null, InputModifiers.None); // a mouse hover mark goes when the pen or finger draws
         var target = erase ? PenEraser?.Invoke() : tool;
         if (target is null || target.IsActive && !ReferenceEquals(target, tool)) return;
         if (erase && tool?.IsActive == true) tool.Cancel();
@@ -306,6 +361,12 @@ public sealed partial class DocumentCanvas
     {
         if (IsToolActive) return;
         LastPressDevice = PointerDevice.Touch;
+        if (LinkFollowsClick?.Invoke() == true && LinkTip?.Invoke(pointer.Position) is not null)
+        {
+            var at = pointer.Position;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => LinkClicked?.Invoke(this, at));
+            return;
+        }
         if (!TouchRules.TapReachesTool(tool) || tool is null || !tool.PointerDown(pointer)) return;
         ToolPressed?.Invoke(this, EventArgs.Empty);
         if (tool.IsActive) tool.PointerUp(pointer);
@@ -324,18 +385,34 @@ public sealed partial class DocumentCanvas
 
     // ----- cursor -----
 
+    /// <summary>A cursor over everything the canvas would show (the eyedropper's cross).</summary>
+    public Cursor? CursorOverride
+    {
+        get => cursorOverride;
+        set { cursorOverride = value; UpdateCursor(); }
+    }
+    private Cursor? cursorOverride;
+
     private void UpdateCursor()
     {
+        if (cursorOverride is { } forced) { Cursor = forced; return; }
         StandardCursorType type;
         if (spaceHeld || panning) type = StandardCursorType.Hand;
+        else if (ActiveTool?.Cursor is { Shape: CursorShape.Rotate or CursorShape.Lock or CursorShape.Pen } custom)
+        {
+            // Not stock cursors here (the WPF SelectionCursors and Cursors.Pen): drawn at the screen's pixels.
+            double scale = Avalonia.Controls.TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+            Cursor = custom.Shape switch { CursorShape.Rotate => CanvasCursors.Rotate(scale), CursorShape.Lock => CanvasCursors.Lock(scale), _ => CanvasCursors.Pen(scale) };
+            return;
+        }
         else type = ActiveTool?.Cursor is { } c ? CursorFor(c) : StandardCursorType.Arrow;
         Cursor = new Cursor(type);
     }
 
-    /// <summary>The editor's cursor request as an Avalonia standard cursor (custom rotate/lock cursors come with A5).</summary>
+    /// <summary>The editor's cursor request as an Avalonia standard cursor (rotate and lock are CanvasCursors).</summary>
     public static StandardCursorType CursorFor(ToolCursor cursor) => cursor.Shape switch
     {
-        CursorShape.Pen or CursorShape.Cross => StandardCursorType.Cross,
+        CursorShape.Cross => StandardCursorType.Cross,
         CursorShape.IBeam => StandardCursorType.Ibeam,
         CursorShape.Hand => StandardCursorType.Hand,
         CursorShape.Move or CursorShape.SizeAll => StandardCursorType.SizeAll,

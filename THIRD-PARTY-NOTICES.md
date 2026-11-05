@@ -12,6 +12,7 @@ DeotPDF itself is licensed under GPL-3.0 (see [LICENSE](LICENSE)). It ships with
 | System.Security.Cryptography.Pkcs, Microsoft.Extensions.* abstractions | 10.0 | Pulled in by PDFsharp and the MCP SDK | MIT, © Microsoft Corporation |
 | [MCP C# SDK](https://github.com/modelcontextprotocol/csharp-sdk) (`ModelContextProtocol.Core`) | 2.3.0 | `deot mcp` | Apache-2.0 (older contributions MIT), © Model Context Protocol a Series of LF Projects, LLC ([`third_party/ModelContextProtocol/LICENSE`](third_party/ModelContextProtocol/LICENSE)) |
 | Microsoft.Extensions.AI.Abstractions | 10.11.0 | Pulled in by the MCP SDK | MIT, © Microsoft Corporation |
+| [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) (`@fluentui/svg-icons`) | 1.1.345 | Icons of the cross-platform app (`DeotPDF.Next`), as path data in `IconData.g.cs` | MIT, © Microsoft Corporation ([`third_party/FluentUISystemIcons/LICENSE`](third_party/FluentUISystemIcons/LICENSE)) |
 
 Test-only packages (xUnit, Microsoft.NET.Test.Sdk, coverlet) are used when running the test suite and are not included in the release.
 

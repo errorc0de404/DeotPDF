@@ -251,6 +251,11 @@ public sealed class TextBoxEditor : Control
         public string? GetText() => Plain;
     }
 
+    /// <summary>The clipboard commands of the editor's context menu (the same as Ctrl+C, Ctrl+X, Ctrl+V).</summary>
+    public Task CopyAsync() => Copy(cut: false);
+    public Task CutAsync() => Copy(cut: true);
+    public Task PasteAsync() => Paste();
+
     /// <summary>
     /// Copies (and for a cut then deletes) the selection. The text is deleted only after the clipboard took it; a
     /// clipboard another program holds leaves everything as it was.
