@@ -1,6 +1,9 @@
-# Builds the release zips on a GitHub-hosted runner.
-# - Manual run (Actions tab): builds and uploads the zips as a workflow artifact.
-# - Tag push (v1.2.3): also checks the tag against Directory.Build.props and creates a draft release.
+# Builds the release packages on GitHub-hosted runners.
+# - windows: the two Windows zips (WPF app and CLI), signed when SignPath is set up.
+# - desktop: the cross-platform app with the WPF-free CLI for Linux (tar.gz) and macOS (Apple silicon and Intel zips),
+#   by tools/package-desktop.ps1 on the system it is for (file modes, ad hoc codesign).
+# - Manual run (Actions tab): builds and uploads the packages as workflow artifacts.
+# - Tag push (v1.2.3): also checks the tag against Directory.Build.props and creates one draft release with all of them.
 # Signing runs only once the SignPath repository variables are set (SIGNPATH_ORGANIZATION_ID,
 # SIGNPATH_PROJECT_SLUG, SIGNPATH_POLICY_SLUG) and the SIGNPATH_API_TOKEN secret exists;
 # the artifact configuration is .signpath/artifact-configuration.xml.
@@ -16,7 +19,23 @@ permissions:
   actions: read
 
 jobs:
-  release:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Version
+        id: version
+        shell: pwsh
+        run: |
+          $v = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -ne "v$v") { throw "tag $env:GITHUB_REF_NAME does not match version $v" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+  windows:
+    needs: version
     runs-on: windows-latest
     env:
       DOTNET_NOLOGO: "1"
@@ -28,20 +47,12 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Version
-        id: version
-        shell: pwsh
-        run: |
-          $v = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
-          if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -ne "v$v") { throw "tag $env:GITHUB_REF_NAME does not match version $v" }
-          "version=$v" >> $env:GITHUB_OUTPUT
-
       - name: Test
         run: dotnet test tests/PdfNotes.Tests -c Release
 
       - name: Build release folders
         shell: pwsh
-        run: ./tools/package-release.ps1 -Version ${{ steps.version.outputs.version }} -Stage folders
+        run: ./tools/package-release.ps1 -Version ${{ needs.version.outputs.version }} -Stage folders
 
       - name: Upload unsigned folders
         id: unsigned
@@ -64,7 +75,7 @@ jobs:
           wait-for-completion-timeout-in-seconds: 3600
           output-artifact-directory: artifacts/signed
           parameters: |
-            version: ${{ toJSON(steps.version.outputs.version) }}
+            version: ${{ toJSON(needs.version.outputs.version) }}
 
       - name: Use signed folders
         if: vars.SIGNPATH_ORGANIZATION_ID != ''
@@ -74,30 +85,82 @@ jobs:
             Remove-Item -Recurse -Force (Join-Path artifacts/release $_.Name)
             Move-Item $_.FullName artifacts/release
           }
-          $sig = Get-AuthenticodeSignature "artifacts/release/DeotPDF-${{ steps.version.outputs.version }}-win-x64/DeotPDF.exe"
+          $sig = Get-AuthenticodeSignature "artifacts/release/DeotPDF-${{ needs.version.outputs.version }}-win-x64/DeotPDF.exe"
           if ($sig.Status -ne "Valid") { throw "DeotPDF.exe is not signed: $($sig.Status)" }
 
       - name: Zip
         shell: pwsh
-        run: ./tools/package-release.ps1 -Version ${{ steps.version.outputs.version }} -Stage zip
+        run: ./tools/package-release.ps1 -Version ${{ needs.version.outputs.version }} -Stage zip
 
       - name: Upload zips
         uses: actions/upload-artifact@v7
         with:
-          name: DeotPDF-${{ steps.version.outputs.version }}
+          name: DeotPDF-${{ needs.version.outputs.version }}
           path: |
             artifacts/release/*.zip
             artifacts/release/SHA256SUMS-*.txt
           if-no-files-found: error
 
+  desktop:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: macos-latest
+            rid: osx-arm64
+          - os: macos-latest
+            rid: osx-x64
+    runs-on: ${{ matrix.os }}
+    env:
+      DOTNET_NOLOGO: "1"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Package
+        shell: pwsh
+        run: ./tools/package-desktop.ps1 -Rid ${{ matrix.rid }} -Version ${{ needs.version.outputs.version }}
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: DeotPDF-${{ needs.version.outputs.version }}-${{ matrix.rid }}
+          path: |
+            artifacts/release/*.tar.gz
+            artifacts/release/*.zip
+            artifacts/release/SHA256SUMS-*.txt
+          if-no-files-found: error
+
+  draft:
+    if: github.ref_type == 'tag'
+    needs: [version, windows, desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: DeotPDF-*
+          path: artifacts/release
+          merge-multiple: true
+
       - name: Draft release
-        if: github.ref_type == 'tag'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $v = "${{ steps.version.outputs.version }}"
-          $sums = Get-Content "artifacts/release/SHA256SUMS-$v.txt" -Raw
-          $notes = "SHA256`n`n``````n$sums``````"
-          $files = (Get-ChildItem artifacts/release/*.zip).FullName + "artifacts/release/SHA256SUMS-$v.txt"
+          $v = "${{ needs.version.outputs.version }}"
+          $sums = Get-ChildItem artifacts/release -Filter "SHA256SUMS-$v*.txt" | Sort-Object Name | ForEach-Object { Get-Content $_.FullName } | Where-Object { $_ } | Sort-Object -Unique
+          $sums | Set-Content "artifacts/release/SHA256SUMS-$v.all.txt" -Encoding ascii
+          Get-ChildItem artifacts/release -Filter "SHA256SUMS-$v*.txt" | Where-Object Name -ne "SHA256SUMS-$v.all.txt" | Remove-Item
+          Move-Item "artifacts/release/SHA256SUMS-$v.all.txt" "artifacts/release/SHA256SUMS-$v.txt"
+          $notes = "SHA256`n`n``````n$($sums -join "`n")`n``````"
+          $files = @(Get-ChildItem artifacts/release -File | Where-Object { $_.Name -match '\.(zip|tar\.gz)$' }).FullName + "artifacts/release/SHA256SUMS-$v.txt"
           gh release create "v$v" @files --draft --title "DeotPDF $v" --notes $notes

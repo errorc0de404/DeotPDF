@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- DeotPDF.app (roadmap P4). The packaging fills {EXECUTABLE} and {VERSION}. The document type puts DeotPDF in Finder's
+<!-- DeotPDF.app (roadmap P4). tools/package-desktop.ps1 fills in the executable name and the version. The document type puts DeotPDF in Finder's
      "Open With" for PDF files without taking over the default app; macOS reads it when the app is copied to a folder. -->
 <plist version="1.0">
 <dict>

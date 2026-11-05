@@ -20,6 +20,8 @@ public static class SafeFileSaver
         string target = Path.GetFullPath(targetPath);
         string folder = Path.GetDirectoryName(target) ?? throw new SaveFailedException(SaveFailure.FolderMissing, "Invalid target path.");
         if (!Directory.Exists(folder)) throw new SaveFailedException(SaveFailure.FolderMissing, "The target folder does not exist.");
+        // macOS and Linux replace by renaming, which a read-only file does not stop (Windows refuses): refuse it first.
+        if (File.Exists(target) && new FileInfo(target).IsReadOnly) throw new SaveFailedException(SaveFailure.AccessDenied, "The file is read-only.");
         string temporary = Path.Combine(folder, $"~{Path.GetFileName(target)}.{Guid.NewGuid():N}.tmp");
         try
         {

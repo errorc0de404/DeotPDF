@@ -1,6 +1,7 @@
 # Checks the text engine work of roadmap P2 (1.2) on every push to main or a dev-* branch, and on demand. Nothing is uploaded.
 # - Windows: the full test suite with the WPF engine and again with the Skia engine (PDFNOTES_TEXT_ENGINE=skia).
-# - Windows, Ubuntu, macOS: the CLI and PDF tests against the WPF-free CLI build (-p:DeotEngine=Skia).
+# - Windows, Ubuntu, macOS: the CLI and PDF tests against the WPF-free CLI build (-p:DeotEngine=Skia), and the
+#   Avalonia app under Avalonia.Headless with a smoke test of its release package.
 name: Check
 
 on:
@@ -107,3 +108,17 @@ jobs:
 
       - name: Desktop app tests (headless)
         run: dotnet test tests/PdfNotes.Desktop.Tests -c Release -p:RuntimeIdentifier=${{ matrix.rid }}
+
+      # Roadmap P4 A7: the release package of this system builds, and its CLI starts (self-contained, Skia build).
+      - name: Package (smoke test)
+        shell: pwsh
+        run: |
+          ./tools/package-desktop.ps1 -Rid ${{ matrix.rid }} -OutDir artifacts/check
+          $folder = Get-ChildItem artifacts/check -Directory | Select-Object -First 1
+          $deot = switch ("${{ runner.os }}") {
+            "Windows" { Join-Path $folder.FullName "deot.exe" }
+            "macOS" { Join-Path $folder.FullName "DeotPDF.app/Contents/MacOS/deot" }
+            default { Join-Path $folder.FullName "deot" }
+          }
+          $out = & $deot schema
+          if ($LASTEXITCODE -ne 0 -or ($out | ConvertFrom-Json).ok -ne $true) { throw "deot schema failed: $out" }
