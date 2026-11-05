@@ -41,9 +41,23 @@ public static class WindowActivation
         return true;
     }
 
+    private static readonly Lock listening = new();
+    private static Task? processListener;
+
+    /// <summary>A request for this process's window to come forward (raised on the pipe's thread).</summary>
+    public static event EventHandler? Requested;
+
+    /// <summary>Starts the one listener of this process (<see cref="PipeName"/> of its process number); later calls do nothing.</summary>
+    public static void ListenForProcess()
+    {
+        lock (listening)
+            processListener ??= Task.Run(() => Listen(PipeName(Environment.ProcessId), () => Requested?.Invoke(null, EventArgs.Empty), CancellationToken.None));
+    }
+
     /// <summary>
     /// Listens on <paramref name="name"/> until <paramref name="stop"/> is cancelled and calls <paramref name="activate"/>
-    /// for each request (on the pipe's thread). Used on macOS and Linux; tests use it on every system.
+    /// for each request (on the pipe's thread). Used on macOS and Linux; tests use it on every system. A pipe that cannot
+    /// be made (the name is taken) is tried again a second later, never in a tight loop.
     /// </summary>
     public static async Task Listen(string name, Action activate, CancellationToken stop)
     {
@@ -57,7 +71,11 @@ public static class WindowActivation
                 if (await reader.ReadLineAsync(stop) == Request) activate();
             }
             catch (OperationCanceledException) { return; }
-            catch (IOException) { } // a client that went away: wait for the next
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                try { await Task.Delay(1000, stop); } // the name is taken or a client went away
+                catch (OperationCanceledException) { return; }
+            }
         }
     }
 

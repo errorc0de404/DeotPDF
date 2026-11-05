@@ -354,6 +354,38 @@ public sealed class PlatformTests
         }
     }
 
+    /// <summary>
+    /// A pipe name already in use (two windows of one process, as in these tests) must not spin on the caller's thread:
+    /// the second listener returns at once and waits, and the process listener starts only once.
+    /// </summary>
+    [Fact]
+    public async Task ATakenPipeNameDoesNotBlockTheCaller()
+    {
+        string name = "deotpdf-test-" + Guid.NewGuid().ToString("N")[..12];
+        using var stop = new CancellationTokenSource();
+        var first = WindowActivation.Listen(name, () => { }, stop.Token);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var second = WindowActivation.Listen(name, () => { }, stop.Token);
+        Assert.True(watch.ElapsedMilliseconds < 500, $"{watch.ElapsedMilliseconds} ms");
+        Assert.False(second.IsCompleted);
+        WindowActivation.ListenForProcess();
+        WindowActivation.ListenForProcess();
+        int requests = 0;
+        EventHandler count = (_, _) => Interlocked.Increment(ref requests);
+        WindowActivation.Requested += count;
+        try
+        {
+            bool sent = false;
+            for (int i = 0; i < 50 && !sent; i++) { sent = WindowActivation.Signal(WindowActivation.PipeName(Environment.ProcessId)); if (!sent) await Task.Delay(50); }
+            Assert.True(sent);
+            for (int i = 0; i < 100 && Volatile.Read(ref requests) == 0; i++) await Task.Delay(20);
+            Assert.Equal(1, requests);
+        }
+        finally { WindowActivation.Requested -= count; }
+        stop.Cancel();
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
     /// <summary>macOS and Linux: a window comes forward when another DeotPDF signals its pipe.</summary>
     [Fact]
     public async Task TheActivationPipeCarriesTheRequest()

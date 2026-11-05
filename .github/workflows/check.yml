@@ -69,6 +69,7 @@ jobs:
 
   desktop:
     # Roadmap P4: the Avalonia app (PdfNotes.Desktop) under Avalonia.Headless on all three systems.
+    timeout-minutes: 20 # a hung headless test should fail, not hold the run for hours
     strategy:
       fail-fast: false
       matrix:

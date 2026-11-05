@@ -15,7 +15,6 @@ public sealed partial class MainWindow
 {
     private BackupViewModel backup => viewModel.Backup;
     private bool buttonDown;
-    private CancellationTokenSource? activationListener;
 
     /// <summary>Validation: replaces the chosen interval (seconds instead of minutes).</summary>
     public TimeSpan? BackupIntervalOverride { get => backup.IntervalOverride; set => backup.IntervalOverride = value; }
@@ -60,12 +59,18 @@ public sealed partial class MainWindow
         backup.Store.SetOpenDocument(Document?.FilePath, WindowActivation.WindowId(this));
     }
 
-    /// <summary>macOS and Linux: another DeotPDF asks this window to come forward (<see cref="WindowActivation"/>).</summary>
+    /// <summary>
+    /// macOS and Linux: another DeotPDF asks this process's window to come forward (<see cref="WindowActivation"/>). One
+    /// listener per process; the request goes to the window shown last that is still open.
+    /// </summary>
     private void ListenForActivation()
     {
-        activationListener = new CancellationTokenSource();
-        _ = WindowActivation.Listen(WindowActivation.PipeName(Environment.ProcessId), () => Dispatcher.UIThread.Post(ComeForward), activationListener.Token);
+        WindowActivation.ListenForProcess();
+        WindowActivation.Requested += ActivationRequested;
+        Closed += (_, _) => WindowActivation.Requested -= ActivationRequested;
     }
+
+    private void ActivationRequested(object? sender, EventArgs e) => Dispatcher.UIThread.Post(ComeForward);
 
     /// <summary>Restores and activates this window.</summary>
     public void ComeForward()
@@ -77,7 +82,6 @@ public sealed partial class MainWindow
     /// <summary>The window closed normally: no marker is left (nothing to recover next time).</summary>
     private void EndBackup()
     {
-        activationListener?.Cancel();
         if (!backup.Started) return;
         backup.Stop();
         backup.Store.End();

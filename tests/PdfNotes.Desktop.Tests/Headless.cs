@@ -25,7 +25,9 @@ internal static class Headless
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>().UseSkia()
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 
-    private static readonly Lazy<HeadlessUnitTestSession> Session = new(() => HeadlessUnitTestSession.StartNew(typeof(Headless)));
+    // One application and dispatcher for the whole run. Per test (the default) would make a new one each time while timers
+    // and renders of earlier tests' windows still post to the old one (seen on CI: a render loop of another thread).
+    private static readonly Lazy<HeadlessUnitTestSession> Session = new(() => HeadlessUnitTestSession.StartNew(typeof(Headless), AvaloniaTestIsolationLevel.PerAssembly));
 
     public static void Run(Action test) => Session.Value.Dispatch(test, CancellationToken.None).GetAwaiter().GetResult();
 
