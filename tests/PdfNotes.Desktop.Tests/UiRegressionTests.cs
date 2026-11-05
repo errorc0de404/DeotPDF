@@ -191,7 +191,14 @@ public sealed class UiRegressionTests
         w.Undo();
         DragAlong(w, Edge(glyphs[pdf], false), Edge(glyphs[english], false), Edge(glyphs[english + 6], true));
         var two = Assert.IsType<PdfTextHighlight>(Assert.Single(Annotations(w)));
-        Assert.True(two.Quads.Length == 2, $"{two.Quads.Length} quads, '{two.SourceTextHint}'");
+        // The marked characters run from "PDF" to "English" over two lines. (Windows fonts give one quad per line; the macOS
+        // sample font splits a line where Korean and Latin glyph heights differ, which is the shared selection rule's call.)
+        Assert.StartsWith("PDF", two.SourceTextHint);
+        Assert.EndsWith("English", two.SourceTextHint);
+        double lineHeight = glyphs[english].Box.LowerLeft.Y - glyphs[english].Box.UpperLeft.Y;
+        var lines = two.Quads.Select(q => (q.UpperLeft.Y + q.LowerLeft.Y) / 2).Order().ToList();
+        Assert.True(lines[^1] - lines[0] > lineHeight / 2, $"{two.Quads.Length} quads on one line");
+        if (OperatingSystem.IsWindows()) Assert.Equal(2, two.Quads.Length);
 
         w.Undo();
         Assert.Empty(Annotations(w));
