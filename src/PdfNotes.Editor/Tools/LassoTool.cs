@@ -4,6 +4,7 @@ using PdfNotes.Core.Models;
 using Page = PdfNotes.Core.Models.Page;
 using PdfNotes.Editor.Input;
 using PdfNotes.Editor.Layout;
+using PdfNotes.Core.Marks;
 
 namespace PdfNotes.Editor.Tools;
 

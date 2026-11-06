@@ -6,6 +6,7 @@ using PdfNotes.Pdf.Engine;
 using PdfNotes.Pdf.Writing;
 using PdfNotes.Render.Skia;
 using SkiaSharp;
+using PdfNotes.Core.Marks;
 
 namespace PdfNotes.Desktop.Tests;
 

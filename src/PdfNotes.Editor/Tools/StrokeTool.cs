@@ -4,6 +4,7 @@ using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
 using PdfNotes.Editor.Input;
 using PdfNotes.Editor.Layout;
+using PdfNotes.Core.Marks;
 
 namespace PdfNotes.Editor.Tools;
 

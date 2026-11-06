@@ -4,7 +4,6 @@
   <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PdfNotes.Core\PdfNotes.Core.csproj" />
-    <ProjectReference Include="..\PdfNotes.Editor\PdfNotes.Editor.csproj" />
     <ProjectReference Include="..\PdfNotes.Text.Skia\PdfNotes.Text.Skia.csproj" />
   </ItemGroup>
 </Project>

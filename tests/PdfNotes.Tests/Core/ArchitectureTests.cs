@@ -69,6 +69,15 @@ public class ArchitectureTests
         Assert.All(references, name => Assert.True(name.StartsWith("System", StringComparison.Ordinal) || allowed.Contains(name), name));
     }
 
+    /// <summary>The painters draw plain data (model, marks, text layout): they do not depend on the editor's tools or sessions.</summary>
+    [Fact]
+    public void PaintersDoNotReferenceTheEditor()
+    {
+        var references = typeof(PdfNotes.Render.Skia.SkiaMarkPainter).Assembly.GetReferencedAssemblies().Select(a => a.Name!).ToArray();
+        Assert.DoesNotContain("PdfNotes.Editor", references);
+        Assert.DoesNotContain("PdfNotes.Pdf", references);
+    }
+
     /// <summary>
     /// The projects without a platform (model, PDF, text layout, editor services, view models, editor model) take no
     /// drawing or UI library, so the desktop app, the CLI and a later Android app (P5) choose their own. The Skia engine,
