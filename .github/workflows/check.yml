@@ -2,6 +2,7 @@
 # - Windows: the shared test suite (model, PDF, text engine, editor, view models, CLI).
 # - Windows, Ubuntu, macOS: the CLI and PDF tests with each system's fonts, and the app under Avalonia.Headless with a
 #   smoke test of its release package.
+# - Windows: the Android app builds (P5).
 name: Check
 
 on:
