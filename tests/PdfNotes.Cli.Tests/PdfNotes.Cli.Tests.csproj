@@ -16,7 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
-    <ProjectReference Include="../../tools/PdfNotes.Cli/PdfNotes.Cli.csproj" />
+    <ProjectReference Include="../../src/PdfNotes.Cli/PdfNotes.Cli.csproj" />
     <ProjectReference Include="../../src/PdfNotes.Text.Skia/PdfNotes.Text.Skia.csproj" />
     <ProjectReference Include="../../src/PdfNotes.Editor/PdfNotes.Editor.csproj" />
   </ItemGroup>

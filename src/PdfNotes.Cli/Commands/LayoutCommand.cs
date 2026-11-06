@@ -16,7 +16,7 @@ public static partial class LayoutCommand
 {
     private const double IndentTolerancePt = 6;
 
-    [GeneratedRegex(@"^\s*([•·▪▫◦○●■□◆◇▶►‣⁃※\-–—*]|\(?\d{1,3}[.)]|\(?[A-Za-z][.)]|\(?[가-힣][.)]|[①-⑳㉠-㉻])(?=\s|$|[^\d.])")]
+    [GeneratedRegex(@"^\s*([•·▪▫◦○●■□◆◇▶►‣⁃※\-–—*]|\(?\d{1,3}[.)]|\(?[A-Za-z][.)]|\(?[가-힣][.)]|[①-⑳㉠-㉻])(?=\s|$|[^\d.])")] // list markers (Korean letters like 가.), not UI text (D14e)
     private static partial Regex Marker();
 
     /// <summary>A visual line: one or more consecutive text lines (runs split by a wide gap, such as a list marker) on one baseline.</summary>

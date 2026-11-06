@@ -21,7 +21,7 @@ From source:
 
 ```powershell
 dotnet build PdfNotes.slnx -c Release
-dotnet run --project tools/PdfNotes.Cli -c Release -- schema
+dotnet run --project src/PdfNotes.Cli -c Release -- schema
 ```
 
 `deot schema` lists every command, the exit codes and the error codes. `deot schema <command>` (for example `deot schema add text`) gives that command's options and a JSON Schema for its output. When this guide and `deot schema` disagree, `deot schema` is right.

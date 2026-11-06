@@ -19,7 +19,7 @@
     <Using Include="Xunit" />
     <ProjectReference Include="..\..\src\PdfNotes.ViewModels\PdfNotes.ViewModels.csproj" />
     <ProjectReference Include="..\..\src\PdfNotes.Render.Skia\PdfNotes.Render.Skia.csproj" />
-    <ProjectReference Include="..\..\tools\PdfNotes.Cli\PdfNotes.Cli.csproj" />
+    <ProjectReference Include="..\..\src\PdfNotes.Cli\PdfNotes.Cli.csproj" />
     <ProjectReference Include="..\..\src\PdfNotes.Text.Skia\PdfNotes.Text.Skia.csproj" />
     <ProjectReference Include="..\..\src\PdfNotes.TextEditor\PdfNotes.TextEditor.csproj" />
     <ProjectReference Include="..\..\src\PdfNotes.TextEditor.Avalonia\PdfNotes.TextEditor.Avalonia.csproj" />

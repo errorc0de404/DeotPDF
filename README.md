@@ -134,7 +134,7 @@ Releases are built the same way by GitHub Actions (`.github/workflows/release.ym
 | `src/PdfNotes.Text`, `src/PdfNotes.Text.Skia` | Text layout (Skia and HarfBuzz) shared by the screen, saved PDFs and the CLI |
 | `src/PdfNotes.TextEditor`, `src/PdfNotes.TextEditor.Avalonia` | The text box editor and its IME handling |
 | `src/PdfNotes.Render.Skia` | Drawing annotations on screen |
-| `tools/PdfNotes.Cli` | The `deot` command-line tool |
+| `src/PdfNotes.Cli` | The `deot` command-line tool |
 | `tests/` | Unit and integration tests, and the app's window tests (Avalonia.Headless) |
 | `docs/` | CLI guide, and [the format of the editing data stored in PDFs](docs/file-format.md) (Korean) |
 

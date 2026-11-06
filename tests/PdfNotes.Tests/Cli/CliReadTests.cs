@@ -292,7 +292,7 @@ public sealed class CliReadTests : IDisposable
         while (!File.Exists(Path.Combine(root.FullName, "PdfNotes.slnx"))) root = root.Parent!;
         var exits = new Dictionary<string, int> { ["InvalidInput"] = 1, ["Unsatisfiable"] = 2, ["Locked"] = 3, ["Internal"] = 4 };
         var thrown = new List<string>();
-        foreach (string file in Directory.EnumerateFiles(Path.Combine(root.FullName, "tools", "PdfNotes.Cli"), "*.cs", SearchOption.AllDirectories).Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")))
+        foreach (string file in Directory.EnumerateFiles(Path.Combine(root.FullName, "src", "PdfNotes.Cli"), "*.cs", SearchOption.AllDirectories).Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")))
         {
             string text = File.ReadAllText(file);
             foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, "new CliException\\(\"([A-Z_]+)\"(?<rest>[\\s\\S]*?)\\);\\s*?\\n"))

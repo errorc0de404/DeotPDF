@@ -21,7 +21,7 @@ AI 에이전트나 스크립트가 쓰라고 만든 도구라서 동작 방식�
 
 ```powershell
 dotnet build PdfNotes.slnx -c Release
-dotnet run --project tools/PdfNotes.Cli -c Release -- schema
+dotnet run --project src/PdfNotes.Cli -c Release -- schema
 ```
 
 `deot schema`는 명령 목록, 종료 코드, 오류 코드를 보여 줍니다. `deot schema <명령>`(예: `deot schema add text`)은 그 명령의 옵션과 출력 JSON Schema를 보여 줍니다. 이 문서와 `deot schema`가 다르면 `deot schema`가 맞습니다.
