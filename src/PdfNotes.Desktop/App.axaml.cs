@@ -10,6 +10,7 @@ using PdfNotes.Desktop.Themes;
 using PdfNotes.Desktop.Views;
 using PdfNotes.Editor.Localization;
 using PdfNotes.Editor.Services;
+using PdfNotes.ViewModels;
 
 namespace PdfNotes.Desktop;
 
@@ -32,7 +33,9 @@ public sealed class App : Application
         // Headless tests have no lifetime: they make their own windows.
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var window = new MainWindow(settings, s => s.Save(file), folder);
+            // The composition root (R4g): the app's services, and how a window's view models are put together.
+            var app = new AppServices(settings, DisplayName, s => s.Save(file), folder) { Texts = Strings.Current };
+            var window = new MainWindow(app, compose: MainViewModels.Create);
             desktop.MainWindow = window;
             CatchCrashes(window);
             if (TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable) activatable.Activated += (_, e) => FilesActivated(window, folder, e);

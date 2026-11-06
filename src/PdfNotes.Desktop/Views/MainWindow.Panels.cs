@@ -86,7 +86,7 @@ public sealed partial class MainWindow
     public bool LoadingShown => viewModel.Loading.IsShown;
 
     /// <summary>The card waits until the first pages are drawn: the render queue is idle once the canvas asked for them.</summary>
-    void IMainView.WaitForFirstPages()
+    private void WaitForFirstPages()
     {
         void Check()
         {

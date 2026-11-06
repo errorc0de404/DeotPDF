@@ -14,6 +14,9 @@ public interface IWindowCoordinator
     /// backup waits for (spec 18.2).
     /// </summary>
     bool InputPending { get; }
+
+    /// <summary>Another window shows <paramref name="path"/>: bring it forward and return true (spec 4.6).</summary>
+    bool ShowOpenElsewhere(string path);
 }
 
 /// <summary>
@@ -24,7 +27,6 @@ public interface IWindowCoordinator
 public sealed class BackupViewModel : ObservableObject
 {
     private readonly MainViewModel owner;
-    private readonly IMainView view;
     private readonly IEditorDialogs dialogs;
     private readonly TimeProvider time;
     private readonly BackupSchedule schedule = new();
@@ -35,10 +37,9 @@ public sealed class BackupViewModel : ObservableObject
     private Texts texts => owner.Texts;
 
     /// <param name="folder">The settings folder: the backup store keeps its records and the running windows' markers there.</param>
-    public BackupViewModel(MainViewModel owner, IMainView view, IEditorDialogs dialogs, TimeProvider time, string folder)
+    public BackupViewModel(MainViewModel owner, IEditorDialogs dialogs, TimeProvider time, string folder)
     {
         this.owner = owner;
-        this.view = view;
         this.dialogs = dialogs;
         this.time = time;
         settingsFolder = folder;
@@ -67,7 +68,7 @@ public sealed class BackupViewModel : ObservableObject
     {
         if (timer is not null) return;
         Store.Start();
-        timer = time.CreateTimer(_ => view.OnUiThread(() => _ = TickAsync()), null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
+        timer = time.CreateTimer(_ => owner.Ui.Run(() => _ = TickAsync()), null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
     }
 
     /// <summary>The window closed.</summary>
@@ -103,7 +104,7 @@ public sealed class BackupViewModel : ObservableObject
     /// an open dialog or message box, a save or an open in progress.
     /// </summary>
     public bool Deferred =>
-        owner.IsBusy || owner.Workflow.IsConfirming || view.Viewport.IsToolActive || view.Window.InputPending || owner.Document?.IsWriting == true;
+        owner.IsBusy || owner.Workflow.IsConfirming || owner.Viewport.IsToolActive || owner.Window.InputPending || owner.Document?.IsWriting == true;
 
     /// <summary>Writes one backup now (see <see cref="RunAsync(OpenDocument)"/>). Returns true when a file was written.</summary>
     public async Task<bool> RunAsync() => owner.Document is { } doc && !running && await RunAsync(doc);

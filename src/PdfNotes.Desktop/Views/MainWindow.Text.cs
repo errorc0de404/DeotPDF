@@ -215,7 +215,7 @@ public sealed partial class MainWindow
         // Ctrl+Z / Ctrl+Y while the editor does not have the keyboard (a bar field, the first key's composition): the editor's own steps.
         if (textEditor is { IsFocused: false } && !IsFieldFocused && (mods == PdfNotes.Editor.Input.InputModifiers.Control && e.Key is Key.Z or Key.Y ||
             mods == (PdfNotes.Editor.Input.InputModifiers.Control | PdfNotes.Editor.Input.InputModifiers.Shift) && e.Key == Key.Z))
-        { UndoTextAware(redo: e.Key == Key.Y || mods.HasFlag(PdfNotes.Editor.Input.InputModifiers.Shift)); e.Handled = true; return true; }
+        { viewModel.UndoOrRedo(redo: e.Key == Key.Y || mods.HasFlag(PdfNotes.Editor.Input.InputModifiers.Shift)); e.Handled = true; return true; }
         return false;
     }
 

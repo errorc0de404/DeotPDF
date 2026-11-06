@@ -145,7 +145,7 @@ public sealed class TextBoxEditorHeadlessTests
     public void TheTextBarViewModelFormatsTheEditedBox() => Run(() =>
     {
         var (window, editor) = Show("abc def");
-        var main = new MainViewModel(new Shell(), new Shell(), new AppSettings(), "DeotPDF", _ => { }, TestFolders.New());
+        var main = MainViewModels.Create(new(new AppSettings(), "DeotPDF", _ => { }, TestFolders.New()), FakeScreens.Of(new Shell()));
         main.TextStyle.Attach(new Adapter(editor), new SelectTool(new NoCanvas(), () => null));
         editor.Model!.Select(0, 3);
         main.TextStyle.SetFlag('B', true);
@@ -174,19 +174,10 @@ public sealed class TextBoxEditorHeadlessTests
         public void Change(Func<TextBoxAnnotation, TextBoxAnnotation> change) => editor.Model!.Change(change);
     }
 
-    private sealed class Shell : IMainView, IEditorDialogs
+    private sealed class Shell : IFakeShell
     {
         public void FinishTextEditing() { }
         public void CancelTool() { }
-        public void DocumentLeaving(OpenDocument? previous) { }
-        public void DocumentReplaced(OpenDocument? previous, OpenDocument next) { }
-        public void DocumentChanged() { }
-        public void WaitForFirstPages() { }
-        public void Opened(string path) { }
-        public void Saved(string path) { }
-        public bool ShowOpenElsewhere(string path) => false;
-        public void CommandsChanged() { }
-        public void OnUiThread(Action action) => action();
         public IDocumentViewport Viewport { get; } = new FakeViewport();
         public IPageThumbnailSource Thumbnails { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();

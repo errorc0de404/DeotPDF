@@ -27,7 +27,7 @@ public sealed class RegressionTests
     {
         folder ??= Headless.TempFolder();
         var settings = new AppSettings { BackupFolder = Path.Combine(folder, "Backups") };
-        var window = new MainWindow(settings, _ => { }, folder, TestWindows.Dialogs) { Width = 1200, Height = 1000 };
+        var window = new MainWindow(TestWindows.App(settings, folder), TestWindows.Dialogs) { Width = 1200, Height = 1000 };
         window.Script.PromptOverride = (_, _) => Answer.No;
         window.Script.MessageSink = _ => { };
         window.Show();

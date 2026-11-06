@@ -95,4 +95,18 @@ public class ArchitectureTests
         var references = marker.Assembly.GetReferencedAssemblies().Select(a => a.Name!).ToArray();
         Assert.DoesNotContain(references, name => forbidden.Any(f => name.StartsWith(f, StringComparison.OrdinalIgnoreCase)));
     }
+
+    /// <summary>
+    /// Roadmap P4.5 R4f–R4g: the view models reach the screen only through small services (no window-wide view
+    /// interface), and a window's view models are put together outside <see cref="PdfNotes.ViewModels.MainViewModel"/>.
+    /// </summary>
+    [Fact]
+    public void ViewModelsTakeSmallServicesAndArePutTogetherOutside()
+    {
+        var types = typeof(PdfNotes.ViewModels.MainViewModel).Assembly.GetTypes().Select(t => t.Name).ToHashSet();
+        Assert.DoesNotContain("IMainView", types);
+        Assert.DoesNotContain("IToolView", types);
+        Assert.DoesNotContain("IPageListView", types);
+        Assert.Empty(typeof(PdfNotes.ViewModels.MainViewModel).GetConstructors()); // made by MainViewModels.Create
+    }
 }

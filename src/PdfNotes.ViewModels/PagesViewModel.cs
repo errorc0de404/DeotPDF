@@ -80,7 +80,6 @@ public sealed class PagesViewModel : ObservableObject
 
     private readonly MainViewModel owner;
     private Texts texts => owner.Texts;
-    private readonly IMainView view;
     private readonly IEditorDialogs dialogs;
     private readonly IEditorClipboard clipboard;
     private readonly ObservableCollection<PageItemViewModel> items = [];
@@ -90,17 +89,16 @@ public sealed class PagesViewModel : ObservableObject
     private CancellationTokenSource? thumbCancel;
     private bool panelVisible;
 
-    public PagesViewModel(MainViewModel owner, IMainView view, IEditorDialogs dialogs, IEditorClipboard clipboard)
+    public PagesViewModel(MainViewModel owner, IEditorDialogs dialogs, IEditorClipboard clipboard)
     {
         this.owner = owner;
-        this.view = view;
         this.dialogs = dialogs;
         this.clipboard = clipboard;
         panelVisible = owner.Settings.PagePanelVisible;
     }
 
     private OpenDocument? Document => owner.Document;
-    private IPageThumbnailSource Thumbnails => view.Thumbnails;
+    private IPageThumbnailSource Thumbnails => owner.Thumbnails;
 
     /// <summary>The rows selected in the list.</summary>
     private HashSet<Guid> ListSelection => [.. items.Where(t => t.IsSelected).Select(t => t.PageId)];
@@ -171,7 +169,7 @@ public sealed class PagesViewModel : ObservableObject
 
     /// <summary>The active page: insert target and paste position (spec 11.5). Follows the view when the panel is idle.</summary>
     public int ActivePageIndex =>
-        Document is { } d && activePageId is { } id && d.Session.Current.IndexOfPage(id) is >= 0 and var i ? i : view.Viewport.CurrentPageIndex;
+        Document is { } d && activePageId is { } id && d.Session.Current.IndexOfPage(id) is >= 0 and var i ? i : owner.Viewport.CurrentPageIndex;
 
     /// <summary>Pages selected in the panel (at least the active page), in document order.</summary>
     public Guid[] SelectedPageIds
@@ -228,7 +226,7 @@ public sealed class PagesViewModel : ObservableObject
         if (Document is null || Document.Session.Current.IndexOfPage(pageId) is not (>= 0 and var index)) return;
         activePageId = pageId;
         foreach (var t in items) t.IsActive = t.PageId == pageId;
-        if (scroll && view.Viewport.CurrentPageIndex != index) view.Viewport.GoToPage(index);
+        if (scroll && owner.Viewport.CurrentPageIndex != index) owner.Viewport.GoToPage(index);
     }
 
     /// <summary>Scrolling the view moves the active page (a click in the panel already scrolled to the same page).</summary>
@@ -236,7 +234,7 @@ public sealed class PagesViewModel : ObservableObject
     {
         if (Document is not { } doc || Syncing || doc.Session.Current.Pages.Count == 0) return;
         var pages = doc.Session.Current.Pages;
-        var page = pages[Math.Clamp(view.Viewport.CurrentPageIndex, 0, pages.Count - 1)];
+        var page = pages[Math.Clamp(owner.Viewport.CurrentPageIndex, 0, pages.Count - 1)];
         if (activePageId == page.Id) return;
         activePageId = page.Id;
         Syncing = true;
@@ -394,7 +392,7 @@ public sealed class PagesViewModel : ObservableObject
     public bool ClearSelectedNotes()
     {
         if (Document is not { } doc) return false;
-        view.FinishTextEditing();
+        owner.Editing.FinishTextEditing();
         var ids = SelectedPageIds;
         var selected = ids.Select(doc.Session.Current.GetPage).ToList();
         int count = selected.Sum(p => p.Annotations.Count), locked = selected.Sum(p => p.Annotations.Count(a => a.Locked));
@@ -437,8 +435,8 @@ public sealed class PagesViewModel : ObservableObject
     public bool Run(Func<DocumentModel, EditCommand> build)
     {
         if (Document is null) return false;
-        view.FinishTextEditing();
-        view.CancelTool();
+        owner.Editing.FinishTextEditing();
+        owner.Editing.CancelTool();
         try { return Document.Session.Execute(build(Document.Session.Current)); }
         catch (InvalidOperationException) { dialogs.Tell(texts.Get("page.lastPage"), NoticeKind.Information); return false; }
     }
@@ -546,7 +544,7 @@ public sealed class PagesViewModel : ObservableObject
     public bool Copy(PageCopyMode mode = PageCopyMode.WithAnnotations)
     {
         if (Document is not { } doc) return false;
-        view.FinishTextEditing();
+        owner.Editing.FinishTextEditing();
         var ids = SelectedPageIds;
         pageClipboard = PageClipboard.Capture(doc.Session.Current, ids, mode);
         owner.Status = pageClipboard.Pages.Length == 1 ? texts.Get("page.copiedOne") : texts.Format("page.copied", ("count", pageClipboard.Pages.Length));
@@ -606,8 +604,8 @@ public sealed class PagesViewModel : ObservableObject
             var opened = source;
             var import = await Task.Run(() => target.PrepareImport(opened, Enumerable.Range(0, opened.Pages.Count).ToArray()));
             if (!ReferenceEquals(Document, target)) { import.Pdf?.Dispose(); return false; }
-            view.FinishTextEditing();
-            view.CancelTool();
+            owner.Editing.FinishTextEditing();
+            owner.Editing.CancelTool();
             var ids = target.InsertImported(import, Math.Clamp(ActivePageIndex + 1, 0, target.Session.Current.Pages.Count));
             SelectPages(ids);
             return true;

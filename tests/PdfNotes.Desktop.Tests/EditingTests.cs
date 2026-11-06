@@ -20,7 +20,7 @@ public sealed class EditingTests
     private static MainWindow Window()
     {
         var settings = new AppSettings();
-        var window = new MainWindow(settings, _ => { }, Headless.TempFolder(), TestWindows.Dialogs) { Width = 1200, Height = 1000 }; // the ribbon, the bars and the page list take room (A5)
+        var window = new MainWindow(TestWindows.App(settings, Headless.TempFolder()), TestWindows.Dialogs) { Width = 1200, Height = 1000 }; // the ribbon, the bars and the page list take room (A5)
         window.Script.PromptOverride = (_, _) => Answer.No;
         window.Script.MessageSink = _ => { };
         window.Show();

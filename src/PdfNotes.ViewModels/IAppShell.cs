@@ -3,10 +3,8 @@ using PdfNotes.Core.Models;
 namespace PdfNotes.ViewModels;
 
 /// <summary>
-/// What a command needs from the screen it runs in (roadmap P4.5 R4b–R4c): its file picker and own windows, its popup
-/// menus, and the steps that still live in the view (undo with the text box editor and the canvas, hiding the notes,
-/// the search bar). Each layout (the desktop window now, a mobile one later) implements it its own way. The later R4
-/// steps move the view-side steps into view models, so this interface shrinks.
+/// What a command needs from the screen it runs in (roadmap P4.5 R4b–R4f): its file pickers, its own windows and its popup
+/// menus. Each layout (the desktop window now, a mobile one later) implements it its own way.
 /// </summary>
 public interface IAppShell
 {
@@ -25,15 +23,6 @@ public interface IAppShell
     /// <summary>The zoom presets and fits (spec 4.4).</summary>
     void ShowZoomMenu();
 
-    /// <summary>Undo (or redo) one step: the edited text box's own steps while one is edited (spec 13.2–13.3).</summary>
-    void UndoOrRedo(bool redo);
-
-    /// <summary>Hides or shows the notes (spec 24.10).</summary>
-    void SetNotesHidden(bool hidden);
-
-    /// <summary>Opens the search bar (spec 12).</summary>
-    void OpenSearch();
-
     /// <summary>A web page in the system's browser (the update notice).</summary>
     void OpenWebPage(string url);
 
@@ -50,9 +39,6 @@ public sealed class NoShell : IAppShell
     public void ShowSettings() { }
     public void ShowRecentMenu() { }
     public void ShowZoomMenu() { }
-    public void UndoOrRedo(bool redo) { }
-    public void SetNotesHidden(bool hidden) { }
-    public void OpenSearch() { }
     public void OpenWebPage(string url) { }
     public Task InsertImageFromFileAsync() => Task.CompletedTask;
 }

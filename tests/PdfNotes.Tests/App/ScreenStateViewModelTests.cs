@@ -23,18 +23,18 @@ public sealed class ScreenStateViewModelTests : IDisposable
     public ScreenStateViewModelTests()
     {
         Directory.CreateDirectory(folder);
-        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => saves++, TestFolders.New(), time, () => latest());
+        model = MainViewModels.Create(new(settings, "DeotPDF", _ => saves++, TestFolders.New()) { Time = time, CheckUpdates = () => latest() }, FakeScreens.Of(shell));
+        model.Loading.PagesAwaited += () => shell.Waits++;
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
     }
 
     public void Dispose()
     {
         model.Workflow.Detach()?.Dispose();
-        foreach (var d in shell.Released) d.Dispose();
         Directory.Delete(folder, true);
     }
 
-    private sealed class Shell : IMainView, IEditorDialogs
+    private sealed class Shell : IFakeShell
     {
         public readonly List<OpenDocument> Released = [];
         public readonly List<string> Asked = [];
@@ -43,15 +43,6 @@ public sealed class ScreenStateViewModelTests : IDisposable
 
         public void FinishTextEditing() { }
         public void CancelTool() { }
-        public void DocumentLeaving(OpenDocument? previous) { }
-        public void DocumentReplaced(OpenDocument? previous, OpenDocument next) { if (previous is not null) Released.Add(previous); }
-        public void DocumentChanged() { }
-        public void WaitForFirstPages() => Waits++;
-        public void Opened(string path) { }
-        public void Saved(string path) { }
-        public bool ShowOpenElsewhere(string path) => false;
-        public void CommandsChanged() { }
-        public void OnUiThread(Action action) => action();
         public IDocumentViewport Viewport { get; } = new FakeViewport();
         public IPageThumbnailSource Thumbnails { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();

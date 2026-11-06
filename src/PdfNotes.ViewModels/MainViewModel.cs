@@ -6,71 +6,37 @@ using PdfNotes.Editor.Session;
 namespace PdfNotes.ViewModels;
 
 /// <summary>
-/// What the main window's view does for <see cref="MainViewModel"/>: the parts of the document lifetime that touch the
-/// canvas, the page list and other controls. The view model keeps the title, the status line and the undo tips.
-/// </summary>
-public interface IMainView
-{
-    /// <summary>Commits a text box being edited into the document.</summary>
-    void FinishTextEditing();
-
-    /// <summary>Cancels a canvas operation in progress.</summary>
-    void CancelTool();
-
-    /// <summary>The open document is about to be replaced: remember its state.</summary>
-    void DocumentLeaving(OpenDocument? previous);
-
-    /// <summary>Shows <paramref name="next"/> in place of <paramref name="previous"/>, then releases the previous one.</summary>
-    void DocumentReplaced(OpenDocument? previous, OpenDocument next);
-
-    /// <summary>The open document's model changed (an edit, Undo, Redo, a saved mark).</summary>
-    void DocumentChanged();
-
-    /// <summary>The loading card waits for the first pages: call <see cref="LoadingViewModel.PagesDrawn"/> once they are drawn.</summary>
-    void WaitForFirstPages();
-
-    /// <summary>A file was opened from <paramref name="path"/> (recent list, last position).</summary>
-    void Opened(string path);
-
-    /// <summary>The document was written to <paramref name="path"/> (recent list, backup state).</summary>
-    void Saved(string path);
-
-    /// <summary>Another window shows <paramref name="path"/>: bring it forward and return true (spec 4.6).</summary>
-    bool ShowOpenElsewhere(string path);
-
-    /// <summary>Busy or the document changed: commands may be enabled differently now.</summary>
-    void CommandsChanged();
-
-    /// <summary>Runs <paramref name="action"/> on the UI thread (at once when called there).</summary>
-    void OnUiThread(Action action);
-
-    /// <summary>The document canvas (V3).</summary>
-    IDocumentViewport Viewport { get; }
-
-    /// <summary>Draws page thumbnails (V5).</summary>
-    IPageThumbnailSource Thumbnails { get; }
-
-    /// <summary>Whether the user is in the middle of something a backup must not interrupt (V6).</summary>
-    IWindowCoordinator Window { get; }
-}
-
-/// <summary>
 /// The main window's screen state (P1): the document file flow, the tool switch, the title, the status line and the
 /// undo/redo tips (V1); the ribbon tab, recent documents, update check, loading card, outline and other apps'
 /// annotations (V2); search (V3); navigation, display and favorites (V4); the page panel (V5); backups, imports and exports (V6); tool styles and the tool switch (V7); selection commands, the text bar and the sticky note card (V8). Platform-free so the WPF window and later the Avalonia views share it.
 /// </summary>
-public sealed class MainViewModel : ObservableObject, IDocumentHost
+public sealed partial class MainViewModel : ObservableObject, IDocumentHost
 {
-    private readonly IMainView view;
+    private readonly ScreenServices screen;
 
     /// <summary>The UI texts of this window's language.</summary>
     public Texts Texts { get; }
 
-    /// <summary>What commands need from the screen.</summary>
-    public IAppShell Shell { get; }
+    /// <summary>What commands need from the screen: its file pickers, own windows and menus.</summary>
+    public IAppShell Shell => screen.Shell;
 
     /// <summary>The thread the screen runs on.</summary>
-    public IUiThread Ui { get; }
+    public IUiThread Ui => screen.Ui;
+
+    /// <summary>The document canvas (V3).</summary>
+    public IDocumentViewport Viewport => screen.Viewport;
+
+    /// <summary>The canvas's input, ended before a command changes the document under it.</summary>
+    public IEditingSurface Editing => screen.Editing;
+
+    /// <summary>Draws page thumbnails (V5).</summary>
+    public IPageThumbnailSource Thumbnails => screen.Thumbnails;
+
+    /// <summary>The window: input a backup waits for, and other windows (V6).</summary>
+    public IWindowCoordinator Window => screen.Window;
+
+    /// <summary>The shell's page windows (import, merge, export, blank page, resize).</summary>
+    public IPageDialogs PageDialogs => screen.PageDialogs;
 
     private Texts texts => Texts;
     private readonly string appName;
@@ -82,103 +48,48 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     private readonly TimeProvider time;
     private readonly Action<AppSettings> saveSettings;
 
-    /// <param name="saveSettings">Writes the app settings (tests pass one that writes nothing).</param>
-    /// <param name="settingsFolder">The app's settings folder: backups, the backup store's records, the running windows' markers.</param>
-    /// <param name="time">Clock and timers (tests pass a fake one).</param>
-    /// <param name="texts">The UI texts (the app passes the language in use; default Korean).</param>
-    /// <param name="shell">What commands need from the screen (file picker, own windows, menus); default none.</param>
-    /// <param name="ui">The UI thread (default: everything runs at once).</param>
-    /// <param name="checkUpdates">Asks for the latest release (tests pass a fake one).</param>
-    /// <param name="clipboard">The system clipboard (page copies; tests pass a fake one).</param>
-    /// <param name="pageDialogs">The shell's page windows (import, merge, export).</param>
-    public MainViewModel(IMainView view, IEditorDialogs dialogs, AppSettings settings, string appName, Action<AppSettings> saveSettings, string settingsFolder,
-        TimeProvider? time = null, Func<Task<UpdateResult>>? checkUpdates = null, IEditorClipboard? clipboard = null, IPageDialogs? pageDialogs = null,
-        Texts? texts = null, IAppShell? shell = null, IUiThread? ui = null)
+    /// <summary>Made by <see cref="MainViewModels.Create"/>, which then puts its parts in.</summary>
+    internal MainViewModel(AppServices app, ScreenServices screen)
     {
-        Ui = ui ?? ImmediateUi.Instance;
-        Texts = texts ?? Texts.Korean;
-        Shell = shell ?? NoShell.Instance;
+        this.screen = screen;
+        Texts = app.Texts;
         undoTip = Texts.Get("ribbon.undoTip");
         redoTip = Texts.Get("ribbon.redoTip");
-        this.view = view;
-        this.appName = appName;
-        this.time = time ?? TimeProvider.System;
-        this.saveSettings = saveSettings;
+        appName = app.AppName;
+        time = app.Time;
+        saveSettings = app.SaveSettings;
         title = appName;
-        Settings = settings;
-        Workflow = new DocumentWorkflow(this, dialogs, Texts);
-        Tools = new ToolSwitch(settings, SaveSettings);
-        Ribbon = new RibbonViewModel(settings);
-        Recent = new RecentViewModel(settings, SaveSettings);
+        Settings = app.Settings;
+        Workflow = new DocumentWorkflow(this, screen.Dialogs, Texts);
+        Tools = new ToolSwitch(Settings, SaveSettings);
+    }
+
+    /// <summary>The parts are in: what joins them.</summary>
+    internal void Assembled()
+    {
         Recent.PropertyChanged += (_, _) => recent?.Refresh(); // the recent button is off when the list empties
-        Update = new UpdateViewModel(settings, SaveSettings, dialogs, this.time, checkUpdates ?? (() => UpdateCheck.CheckAsync()), Texts);
-        Loading = new LoadingViewModel(After, Texts);
-        Outline = new OutlineViewModel(this);
-        Foreign = new ForeignViewModel(this, view.OnUiThread);
-        Search = new SearchViewModel(this, view);
-        Navigation = new NavigationViewModel(this, view);
-        Display = new DisplayViewModel(settings, SaveSettings);
-        Favorites = new FavoritesViewModel(settings, SaveSettings, Texts, slot => ToolBar!.ApplyFavorite(slot), slot => ToolBar!.StoreFavorite(slot));
-        Pages = new PagesViewModel(this, view, dialogs, clipboard ?? NoClipboard.Instance);
-        Selection = new SelectionViewModel(this, view, dialogs, clipboard ?? NoClipboard.Instance);
-        TextStyle = new TextStyleViewModel(this, dialogs);
-        NoteCard = new NoteCardViewModel(this);
-        PageDialogs = pageDialogs ?? NoPageDialogs.Instance;
-        ImportExport = new ImportExportViewModel(this, view, dialogs, PageDialogs);
-        ToolStyles = new ToolStylesViewModel(this);
-        ToolBar = new ToolBarViewModel(this, view);
-        Backup = new BackupViewModel(this, view, dialogs, this.time, settingsFolder);
-    }
-
-    /// <summary>Page windows that always cancel (a view model made without them).</summary>
-    private sealed class NoPageDialogs : IPageDialogs
-    {
-        public static readonly NoPageDialogs Instance = new();
-        public string[]? ChoosePdfFiles(string title) => null;
-        public Task<int[]?> ChooseImportPagesAsync(MergeFile file) => Task.FromResult<int[]?>(null);
-        public Task<MergeChoice?> ChooseMergeAsync(IReadOnlyList<MergeFile> files, bool insert, Func<Task<IReadOnlyList<MergeFile>>> addFiles) => Task.FromResult<MergeChoice?>(null);
-        public PageExportChoice? ChooseExport(int pageCount, string range, bool flatten) => null;
-        public PdfNotes.Core.Models.NewPageSpec? ChooseBlankPage(bool insert, PdfNotes.Core.Models.PageSetup reference) => null;
-        public PageTransformRequest? ChooseTransform(bool resize, PdfNotes.Core.Models.DocumentModel model, PdfNotes.Core.Models.Page active, Func<PdfNotes.Core.Commands.PageApplyScope, PdfNotes.Core.Models.PageSetup[]> targets) => null;
-    }
-
-    /// <summary>A clipboard that holds nothing (a view model made without one).</summary>
-    private sealed class NoClipboard : IEditorClipboard
-    {
-        public static readonly NoClipboard Instance = new();
-        public bool ContainsData(string format) => false;
-        public string? GetData(string format) => null;
-        public void SetData(string format, string data) { }
-        public bool ContainsText() => false;
-        public string GetText() => "";
-        public void SetText(string text) { }
-        public bool ContainsImage() => false;
-        public byte[]? GetImagePng() => null;
     }
 
     public AppSettings Settings { get; }
 
-    /// <summary>The shell's page windows (import, merge, export, blank page, resize).</summary>
-    public IPageDialogs PageDialogs { get; }
-
-    public RibbonViewModel Ribbon { get; }
-    public RecentViewModel Recent { get; }
-    public UpdateViewModel Update { get; }
-    public LoadingViewModel Loading { get; }
-    public OutlineViewModel Outline { get; }
-    public ForeignViewModel Foreign { get; }
-    public SearchViewModel Search { get; }
-    public NavigationViewModel Navigation { get; }
-    public DisplayViewModel Display { get; }
-    public FavoritesViewModel Favorites { get; }
-    public PagesViewModel Pages { get; }
-    public ImportExportViewModel ImportExport { get; }
-    public BackupViewModel Backup { get; }
-    public ToolStylesViewModel ToolStyles { get; }
-    public ToolBarViewModel ToolBar { get; }
-    public SelectionViewModel Selection { get; }
-    public TextStyleViewModel TextStyle { get; }
-    public NoteCardViewModel NoteCard { get; }
+    public RibbonViewModel Ribbon { get; internal set; } = null!;
+    public RecentViewModel Recent { get; internal set; } = null!;
+    public UpdateViewModel Update { get; internal set; } = null!;
+    public LoadingViewModel Loading { get; internal set; } = null!;
+    public OutlineViewModel Outline { get; internal set; } = null!;
+    public ForeignViewModel Foreign { get; internal set; } = null!;
+    public SearchViewModel Search { get; internal set; } = null!;
+    public NavigationViewModel Navigation { get; internal set; } = null!;
+    public DisplayViewModel Display { get; internal set; } = null!;
+    public FavoritesViewModel Favorites { get; internal set; } = null!;
+    public PagesViewModel Pages { get; internal set; } = null!;
+    public ImportExportViewModel ImportExport { get; internal set; } = null!;
+    public BackupViewModel Backup { get; internal set; } = null!;
+    public ToolStylesViewModel ToolStyles { get; internal set; } = null!;
+    public ToolBarViewModel ToolBar { get; internal set; } = null!;
+    public SelectionViewModel Selection { get; internal set; } = null!;
+    public TextStyleViewModel TextStyle { get; internal set; } = null!;
+    public NoteCardViewModel NoteCard { get; internal set; } = null!;
 
     private OpenDocument? glyphDocument;
     private PageGlyphSource glyphs = new((PdfNotes.Pdf.Reading.DocumentSources?)null);
@@ -201,7 +112,7 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
 
     /// <summary>Runs <paramref name="action"/> once on the UI thread after <paramref name="delay"/>; disposing cancels it.</summary>
     public IDisposable After(TimeSpan delay, Action action) =>
-        time.CreateTimer(_ => view.OnUiThread(action), null, delay, Timeout.InfiniteTimeSpan);
+        time.CreateTimer(_ => Ui.Run(action), null, delay, Timeout.InfiniteTimeSpan);
 
     /// <summary>The first page of the document that shows source page <paramref name="sourceIndex"/>, or null when it was deleted.</summary>
     public int? PageShowing(int? sourceIndex)
@@ -259,14 +170,14 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     public AsyncCommand ExportFlattenedCommand => exportFlattened ??= new(() => ImportExport.ExportPagesAsync(allPages: true, flatten: true), () => !IsBusy); // the export window, preset (spec 11.10)
     public AsyncCommand ExportPagesCommand => exportPages ??= new(() => ImportExport.ExportPagesAsync(allPages: true), () => !IsBusy);
     public Command SettingsCommand => settingsCommand ??= new(Shell.ShowSettings);
-    public Command UndoCommand => undo ??= new(() => Shell.UndoOrRedo(redo: false), () => Document?.Session.CanUndo == true);
-    public Command RedoCommand => redo ??= new(() => Shell.UndoOrRedo(redo: true), () => Document?.Session.CanRedo == true);
+    public Command UndoCommand => undo ??= new(() => UndoOrRedo(redo: false), () => Document?.Session.CanUndo == true);
+    public Command RedoCommand => redo ??= new(() => UndoOrRedo(redo: true), () => Document?.Session.CanRedo == true);
     private AsyncCommand? open, @new, save, saveAs, merge, exportFlattened, exportPages;
     private Command? recent, settingsCommand, undo, redo;
 
     // ----- commands of the 보기 tab (R4c) -----
 
-    public Command HideNotesCommand => hideNotes ??= new(() => Shell.SetNotesHidden(!Display.NotesHidden));
+    public Command HideNotesCommand => hideNotes ??= new(() => SetNotesHidden(!Display.NotesHidden));
     public Command SearchCommand => search ??= new(() => Search.OpenCommand.Execute());
     public Command OpenUpdatePageCommand => openUpdatePage ??= new(() => Shell.OpenWebPage(Update.Url));
 
@@ -276,8 +187,8 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     /// <summary>A command from the ribbon ends what the canvas is doing: the text box being edited, a press in progress.</summary>
     public void EndInput()
     {
-        view.FinishTextEditing();
-        view.CancelTool();
+        Editing.FinishTextEditing();
+        Editing.CancelTool();
     }
     private Command? hideNotes, search, openUpdatePage;
 
@@ -300,14 +211,33 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         RedoTip = session.RedoLabel is { } redo ? texts.Format("ribbon.redoNamed", ("name", texts.Get(redo))) : texts.Get("ribbon.redoTip");
     }
 
+    // ----- what the screen follows (R4f) -----
+
+    /// <summary>The open document is about to be replaced: the screen remembers its state (its position, an open note).</summary>
+    public event Action<OpenDocument?>? DocumentLeaving;
+
+    /// <summary>
+    /// The second document is shown in place of the first: the screen shows its pages. The first is released after this.
+    /// </summary>
+    public event Action<OpenDocument?, OpenDocument>? DocumentShown;
+
+    /// <summary>The open document's model changed (an edit, Undo, Redo, a saved mark): the canvas shows it.</summary>
+    public event Action? DocumentChanged;
+
+    /// <summary>A file was opened from this path (the last position is restored).</summary>
+    public event Action<string>? FileOpened;
+
+    /// <summary>The document was written to this path (the backup starts over).</summary>
+    public event Action<string>? FileSaved;
+
     private void SessionStateChanged(object? sender, EventArgs e)
     {
         if (!ReferenceEquals(sender, Document?.Session)) return;
-        view.DocumentChanged();
-        Pages.Refresh(); // the rows follow the pages (after the view compared them with the model)
+        DocumentChanged?.Invoke();
+        Pages.Refresh(); // the rows follow the pages (after the canvas compared them with the model)
         Refresh();
         RefreshCommands();
-        view.CommandsChanged();
+        Pages.CommandsChanged();
         Outline.Refresh(); // items of deleted pages are dimmed
         _ = Foreign.RecountAsync(); // imported pages may bring other apps' annotations
         Search.Schedule(keep: true); // text edits, deleted or moved pages: results follow the document
@@ -315,25 +245,31 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
 
     // ----- the workflow's host -----
 
-    void IDocumentHost.FinishTextEditing() => view.FinishTextEditing();
-    void IDocumentHost.CancelTool() => view.CancelTool();
+    void IDocumentHost.FinishTextEditing() => Editing.FinishTextEditing();
+    void IDocumentHost.CancelTool() => Editing.CancelTool();
 
     void IDocumentHost.DocumentLeaving(OpenDocument? previous)
     {
-        view.DocumentLeaving(previous);
+        DocumentLeaving?.Invoke(previous);
+        NoteCard.Commit(); // an open sticky note is finished first (spec 24.9)
+        if (Display.NotesHidden) SetNotesHidden(false); // a new or opened document shows its notes (spec 24.10)
         if (previous is not null) previous.Session.StateChanged -= SessionStateChanged;
     }
 
     void IDocumentHost.DocumentReplaced(OpenDocument? previous, OpenDocument next)
     {
         next.Session.StateChanged += SessionStateChanged;
-        view.DocumentReplaced(previous, next);
+        DocumentShown?.Invoke(previous, next);
+        previous?.Dispose();
+        Pages.DocumentReplaced(); // after the canvas shows the new pages: the active page is the one in view
         Navigation.DocumentReplaced();
+        Navigation.ResetPageInput();
+        Navigation.ResetZoomInput();
         Outline.Load();
         Search.DocumentReplaced();
+        ToolStyles.Refresh();
         Refresh();
         RefreshCommands();
-        view.CommandsChanged();
         _ = Foreign.RecountAsync();
     }
 
@@ -341,7 +277,7 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     void IDocumentHost.Loading(string? name)
     {
         if (name is not null) Loading.Begin(name);
-        else if (Loading.End()) view.WaitForFirstPages();
+        else Loading.End(); // a shown card waits for the first pages (LoadingViewModel.PagesAwaited)
     }
 
     void IDocumentHost.StateChanged()
@@ -350,19 +286,19 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         Refresh();
         Foreign.Refresh();
         RefreshCommands();
-        view.CommandsChanged();
+        Pages.CommandsChanged();
     }
 
     void IDocumentHost.Opened(string path)
     {
         Recent.Add(path);
-        view.Opened(path);
+        FileOpened?.Invoke(path);
     }
 
     void IDocumentHost.Saved(string path)
     {
         Recent.Add(path);
-        view.Saved(path);
+        FileSaved?.Invoke(path);
     }
-    bool IDocumentHost.ShowOpenElsewhere(string path) => view.ShowOpenElsewhere(path);
+    bool IDocumentHost.ShowOpenElsewhere(string path) => Window.ShowOpenElsewhere(path);
 }

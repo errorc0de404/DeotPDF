@@ -59,7 +59,7 @@ public interface IPageDialogs
 /// Pages in and out of PDF files (P1 V6): pages of other PDFs (spec 11.9, D13g; several files D13j), 파일 › PDF 합치기 (a new
 /// document) and 내보내기 (11.10, 14.5, D14g). The windows are the shell's (<see cref="IPageDialogs"/>).
 /// </summary>
-public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, IEditorDialogs dialogs, IPageDialogs pageDialogs) : ObservableObject
+public sealed class ImportExportViewModel(MainViewModel owner, IEditorDialogs dialogs, IPageDialogs pageDialogs) : ObservableObject
 {
     private Texts texts => owner.Texts;
 
@@ -111,8 +111,8 @@ public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, I
                 return false;
             }
             if (!ReferenceEquals(Document, target)) return false;
-            view.FinishTextEditing();
-            view.CancelTool();
+            owner.Editing.FinishTextEditing();
+            owner.Editing.CancelTool();
             int count = target.Session.Current.Pages.Count;
             int index = at ?? position switch { MergePosition.Start => 0, MergePosition.End => count, _ => owner.Pages.ActivePageIndex + 1 };
             var imports = prepared;
@@ -255,7 +255,7 @@ public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, I
     public async Task<int> ExportPagesAsync(bool allPages = false, bool flatten = false)
     {
         if (owner.IsBusy || Document is not { } doc) return 0;
-        view.FinishTextEditing();
+        owner.Editing.FinishTextEditing();
         var model = doc.Session.Current;
         var selected = owner.Pages.SelectedPageIds.Select(model.IndexOfPage).Where(i => i >= 0);
         var choice = pageDialogs.ChooseExport(model.Pages.Count, allPages || flatten ? PageRanges.All : PageRanges.Format(selected, model.Pages.Count), flatten);

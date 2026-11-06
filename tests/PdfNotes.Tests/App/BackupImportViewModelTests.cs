@@ -22,7 +22,7 @@ public sealed class BackupImportViewModelTests : IDisposable
     {
         Directory.CreateDirectory(folder);
         settings.BackupFolder = Path.Combine(folder, "Backups");
-        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => { }, folder, time, pageDialogs: shell);
+        model = MainViewModels.Create(new(settings, "DeotPDF", _ => { }, folder) { Time = time }, FakeScreens.Of(shell) with { PageDialogs = shell });
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
         shell.List.Pages = model.Pages;
         model.Pages.DocumentReplaced();
@@ -32,14 +32,13 @@ public sealed class BackupImportViewModelTests : IDisposable
     {
         Backup.Stop();
         model.Workflow.Detach()?.Dispose();
-        foreach (var d in shell.Released) d.Dispose();
         try { Directory.Delete(folder, recursive: true); } catch (IOException) { }
     }
 
     private void Draw() => Session.Execute(DocumentEdits.AddAnnotation(Session.Current, Session.Current.Pages[0].Id,
         new InkStroke(Guid.NewGuid(), false, Affine.Identity, [new(10, 10), new(80, 60)], 2, RgbColor.Black, 1)));
 
-    private sealed class Shell : IMainView, IEditorDialogs, IPageDialogs
+    private sealed class Shell : IFakeShell, IPageDialogs
     {
         public readonly List<OpenDocument> Released = [];
         public readonly FakeViewport View = new();
@@ -53,15 +52,6 @@ public sealed class BackupImportViewModelTests : IDisposable
         public PageExportChoice? Export = null;
         public void FinishTextEditing() { }
         public void CancelTool() { }
-        public void DocumentLeaving(OpenDocument? previous) { }
-        public void DocumentReplaced(OpenDocument? previous, OpenDocument next) { if (previous is not null) Released.Add(previous); }
-        public void DocumentChanged() { }
-        public void WaitForFirstPages() { }
-        public void Opened(string path) { }
-        public void Saved(string path) { }
-        public bool ShowOpenElsewhere(string path) => false;
-        public void CommandsChanged() { }
-        public void OnUiThread(Action action) => action();
         public IDocumentViewport Viewport => View;
         public IPageThumbnailSource Thumbnails => List;
         public IWindowCoordinator Window => Coordinator;

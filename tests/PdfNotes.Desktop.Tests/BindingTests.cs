@@ -26,7 +26,7 @@ public sealed class BindingTests
 {
     private static MainWindow Window()
     {
-        var window = new MainWindow(new AppSettings(), _ => { }, Headless.TempFolder(), TestWindows.Dialogs) { Width = 1200, Height = 1000 };
+        var window = new MainWindow(TestWindows.App(new AppSettings(), Headless.TempFolder()), TestWindows.Dialogs) { Width = 1200, Height = 1000 };
         window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No;
         window.Script.MessageSink = _ => { };
         window.EditorClipboard.InMemory = true;

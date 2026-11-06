@@ -45,7 +45,7 @@ public sealed class LoadingViewModel : ObservableObject
 
     /// <summary>
     /// The file is read (or failed): a card not shown yet never appears. Returns true when a shown card now waits for the
-    /// first pages; the view then calls <see cref="PagesDrawn"/>.
+    /// first pages (<see cref="PagesAwaited"/>).
     /// </summary>
     public bool End()
     {
@@ -54,8 +54,12 @@ public sealed class LoadingViewModel : ObservableObject
         BlocksInput = false; // the document is usable already; the card only covers the blank pages
         WaitsForPages = true;
         Schedule(Linger, Stop);
+        PagesAwaited?.Invoke();
         return true;
     }
+
+    /// <summary>A shown card waits for the first pages: the view calls <see cref="PagesDrawn"/> once they are drawn.</summary>
+    public event Action? PagesAwaited;
 
     /// <summary>The first pages are drawn (or nothing was asked): the card goes.</summary>
     public void PagesDrawn() => Stop();

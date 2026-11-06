@@ -19,7 +19,7 @@ public sealed class ToolStylesViewModelTests : IDisposable
 
     public ToolStylesViewModelTests()
     {
-        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => saves++, TestFolders.New(), new ManualTime(), shell: appShell);
+        model = MainViewModels.Create(new(settings, "DeotPDF", _ => saves++, TestFolders.New()) { Time = new ManualTime() }, FakeScreens.Of(shell) with { Shell = appShell });
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
         select = new SelectTool(new FakeCanvas(), () => model.Document?.Session);
         Styles.Attach(select);
@@ -29,7 +29,6 @@ public sealed class ToolStylesViewModelTests : IDisposable
     public void Dispose()
     {
         model.Workflow.Detach()?.Dispose();
-        foreach (var d in shell.Released) d.Dispose();
     }
 
     private sealed class FakeCanvas : ICanvasView
@@ -46,20 +45,11 @@ public sealed class ToolStylesViewModelTests : IDisposable
         public void RefreshOverlay(int pageIndex) { }
     }
 
-    private sealed class Shell : IMainView, IEditorDialogs
+    private sealed class Shell : IFakeShell
     {
         public readonly List<OpenDocument> Released = [];
         public void FinishTextEditing() { }
         public void CancelTool() { }
-        public void DocumentLeaving(OpenDocument? previous) { }
-        public void DocumentReplaced(OpenDocument? previous, OpenDocument next) { if (previous is not null) Released.Add(previous); }
-        public void DocumentChanged() { }
-        public void WaitForFirstPages() { }
-        public void Opened(string path) { }
-        public void Saved(string path) { }
-        public bool ShowOpenElsewhere(string path) => false;
-        public void CommandsChanged() { }
-        public void OnUiThread(Action action) => action();
         public IDocumentViewport Viewport { get; } = new FakeViewport();
         public IPageThumbnailSource Thumbnails { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();
@@ -208,10 +198,11 @@ public sealed class ToolStylesViewModelTests : IDisposable
         Assert.Equal((ToolKind.Shape, ShapeKind.Ellipse), (bar.Current, bar.Buttons.ShapeKind));
         Assert.Throws<ArgumentOutOfRangeException>(() => bar.SetShapeKind(ShapeKind.Polyline));
 
-        model.Display.NotesHidden = true;
+        model.SetNotesHidden(true);
+        Assert.Equal(ToolKind.Select, bar.Current); // hiding the notes takes the selection tool
         bar.SetTool(ToolKind.Select);
-        Assert.Empty(appShell.NotesHidden); // the selection tool keeps the notes hidden
+        Assert.True(model.Display.NotesHidden); // the selection tool keeps the notes hidden
         bar.SetTool(ToolKind.Pen);
-        Assert.Equal([false], appShell.NotesHidden);
+        Assert.False(model.Display.NotesHidden); // a drawing tool shows them (spec 24.10)
     }
 }

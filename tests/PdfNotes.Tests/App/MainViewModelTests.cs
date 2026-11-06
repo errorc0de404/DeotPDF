@@ -18,8 +18,13 @@ public sealed class MainViewModelTests : IDisposable
     public MainViewModelTests()
     {
         Directory.CreateDirectory(folder);
-        model = new MainViewModel(shell, shell, new AppSettings(), "DeotPDF", _ => { }, TestFolders.New());
+        model = MainViewModels.Create(new(new AppSettings(), "DeotPDF", _ => { }, TestFolders.New()), FakeScreens.Of(shell));
         model.PropertyChanged += (_, e) => shell.Log.Add("changed:" + e.PropertyName);
+        // What the window follows (R4f).
+        model.DocumentChanged += () => shell.Log.Add("documentChanged");
+        model.DocumentShown += (previous, _) => { if (previous is not null) shell.Released.Add(previous); shell.Log.Add("replaced"); };
+        model.FileOpened += _ => shell.Log.Add("opened");
+        model.FileSaved += _ => shell.Log.Add("saved");
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
     }
 
@@ -28,7 +33,7 @@ public sealed class MainViewModelTests : IDisposable
     public void TheViewModelUsesTheTextsItIsGiven()
     {
         var english = Texts.From(new LanguagePack("en", "English", 1, new Dictionary<string, string> { ["ribbon.undoTip"] = "Undo (Ctrl+Z)" }, null));
-        var other = new MainViewModel(shell, shell, new AppSettings(), "DeotPDF", _ => { }, TestFolders.New(), texts: english);
+        var other = MainViewModels.Create(new(new AppSettings(), "DeotPDF", _ => { }, TestFolders.New()) { Texts = english }, FakeScreens.Of(shell));
         Assert.Equal("Undo (Ctrl+Z)", other.UndoTip);
         Assert.Equal(Texts.Korean.Get("ribbon.redoTip"), other.RedoTip); // a key the pack lacks is Korean
         Assert.NotEqual(other.UndoTip, model.UndoTip);
@@ -37,11 +42,10 @@ public sealed class MainViewModelTests : IDisposable
     public void Dispose()
     {
         model.Workflow.Detach()?.Dispose();
-        foreach (var d in shell.Released) d.Dispose();
         Directory.Delete(folder, true);
     }
 
-    private sealed class Shell : IMainView, IEditorDialogs
+    private sealed class Shell : IFakeShell
     {
         public readonly List<string> Log = [];
         public readonly List<OpenDocument> Released = [];
@@ -49,15 +53,6 @@ public sealed class MainViewModelTests : IDisposable
 
         public void FinishTextEditing() { }
         public void CancelTool() { }
-        public void DocumentLeaving(OpenDocument? previous) { }
-        public void DocumentReplaced(OpenDocument? previous, OpenDocument next) { if (previous is not null) Released.Add(previous); Log.Add("replaced"); }
-        public void DocumentChanged() => Log.Add("documentChanged");
-        public void WaitForFirstPages() { }
-        public void Opened(string path) => Log.Add("opened");
-        public void Saved(string path) => Log.Add("saved");
-        public bool ShowOpenElsewhere(string path) => false;
-        public void CommandsChanged() => Log.Add("commands");
-        public void OnUiThread(Action action) => action();
         public IDocumentViewport Viewport { get; } = new FakeViewport();
         public IPageThumbnailSource Thumbnails { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();
@@ -81,8 +76,8 @@ public sealed class MainViewModelTests : IDisposable
         Assert.Equal($"{name} * - DeotPDF", model.Title);
         Assert.Equal(Strings.Format("ribbon.undoNamed", ("name", Strings.Get(model.Document.Session.UndoLabel!))), model.UndoTip);
         Assert.Equal(Strings.Get("ribbon.redoTip"), model.RedoTip);
-        // The view updates its controls first, then the title changes, then commands are asked again.
-        Assert.Equal(["documentChanged", "changed:Title", "changed:UndoTip", "commands"], shell.Log);
+        // The canvas follows first, then the title and the tips change.
+        Assert.Equal(["documentChanged", "changed:Title", "changed:UndoTip"], shell.Log);
 
         string label = model.Document.Session.UndoLabel!;
         model.Document.Session.Undo();

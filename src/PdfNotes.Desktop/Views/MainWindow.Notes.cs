@@ -87,19 +87,7 @@ public sealed partial class MainWindow
     /// copied and searched; choosing a drawing tool, pasting or inserting shows them again (spec 24.10, D14g). A view
     /// change only: no Undo, no unsaved mark.
     /// </summary>
-    public void SetNotesHidden(bool hidden)
-    {
-        if (NotesHidden == hidden) return;
-        FinishTextEditing();
-        CloseNote();
-        Canvas.CancelTool();
-        viewModel.Display.NotesHidden = hidden;
-        if (hidden) { SetTool(ToolKind.Select); selectTool.Select(null); }
-        selectTool.IgnoreAnnotations = hidden;
-        styles.Refresh();
-        Canvas.RefreshOverlays();
-        _ = pages.InvalidateThumbnailsAsync();
-    }
+    public void SetNotesHidden(bool hidden) => viewModel.SetNotesHidden(hidden);
 
     // ----- pen favorites (spec 24.7) -----
 

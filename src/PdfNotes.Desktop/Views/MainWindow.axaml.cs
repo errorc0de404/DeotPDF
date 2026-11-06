@@ -15,12 +15,12 @@ using SkiaSharp;
 namespace PdfNotes.Desktop.Views;
 
 /// <summary>
-/// The main window of the Avalonia app (roadmap P4). Like the WPF window it is a view of the P1 <see cref="MainViewModel"/>
-/// (<see cref="IMainView"/>): the view model owns the document, the tools' state, the styles and the commands; this
-/// window shows them and turns platform input into editor calls. A3: canvas tools and keys; A4: text boxes; A5: the
+/// The main window of the Avalonia app (roadmap P4). It is a view of the P1 <see cref="MainViewModel"/>: the view model owns
+/// the document, the tools' state, the styles and the commands, and the window's controls are bound to it (R4); the
+/// window follows its events (R4f) and turns platform input into editor calls. A3: canvas tools and keys; A4: text boxes; A5: the
 /// ribbon, the style bars, the page panel, search, outline, notes, dialogs and the rest of the WPF window's frame.
 /// </summary>
-public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, IAppShell, IUiThread
+public sealed partial class MainWindow : Window, IEditingSurface, IWindowCoordinator, IAppShell, IUiThread
 {
     private readonly MainViewModel viewModel;
     private readonly IDesktopDialogs dialogs;
@@ -29,18 +29,26 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
     private bool closeConfirmed;
     private readonly string appFolder;
 
-    /// <param name="saveSettings">How settings are stored (tests pass one that does nothing).</param>
-    /// <param name="appFolder">The settings folder: backups, the running windows' markers, language packs (tests pass their own).</param>
+    /// <param name="app">The settings, how they are stored, the settings folder (backups, the running windows' markers, language
+    /// packs) and the language; tests pass their own.</param>
     /// <param name="dialogs">Makes the window's modal UI for it (default <see cref="DesktopDialogs"/>; tests pass a scripted one).</param>
-    public MainWindow(AppSettings settings, Action<AppSettings> saveSettings, string appFolder, Func<Window, IDesktopDialogs>? dialogs = null)
+    /// <param name="compose">Puts the view models together from the app's and this window's services (R4g; default <see cref="MainViewModels.Create"/>).</param>
+    public MainWindow(AppServices app, Func<Window, IDesktopDialogs>? dialogs = null, Func<AppServices, ScreenServices, MainViewModel>? compose = null)
     {
-        this.appFolder = appFolder;
+        appFolder = app.SettingsFolder;
+        var settings = app.Settings;
         InitializeComponent();
         this.dialogs = dialogs?.Invoke(this) ?? new DesktopDialogs(this);
         clipboard = new DesktopClipboard(this);
-        viewModel = new MainViewModel(this, this.dialogs, settings, App.DisplayName, saveSettings, appFolder, clipboard: clipboard, pageDialogs: this,
-            texts: Strings.Current, shell: this, ui: this);
-        DataContext = viewModel; // the ribbon's file and view commands, the title and the status bar are bound (R4b–R4c)
+        viewModel = (compose ?? MainViewModels.Create)(app,
+            new ScreenServices(this.dialogs, Canvas, this) { Thumbnails = this, Window = this, Ui = this, Shell = this, Clipboard = clipboard, PageDialogs = this });
+        DataContext = viewModel; // the window's controls are bound (R4)
+        viewModel.DocumentLeaving += RememberPosition;
+        viewModel.DocumentShown += DocumentShown;
+        viewModel.DocumentChanged += DocumentChanged;
+        viewModel.FileOpened += RestorePosition;
+        viewModel.FileSaved += _ => { backup.Saved(); ShowingFile(); };
+        viewModel.Loading.PagesAwaited += WaitForFirstPages;
         RestoreWindowPlacement();
         Canvas.SetMode(settings.ViewMode);
         Canvas.ViewChanged += (_, _) => viewModel.Navigation.ViewChanged();
@@ -109,7 +117,6 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
     void IAppShell.ShowSettings() => ShowSettings();
     void IAppShell.ShowRecentMenu() => OpenRecentMenu();
     void IAppShell.ShowZoomMenu() => OpenZoomMenu();
-    void IAppShell.UndoOrRedo(bool redo) => UndoTextAware(redo);
     void IAppShell.OpenWebPage(string url) => OpenWebPage(url);
     Task IAppShell.InsertImageFromFileAsync() => InsertImageFromFileAsync();
 
@@ -124,14 +131,10 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
     /// <summary>Shows a document made elsewhere (tests: one built in memory).</summary>
     public void Show(OpenDocument opened) => viewModel.Workflow.Replace(opened);
 
-    void IMainView.DocumentLeaving(OpenDocument? previous)
-    {
-        RememberPosition(previous);
-        CloseNote();
-        if (viewModel.Display.NotesHidden) SetNotesHidden(false); // a new or opened document shows its notes (spec 24.10)
-    }
+    // ----- what the window follows of the document (R4f) -----
 
-    void IMainView.DocumentReplaced(OpenDocument? previous, OpenDocument next)
+    /// <summary>The canvas shows <paramref name="next"/>; the view model releases <paramref name="previous"/> after this.</summary>
+    private void DocumentShown(OpenDocument? previous, OpenDocument next)
     {
         linkDocument = next;
         sourceLinks.Clear();
@@ -139,17 +142,13 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
         queue = new PageRenderQueue<SKImage>(next.Renderer, PageImages.FromPdfium, action => Dispatcher.UIThread.Post(action, DispatcherPriority.Background));
         Canvas.SetDocument(next.Session.Current.Pages, queue);
         selectTool.Select(null);
-        viewModel.Pages.DocumentReplaced();
         previousQueue?.Dispose();
-        previous?.Dispose();
         backup.Reset();
         ShowingFile();
-        viewModel.Navigation.ResetPageInput();
-        viewModel.Navigation.ResetZoomInput();
-        styles.Refresh();
     }
 
-    void IMainView.DocumentChanged()
+    /// <summary>The model changed: the canvas shows it; a page structure change ends the PDF text selection.</summary>
+    private void DocumentChanged()
     {
         if (Document is not { } doc) return;
         Canvas.UpdatePages(doc.Session.Current.Pages);
@@ -161,41 +160,22 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
         styles.Refresh();
     }
 
-    void IMainView.FinishTextEditing() => FinishTextEditing();
-    void IMainView.CancelTool() => Canvas.CancelTool();
-    void IMainView.Opened(string path) => RestorePosition(path);
-    void IMainView.Saved(string path)
-    {
-        backup.Saved();
-        ShowingFile();
-    }
+    void IEditingSurface.FinishTextEditing() => FinishTextEditing();
+    void IEditingSurface.CancelTool() => Canvas.CancelTool();
 
     /// <summary>The file is open in another window (spec 4.6): that window comes forward and this one keeps its document.</summary>
-    bool IMainView.ShowOpenElsewhere(string path)
+    bool IWindowCoordinator.ShowOpenElsewhere(string path)
     {
         if (BackupStore.WindowShowing(appFolder, path, backup.Store) is not { } other) return false;
         (BringOverride ?? Platform.WindowActivation.Bring)(other);
         return true;
     }
-    void IMainView.CommandsChanged() => viewModel.Pages.CommandsChanged();
-
-    void IMainView.OnUiThread(Action action)
-    {
-        if (Dispatcher.UIThread.CheckAccess()) action();
-        else Dispatcher.UIThread.Post(action);
-    }
-
-    IDocumentViewport IMainView.Viewport => Canvas;
-    IPageThumbnailSource IMainView.Thumbnails => this;
-    IWindowCoordinator IMainView.Window => this;
-
     // ----- commands -----
 
-    /// <summary>Undo/Redo and the busy state (spec 13.3): the buttons follow the document and name the step.</summary>
-    /// <summary>Ctrl+Z / Ctrl+Y (spec 13.2–13.3): while a text box is edited, only its own steps (<see cref="UndoTextAware"/>).</summary>
-    public void Undo() => UndoTextAware(redo: false);
+    /// <summary>Ctrl+Z / Ctrl+Y (spec 13.2–13.3): while a text box is edited, only its own steps (<see cref="MainViewModel.UndoOrRedo"/>).</summary>
+    public void Undo() => viewModel.UndoOrRedo(redo: false);
 
-    public void Redo() => UndoTextAware(redo: true);
+    public void Redo() => viewModel.UndoOrRedo(redo: true);
 
     // ----- the status bar: page and zoom -----
 

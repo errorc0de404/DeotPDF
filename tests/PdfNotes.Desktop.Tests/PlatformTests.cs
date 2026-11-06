@@ -29,7 +29,7 @@ public sealed class PlatformTests
 {
     private static MainWindow Window(string folder, AppSettings? settings = null)
     {
-        var window = new MainWindow(settings ?? new AppSettings(), _ => { }, folder, TestWindows.Dialogs) { Width = 1200, Height = 900 };
+        var window = new MainWindow(TestWindows.App(settings ?? new AppSettings(), folder), TestWindows.Dialogs) { Width = 1200, Height = 900 };
         window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No;
         window.Script.MessageSink = _ => { };
         window.EditorClipboard.InMemory = true;

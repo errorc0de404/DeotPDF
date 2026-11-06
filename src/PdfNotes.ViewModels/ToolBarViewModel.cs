@@ -52,13 +52,11 @@ public sealed class ToolButtonViewModel(string tag, Func<ToolButtons, bool> isOn
 public sealed class ToolBarViewModel : ObservableObject
 {
     private readonly MainViewModel owner;
-    private readonly IMainView view;
     private readonly ToolButtonViewModel[] all;
 
-    public ToolBarViewModel(MainViewModel owner, IMainView view)
+    public ToolBarViewModel(MainViewModel owner)
     {
         this.owner = owner;
-        this.view = view;
         ToolButtonViewModel Button(string tag, Func<ToolButtons, bool> on, params ToolKind[] returns) =>
             new(tag, on, r => r is { } k && returns.Contains(k), Press);
         Select = Button("Select", b => b.Current == ToolKind.Select);
@@ -105,9 +103,9 @@ public sealed class ToolBarViewModel : ObservableObject
 
     public void SetTool(ToolKind kind)
     {
-        if (owner.Display.NotesHidden && kind != ToolKind.Select) owner.Shell.SetNotesHidden(false);
+        if (owner.Display.NotesHidden && kind != ToolKind.Select) owner.SetNotesHidden(false);
         bool hidden = owner.Display.NotesHidden;
-        view.FinishTextEditing();
+        owner.Editing.FinishTextEditing();
         owner.Tools.Choose(kind, hidden);
         OnPropertyChanged(nameof(Current)); // the view puts the canvas tool in place
         Refresh();
@@ -141,7 +139,7 @@ public sealed class ToolBarViewModel : ObservableObject
     public void ReturnAfterAutoSelect()
     {
         if (owner.Tools.TakeReturn() is not { } previous) return;
-        owner.Ui.Post(() => { if (owner.Tools.Current == ToolKind.Select && !view.Viewport.IsToolActive) SetTool(previous); });
+        owner.Ui.Post(() => { if (owner.Tools.Current == ToolKind.Select && !owner.Viewport.IsToolActive) SetTool(previous); });
     }
 
     // ----- pen favorites (spec 24.7) -----
@@ -155,7 +153,7 @@ public sealed class ToolBarViewModel : ObservableObject
         var slots = owner.Settings.Favorites;
         if (slot < 0 || slot >= slots.Length) return;
         if (slots[slot] is not { } favorite) { StoreFavorite(slot); return; }
-        if (owner.Display.NotesHidden) owner.Shell.SetNotesHidden(false);
+        if (owner.Display.NotesHidden) owner.SetNotesHidden(false);
         owner.ToolStyles.UseFavorite(favorite);
         SetTool(favorite.Tool);
     }

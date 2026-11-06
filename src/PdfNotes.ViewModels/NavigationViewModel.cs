@@ -12,12 +12,12 @@ public sealed record ViewPlace(Guid PageId, Point2 Center, double Zoom);
 /// Moving around the document (P1 V4): the page and zoom of the status bar, the view mode, the page keys and the
 /// back/forward history of link and outline jumps (spec 4.4, 24.2, 24.3). A view change only: no Undo, no unsaved mark.
 /// </summary>
-public sealed class NavigationViewModel(MainViewModel owner, IMainView view) : ObservableObject
+public sealed class NavigationViewModel(MainViewModel owner) : ObservableObject
 {
     public const int MaxHistory = 50;
     private readonly List<ViewPlace> back = [], forward = [];
 
-    private IDocumentViewport Viewport => view.Viewport;
+    private IDocumentViewport Viewport => owner.Viewport;
 
     // ----- status bar -----
 

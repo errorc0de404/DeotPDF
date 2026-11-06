@@ -21,7 +21,7 @@ public sealed class NavigationViewModelTests : IDisposable
 
     public NavigationViewModelTests()
     {
-        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => saves++, TestFolders.New(), new ManualTime());
+        model = MainViewModels.Create(new(settings, "DeotPDF", _ => saves++, TestFolders.New()) { Time = new ManualTime() }, FakeScreens.Of(shell));
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
         var session = model.Document!.Session;
         var spec = session.Current.Pages[0].Setup;
@@ -33,24 +33,14 @@ public sealed class NavigationViewModelTests : IDisposable
     public void Dispose()
     {
         model.Workflow.Detach()?.Dispose();
-        foreach (var d in shell.Released) d.Dispose();
     }
 
-    private sealed class Shell : IMainView, IEditorDialogs
+    private sealed class Shell : IFakeShell
     {
         public readonly List<OpenDocument> Released = [];
         public readonly FakeViewport View = new();
         public void FinishTextEditing() { }
         public void CancelTool() { }
-        public void DocumentLeaving(OpenDocument? previous) { }
-        public void DocumentReplaced(OpenDocument? previous, OpenDocument next) { if (previous is not null) Released.Add(previous); }
-        public void DocumentChanged() { }
-        public void WaitForFirstPages() { }
-        public void Opened(string path) { }
-        public void Saved(string path) { }
-        public bool ShowOpenElsewhere(string path) => false;
-        public void CommandsChanged() { }
-        public void OnUiThread(Action action) => action();
         public IDocumentViewport Viewport => View;
         public IPageThumbnailSource Thumbnails { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();

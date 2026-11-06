@@ -2,6 +2,9 @@ using Avalonia.Controls;
 using PdfNotes.Desktop.Views;
 using PdfNotes.Editor.Platform;
 
+using PdfNotes.Editor.Services;
+using PdfNotes.ViewModels;
+
 namespace PdfNotes.Desktop.Tests;
 
 /// <summary>
@@ -70,6 +73,10 @@ internal static class TestWindows
 {
     /// <summary>Pass to <see cref="MainWindow"/>: the window's dialogs are scripted.</summary>
     public static readonly Func<Window, IDesktopDialogs> Dialogs = owner => new ScriptedDialogs(owner);
+
+    /// <summary>What a test window takes from the app: these settings (default new), saved nowhere, and its own folder.</summary>
+    public static AppServices App(AppSettings? settings = null, string? folder = null) =>
+        new(settings ?? new AppSettings(), PdfNotes.Desktop.App.DisplayName, _ => { }, folder ?? Headless.TempFolder()) { Texts = PdfNotes.Editor.Localization.Strings.Current };
 
     extension(MainWindow window)
     {

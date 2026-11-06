@@ -463,6 +463,12 @@ public sealed class TextEditorModel
 
     // ----- Undo while editing -----
 
+    /// <summary>Undo (or redo, <paramref name="redo"/>) one of the editor's steps; none left does nothing (the text bar's session, spec 13.2).</summary>
+    public void UndoStep(bool redo)
+    {
+        if (redo) Redo(); else Undo();
+    }
+
     /// <summary>Undoes the last step of this box's editing. Nothing happens at the start (no document Undo, spec 13.2).</summary>
     public bool Undo()
     {

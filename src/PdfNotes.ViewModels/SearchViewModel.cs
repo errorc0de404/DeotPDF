@@ -10,7 +10,7 @@ namespace PdfNotes.ViewModels;
 /// <see cref="Delay"/>; a new query or a document change cancels the run in progress and starts again, keeping the
 /// current result when it still exists.
 /// </summary>
-public sealed class SearchViewModel(MainViewModel owner, IMainView view) : ObservableObject
+public sealed class SearchViewModel(MainViewModel owner) : ObservableObject
 {
     public static readonly TimeSpan Delay = TimeSpan.FromMilliseconds(150);
 
@@ -72,7 +72,7 @@ public sealed class SearchViewModel(MainViewModel owner, IMainView view) : Obser
     public void Previous() => Step(-1);
 
     /// <summary>Ctrl+F or 보기 › 찾기: the text being edited is finished, then the bar opens (the view gives it the keyboard).</summary>
-    public Command OpenCommand => field ??= new(() => { view.FinishTextEditing(); Open(); });
+    public Command OpenCommand => field ??= new(() => { owner.Editing.FinishTextEditing(); Open(); });
 
     public Command NextCommand => field ??= new(Next);
     public Command PreviousCommand => field ??= new(Previous);
@@ -164,7 +164,7 @@ public sealed class SearchViewModel(MainViewModel owner, IMainView view) : Obser
             if (!keep && hits.Count > 0)
             {
                 // A new query starts at the page in view.
-                int from = 0, current = view.Viewport.CurrentPageIndex;
+                int from = 0, current = owner.Viewport.CurrentPageIndex;
                 for (int i = 0; i < hits.Count; i++)
                     if (model.IndexOfPage(hits[i].PageId) >= current) { from = i; break; }
                 GoTo(from);
@@ -209,10 +209,10 @@ public sealed class SearchViewModel(MainViewModel owner, IMainView view) : Obser
         index = target;
         var hit = hits[target];
         int page = doc.Session.Current.IndexOfPage(hit.PageId);
-        if (page >= 0 && !view.Viewport.IsInView(page, hit.Quads))
+        if (page >= 0 && !owner.Viewport.IsInView(page, hit.Quads))
         {
             var points = hit.Quads.SelectMany(q => new[] { q.UpperLeft, q.LowerRight }).ToArray();
-            view.Viewport.ScrollToPagePoint(page, new(points.Average(p => p.X), points.Average(p => p.Y)));
+            owner.Viewport.ScrollToPagePoint(page, new(points.Average(p => p.X), points.Average(p => p.Y)));
         }
         Changed();
     }
@@ -224,6 +224,6 @@ public sealed class SearchViewModel(MainViewModel owner, IMainView view) : Obser
         OnPropertyChanged(nameof(Hits));
         OnPropertyChanged(nameof(Index));
         OnPropertyChanged(nameof(CurrentHit));
-        view.Viewport.RefreshOverlays();
+        owner.Viewport.RefreshOverlays();
     }
 }

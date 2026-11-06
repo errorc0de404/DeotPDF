@@ -43,7 +43,7 @@ public sealed record AnnotationMenu(IReadOnlyList<AnnotationMenuEntry> Entries, 
 /// highlighting selected PDF text, lock and stacking order, and the canvas menu's entries. The selection tool, hit
 /// testing and the menu controls stay in the view.
 /// </summary>
-public sealed class SelectionViewModel(MainViewModel owner, IMainView view, IEditorDialogs dialogs, IEditorClipboard clipboard) : ObservableObject
+public sealed class SelectionViewModel(MainViewModel owner, IEditorDialogs dialogs, IEditorClipboard clipboard) : ObservableObject
 {
     private Texts texts => owner.Texts;
 
@@ -58,6 +58,9 @@ public sealed class SelectionViewModel(MainViewModel owner, IMainView view, IEdi
     }
 
     public SelectTool Tool => selection ?? throw new InvalidOperationException("No selection tool attached.");
+
+    /// <summary>The selection tool, or null before the view made it.</summary>
+    public SelectTool? Attached => selection;
 
     private OpenDocument? Document => owner.Document;
 
@@ -86,9 +89,9 @@ public sealed class SelectionViewModel(MainViewModel owner, IMainView view, IEdi
     public void SelectAll()
     {
         if (Document is not { } doc) return;
-        if (owner.Display.NotesHidden) owner.Shell.SetNotesHidden(false);
+        if (owner.Display.NotesHidden) owner.SetNotesHidden(false);
         owner.ToolBar.SetTool(ToolKind.Select);
-        Tool.SetSelection(doc.Session.Current.Pages[view.Viewport.CurrentPageIndex].Annotations.Where(a => !a.Locked).Select(a => a.Id));
+        Tool.SetSelection(doc.Session.Current.Pages[owner.Viewport.CurrentPageIndex].Annotations.Where(a => !a.Locked).Select(a => a.Id));
     }
 
     /// <summary>Copies annotations (the selection by default) as the app's clipboard packet.</summary>
@@ -124,7 +127,7 @@ public sealed class SelectionViewModel(MainViewModel owner, IMainView view, IEdi
     public void Delete()
     {
         if (Document is not { } doc || Tool.SelectedIds.Count == 0) return;
-        view.CancelTool();
+        owner.Editing.CancelTool();
         doc.Session.Execute(DocumentEdits.DeleteAnnotations(doc.Session.Current, Tool.SelectedIds));
         owner.ToolBar.ReturnAfterAutoSelect();
     }

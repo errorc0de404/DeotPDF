@@ -39,6 +39,9 @@ public interface ITextEditorSession
 
     /// <summary>Changes the edited box (width, alignment, fill, border, highlights), keeping the selection.</summary>
     void Change(Func<TextBoxAnnotation, TextBoxAnnotation> change);
+
+    /// <summary>Undo (or redo) one of the editor's own steps (spec 13.2); none left does nothing.</summary>
+    void UndoStep(bool redo) { }
 }
 
 /// <summary>What the text bar shows (spec 3.2, 6): the view only copies it into its controls.</summary>
@@ -85,6 +88,14 @@ public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialo
     }
 
     private bool Editing => editor?.IsEditing == true;
+
+    /// <summary>While a box is edited, Undo and Redo are its own steps (true); otherwise the document's (false).</summary>
+    public bool UndoInEditor(bool redo)
+    {
+        if (!Editing) return false;
+        editor!.UndoStep(redo);
+        return true;
+    }
     private OpenDocument? Document => owner.Document;
     private TextBoxAnnotation[] SelectedBoxes => selection?.SelectedAnnotations.OfType<TextBoxAnnotation>().ToArray() ?? [];
 

@@ -105,20 +105,31 @@ internal sealed class FakeClipboard : IEditorClipboard
 internal sealed class FakeWindow : IWindowCoordinator
 {
     public bool InputPending { get; set; }
+    public bool ShowOpenElsewhere(string path) => false;
 }
 
-/// <summary>A screen that records what the commands asked of it (R4).</summary>
+/// <summary>A test's screen: its message boxes, a fake canvas, thumbnails and window (R4f).</summary>
+internal interface IFakeShell : IEditorDialogs, IEditingSurface
+{
+    IDocumentViewport Viewport { get; }
+    IPageThumbnailSource Thumbnails { get; }
+    IWindowCoordinator Window { get; }
+}
+
+internal static class FakeScreens
+{
+    /// <summary>The screen services of a test shell; a test adds a clipboard, page windows or a shell with `with`.</summary>
+    public static ScreenServices Of(IFakeShell shell) => new(shell, shell.Viewport, shell) { Thumbnails = shell.Thumbnails, Window = shell.Window };
+}
+
+/// <summary>A screen whose windows and menus do nothing (R4).</summary>
 internal sealed class FakeAppShell : IAppShell
 {
-    public readonly List<bool> NotesHidden = [];
     public Task<string?> ChooseOpenPathAsync() => Task.FromResult<string?>(null);
     public NewPageSpec? ChooseNewNote() => null;
     public void ShowSettings() { }
     public void ShowRecentMenu() { }
     public void ShowZoomMenu() { }
-    public void UndoOrRedo(bool redo) { }
-    public void SetNotesHidden(bool hidden) => NotesHidden.Add(hidden);
-    public void OpenSearch() { }
     public void OpenWebPage(string url) { }
     public Task InsertImageFromFileAsync() => Task.CompletedTask;
 }

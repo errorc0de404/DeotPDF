@@ -43,7 +43,7 @@ public sealed class ShellTests
     public void TheThemeSettingSwitchesThePaletteAndTheAccent() => Headless.Run(() =>
     {
         var app = Application.Current!;
-        var window = new MainWindow(new AppSettings(), _ => { }, Headless.TempFolder());
+        var window = new MainWindow(TestWindows.App(new AppSettings(), Headless.TempFolder()));
         window.Show();
         try
         {
@@ -72,7 +72,7 @@ public sealed class ShellTests
     [Fact]
     public void TheWindowHasItsParts() => Headless.Run(() =>
     {
-        var window = new MainWindow(new AppSettings(), _ => { }, Headless.TempFolder());
+        var window = new MainWindow(TestWindows.App(new AppSettings(), Headless.TempFolder()));
         window.Show();
         Assert.NotNull(window.FindControl<Border>("RibbonHost"));
         Assert.NotNull(window.FindControl<Border>("StatusBar"));

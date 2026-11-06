@@ -8,7 +8,7 @@ namespace PdfNotes.ViewModels;
 /// hold annotations of other apps that convert, the 필기 tab shows 다른 프로그램 주석 편집; running it is one Undo unit.
 /// They are counted in the background after a document opens or pages are imported.
 /// </summary>
-public sealed class ForeignViewModel(MainViewModel owner, Action<Action> onUiThread) : ObservableObject
+public sealed class ForeignViewModel(MainViewModel owner) : ObservableObject
 {
     private Texts texts => owner.Texts;
 
@@ -42,7 +42,7 @@ public sealed class ForeignViewModel(MainViewModel owner, Action<Action> onUiThr
     {
         if (owner.Document is null || owner.IsBusy) return Task.FromResult(0);
         owner.EndInput();
-        if (owner.Display.NotesHidden) owner.Shell.SetNotesHidden(false);
+        if (owner.Display.NotesHidden) owner.SetNotesHidden(false);
         return ConvertAsync();
     }
 
@@ -70,7 +70,7 @@ public sealed class ForeignViewModel(MainViewModel owner, Action<Action> onUiThr
         catch (Exception) { found = 0; } // the annotations simply stay read-only
         var shown = new TaskCompletionSource();
         // Back on the UI thread: the views follow these properties.
-        onUiThread(() =>
+        owner.Ui.Run(() =>
         {
             try
             {
