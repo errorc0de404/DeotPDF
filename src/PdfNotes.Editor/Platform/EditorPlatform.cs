@@ -24,6 +24,16 @@ public interface IEditorDialogs
 
     /// <summary>A PDF path to write, or null when cancelled.</summary>
     string? ChooseSavePath(SavePathRequest request);
+
+    /// <summary>
+    /// The question, answered asynchronously (roadmap P5b: Android shows its dialog and returns; the desktop asks
+    /// synchronously, which this default does).
+    /// </summary>
+    Task<Answer> AskAsync(string text, AskButtons buttons, NoticeKind kind) => Task.FromResult(Ask(text, buttons, kind));
+
+    /// <summary>Where to write a PDF (a file, or a document of the system's file picker), or null when cancelled.</summary>
+    Task<PdfNotes.Editor.Services.DocumentLocation?> ChooseSaveLocationAsync(SavePathRequest request) =>
+        Task.FromResult<PdfNotes.Editor.Services.DocumentLocation?>(ChooseSavePath(request) is { } path ? PdfNotes.Editor.Services.DocumentLocation.File(path) : null);
 }
 
 /// <summary>The system clipboard (D14d). Methods may throw <see cref="ClipboardUnavailableException"/> when the clipboard is busy.</summary>

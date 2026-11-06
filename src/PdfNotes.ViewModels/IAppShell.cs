@@ -1,4 +1,5 @@
 using PdfNotes.Core.Models;
+using PdfNotes.Editor.Services;
 
 namespace PdfNotes.ViewModels;
 
@@ -8,8 +9,8 @@ namespace PdfNotes.ViewModels;
 /// </summary>
 public interface IAppShell
 {
-    /// <summary>A PDF to open, or null when cancelled.</summary>
-    Task<string?> ChooseOpenPathAsync();
+    /// <summary>A PDF to open (a file, or a document of the system's picker), or null when cancelled.</summary>
+    Task<DocumentLocation?> ChooseDocumentAsync();
 
     /// <summary>The new note window (spec 4.1): the page size and background, or null when cancelled.</summary>
     NewPageSpec? ChooseNewNote();
@@ -34,7 +35,7 @@ public interface IAppShell
 public sealed class NoShell : IAppShell
 {
     public static readonly NoShell Instance = new();
-    public Task<string?> ChooseOpenPathAsync() => Task.FromResult<string?>(null);
+    public Task<DocumentLocation?> ChooseDocumentAsync() => Task.FromResult<DocumentLocation?>(null);
     public NewPageSpec? ChooseNewNote() => null;
     public void ShowSettings() { }
     public void ShowRecentMenu() { }

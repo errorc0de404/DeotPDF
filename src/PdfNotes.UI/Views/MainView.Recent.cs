@@ -16,7 +16,7 @@ public sealed partial class MainView
     /// <summary>Remembers where the document was shown (page, point at the view center, zoom); new notes are not remembered.</summary>
     private void RememberPosition(OpenDocument? doc)
     {
-        if (doc?.FilePath is not { } path || !ReferenceEquals(doc, Document) || Canvas.CenterAnchor is not { } anchor) return;
+        if (doc?.Location?.Address is not { } path || !ReferenceEquals(doc, Document) || Canvas.CenterAnchor is not { } anchor) return;
         viewModel.Recent.RememberPosition(path, anchor.PageIndex, anchor.PagePoint, Canvas.Zoom);
     }
 

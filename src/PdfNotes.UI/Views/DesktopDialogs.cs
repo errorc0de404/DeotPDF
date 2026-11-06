@@ -37,6 +37,9 @@ public interface IDesktopDialogs : IEditorDialogs
     /// <summary>Asks for a PDF to open; null when cancelled.</summary>
     Task<string?> ChooseOpenPathAsync();
 
+    /// <summary>Asks for a PDF to open as a location (a file here; a document of the system's picker on Android, P5b).</summary>
+    async Task<PdfNotes.Editor.Services.DocumentLocation?> ChooseDocumentAsync() => await ChooseOpenPathAsync() is { } path ? PdfNotes.Editor.Services.DocumentLocation.File(path) : null;
+
     /// <summary>PDFs to read (import, merge), or null.</summary>
     string[]? ChoosePdfFiles(string title);
 

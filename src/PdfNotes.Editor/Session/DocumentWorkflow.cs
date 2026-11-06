@@ -90,7 +90,7 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs,
         confirming = true;
         try
         {
-            return dialogs.Ask(texts.Format("file.saveChangesConfirm", ("name", Document.DisplayNameIn(texts))), AskButtons.YesNoCancel, NoticeKind.Question) switch
+            return await dialogs.AskAsync(texts.Format("file.saveChangesConfirm", ("name", Document.DisplayNameIn(texts))), AskButtons.YesNoCancel, NoticeKind.Question) switch
             {
                 Answer.Yes => await SaveAsync(saveAs: false),
                 Answer.No => true,
@@ -100,19 +100,23 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs,
         finally { confirming = false; }
     }
 
-    /// <summary>Opens a PDF. On failure the current document stays open and unchanged.</summary>
-    public async Task<bool> OpenFileAsync(string path)
+    /// <summary>Opens a PDF file. On failure the current document stays open and unchanged.</summary>
+    public Task<bool> OpenFileAsync(string path) => OpenAsync(DocumentLocation.File(path));
+
+    /// <summary>Opens a PDF from a file or a document of the system (roadmap P5b). On failure the current document stays.</summary>
+    public async Task<bool> OpenAsync(DocumentLocation location)
     {
-        if (IsBusy || host.ShowOpenElsewhere(path)) return false; // that window is in front now; this document stays
+        string path = location.Name;
+        if (IsBusy || location.FilePath is { } file && host.ShowOpenElsewhere(file)) return false; // that window is in front now; this document stays
         if (!await ConfirmDiscardChangesAsync()) return false;
         SetBusy(true);
         host.SetStatus(texts.Get("status.opening"));
-        host.Loading(Path.GetFileName(path));
+        host.Loading(location.Name);
         try
         {
-            var opened = await OpenDocument.OpenPdfAsync(path);
+            var opened = await OpenDocument.OpenPdfAsync(location);
             Replace(opened);
-            host.Opened(path);
+            host.Opened(location.Address);
             host.SetStatus(OpenedStatus(opened));
             host.Loading(null);
             if (OpenedNotice(opened) is { } notice) dialogs.Tell(notice, NoticeKind.Information);
@@ -172,38 +176,40 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs,
     // ----- saving (spec 14.1, 14.4, 18) -----
 
     /// <summary>
-    /// Ctrl+S / Save As. A new note or <paramref name="saveAs"/> asks for a path. Saving to the current file that was
-    /// changed by another program asks before overwriting. Returns true only when the file was written.
+    /// Ctrl+S / Save As. A new note, <paramref name="saveAs"/> or a document the app may not write (P5b) asks where.
+    /// Saving to the current file that was changed by another program asks before overwriting. Returns true only when
+    /// the file was written.
     /// </summary>
     public async Task<bool> SaveAsync(bool saveAs)
     {
         if (IsBusy || Document is not { } doc) return false;
         host.FinishTextEditing();
-        string? path = doc.FilePath;
-        if (saveAs || path is null)
+        var target = doc.Location;
+        if (saveAs || target is null || !target.CanReplace)
         {
-            path = dialogs.ChooseSavePath(new(texts.Get("file.saveAsTitle"), doc.FilePath is null ? texts.Get("file.newNoteFileName") : Path.GetFileName(doc.FilePath), FolderOf(doc)));
-            if (path is null) return false;
+            target = await dialogs.ChooseSaveLocationAsync(new(texts.Get("file.saveAsTitle"), doc.Location is null ? texts.Get("file.newNoteFileName") : doc.Location.Name, FolderOf(doc)));
+            if (target is null) return false;
         }
-        return await SaveToAsync(doc, path);
+        return await SaveToAsync(doc, target);
     }
 
     /// <summary>Saves to <paramref name="path"/> without the dialog (also used by the validation harness).</summary>
-    public Task<bool> SaveToAsync(string path) => IsBusy || Document is null ? Task.FromResult(false) : SaveToAsync(Document, path);
+    public Task<bool> SaveToAsync(string path) => IsBusy || Document is null ? Task.FromResult(false) : SaveToAsync(Document, DocumentLocation.File(path));
 
-    private async Task<bool> SaveToAsync(OpenDocument doc, string path)
+    private async Task<bool> SaveToAsync(OpenDocument doc, DocumentLocation target)
     {
         host.FinishTextEditing();
-        if (IsOwnFile(doc, path) && doc.FileChangedExternally() &&
-            dialogs.Ask(texts.Format("file.changedExternally", ("name", doc.DisplayNameIn(texts))), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes)
+        string path = target.Name;
+        if (doc.Location?.Key == target.Key && doc.FileChangedExternally() &&
+            await dialogs.AskAsync(texts.Format("file.changedExternally", ("name", doc.DisplayNameIn(texts))), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes)
             return false;
         TellRestrictionDropped(doc);
         SetBusy(true);
         host.SetStatus(texts.Get("status.saving"));
         try
         {
-            await doc.SaveAsync(path);
-            host.Saved(path);
+            await doc.SaveAsync(target);
+            host.Saved(target.Address);
             host.SetStatus(texts.Get("status.saved"));
             return true;
         }

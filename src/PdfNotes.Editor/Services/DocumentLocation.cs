@@ -21,6 +21,15 @@ public abstract class DocumentLocation
     /// <summary>Two locations with the same key are the same document.</summary>
     public abstract string Key { get; }
 
+    /// <summary>
+    /// How the recent list and the last positions name it (spec 24.1): the file path, or the content URI on Android
+    /// (P5b). <see cref="IDocumentLocations.Find"/> turns it back into a location.
+    /// </summary>
+    public virtual string Address => FilePath ?? Key;
+
+    /// <summary>False when the app may read but not write it (a PDF another app shared): saving asks where (P5b).</summary>
+    public virtual bool CanReplace => true;
+
     /// <summary>The whole content. Throws <see cref="IOException"/>, <see cref="FileNotFoundException"/> or <see cref="UnauthorizedAccessException"/>.</summary>
     public abstract byte[] ReadAll();
 
@@ -34,6 +43,24 @@ public abstract class DocumentLocation
     public abstract FileBaseline? Stamp();
 
     public static FileLocation File(string path) => new(path);
+}
+
+/// <summary>Finds the document of an address again (the recent list, roadmap P5b): files on the desktop, content URIs on Android.</summary>
+public interface IDocumentLocations
+{
+    /// <summary>The document at <paramref name="address"/>, or null when it is gone or no longer allowed.</summary>
+    DocumentLocation? Find(string address);
+
+    /// <summary>The name the user sees for an address (the recent menu).</summary>
+    string NameOf(string address);
+}
+
+/// <summary>Addresses that are file paths.</summary>
+public sealed class FileLocations : IDocumentLocations
+{
+    public static readonly FileLocations Instance = new();
+    public DocumentLocation? Find(string address) => System.IO.File.Exists(address) ? DocumentLocation.File(address) : null;
+    public string NameOf(string address) => Path.GetFileName(address);
 }
 
 /// <summary>A document in a local file: read whole, saved by <see cref="SafeFileSaver"/> (temporary file, verify, replace).</summary>

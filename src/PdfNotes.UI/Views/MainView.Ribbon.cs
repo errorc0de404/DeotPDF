@@ -62,7 +62,7 @@ public sealed partial class MainView
         var menu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedLeft };
         foreach (string path in viewModel.Recent.Files.ToArray())
         {
-            var item = Menus.Item(Path.GetFileName(path), () => _ = viewModel.OpenRecentAsync(path));
+            var item = Menus.Item(viewModel.Locations.NameOf(path), () => _ = viewModel.OpenRecentAsync(path));
             ToolTip.SetTip(item, path);
             item.ContextMenu = new ContextMenu { Items = { Menus.Item(Strings.Get("recent.remove"), () => viewModel.Recent.Remove(path)) } };
             menu.Items.Add(item);

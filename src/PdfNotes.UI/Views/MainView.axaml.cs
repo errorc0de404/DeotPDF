@@ -174,7 +174,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
 
     // ----- what the view model's commands need from this window (IAppShell) -----
 
-    Task<string?> IAppShell.ChooseOpenPathAsync() => dialogs.ChooseOpenPathAsync();
+    Task<DocumentLocation?> IAppShell.ChooseDocumentAsync() => dialogs.ChooseDocumentAsync();
 
     NewPageSpec? IAppShell.ChooseNewNote()
     {

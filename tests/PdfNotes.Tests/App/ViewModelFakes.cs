@@ -125,7 +125,7 @@ internal static class FakeScreens
 /// <summary>A screen whose windows and menus do nothing (R4).</summary>
 internal sealed class FakeAppShell : IAppShell
 {
-    public Task<string?> ChooseOpenPathAsync() => Task.FromResult<string?>(null);
+    public Task<DocumentLocation?> ChooseDocumentAsync() => Task.FromResult<DocumentLocation?>(null);
     public NewPageSpec? ChooseNewNote() => null;
     public void ShowSettings() { }
     public void ShowRecentMenu() { }

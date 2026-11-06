@@ -43,6 +43,9 @@ public sealed record ScreenServices(IEditorDialogs Dialogs, IDocumentViewport Vi
     public IEditorClipboard Clipboard { get; init; } = NoClipboard.Instance;
     public IPageDialogs PageDialogs { get; init; } = NoPageDialogs.Instance;
 
+    /// <summary>Finds a recent document again: files, or content URIs on Android (P5b).</summary>
+    public IDocumentLocations Locations { get; init; } = FileLocations.Instance;
+
     private sealed class NoThumbnails : IPageThumbnailSource
     {
         public static readonly NoThumbnails Instance = new();

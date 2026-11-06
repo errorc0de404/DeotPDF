@@ -38,6 +38,9 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
     /// <summary>The shell's page windows (import, merge, export, blank page, resize).</summary>
     public IPageDialogs PageDialogs => screen.PageDialogs;
 
+    /// <summary>Finds a recent document again (P5b).</summary>
+    public IDocumentLocations Locations => screen.Locations;
+
     private Texts texts => Texts;
     private readonly string appName;
     private string title;
@@ -124,16 +127,16 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
         return null;
     }
 
-    /// <summary>Opens a recent document like 열기; a file that is gone is reported briefly and leaves the list.</summary>
-    public async Task<bool> OpenRecentAsync(string path)
+    /// <summary>Opens a recent document like 열기; one that is gone (or no longer allowed) is reported briefly and leaves the list.</summary>
+    public async Task<bool> OpenRecentAsync(string address)
     {
-        if (!File.Exists(path))
+        if (Locations.Find(address) is not { } location)
         {
-            Recent.Remove(path);
-            Status = texts.Format("recent.missing", ("name", Path.GetFileName(path)));
+            Recent.Remove(address);
+            Status = texts.Format("recent.missing", ("name", Locations.NameOf(address)));
             return false;
         }
-        return await Workflow.OpenFileAsync(path);
+        return await Workflow.OpenAsync(location);
     }
 
     /// <summary>New, open, save, export and the unsaved-changes question (D14d).</summary>
@@ -161,7 +164,7 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
 
     // ----- commands of the quick bar and the 파일 tab (R4b) -----
 
-    public AsyncCommand OpenCommand => open ??= new(async () => { if (await Shell.ChooseOpenPathAsync() is { } path) await Workflow.OpenFileAsync(path); }, () => !IsBusy);
+    public AsyncCommand OpenCommand => open ??= new(async () => { if (await Shell.ChooseDocumentAsync() is { } location) await Workflow.OpenAsync(location); }, () => !IsBusy);
     public AsyncCommand NewCommand => @new ??= new(() => NewNoteAsync(), () => !IsBusy);
     public AsyncCommand SaveCommand => save ??= new(() => Workflow.SaveAsync(saveAs: false), () => !IsBusy);
     public AsyncCommand SaveAsCommand => saveAs ??= new(() => Workflow.SaveAsync(saveAs: true), () => !IsBusy);
