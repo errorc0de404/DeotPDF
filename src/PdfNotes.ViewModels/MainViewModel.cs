@@ -52,9 +52,6 @@ public interface IMainView
 
     /// <summary>Whether the user is in the middle of something a backup must not interrupt (V6).</summary>
     IWindowCoordinator Window { get; }
-
-    /// <summary>The canvas tools (V7).</summary>
-    IToolView Tools { get; }
 }
 
 /// <summary>
@@ -72,6 +69,9 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     /// <summary>What commands need from the screen.</summary>
     public IAppShell Shell { get; }
 
+    /// <summary>The thread the screen runs on.</summary>
+    public IUiThread Ui { get; }
+
     private Texts texts => Texts;
     private readonly string appName;
     private string title;
@@ -87,13 +87,15 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     /// <param name="time">Clock and timers (tests pass a fake one).</param>
     /// <param name="texts">The UI texts (the app passes the language in use; default Korean).</param>
     /// <param name="shell">What commands need from the screen (file picker, own windows, menus); default none.</param>
+    /// <param name="ui">The UI thread (default: everything runs at once).</param>
     /// <param name="checkUpdates">Asks for the latest release (tests pass a fake one).</param>
     /// <param name="clipboard">The system clipboard (page copies; tests pass a fake one).</param>
     /// <param name="pageDialogs">The shell's page windows (import, merge, export).</param>
     public MainViewModel(IMainView view, IEditorDialogs dialogs, AppSettings settings, string appName, Action<AppSettings> saveSettings, string settingsFolder,
         TimeProvider? time = null, Func<Task<UpdateResult>>? checkUpdates = null, IEditorClipboard? clipboard = null, IPageDialogs? pageDialogs = null,
-        Texts? texts = null, IAppShell? shell = null)
+        Texts? texts = null, IAppShell? shell = null, IUiThread? ui = null)
     {
+        Ui = ui ?? ImmediateUi.Instance;
         Texts = texts ?? Texts.Korean;
         Shell = shell ?? NoShell.Instance;
         undoTip = Texts.Get("ribbon.undoTip");
@@ -116,7 +118,7 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         Search = new SearchViewModel(this, view);
         Navigation = new NavigationViewModel(this, view);
         Display = new DisplayViewModel(settings, SaveSettings);
-        Favorites = new FavoritesViewModel(settings, SaveSettings, Texts);
+        Favorites = new FavoritesViewModel(settings, SaveSettings, Texts, slot => ToolBar!.ApplyFavorite(slot), slot => ToolBar!.StoreFavorite(slot));
         Pages = new PagesViewModel(this, view, dialogs, clipboard ?? NoClipboard.Instance);
         Selection = new SelectionViewModel(this, view, dialogs, clipboard ?? NoClipboard.Instance);
         TextStyle = new TextStyleViewModel(this, dialogs);
@@ -261,6 +263,16 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     public Command HideNotesCommand => hideNotes ??= new(() => Shell.SetNotesHidden(!Display.NotesHidden));
     public Command SearchCommand => search ??= new(Shell.OpenSearch);
     public Command OpenUpdatePageCommand => openUpdatePage ??= new(() => Shell.OpenWebPage(Update.Url));
+
+    /// <summary>필기 › 이미지 (R4d).</summary>
+    public AsyncCommand InsertImageCommand => field ??= new(Shell.InsertImageFromFileAsync);
+
+    /// <summary>A command from the ribbon ends what the canvas is doing: the text box being edited, a press in progress.</summary>
+    public void EndInput()
+    {
+        view.FinishTextEditing();
+        view.CancelTool();
+    }
     private Command? hideNotes, search, openUpdatePage;
 
     /// <summary>파일 › 새 노트: the page size and background, then a new unsaved note (spec 4.1).</summary>

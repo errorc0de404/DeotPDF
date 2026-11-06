@@ -83,7 +83,7 @@ public sealed class SelectionViewModel(MainViewModel owner, IMainView view, IEdi
     public void SelectAll()
     {
         if (Document is not { } doc) return;
-        if (owner.Display.NotesHidden) view.Tools.ShowNotes();
+        if (owner.Display.NotesHidden) owner.Shell.SetNotesHidden(false);
         owner.ToolBar.SetTool(ToolKind.Select);
         Tool.SetSelection(doc.Session.Current.Pages[view.Viewport.CurrentPageIndex].Annotations.Where(a => !a.Locked).Select(a => a.Id));
     }
@@ -123,7 +123,7 @@ public sealed class SelectionViewModel(MainViewModel owner, IMainView view, IEdi
         if (Document is not { } doc || Tool.SelectedIds.Count == 0) return;
         view.CancelTool();
         doc.Session.Execute(DocumentEdits.DeleteAnnotations(doc.Session.Current, Tool.SelectedIds));
-        view.Tools.ReturnAfterAutoSelect();
+        owner.ToolBar.ReturnAfterAutoSelect();
     }
 
     /// <summary>Turns the selected PDF text into a glyph highlight with the highlighter's style (one Undo unit).</summary>

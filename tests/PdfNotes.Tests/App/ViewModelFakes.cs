@@ -107,13 +107,18 @@ internal sealed class FakeWindow : IWindowCoordinator
     public bool InputPending { get; set; }
 }
 
-/// <summary>Canvas tools that record what was put in place (P1 V7).</summary>
-internal sealed class FakeToolView : IToolView
+/// <summary>A screen that records what the commands asked of it (R4).</summary>
+internal sealed class FakeAppShell : IAppShell
 {
-    public readonly List<ToolKind> Used = [];
-    public int NotesShown;
-    public void UseTool(ToolKind kind) => Used.Add(kind);
-    public void ShowNotes() => NotesShown++;
-    public int Returns;
-    public void ReturnAfterAutoSelect() => Returns++;
+    public readonly List<bool> NotesHidden = [];
+    public Task<string?> ChooseOpenPathAsync() => Task.FromResult<string?>(null);
+    public NewPageSpec? ChooseNewNote() => null;
+    public void ShowSettings() { }
+    public void ShowRecentMenu() { }
+    public void ShowZoomMenu() { }
+    public void UndoOrRedo(bool redo) { }
+    public void SetNotesHidden(bool hidden) => NotesHidden.Add(hidden);
+    public void OpenSearch() { }
+    public void OpenWebPage(string url) { }
+    public Task InsertImageFromFileAsync() => Task.CompletedTask;
 }

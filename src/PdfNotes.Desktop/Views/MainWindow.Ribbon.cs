@@ -24,10 +24,6 @@ public sealed partial class MainWindow
         // The tab heads, the quick commands, 파일 and 보기 are bound to the view model (R4b–R4c).
         viewModel.Ribbon.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(RibbonViewModel.Current) && viewModel.Ribbon.IsPage) UpdatePageCommands(); };
 
-        // 필기 (the tools are wired in MainWindow.Tools.cs)
-        InsertImageButton.Click += (_, _) => _ = InsertImageFromFileAsync();
-        ForeignEditButton.Click += (_, _) => _ = ConvertForeignAsync();
-
         // 페이지: the page list's context menu commands
         InsertPageButton.Click += (_, _) => AddBlankPage(true);
         InsertPageMenuButton.Click += (_, _) => OpenInsertMenu();
@@ -66,7 +62,6 @@ public sealed partial class MainWindow
         if (Document is null || PastePageButton is null) return;
         PastePageButton.IsEnabled = viewModel.Pages.CanPaste;
         DeletePageButton.IsEnabled = viewModel.Pages.CanDelete;
-        ForeignEditButton.IsEnabled = viewModel.Foreign.CanConvert;
     }
 
     /// <summary>The insert menu opened last (tests).</summary>

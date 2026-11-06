@@ -18,8 +18,8 @@ using PdfNotes.ViewModels;
 namespace PdfNotes.Desktop.Tests;
 
 /// <summary>
-/// Roadmap P4.5 R4a–R4c: the window's title, status line, ribbon tabs, the quick and 파일 commands, 보기 and the status bar
-/// are bound to the view model. Each test changes the view model (or runs its command) and checks the control, with no
+/// Roadmap P4.5 R4a–R4d: the window's title, status line, ribbon tabs, the quick and 파일 commands, 보기, the status bar
+/// and the 필기 tab with its bars are bound to the view model. Each test changes the view model (or runs its command) and checks the control, with no
 /// window code in between.
 /// </summary>
 public sealed class BindingTests
@@ -182,6 +182,97 @@ public sealed class BindingTests
         navigation.CommitPageInput(); // not a number: ignored, the box shows the page again
         Settle(w);
         Assert.Equal(navigation.PageNumberText, pageBox.Text);
+        w.Close();
+    });
+
+    private static void ClickOn(MainWindow w, Control control)
+    {
+        var center = control.TranslatePoint(new Avalonia.Point(control.Bounds.Width / 2, control.Bounds.Height / 2), w)!.Value;
+        w.MouseMove(center);
+        w.MouseDown(center, MouseButton.Left);
+        w.MouseUp(center, MouseButton.Left);
+        Settle(w);
+    }
+
+    [Fact]
+    public void ClickedToolButtonsShowTheToolTheViewModelChose() => Headless.Run(() =>
+    {
+        var w = Window();
+        var pen = Find<RadioButton>(w, "PenToolButton");
+        var lasso = Find<RadioButton>(w, "LassoToolButton");
+        ClickOn(w, lasso);
+        Assert.Equal(ToolKind.Lasso, w.CurrentTool);
+        Assert.True(lasso.IsChecked);
+        Assert.False(pen.IsChecked);
+        // The eraser bar picks the mode; the eraser button stays on for either.
+        ClickOn(w, Find<RadioButton>(w, "EraserToolButton"));
+        ClickOn(w, Find<RadioButton>(w, "AreaEraserButton"));
+        Assert.Equal(ToolKind.AreaEraser, w.CurrentTool);
+        Assert.True(Find<RadioButton>(w, "EraserToolButton").IsChecked);
+        Assert.True(Find<RadioButton>(w, "AreaEraserButton").IsChecked);
+        Assert.False(Find<RadioButton>(w, "StrokeEraserButton").IsChecked);
+        // A tool chosen elsewhere (a shortcut) moves the buttons too.
+        w.SetTool(ToolKind.Pen);
+        Settle(w);
+        Assert.True(pen.IsChecked);
+        Assert.False(Find<RadioButton>(w, "EraserToolButton").IsChecked);
+        Assert.True(Find<Border>(w, "StyleBar").IsVisible);
+        Assert.False(Find<Border>(w, "EraserBorder").IsVisible);
+        w.Close();
+    });
+
+    [Fact]
+    public void TheStyleBarFollowsTheToolAndKeepsWhatIsBeingTyped() => Headless.Run(() =>
+    {
+        var w = Window();
+        var styles = w.ViewModel.ToolStyles;
+        w.SetTool(ToolKind.Pen);
+        styles.SetWidth(2.5);
+        Settle(w);
+        var box = Find<TextBox>(w, "WidthBox");
+        Assert.Equal("2.5", box.Text);
+        Assert.Equal(2.5, Find<Slider>(w, "WidthSlider").Value, 3);
+        box.Text = "7"; // the user typing
+        styles.SetColor(ColorPalette.Basic[3]); // the style changes meanwhile
+        Settle(w);
+        Assert.Equal("7", box.Text);
+        styles.CommitWidth(); // leaving the box
+        Settle(w);
+        Assert.Equal(7, styles.Pen.WidthPt, 3);
+        Assert.Equal("7", box.Text);
+        // The line tool shows its options; the shape button draws the shape group's tool.
+        w.SetTool(ToolKind.Line);
+        Settle(w);
+        Assert.True(Find<StackPanel>(w, "LineOptionsPanel").IsVisible);
+        Assert.False(Find<StackPanel>(w, "ShapeOptionsPanel").IsVisible);
+        Assert.Equal(styles.LineBar.DashIndex, Find<ComboBox>(w, "DashBox").SelectedIndex);
+        Assert.Equal(PdfNotes.Desktop.Themes.AppIcon.ShapeOutline(ToolKind.Line, w.ViewModel.Settings.ShapeKind), Find<PdfNotes.Desktop.Themes.IconLabel>(w, "ShapeToolLabel").Outline);
+        // The text tool swaps the style bar for the text bar.
+        w.SetTool(ToolKind.Text);
+        Settle(w);
+        Assert.True(Find<Border>(w, "TextStyleBorder").IsVisible);
+        Assert.False(Find<Border>(w, "StyleBar").IsVisible);
+        w.Close();
+    });
+
+    [Fact]
+    public void FavoriteButtonsFollowTheirSlots() => Headless.Run(() =>
+    {
+        var w = Window();
+        Button Favorite(int i) => Find<ItemsControl>(w, "FavoritesPanel").GetVisualDescendants().OfType<Button>().ElementAt(i);
+        Assert.Equal(w.ViewModel.Settings.Favorites.Length, Find<ItemsControl>(w, "FavoritesPanel").GetVisualDescendants().OfType<Button>().Count());
+        w.ViewModel.Favorites.Clear(1); // the default slots hold favorites
+        Settle(w);
+        Assert.Null(Favorite(1).GetVisualDescendants().OfType<PdfNotes.Desktop.Themes.FavoriteMark>().Single().Favorite);
+        w.SetTool(ToolKind.Pen);
+        w.ViewModel.ToolStyles.SetWidth(3);
+        Favorite(1).Command!.Execute(null); // an empty favorite stores the pen
+        Settle(w);
+        Assert.NotNull(Favorite(1).GetVisualDescendants().OfType<PdfNotes.Desktop.Themes.FavoriteMark>().Single().Favorite);
+        Assert.Equal(w.ViewModel.Favorites.Tip(w.ViewModel.Settings.Favorites[1], 1), ToolTip.GetTip(Favorite(1)));
+        w.ViewModel.Display.Apply(w.ViewModel.Display.Stored with { Favorites = false });
+        Settle(w);
+        Assert.False(Find<StackPanel>(w, "FavoritesGroup").IsVisible);
         w.Close();
     });
 }

@@ -67,7 +67,7 @@ public sealed partial class MainWindow
                         case AnnotationCommand.ConvertForeign: _ = ConvertForeignAsync(); break;
                     }
                 if (!IsEditingText) Canvas.Focus();
-                UpdateStyleBar();
+                styles.Refresh();
             }, isChecked: entry.Checked, enabled: entry.Enabled);
             if (entry.Command == AnnotationCommand.AddTextBox) item.Icon = new Themes.AppIcon { Glyph = "Text" };
             else if (entry.Tool is { } kind) item.Icon = ToolIcon(kind); // the ribbon icons (2026-10-15)
@@ -94,7 +94,7 @@ public sealed partial class MainWindow
         var content = selection.Paste(pageIndex, center);
         switch (content.Kind)
         {
-            case PasteKind.Annotations: UpdateStyleBar(); return true;
+            case PasteKind.Annotations: styles.Refresh(); return true;
             case PasteKind.Image: return InsertImage(content.Png!, pageIndex, center);
             case PasteKind.Text: PastePlainTextBox(content.Text!, pageIndex, center); return true;
             default: return false;

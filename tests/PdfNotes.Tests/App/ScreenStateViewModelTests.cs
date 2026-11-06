@@ -55,7 +55,6 @@ public sealed class ScreenStateViewModelTests : IDisposable
         public IDocumentViewport Viewport { get; } = new FakeViewport();
         public IPageListView Pages { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();
-        public IToolView Tools { get; } = new FakeToolView();
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) { Asked.Add(text); return Answer; }
         public void Tell(string text, NoticeKind kind) { }
         public string? ChooseSavePath(SavePathRequest request) => null;

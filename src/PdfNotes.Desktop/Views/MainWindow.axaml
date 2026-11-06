@@ -4,6 +4,7 @@
         xmlns:th="using:PdfNotes.Desktop.Themes"
         xmlns:l="using:PdfNotes.Desktop.Localization"
         xmlns:vm="using:PdfNotes.ViewModels"
+        xmlns:v="using:PdfNotes.Desktop.Views"
         x:Class="PdfNotes.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="{Binding Title}"
@@ -11,6 +12,22 @@
         Background="{DynamicResource Window.Background}" Foreground="{DynamicResource Text.Primary}"
         FontFamily="{DynamicResource Font.Ui}" FontSize="{DynamicResource FontSize.Body}"
         DragDrop.AllowDrop="True">
+    <Window.Resources>
+        <!-- Palette swatches (spec 3.2): a basic color; a user color has 제거 on its right-click (2026-10-13) -->
+        <ItemsPanelTemplate x:Key="Row"><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+        <DataTemplate x:Key="BasicSwatch" x:DataType="vm:SwatchViewModel">
+            <Button Theme="{StaticResource Swatch}" Tag="{Binding Color}" Background="{Binding Color, Converter={x:Static th:Converters.ColorBrush}}"
+                    ToolTip.Tip="{Binding Name}" Classes.current="{Binding IsCurrent}" Command="{Binding Pick}" />
+        </DataTemplate>
+        <DataTemplate x:Key="UserSwatch" x:DataType="vm:SwatchViewModel">
+            <Button Theme="{StaticResource Swatch}" Tag="{Binding Color}" Background="{Binding Color, Converter={x:Static th:Converters.ColorBrush}}"
+                    ToolTip.Tip="{Binding Name}" Classes.current="{Binding IsCurrent}" Command="{Binding Pick}">
+                <Button.ContextMenu>
+                    <ContextMenu><MenuItem Header="{l:T color.remove}" Command="{Binding Remove}" /></ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+        </DataTemplate>
+    </Window.Resources>
     <!-- Roadmap P4 A5: the WPF window's frame (MainWindow.xaml) on Avalonia, with the same names. -->
     <DockPanel>
         <!-- Top ribbon (spec 3.2): quick commands / tab heads / the tab's commands. Changing the tab keeps the tool. -->
@@ -72,38 +89,46 @@
                         </HeaderedContentControl>
                     </WrapPanel>
 
-                    <!-- 필기 (the tab named Home): the tools by function -->
+                    <!-- 필기 (the tab named Home): the tools by function; the buttons follow the tool bar's view model (R4d) -->
                     <WrapPanel x:Name="HomeTab" IsVisible="{Binding Ribbon.IsHome}">
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.select}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton x:Name="SelectToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T tool.select}" Tag="Select"><th:IconLabel Glyph="Select" Text="{l:T tool.select}" /></RadioButton>
-                                <RadioButton x:Name="LassoToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T tool.lasso}" Tag="Lasso"><th:IconLabel Glyph="Lasso" Text="{l:T tool.lasso}" /></RadioButton>
+                                <RadioButton x:Name="SelectToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T tool.select}" Tag="Select"
+                                             IsChecked="{Binding ToolBar.Select.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Select.Command}" Classes.return="{Binding ToolBar.Select.IsReturn}"><th:IconLabel Glyph="Select" Text="{l:T tool.select}" /></RadioButton>
+                                <RadioButton x:Name="LassoToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T tool.lasso}" Tag="Lasso"
+                                             IsChecked="{Binding ToolBar.Lasso.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Lasso.Command}" Classes.return="{Binding ToolBar.Lasso.IsReturn}"><th:IconLabel Glyph="Lasso" Text="{l:T tool.lasso}" /></RadioButton>
                             </StackPanel>
                         </HeaderedContentControl>
                         <Border Classes="sep" />
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.draw}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton x:Name="PenToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.pen}" Tag="Pen"><th:IconLabel Glyph="Pen" Text="{l:T ribbon.pen}" /></RadioButton>
-                                <RadioButton x:Name="HighlighterToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.highlighter}" Tag="FreeHighlight"><th:IconLabel Glyph="Highlighter" Text="{l:T ribbon.highlighter}" /></RadioButton>
-                                <RadioButton x:Name="EraserToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.eraser}" Tag="Eraser"><th:IconLabel Glyph="Eraser" Text="{l:T ribbon.eraser}" /></RadioButton>
+                                <RadioButton x:Name="PenToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.pen}" Tag="Pen"
+                                             IsChecked="{Binding ToolBar.Pen.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Pen.Command}" Classes.return="{Binding ToolBar.Pen.IsReturn}"><th:IconLabel Glyph="Pen" Text="{l:T ribbon.pen}" /></RadioButton>
+                                <RadioButton x:Name="HighlighterToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.highlighter}" Tag="FreeHighlight"
+                                             IsChecked="{Binding ToolBar.Highlighter.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Highlighter.Command}" Classes.return="{Binding ToolBar.Highlighter.IsReturn}"><th:IconLabel Glyph="Highlighter" Text="{l:T ribbon.highlighter}" /></RadioButton>
+                                <RadioButton x:Name="EraserToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.eraser}" Tag="Eraser"
+                                             IsChecked="{Binding ToolBar.Eraser.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Eraser.Command}" Classes.return="{Binding ToolBar.Eraser.IsReturn}"><th:IconLabel Glyph="Eraser" Text="{l:T ribbon.eraser}" /></RadioButton>
                             </StackPanel>
                         </HeaderedContentControl>
                         <Border Classes="sep" />
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.insert}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton x:Name="TextToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.text}" Tag="Text"><th:IconLabel Glyph="Text" Text="{l:T ribbon.text}" /></RadioButton>
+                                <RadioButton x:Name="TextToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.text}" Tag="Text"
+                                             IsChecked="{Binding ToolBar.Text.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Text.Command}" Classes.return="{Binding ToolBar.Text.IsReturn}"><th:IconLabel Glyph="Text" Text="{l:T ribbon.text}" /></RadioButton>
                                 <!-- Shapes (spec 8): the button is the last shape group tool, ▾ is the list -->
-                                <RadioButton x:Name="ShapeToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.shape}" Tag="ShapeGroup" Padding="6,5,2,5">
-                                    <th:IconLabel x:Name="ShapeToolLabel" Text="{l:T ribbon.shape}" />
+                                <RadioButton x:Name="ShapeToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.shape}" Tag="ShapeGroup" Padding="6,5,2,5"
+                                             IsChecked="{Binding ToolBar.Shape.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Shape.Command}" Classes.return="{Binding ToolBar.Shape.IsReturn}">
+                                    <th:IconLabel x:Name="ShapeToolLabel" Text="{l:T ribbon.shape}" Outline="{Binding ToolBar.ShapeIcon, Converter={x:Static th:Converters.ShapeOutline}}" />
                                 </RadioButton>
-                                <Button x:Name="ShapeMenuButton" Theme="{StaticResource ToolButton}" Padding="2,5" ToolTip.Tip="{l:T ribbon.shapeMenuTip}"><th:AppIcon Glyph="ChevronDown" Size="10" /></Button>
-                                <RadioButton x:Name="NoteToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.note}" Tag="Note"><th:IconLabel Glyph="Note" Text="{l:T ribbon.note}" /></RadioButton>
-                                <Button x:Name="InsertImageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T image.insertTitle}"><th:IconLabel Glyph="Image" Text="{l:T ribbon.image}" /></Button>
+                                <Button x:Name="ShapeMenuButton" Theme="{StaticResource ToolButton}" Padding="2,5" ToolTip.Tip="{l:T ribbon.shapeMenuTip}" Click="ShapeMenuClick"><th:AppIcon Glyph="ChevronDown" Size="10" /></Button>
+                                <RadioButton x:Name="NoteToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.note}" Tag="Note"
+                                             IsChecked="{Binding ToolBar.Note.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Note.Command}" Classes.return="{Binding ToolBar.Note.IsReturn}"><th:IconLabel Glyph="Note" Text="{l:T ribbon.note}" /></RadioButton>
+                                <Button x:Name="InsertImageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T image.insertTitle}" Command="{Binding InsertImageCommand}"><th:IconLabel Glyph="Image" Text="{l:T ribbon.image}" /></Button>
                             </StackPanel>
                         </HeaderedContentControl>
                         <!-- Other apps' annotations (spec 14.6, D14g): only in documents that have some -->
-                        <Border x:Name="ForeignSeparator" Classes="sep" IsVisible="False" />
-                        <Button x:Name="ForeignEditButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T foreign.convertTip}" IsVisible="False">
+                        <Border x:Name="ForeignSeparator" Classes="sep" IsVisible="{Binding Foreign.IsShown}" />
+                        <Button x:Name="ForeignEditButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T foreign.convertTip}" IsVisible="{Binding Foreign.IsShown}" Command="{Binding Foreign.ConvertCommand}">
                             <th:IconLabel Glyph="Edit" Text="{l:T foreign.convert}" />
                         </Button>
                     </WrapPanel>
@@ -186,74 +211,174 @@
             </StackPanel>
         </Border>
 
-        <!-- The context settings row: left one of the three bars, right the pen favorites — on every tab (spec 24.7) -->
+        <!-- The context settings row: left one of the three bars, right the pen favorites — on every tab (spec 24.7).
+             Everything here is bound to the tool styles, the text bar and the favorites (R4d). -->
         <Border x:Name="SubBarRow" DockPanel.Dock="Top" Background="{DynamicResource SubBar.Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
             <DockPanel>
-                <StackPanel x:Name="FavoritesGroup" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,2,0" Height="{DynamicResource Height.SubBarRow}">
+                <StackPanel x:Name="FavoritesGroup" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,2,0" Height="{DynamicResource Height.SubBarRow}"
+                            IsVisible="{Binding Display.FavoritesShown}">
                     <Border x:Name="FavoritesSeparator" Classes="sep" />
-                    <StackPanel x:Name="FavoritesPanel" Orientation="Horizontal" VerticalAlignment="Center" />
+                    <ItemsControl x:Name="FavoritesPanel" VerticalAlignment="Center" ItemsSource="{Binding Favorites.Items}" ItemsPanel="{StaticResource Row}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FavoriteItemViewModel">
+                                <Button Theme="{StaticResource ToolButton}" Padding="2" ToolTip.Tip="{Binding Tip}" Command="{Binding Apply}">
+                                    <Button.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="{l:T favorites.replace}" Command="{Binding Store}" />
+                                            <MenuItem Header="{l:T favorites.clear}" Command="{Binding Clear}" />
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                    <th:FavoriteMark Favorite="{Binding Slot}" />
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
                 <Panel>
                     <!-- Style bar (D13c): [palette | width | transparency | kind options]; the three bars have one height -->
-                    <Border x:Name="StyleBar" Padding="{DynamicResource Space.SubBar}">
+                    <Border x:Name="StyleBar" Padding="{DynamicResource Space.SubBar}" IsVisible="{Binding ToolStyles.StyleBarShown}"
+                            IsEnabled="{Binding ToolStyles.StyleBarEnabled}" Opacity="{Binding ToolStyles.StyleBarOpacity}">
                         <WrapPanel x:Name="StylePanel" Orientation="Horizontal" ItemHeight="{DynamicResource Height.SubBarRow}">
                             <!-- Shapes: fill/border target and the border dash, before the palette (like the text bar) -->
-                            <StackPanel x:Name="ShapeOptionsPanel" Orientation="Horizontal" VerticalAlignment="Center" IsVisible="False" />
+                            <StackPanel x:Name="ShapeOptionsPanel" Orientation="Horizontal" VerticalAlignment="Center" IsVisible="{Binding ToolStyles.ShapeOptionsShown}">
+                                <RadioButton x:Name="ShapeFillButton" Theme="{StaticResource ToolButton}" GroupName="ShapeTarget" Content="{l:T shape.fill}"
+                                             IsChecked="{Binding ToolStyles.ShapeFillTarget, Mode=OneWay}" Command="{Binding ToolStyles.ShapeTargetCommand}" CommandParameter="Fill" />
+                                <RadioButton x:Name="ShapeBorderButton" Theme="{StaticResource ToolButton}" GroupName="ShapeTarget" Content="{l:T shape.border}"
+                                             IsChecked="{Binding ToolStyles.ShapeBorderTarget, Mode=OneWay}" Command="{Binding ToolStyles.ShapeTargetCommand}" CommandParameter="Border" />
+                                <ComboBox x:Name="ShapeBorderBox" Classes="bar" Width="92" Margin="8,0,0,0" ToolTip.Tip="{l:T shape.borderStyle}"
+                                          ItemsSource="{Binding ToolStyles.BorderNames}" SelectedIndex="{Binding ToolStyles.ShapeBorderIndex, Mode=TwoWay}" />
+                                <Border Classes="sep" />
+                            </StackPanel>
                             <!-- The highlighter's kind (spec 9.1): highlight / underline / strikeout -->
-                            <StackPanel x:Name="MarkKindPanel" Classes="field" IsVisible="False">
-                                <RadioButton x:Name="MarkHighlightButton" Theme="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T highlighter.kindHighlight}" Padding="6,3" Tag="Highlight" />
-                                <RadioButton x:Name="MarkUnderlineButton" Theme="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T markup.underline}" Padding="6,3" Tag="Underline" />
-                                <RadioButton x:Name="MarkStrikeOutButton" Theme="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T text.strikeOut}" Padding="6,3" Tag="StrikeOut" />
+                            <StackPanel x:Name="MarkKindPanel" Classes="field" IsVisible="{Binding ToolStyles.MarkKindShown}">
+                                <RadioButton x:Name="MarkHighlightButton" Theme="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T highlighter.kindHighlight}" Padding="6,3"
+                                             IsChecked="{Binding ToolStyles.IsMarkHighlight, Mode=OneWay}" Command="{Binding ToolStyles.MarkKindCommand}" CommandParameter="Highlight" />
+                                <RadioButton x:Name="MarkUnderlineButton" Theme="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T markup.underline}" Padding="6,3"
+                                             IsChecked="{Binding ToolStyles.IsMarkUnderline, Mode=OneWay}" Command="{Binding ToolStyles.MarkKindCommand}" CommandParameter="Underline" />
+                                <RadioButton x:Name="MarkStrikeOutButton" Theme="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T text.strikeOut}" Padding="6,3"
+                                             IsChecked="{Binding ToolStyles.IsMarkStrikeOut, Mode=OneWay}" Command="{Binding ToolStyles.MarkKindCommand}" CommandParameter="StrikeOut" />
                                 <Border Classes="sep" />
                             </StackPanel>
                             <!-- Palette: 10 basic colors | user colors · + -->
                             <StackPanel x:Name="PaletteGroup" Classes="field">
-                                <StackPanel x:Name="PalettePanel" Orientation="Horizontal" VerticalAlignment="Center" />
+                                <ItemsControl x:Name="PalettePanel" VerticalAlignment="Center" ItemsSource="{Binding ToolStyles.BasicSwatches}" ItemTemplate="{StaticResource BasicSwatch}" ItemsPanel="{StaticResource Row}" />
                                 <Border Classes="sep" />
-                                <StackPanel x:Name="RecentPanel" Orientation="Horizontal" VerticalAlignment="Center" />
+                                <ItemsControl x:Name="RecentPanel" VerticalAlignment="Center" ItemsSource="{Binding ToolStyles.UserSwatches}" ItemTemplate="{StaticResource UserSwatch}" ItemsPanel="{StaticResource Row}" />
+                                <v:CustomColorButton x:Name="CustomColor" StartColor="{Binding ToolStyles.CustomColorStart}" CanAdd="{Binding ToolStyles.CanAddColor}" Command="{Binding ToolStyles.PickColorCommand}" />
                             </StackPanel>
                             <Border Classes="sep" />
                             <StackPanel Classes="field">
                                 <TextBlock Classes="label" Text="{l:T style.width}" />
-                                <Slider x:Name="WidthSlider" Classes="bar" Width="110" IsSnapToTickEnabled="False" />
-                                <TextBox x:Name="WidthBox" Classes="bar" Width="44" Margin="6,0,0,0" TextAlignment="Right" />
+                                <Slider x:Name="WidthSlider" Classes="bar" Width="110" IsSnapToTickEnabled="False" IsEnabled="{Binding ToolStyles.WidthEnabled}"
+                                        Minimum="{Binding ToolStyles.WidthMinimum}" Maximum="{Binding ToolStyles.WidthMaximum}" Value="{Binding ToolStyles.WidthSlider, Mode=TwoWay}" />
+                                <TextBox x:Name="WidthBox" Classes="bar" Width="44" Margin="6,0,0,0" TextAlignment="Right" IsEnabled="{Binding ToolStyles.WidthEnabled}"
+                                         Text="{Binding ToolStyles.WidthField.Text, Mode=TwoWay}" />
                                 <TextBlock Classes="unit" Text="pt" />
                                 <!-- 자동 glyph highlight height, next to pt (spec 9.1) -->
-                                <ToggleButton x:Name="HighlightAutoButton" Theme="{StaticResource ToolButton}" Content="{l:T common.auto}" Padding="6,3" Margin="6,0,0,0"
-                                              ToolTip.Tip="{l:T style.autoTip}" IsVisible="False" />
+                                <ToggleButton x:Name="HighlightAutoButton" Theme="{StaticResource ToolButton}" Content="{l:T common.auto}" Padding="6,3" Margin="6,0,0,0" ToolTip.Tip="{l:T style.autoTip}"
+                                              IsVisible="{Binding ToolStyles.HighlightAutoShown}" IsChecked="{Binding ToolStyles.HighlightAutoOn, Mode=OneWay}" Command="{Binding ToolStyles.HighlightAutoCommand}" />
                             </StackPanel>
                             <Border Classes="sep" />
                             <StackPanel Classes="field">
                                 <TextBlock Classes="label" Text="{l:T style.transparency}" />
-                                <Slider x:Name="TransparencySlider" Classes="bar" Width="110" Minimum="0" Maximum="100" />
-                                <TextBox x:Name="TransparencyBox" Classes="bar" Width="44" Margin="6,0,0,0" TextAlignment="Right" />
+                                <Slider x:Name="TransparencySlider" Classes="bar" Width="110" Minimum="0" Maximum="100" IsEnabled="{Binding ToolStyles.TransparencyEnabled}"
+                                        Value="{Binding ToolStyles.TransparencySlider, Mode=TwoWay}" />
+                                <TextBox x:Name="TransparencyBox" Classes="bar" Width="44" Margin="6,0,0,0" TextAlignment="Right" IsEnabled="{Binding ToolStyles.TransparencyEnabled}"
+                                         Text="{Binding ToolStyles.TransparencyField.Text, Mode=TwoWay}" />
                                 <TextBlock Classes="unit" Text="%" />
                                 <!-- The highlighter's 글자에 맞추기 (spec 9.1) -->
-                                <ToggleButton x:Name="HighlighterSnapButton" Theme="{StaticResource ToolButton}" Content="{l:T highlighter.snap}" Padding="6,3" Margin="8,0,0,0" IsVisible="False" />
+                                <ToggleButton x:Name="HighlighterSnapButton" Theme="{StaticResource ToolButton}" Content="{l:T highlighter.snap}" Padding="6,3" Margin="8,0,0,0"
+                                              IsVisible="{Binding ToolStyles.HighlighterSnapShown}" IsEnabled="{Binding ToolStyles.HighlighterSnapEnabled}"
+                                              IsChecked="{Binding ToolStyles.HighlighterSnapOn, Mode=OneWay}" Command="{Binding ToolStyles.HighlighterSnapCommand}" />
                             </StackPanel>
                             <!-- Kind options: lines -->
-                            <StackPanel x:Name="LineOptionsPanel" Orientation="Horizontal" VerticalAlignment="Center" IsVisible="False" />
+                            <StackPanel x:Name="LineOptionsPanel" Orientation="Horizontal" VerticalAlignment="Center" IsVisible="{Binding ToolStyles.LineOptionsShown}">
+                                <Border Classes="sep" />
+                                <ComboBox x:Name="DashBox" Classes="bar" Width="82" ToolTip.Tip="{l:T line.dashStyle}"
+                                          ItemsSource="{Binding ToolStyles.DashNames}" SelectedIndex="{Binding ToolStyles.DashIndex, Mode=TwoWay}" />
+                                <ToggleButton x:Name="StartArrowButton" Theme="{StaticResource ToolButton}" Width="30" Margin="4,0,0,0" ToolTip.Tip="{l:T line.startArrow}"
+                                              IsChecked="{Binding ToolStyles.StartArrowOn, Mode=OneWay}" Command="{Binding ToolStyles.StartArrowCommand}"><th:AppIcon Glyph="ArrowLeft" /></ToggleButton>
+                                <ToggleButton x:Name="EndArrowButton" Theme="{StaticResource ToolButton}" Width="30" Margin="4,0,0,0" ToolTip.Tip="{l:T line.endArrow}"
+                                              IsChecked="{Binding ToolStyles.EndArrowOn, Mode=OneWay}" Command="{Binding ToolStyles.EndArrowCommand}"><th:AppIcon Glyph="ArrowRight" /></ToggleButton>
+                                <ComboBox x:Name="LineShapeBox" Classes="bar" Width="104" Margin="8,0,0,0" ToolTip.Tip="{l:T line.controls}" IsVisible="{Binding ToolStyles.LineShapeShown}"
+                                          ItemsSource="{Binding ToolStyles.LineShapes}" SelectedIndex="{Binding ToolStyles.LineShapeIndex, Mode=TwoWay}" />
+                            </StackPanel>
                         </WrapPanel>
                     </Border>
 
                     <!-- Eraser settings (spec 7.3–7.4): stroke/area, size (pt) -->
-                    <Border x:Name="EraserBorder" Padding="{DynamicResource Space.SubBar}" IsVisible="False">
+                    <Border x:Name="EraserBorder" Padding="{DynamicResource Space.SubBar}" IsVisible="{Binding ToolStyles.EraserBarShown}">
                         <WrapPanel Orientation="Horizontal" ItemHeight="{DynamicResource Height.SubBarRow}">
-                            <RadioButton x:Name="StrokeEraserButton" Theme="{StaticResource ToolButton}" GroupName="EraserMode" Content="{l:T eraser.stroke}" ToolTip.Tip="{l:T tool.strokeEraser}" Tag="StrokeEraser" />
-                            <RadioButton x:Name="AreaEraserButton" Theme="{StaticResource ToolButton}" GroupName="EraserMode" Content="{l:T eraser.area}" ToolTip.Tip="{l:T tool.areaEraser}" Tag="AreaEraser" />
+                            <RadioButton x:Name="StrokeEraserButton" Theme="{StaticResource ToolButton}" GroupName="EraserMode" Content="{l:T eraser.stroke}" ToolTip.Tip="{l:T tool.strokeEraser}" Tag="StrokeEraser"
+                                         IsChecked="{Binding ToolBar.StrokeEraser.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.StrokeEraser.Command}" />
+                            <RadioButton x:Name="AreaEraserButton" Theme="{StaticResource ToolButton}" GroupName="EraserMode" Content="{l:T eraser.area}" ToolTip.Tip="{l:T tool.areaEraser}" Tag="AreaEraser"
+                                         IsChecked="{Binding ToolBar.AreaEraser.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.AreaEraser.Command}" />
                             <Border Classes="sep" />
                             <StackPanel Classes="field">
                                 <TextBlock Classes="label" Text="{l:T transform.size}" />
-                                <Slider x:Name="EraserSizeSlider" Classes="bar" Width="110" Minimum="2" Maximum="100" />
-                                <TextBox x:Name="EraserSizeBox" Classes="bar" Width="44" Margin="6,0,0,0" TextAlignment="Right" />
+                                <Slider x:Name="EraserSizeSlider" Classes="bar" Width="110" Minimum="2" Maximum="100" Value="{Binding ToolStyles.EraserSlider, Mode=TwoWay}" />
+                                <TextBox x:Name="EraserSizeBox" Classes="bar" Width="44" Margin="6,0,0,0" TextAlignment="Right" Text="{Binding ToolStyles.EraserField.Text, Mode=TwoWay}" />
                                 <TextBlock Classes="unit" Text="pt" />
                             </StackPanel>
                         </WrapPanel>
                     </Border>
 
-                    <!-- Text bar (spec 3.2, 6): built in MainWindow.TextBar.cs -->
-                    <Border x:Name="TextStyleBorder" Padding="{DynamicResource Space.SubBar}" IsVisible="False">
-                        <WrapPanel x:Name="TextStylePanel" Orientation="Horizontal" ItemHeight="{DynamicResource Height.SubBarRow}" />
+                    <!-- Text bar (spec 3.2, 6): [target | palette, user colors, + | transparency | font and size | B I U S highlight | alignment, saved styles] -->
+                    <Border x:Name="TextStyleBorder" Padding="{DynamicResource Space.SubBar}" IsVisible="{Binding TextStyle.TextBarShown}" IsEnabled="{Binding TextStyle.TextBarEnabled}">
+                        <WrapPanel x:Name="TextStylePanel" Orientation="Horizontal" ItemHeight="{DynamicResource Height.SubBarRow}">
+                            <StackPanel Classes="field" Margin="0,0,6,0">
+                                <RadioButton x:Name="TextTargetText" Theme="{StaticResource ToolButton}" GroupName="TextColorTarget" Content="{l:T text.targetText}"
+                                             IsChecked="{Binding TextStyle.IsTargetText, Mode=OneWay}" Command="{Binding TextStyle.TargetCommand}" CommandParameter="Text" />
+                                <RadioButton x:Name="TextTargetFill" Theme="{StaticResource ToolButton}" GroupName="TextColorTarget" Content="{l:T text.targetFill}"
+                                             IsChecked="{Binding TextStyle.IsTargetFill, Mode=OneWay}" Command="{Binding TextStyle.TargetCommand}" CommandParameter="Fill" />
+                                <RadioButton x:Name="TextTargetBorder" Theme="{StaticResource ToolButton}" GroupName="TextColorTarget" Content="{l:T text.targetBorder}"
+                                             IsChecked="{Binding TextStyle.IsTargetBorder, Mode=OneWay}" Command="{Binding TextStyle.TargetCommand}" CommandParameter="Border" />
+                            </StackPanel>
+                            <StackPanel Classes="field" Margin="0,0,6,0">
+                                <ItemsControl x:Name="TextPalettePanel" VerticalAlignment="Center" ItemsSource="{Binding TextStyle.BasicSwatches}" ItemTemplate="{StaticResource BasicSwatch}" ItemsPanel="{StaticResource Row}" />
+                                <Border Classes="sep" />
+                                <ItemsControl x:Name="TextRecentPanel" VerticalAlignment="Center" ItemsSource="{Binding TextStyle.UserSwatches}" ItemTemplate="{StaticResource UserSwatch}" ItemsPanel="{StaticResource Row}" />
+                                <v:CustomColorButton x:Name="TextCustomColor" StartColor="{Binding TextStyle.CustomColorStart}" CanAdd="{Binding TextStyle.CanAddColor}" Command="{Binding TextStyle.PickColorCommand}" />
+                            </StackPanel>
+                            <Border Classes="sep" />
+                            <StackPanel Classes="field" Margin="0,0,6,0">
+                                <TextBlock Classes="label" Text="{l:T style.transparency}" />
+                                <TextBox x:Name="TextAlphaBox" Classes="bar" Width="40" ToolTip.Tip="{l:T style.transparency}" IsEnabled="{Binding TextStyle.TransparencyEnabled}"
+                                         Text="{Binding TextStyle.TransparencyField.Text, Mode=TwoWay}" />
+                                <TextBlock Classes="unit" Text="%" />
+                            </StackPanel>
+                            <Border Classes="sep" />
+                            <StackPanel Classes="field" Margin="0,0,6,0">
+                                <ComboBox x:Name="TextFontBox" Classes="bar" Width="124" IsEditable="True" Margin="0,0,6,0"
+                                          ItemsSource="{Binding TextStyle.FontFamilies}" Text="{Binding TextStyle.FontField.Text, Mode=TwoWay}" />
+                                <TextBox x:Name="TextSizeBox" Classes="bar" Width="42" ToolTip.Tip="{l:T text.size}" Text="{Binding TextStyle.SizeField.Text, Mode=TwoWay}" />
+                                <TextBlock Classes="unit" Text="pt" />
+                            </StackPanel>
+                            <Border Classes="sep" />
+                            <StackPanel Classes="field" Margin="0,0,6,0">
+                                <ToggleButton x:Name="TextBButton" Theme="{StaticResource ToolButton}" Width="27" ToolTip.Tip="{l:T text.bold}"
+                                              IsChecked="{Binding TextStyle.IsBold, Mode=OneWay}" Command="{Binding TextStyle.FlagCommand}" CommandParameter="B"><TextBlock Text="B" FontWeight="Bold" /></ToggleButton>
+                                <ToggleButton x:Name="TextIButton" Theme="{StaticResource ToolButton}" Width="27" ToolTip.Tip="{l:T text.italic}"
+                                              IsChecked="{Binding TextStyle.IsItalic, Mode=OneWay}" Command="{Binding TextStyle.FlagCommand}" CommandParameter="I"><TextBlock Text="I" FontStyle="Italic" /></ToggleButton>
+                                <ToggleButton x:Name="TextUButton" Theme="{StaticResource ToolButton}" Width="27" ToolTip.Tip="{l:T text.underline}"
+                                              IsChecked="{Binding TextStyle.IsUnderline, Mode=OneWay}" Command="{Binding TextStyle.FlagCommand}" CommandParameter="U"><TextBlock Text="U" TextDecorations="Underline" /></ToggleButton>
+                                <ToggleButton x:Name="TextSButton" Theme="{StaticResource ToolButton}" Width="27" ToolTip.Tip="{l:T text.strikeOut}"
+                                              IsChecked="{Binding TextStyle.IsStrikeOut, Mode=OneWay}" Command="{Binding TextStyle.FlagCommand}" CommandParameter="S"><TextBlock Text="S" TextDecorations="Strikethrough" /></ToggleButton>
+                                <ToggleButton x:Name="TextHighlightButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T text.highlight}"
+                                              IsChecked="{Binding TextStyle.IsHighlighted, Mode=OneWay}" Command="{Binding TextStyle.HighlightCommand}"><th:AppIcon Glyph="Highlighter" /></ToggleButton>
+                            </StackPanel>
+                            <Border Classes="sep" />
+                            <StackPanel Classes="field" Margin="0,0,6,0">
+                                <!-- Alignment as icons (the words did not fit at the 1200 DIP one-row width, D13e) -->
+                                <ComboBox x:Name="TextAlignmentBox" Classes="bar" Width="54" Margin="0,0,4,0" ToolTip.Tip="{l:T text.alignment}"
+                                          ItemsSource="{Binding TextStyle.AlignmentGlyphs}" SelectedIndex="{Binding TextStyle.AlignmentIndex, Mode=TwoWay}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String"><th:AppIcon Glyph="{Binding}" /></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button x:Name="TextStylesButton" Theme="{StaticResource ToolButton}" Content="{l:T text.stylesButton}" ToolTip.Tip="{l:T text.savedStyles}" Click="TextStylesClick" />
+                            </StackPanel>
+                        </WrapPanel>
                     </Border>
                 </Panel>
             </DockPanel>

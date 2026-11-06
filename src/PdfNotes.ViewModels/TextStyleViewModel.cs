@@ -56,7 +56,7 @@ public sealed record TextBarState(
 /// saved styles, applied to the box being edited (<see cref="ITextEditorSession"/>) or to every selected box (one Undo
 /// unit). A new box starts with the fill and border set last. <see cref="Changed"/> asks the view to show the bar again.
 /// </summary>
-public sealed class TextStyleViewModel(MainViewModel owner, IEditorDialogs dialogs) : ObservableObject
+public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialogs dialogs) : ObservableObject
 {
     private Texts texts => owner.Texts;
 
@@ -67,7 +67,12 @@ public sealed class TextStyleViewModel(MainViewModel owner, IEditorDialogs dialo
     /// <summary>The bar should show the current state again.</summary>
     public event EventHandler? Changed;
 
-    private void Show() => Changed?.Invoke(this, EventArgs.Empty);
+    private void Show()
+    {
+        Changed?.Invoke(this, EventArgs.Empty);
+        ShowBar();
+        owner.ToolStyles.ShowBar(); // the style bar gives way to the text bar
+    }
 
     /// <summary>The edited box changed (typing, the caret moved): the bar shows the new state.</summary>
     public void Refresh() => Show();

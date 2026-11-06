@@ -18,20 +18,12 @@ using Alignment = PdfNotes.Core.Models.TextAlignment;
 namespace PdfNotes.Desktop.Views;
 
 /// <summary>
-/// The text bar (spec 3.2, 6, 9.4; D13c layout): [target 글자/채우기/테두리 | palette, user colors, + | transparency | font
-/// and size | B I U S highlight | alignment, saved styles]. The state is <see cref="TextStyleViewModel"/>'s; the box being
-/// edited is the P2 editor model (<see cref="EditorSession"/>). Also the text-aware Undo of the window (spec 13.2–13.3).
+/// The text bar (spec 3.2, 6, 9.4; D13c layout): its controls are bound to <see cref="TextStyleViewModel"/> (R4d); the box
+/// being edited is the P2 editor model (<see cref="EditorSession"/>). Here: the keyboard after a field, the saved styles
+/// menus, and the text-aware Undo of the window (spec 13.2–13.3).
 /// </summary>
 public sealed partial class MainWindow
 {
-    private ComboBox fontBox = null!, alignmentBox = null!;
-    private TextBox textSizeBox = null!, textAlphaBox = null!;
-    private StackPanel textPalettePanel = null!, textRecentPanel = null!;
-    private readonly RadioButton[] textTargetButtons = new RadioButton[3];
-    private readonly Dictionary<char, ToggleButton> textToggles = [];
-    private ToggleButton textHighlightButton = null!;
-    private bool syncingTextBar;
-
     private TextStyleViewModel textStyle => viewModel.TextStyle;
 
     /// <summary>The box being edited, as the text bar sees it: the P2 editor model has the same members (P1 V8).</summary>
@@ -47,95 +39,33 @@ public sealed partial class MainWindow
         public void Change(Func<TextBoxAnnotation, TextBoxAnnotation> change) => Model?.Change(change);
     }
 
-    private ControlTheme ToolTheme => (ControlTheme)this.FindResource("ToolButton")!;
-
     private void InitializeTextBar()
     {
         textStyle.Attach(new EditorSession(this), selectTool);
-        textStyle.Changed += (_, _) => UpdateTextStyleBar();
-
-        var targets = Group();
-        foreach (var (name, label, target) in new[] { ("TextTargetText", Strings.Get("text.targetText"), TextColorTarget.Text), ("TextTargetFill", Strings.Get("text.targetFill"), TextColorTarget.Fill), ("TextTargetBorder", Strings.Get("text.targetBorder"), TextColorTarget.Border) })
-        {
-            var button = new RadioButton { Name = name, Content = label, GroupName = "TextColorTarget", Theme = ToolTheme, IsChecked = target == textStyle.ColorTarget };
-            button.Click += (_, _) => { if (!syncingTextBar) textStyle.SetColorTarget(target); FocusBack(); };
-            textTargetButtons[(int)target] = button;
-            targets.Children.Add(button);
-        }
-        textPalettePanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        foreach (var color in ColorPalette.Basic) textPalettePanel.Children.Add(CreateSwatch(color, ColorName(color), SetTextColor));
-        textRecentPanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        Group(textPalettePanel, Sep(), textRecentPanel, CustomColorEntry("TextCustomColor", () => textStyle.TargetColor ?? RgbColor.Black, SetTextColor));
-        TextStylePanel.Children.Add(Sep());
-        textAlphaBox = BarField("TextAlphaBox", 40, () => { if (TryParseNumber(textAlphaBox.Text, out double percent)) textStyle.SetTransparency(percent); else UpdateTextStyleBar(); }, Strings.Get("style.transparency"));
-        Group(new TextBlock { Text = Strings.Get("style.transparency"), Classes = { "label" } }, textAlphaBox, new TextBlock { Text = "%", Classes = { "unit" } });
-        TextStylePanel.Children.Add(Sep());
-        fontBox = new ComboBox { Name = "TextFontBox", Width = 124, IsEditable = true, ItemsSource = TextLayout.FontFamilies().ToArray(), Margin = new Thickness(0, 0, 6, 0), Classes = { "bar" } };
-        fontBox.DropDownClosed += (_, _) => ApplyFont();
-        fontBox.LostFocus += (_, _) => ApplyFont();
-        fontBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { FocusBack(); e.Handled = true; } };
-        textSizeBox = BarField("TextSizeBox", 42, () => textStyle.SetSize(textSizeBox.Text ?? ""), Strings.Get("text.size"));
-        Group(fontBox, textSizeBox, new TextBlock { Text = "pt", Classes = { "unit" } });
-        TextStylePanel.Children.Add(Sep());
-        var toggles = Group();
-        foreach (var (flag, tip, weight, style) in new[] { ('B', Strings.Get("text.bold"), FontWeight.Bold, FontStyle.Normal), ('I', Strings.Get("text.italic"), FontWeight.Normal, FontStyle.Italic), ('U', Strings.Get("text.underline"), FontWeight.Normal, FontStyle.Normal), ('S', Strings.Get("text.strikeOut"), FontWeight.Normal, FontStyle.Normal) })
-        {
-            var text = new TextBlock { Text = flag.ToString(), FontWeight = weight, FontStyle = style, TextDecorations = flag == 'U' ? TextDecorations.Underline : flag == 'S' ? TextDecorations.Strikethrough : null };
-            var button = new ToggleButton { Name = $"Text{flag}Button", Content = text, Width = 27, Theme = ToolTheme };
-            ToolTip.SetTip(button, tip);
-            char f = flag;
-            button.Click += (_, _) => { textStyle.SetFlag(f, button.IsChecked == true); FocusBack(); };
-            textToggles[flag] = button;
-            toggles.Children.Add(button);
-        }
-        textHighlightButton = new ToggleButton { Name = "TextHighlightButton", Theme = ToolTheme, Content = new AppIcon { Glyph = "Highlighter" } };
-        ToolTip.SetTip(textHighlightButton, Strings.Get("text.highlight"));
-        textHighlightButton.Click += (_, _) => { textStyle.ToggleHighlight(); FocusBack(); };
-        toggles.Children.Add(textHighlightButton);
-        TextStylePanel.Children.Add(Sep());
-        // Alignment as icons (the words did not fit at the 1200 DIP one-row width, D13e).
-        alignmentBox = new ComboBox { Name = "TextAlignmentBox", Width = 54, Margin = new Thickness(0, 0, 4, 0), Classes = { "bar" },
-            ItemsSource = new[] { "AlignLeft", "AlignCenter", "AlignRight" },
-            // Names, not icon controls: a control has one parent, so the open list and the box could not both show it.
-            ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<string>((glyph, _) => new AppIcon { Glyph = glyph }) };
-        ToolTip.SetTip(alignmentBox, Strings.Get("text.alignment"));
-        alignmentBox.SelectionChanged += (_, _) => { if (!syncingTextBar && alignmentBox.SelectedIndex >= 0) { textStyle.SetAlignment((Alignment)alignmentBox.SelectedIndex); FocusBack(); } };
-        var slots = new Button { Name = "TextStylesButton", Content = Strings.Get("text.stylesButton"), Theme = ToolTheme };
-        ToolTip.SetTip(slots, Strings.Get("text.savedStyles"));
-        slots.Click += (_, _) =>
-        {
-            var menu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedLeft };
-            for (int i = 0; i < 5; i++) { int slot = i; menu.Items.Add(Menus.Item(SlotHeader(i), () => { textStyle.ApplySlot(slot); FocusBack(); }, enabled: settings.TextSlots[i] is not null)); }
-            menu.Open(slots);
-        };
-        Group(alignmentBox, slots);
+        // A button of the bar gives the keyboard back to the box being edited (the bar is bound, R4d).
+        TextStylePanel.AddHandler(Button.ClickEvent, (_, _) => FocusBack(), Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
+        TextField(TextAlphaBox, textStyle.CommitTransparency);
+        TextField(TextSizeBox, textStyle.CommitSize);
+        TextFontBox.DropDownClosed += (_, _) => textStyle.CommitFont();
+        TextFontBox.LostFocus += (_, _) => textStyle.CommitFont();
+        TextFontBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { FocusBack(); e.Handled = true; } };
+        TextAlignmentBox.DropDownClosed += (_, _) => FocusBack();
     }
 
-    private static Border Sep() => new() { Classes = { "sep" } };
-
-    private StackPanel Group(params Control[] items)
+    /// <summary>Leaving the field applies it once; Enter gives the keyboard back.</summary>
+    private void TextField(TextBox box, Action apply)
     {
-        var group = new StackPanel { Classes = { "field" }, Margin = new Thickness(0, 0, 6, 0) };
-        foreach (var item in items) group.Children.Add(item);
-        TextStylePanel.Children.Add(group);
-        return group;
+        box.LostFocus += (_, _) => apply();
+        box.KeyDown += (_, e) => { if (e.Key == Key.Enter) { FocusBack(); e.Handled = true; } };
     }
 
-    private TextBox BarField(string name, double width, Action apply, string tip)
+    /// <summary>The saved styles menu of the bar (Slot 1–5, each in its own format).</summary>
+    private void TextStylesClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        var box = new TextBox { Name = name, Width = width, Classes = { "bar" } };
-        ToolTip.SetTip(box, tip);
-        box.LostFocus += (_, _) => { if (!syncingTextBar) apply(); };
-        box.KeyDown += (_, e) => { if (e.Key == Key.Enter) { FocusBack(); e.Handled = true; } }; // leaving the field applies it once
-        return box;
+        var menu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedLeft };
+        for (int i = 0; i < 5; i++) { int slot = i; menu.Items.Add(Menus.Item(SlotHeader(i), () => { textStyle.ApplySlot(slot); FocusBack(); }, enabled: settings.TextSlots[i] is not null)); }
+        menu.Open(TextStylesButton);
     }
-
-    private void ApplyFont()
-    {
-        if (!syncingTextBar && fontBox.Text is { Length: > 0 } family && family != textStyle.CurrentStyle.FontFamily) textStyle.SetFont(family);
-    }
-
-    private void SetTextColor(RgbColor color) { textStyle.SetColor(color); FocusBack(); }
 
     /// <summary>`Slot 1` in the slot's own font, size (11–20 DIP), weight and color, as in the WPF menu.</summary>
     private object SlotHeader(int index)
@@ -174,39 +104,6 @@ public sealed partial class MainWindow
             menu.Items.Add(Menus.Item(Strings.Get("command.selectAll"), () => { editor.Model?.SelectAll(); editor.InvalidateVisual(); }));
         }
         return menu;
-    }
-
-    private void UpdateTextStyleBar()
-    {
-        if (fontBox is null) return;
-        var bar = textStyle.Bar;
-        TextStyleBorder.IsVisible = bar.Visible;
-        TextStyleBorder.IsEnabled = bar.Enabled;
-        if (StyleBar is not null) StyleBar.IsVisible = !bar.Visible && !EraserBorder.IsVisible;
-        if (!bar.Visible) { textRecentPanel.Children.Clear(); return; }
-        syncingTextBar = true;
-        try
-        {
-            var r = bar.Style;
-            if (!fontBox.IsKeyboardFocusWithin) fontBox.Text = r.FontFamily;
-            if (!textSizeBox.IsFocused) textSizeBox.Text = bar.Size;
-            textHighlightButton.IsChecked = bar.Highlighted;
-            textToggles['B'].IsChecked = r.Bold; textToggles['I'].IsChecked = r.Italic; textToggles['U'].IsChecked = r.Underline; textToggles['S'].IsChecked = r.Strikethrough;
-            alignmentBox.SelectedIndex = (int)bar.Alignment;
-            for (int i = 0; i < textTargetButtons.Length; i++) textTargetButtons[i].IsChecked = i == (int)bar.Target;
-            var color = bar.Color;
-            foreach (var swatch in textPalettePanel.Children.OfType<Button>()) MarkSwatch(swatch, Equals(swatch.Tag, color));
-            textRecentPanel.Children.Clear();
-            foreach (var recent in styles.UserColors)
-            {
-                var swatch = CreateSwatch(recent, recent.ToHex(), SetTextColor, removable: true);
-                MarkSwatch(swatch, recent == color);
-                textRecentPanel.Children.Add(swatch);
-            }
-            textAlphaBox.IsEnabled = bar.TransparencyEnabled;
-            if (!textAlphaBox.IsFocused) textAlphaBox.Text = bar.Transparency;
-        }
-        finally { syncingTextBar = false; }
     }
 
     // ----- text-aware Undo (spec 13.2–13.3, D14g) -----

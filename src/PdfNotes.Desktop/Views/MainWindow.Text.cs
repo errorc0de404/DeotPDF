@@ -145,7 +145,7 @@ public sealed partial class MainWindow
         PositionTextEditor();
         Canvas.RefreshOverlays();
         textStyle.Refresh();
-        UpdateStyleBar();
+        styles.Refresh();
         if (!focus) return; // the canvas keeps the keyboard until the first composition is committed
         textEditor.Focus();
         Dispatcher.UIThread.Post(() =>
@@ -197,7 +197,7 @@ public sealed partial class MainWindow
             if (focused) Canvas.Focus(); // keys go back to the canvas (the WPF window does the same)
         }
         Canvas.RefreshOverlays();
-        UpdateStyleBar();
+        styles.Refresh();
         if (editReturnsToText)
         {
             editReturnsToText = false;

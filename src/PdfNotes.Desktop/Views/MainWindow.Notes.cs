@@ -43,8 +43,6 @@ public sealed partial class MainWindow
             if (!changed && selectTool.SelectedAnnotations is [StickyNote note] && selectTool.PageId is { } notePage)
                 Dispatcher.UIThread.Post(() => OpenNote(note, notePage, isNew: false));
         };
-        viewModel.Favorites.PropertyChanged += (_, _) => BuildFavorites();
-        BuildFavorites();
     }
 
     // ----- sticky note cards -----
@@ -125,7 +123,7 @@ public sealed partial class MainWindow
         viewModel.Display.NotesHidden = hidden;
         if (hidden) { SetTool(ToolKind.Select); selectTool.Select(null); }
         selectTool.IgnoreAnnotations = hidden;
-        UpdateStyleBar();
+        styles.Refresh();
         Canvas.RefreshOverlays();
         _ = pages.InvalidateThumbnailsAsync();
     }
@@ -134,65 +132,10 @@ public sealed partial class MainWindow
 
     public IReadOnlyList<AppSettings.FavoriteSettings?> Favorites => viewModel.Favorites.Slots;
 
-    private void BuildFavorites()
-    {
-        FavoritesPanel.Children.Clear();
-        for (int i = 0; i < settings.Favorites.Length; i++)
-        {
-            int slot = i;
-            var button = new Button { Name = $"Favorite{i}", Theme = (Avalonia.Styling.ControlTheme)this.FindResource("ToolButton")!, Padding = new Thickness(2), Content = FavoriteIcon(settings.Favorites[i]) };
-            ToolTip.SetTip(button, viewModel.Favorites.Tip(settings.Favorites[i], i));
-            button.Click += (_, _) => ApplyFavorite(slot);
-            button.ContextMenu = new ContextMenu
-            {
-                Items =
-                {
-                    Menus.Item(Strings.Get("favorites.replace"), () => StoreFavorite(slot)),
-                    Menus.Item(Strings.Get("favorites.clear"), () => viewModel.Favorites.Clear(slot), enabled: settings.Favorites[i] is not null)
-                }
-            };
-            FavoritesPanel.Children.Add(button);
-        }
-    }
+    /// <summary>A favorite button or Ctrl+1–4 (spec 24.7): see <see cref="ToolBarViewModel.ApplyFavorite"/>.</summary>
+    public void ApplyFavorite(int slot) => viewModel.ToolBar.ApplyFavorite(slot);
 
-    /// <summary>A colored dot sized by the width (pen), a wide translucent bar (highlighter), a thin line (underline/strikeout), or a dashed ring (empty).</summary>
-    private Control FavoriteIcon(AppSettings.FavoriteSettings? slot)
-    {
-        var grid = new Grid { Width = 16, Height = 16 };
-        if (slot is null)
-        {
-            var ring = new Ellipse { Width = 12, Height = 12, StrokeThickness = 1, StrokeDashArray = [2, 2] };
-            ring.Bind(Shape.StrokeProperty, ring.GetResourceObservable("Text.Muted"));
-            grid.Children.Add(ring);
-            return grid;
-        }
-        var style = slot.Style.ToStyle(StrokeStyle.DefaultPen, FavoritesViewModel.Kind(slot));
-        var brush = new SolidColorBrush(Color.FromArgb((byte)Math.Round(255 * (1 - style.TransparencyPercent / 100)), style.Color.R, style.Color.G, style.Color.B));
-        Shape mark = slot.Tool != ToolKind.FreeHighlight
-            ? new Ellipse { Width = Math.Clamp(4 + style.WidthPt * 1.5, 5, 14), Height = Math.Clamp(4 + style.WidthPt * 1.5, 5, 14), Fill = brush, StrokeThickness = .5 }
-            : slot.MarkKind is null ? new Rectangle { Width = 16, Height = 8, RadiusX = 2, RadiusY = 2, Fill = brush }
-            : new Rectangle { Width = 16, Height = 3, Fill = brush, VerticalAlignment = slot.MarkKind == TextMarkupKind.Underline ? VerticalAlignment.Bottom : VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, slot.MarkKind == TextMarkupKind.Underline ? 2 : 0) };
-        mark.Bind(Shape.StrokeProperty, mark.GetResourceObservable("Divider")); // a white dot stays visible
-        grid.Children.Add(mark);
-        return grid;
-    }
-
-    /// <summary>
-    /// A favorite switches to its tool (the highlighter with its kind) with its color, width and transparency; an empty
-    /// one stores the current settings. While the notes are hidden it shows them first (spec 24.10).
-    /// </summary>
-    public void ApplyFavorite(int slot)
-    {
-        if (slot < 0 || slot >= settings.Favorites.Length) return;
-        if (settings.Favorites[slot] is not { } favorite) { StoreFavorite(slot); return; }
-        if (NotesHidden) SetNotesHidden(false);
-        styles.UseFavorite(favorite);
-        SetTool(favorite.Tool);
-        UpdateStyleBar();
-    }
-
-    public void StoreFavorite(int slot) => viewModel.Favorites.Store(slot, styles.CurrentFavorite());
+    public void StoreFavorite(int slot) => viewModel.ToolBar.StoreFavorite(slot);
 
     // ----- images (spec 10) -----
 
@@ -243,7 +186,7 @@ public sealed partial class MainWindow
     }
 
     /// <summary>필기 › 이미지: a file from the open dialog.</summary>
-    private async Task InsertImageFromFileAsync()
+    public async Task InsertImageFromFileAsync()
     {
         if (await dialogs.ChooseImageAsync() is not [{ } path, ..]) return;
         try

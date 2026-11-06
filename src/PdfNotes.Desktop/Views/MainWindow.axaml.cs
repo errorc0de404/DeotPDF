@@ -20,7 +20,7 @@ namespace PdfNotes.Desktop.Views;
 /// window shows them and turns platform input into editor calls. A3: canvas tools and keys; A4: text boxes; A5: the
 /// ribbon, the style bars, the page panel, search, outline, notes, dialogs and the rest of the WPF window's frame.
 /// </summary>
-public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, IAppShell
+public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, IAppShell, IUiThread
 {
     private readonly MainViewModel viewModel;
     private readonly IDesktopDialogs dialogs;
@@ -39,7 +39,7 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
         this.dialogs = dialogs?.Invoke(this) ?? new DesktopDialogs(this);
         clipboard = new DesktopClipboard(this);
         viewModel = new MainViewModel(this, this.dialogs, settings, App.DisplayName, saveSettings, appFolder, clipboard: clipboard, pageDialogs: this,
-            texts: Strings.Current, shell: this);
+            texts: Strings.Current, shell: this, ui: this);
         DataContext = viewModel; // the ribbon's file and view commands, the title and the status bar are bound (R4b–R4c)
         RestoreWindowPlacement();
         Canvas.SetMode(settings.ViewMode);
@@ -113,6 +113,15 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
     void IAppShell.ShowZoomMenu() => OpenZoomMenu();
     void IAppShell.UndoOrRedo(bool redo) => UndoTextAware(redo);
     void IAppShell.OpenWebPage(string url) => OpenWebPage(url);
+    Task IAppShell.InsertImageFromFileAsync() => InsertImageFromFileAsync();
+
+    void IUiThread.Run(Action action)
+    {
+        if (Dispatcher.UIThread.CheckAccess()) action();
+        else Dispatcher.UIThread.Post(action);
+    }
+
+    void IUiThread.Post(Action action) => Dispatcher.UIThread.Post(action);
 
     /// <summary>Shows a document made elsewhere (tests: one built in memory).</summary>
     public void Show(OpenDocument opened) => viewModel.Workflow.Replace(opened);
@@ -139,7 +148,7 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
         ShowingFile();
         viewModel.Navigation.ResetPageInput();
         viewModel.Navigation.ResetZoomInput();
-        UpdateStyleBar();
+        styles.Refresh();
         UpdatePageCommands();
     }
 
@@ -154,7 +163,7 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
             thumbs.Any(t => t.Rendered is { } r && doc.Session.Current.GetPage(t.PageId).Setup != r.Setup)) selectTool.ClearTextSelection();
         viewModel.Pages.Refresh();
         RefreshOutline();
-        UpdateStyleBar();
+        styles.Refresh();
         UpdatePageCommands();
     }
 
@@ -185,7 +194,6 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
     IDocumentViewport IMainView.Viewport => Canvas;
     IPageListView IMainView.Pages => this;
     IWindowCoordinator IMainView.Window => this;
-    IToolView IMainView.Tools => this;
 
     // ----- commands -----
 
@@ -236,11 +244,9 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
             switch (e.PropertyName)
             {
                 case nameof(DisplayViewModel.DarkPages): Canvas.DarkPages = display.DarkPages; _ = viewModel.Pages.InvalidateThumbnailsAsync(); break;
-                case nameof(DisplayViewModel.FavoritesShown): FavoritesGroup.IsVisible = display.FavoritesShown; break;
                 case nameof(DisplayViewModel.PageNumbers) or nameof(DisplayViewModel.NumberSize): Canvas.PageNumberSize = display.PageNumbers ? display.PageNumberDip : 0; break;
             }
         };
-        FavoritesGroup.IsVisible = display.FavoritesShown;
     }
 
     /// <summary>Shows theme, accent color and page numbers now without storing them (settings window preview).</summary>

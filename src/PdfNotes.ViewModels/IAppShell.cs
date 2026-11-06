@@ -36,6 +36,9 @@ public interface IAppShell
 
     /// <summary>A web page in the system's browser (the update notice).</summary>
     void OpenWebPage(string url);
+
+    /// <summary>필기 › 이미지: an image file chosen and placed on the page in view (spec 10).</summary>
+    Task InsertImageFromFileAsync();
 }
 
 /// <summary>A shell that does nothing and cancels every choice (view models made without a screen, tests).</summary>
@@ -51,4 +54,5 @@ public sealed class NoShell : IAppShell
     public void SetNotesHidden(bool hidden) { }
     public void OpenSearch() { }
     public void OpenWebPage(string url) { }
+    public Task InsertImageFromFileAsync() => Task.CompletedTask;
 }

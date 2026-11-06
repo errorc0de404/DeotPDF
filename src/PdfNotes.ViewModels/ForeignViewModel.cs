@@ -31,6 +31,19 @@ public sealed class ForeignViewModel(MainViewModel owner, Action<Action> onUiThr
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(nameof(IsShown));
         OnPropertyChanged(nameof(CanConvert));
+        ConvertCommand.Refresh();
+    }
+
+    /// <summary>The 필기 tab's 다른 프로그램 주석 편집 (R4d).</summary>
+    public AsyncCommand ConvertCommand => field ??= new(() => ConvertFromRibbonAsync(), () => CanConvert);
+
+    /// <summary>The command: the canvas input ends and hidden notes come back, then <see cref="ConvertAsync"/>.</summary>
+    public Task<int> ConvertFromRibbonAsync()
+    {
+        if (owner.Document is null || owner.IsBusy) return Task.FromResult(0);
+        owner.EndInput();
+        if (owner.Display.NotesHidden) owner.Shell.SetNotesHidden(false);
+        return ConvertAsync();
     }
 
     /// <summary>

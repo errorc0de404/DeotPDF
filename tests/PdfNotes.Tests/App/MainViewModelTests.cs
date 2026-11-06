@@ -61,7 +61,6 @@ public sealed class MainViewModelTests : IDisposable
         public IDocumentViewport Viewport { get; } = new FakeViewport();
         public IPageListView Pages { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();
-        public IToolView Tools { get; } = new FakeToolView();
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) => Answer.Cancel;
         public void Tell(string text, NoticeKind kind) => Log.Add("tell:" + kind);
         public string? ChooseSavePath(SavePathRequest request) => SavePath(request);

@@ -71,7 +71,6 @@ public sealed class SelectionTextViewModelTests : IDisposable
     private sealed class Shell : IMainView, IEditorDialogs
     {
         public readonly List<OpenDocument> Released = [];
-        public readonly FakeToolView ToolView = new();
         public readonly FakeEditor Editor = new();
         public readonly List<string> Told = [];
         public void FinishTextEditing() { }
@@ -88,7 +87,6 @@ public sealed class SelectionTextViewModelTests : IDisposable
         public IDocumentViewport Viewport { get; } = new FakeViewport();
         public IPageListView Pages { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();
-        public IToolView Tools => ToolView;
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) => Answer.No;
         public void Tell(string text, NoticeKind kind) => Told.Add(text);
         public string? ChooseSavePath(SavePathRequest request) => null;
@@ -121,9 +119,10 @@ public sealed class SelectionTextViewModelTests : IDisposable
         Assert.DoesNotContain(ink.Id, select.SelectedIds); // the copy is selected, with the selection tool
         Assert.Equal(ToolKind.Select, model.Tools.Current);
 
+        model.Tools.Return = ToolKind.Pen; // as if the selection tool came from the pen
         model.Selection.Delete();
         Assert.Single(Session.Current.Pages[0].Annotations);
-        Assert.Equal(1, shell.ToolView.Returns); // an automatic selection visit goes back to its tool
+        Assert.Equal(ToolKind.Pen, model.Tools.Current); // an automatic selection visit goes back to its tool
 
         clipboard.SetData(AnnotationTransfer.Format, "{not json");
         Assert.Equal(PasteKind.None, model.Selection.Paste(0, null).Kind);

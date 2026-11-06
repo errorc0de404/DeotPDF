@@ -21,10 +21,10 @@ namespace PdfNotes.Desktop.Views;
 
 /// <summary>
 /// The canvas tools (roadmap P4 A3): the same Editor tools and the same wiring as the WPF window (MainWindow.Tools), with
-/// the tool state in the view model (<see cref="ToolBarViewModel"/>, <see cref="ToolSwitch"/>). A5: the 필기 tab's tool
-/// buttons, the shape menu and the return mark.
+/// the tool state in the view model (<see cref="ToolBarViewModel"/>, <see cref="ToolSwitch"/>): the canvas tool follows
+/// <see cref="ToolBarViewModel.Current"/>, and the 필기 tab's buttons are bound to it (R4d). Here also the shape menu.
 /// </summary>
-public sealed partial class MainWindow : IToolView
+public sealed partial class MainWindow
 {
     private SelectTool selectTool = null!;
     private StrokeTool penTool = null!, highlighterStrokeTool = null!;
@@ -84,23 +84,23 @@ public sealed partial class MainWindow : IToolView
         Canvas.TouchOptions = () => new PointerRouterOptions { FingerDrawing = settings.FingerDrawing };
         Canvas.OverlayFor = OverlayFor;
         Canvas.MarksFor = MarksFor;
-        viewModel.ToolBar.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ToolBarViewModel.Buttons)) ShowToolButtons(); };
+        viewModel.ToolBar.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ToolBarViewModel.Current)) UseTool(viewModel.ToolBar.Current); };
         selectTool.SelectionChanged += (_, _) =>
         {
-            UpdateStyleBar();
+            styles.Refresh();
             if (selectTool.SelectedIds.Count > 0) viewModel.Ribbon.Auto(RibbonTab.Home);
         };
         // Drawing, typing or erasing on the canvas shows the 필기 tab; the selection tool's panning and PDF text
         // selection do not (spec 3.2 automatic tab switch).
         Canvas.ToolPressed += (_, _) => { if (Canvas.ActiveTool != selectTool || selectTool.SelectedIds.Count > 0) viewModel.Ribbon.Auto(RibbonTab.Home); };
-        Canvas.TemporaryToolEnded += (_, _) => ShowToolButtons();
-        InitializeToolButtons();
+        Canvas.TemporaryToolEnded += (_, _) => viewModel.ToolBar.Refresh();
         SetTool(ToolKind.Pen);
     }
 
     private static void CheckImage(byte[] bytes) => ImageFiles.Check(bytes);
 
-    void IToolView.UseTool(ToolKind kind)
+    /// <summary>Puts the canvas tool for <paramref name="kind"/> in place (and clears a selection the tool does not keep).</summary>
+    private void UseTool(ToolKind kind)
     {
         Canvas.Tool = kind switch
         {
@@ -120,69 +120,11 @@ public sealed partial class MainWindow : IToolView
         if (!ToolSwitch.KeepsSelection(kind)) selectTool.Select(null);
     }
 
-    void IToolView.ShowNotes() => SetNotesHidden(false);
+    private void ReturnAfterAutoSelect() => viewModel.ToolBar.ReturnAfterAutoSelect();
 
-    void IToolView.ReturnAfterAutoSelect() => ReturnAfterAutoSelect();
+    // ----- the shape menu (spec 8) -----
 
-    private void ReturnAfterAutoSelect()
-    {
-        if (tools.TakeReturn() is not { } previous) return;
-        Dispatcher.UIThread.Post(() => { if (tools.Current == ToolKind.Select && !Canvas.IsToolActive) SetTool(previous); });
-    }
-
-    // ----- the tool buttons of the 필기 tab (spec 3.2) -----
-
-    private RadioButton[] ToolRadios => [SelectToolButton, LassoToolButton, PenToolButton, HighlighterToolButton, EraserToolButton, TextToolButton, ShapeToolButton, NoteToolButton];
-
-    private void InitializeToolButtons()
-    {
-        foreach (var button in ToolRadios.Concat([StrokeEraserButton, AreaEraserButton]))
-            button.Click += (_, _) =>
-            {
-                if (button.Tag is not string tag) return;
-                // Clicking the selection button, even while it is on, is a direct choice: no automatic return (spec 5.4).
-                if (tag == "Select" && tools.Current == ToolKind.Select) tools.Return = null;
-                viewModel.ToolBar.Press(tag); // the eraser button takes the eraser used last, the eraser bar picks one
-                ShowToolButtons();
-            };
-        ShapeMenuButton.Click += (_, _) => OpenShapeMenu();
-        tools.ReturnChanged += (_, _) => MarkReturnTool();
-        ShowToolButtons();
-    }
-
-    /// <summary>Shows which tool buttons are on (<see cref="ToolBarViewModel.Buttons"/>); showing never switches tools.</summary>
-    private void ShowToolButtons()
-    {
-        var b = viewModel.ToolBar.Buttons;
-        TextToolButton.IsChecked = b.Current == ToolKind.Text;
-        SelectToolButton.IsChecked = b.Current == ToolKind.Select;
-        PenToolButton.IsChecked = b.Current == ToolKind.Pen;
-        HighlighterToolButton.IsChecked = b.Current == ToolKind.FreeHighlight;
-        ShapeToolButton.IsChecked = b.ShapeGroup;
-        ShapeToolLabel.SetOutline(AppIcon.ShapeOutline(b.ShapeGroupTool, b.ShapeKind));
-        LassoToolButton.IsChecked = b.Current == ToolKind.Lasso;
-        EraserToolButton.IsChecked = b.EraserOn;
-        NoteToolButton.IsChecked = b.Current == ToolKind.Note;
-        StrokeEraserButton.IsChecked = b.Eraser == ToolKind.StrokeEraser;
-        AreaEraserButton.IsChecked = b.Eraser == ToolKind.AreaEraser;
-    }
-
-    /// <summary>The tool button an automatic selection visit goes back to has an accent border (spec 5.4, D14g).</summary>
-    private void MarkReturnTool()
-    {
-        Control? target = tools.Return switch
-        {
-            ToolKind.Pen => PenToolButton,
-            ToolKind.FreeHighlight => HighlighterToolButton,
-            ToolKind.Text => TextToolButton,
-            ToolKind.Lasso => LassoToolButton,
-            ToolKind.Line or ToolKind.Curve or ToolKind.Shape => ShapeToolButton,
-            ToolKind.Note => NoteToolButton,
-            ToolKind.StrokeEraser or ToolKind.AreaEraser => EraserToolButton,
-            _ => null
-        };
-        foreach (var button in ToolRadios) button.Classes.Set("return", ReferenceEquals(button, target));
-    }
+    private void ShapeMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => OpenShapeMenu();
 
     /// <summary>The shape button menu opened last (tests).</summary>
     public ContextMenu? LastShapeMenu { get; private set; }

@@ -64,7 +64,6 @@ public sealed class BackupImportViewModelTests : IDisposable
         public IDocumentViewport Viewport => View;
         public IPageListView Pages => List;
         public IWindowCoordinator Window => Coordinator;
-        public IToolView Tools { get; } = new FakeToolView();
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) { Asked.Add(text); return Answer; }
         public void Tell(string text, NoticeKind kind) => Told.Add(text);
         public string? ChooseSavePath(SavePathRequest request) => null;

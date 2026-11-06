@@ -131,7 +131,7 @@ public sealed partial class MainWindow
     {
         if (!viewModel.Selection.CanExecute(command)) return false;
         viewModel.Selection.Execute(command);
-        UpdateStyleBar();
+        styles.Refresh();
         return true;
     }
 

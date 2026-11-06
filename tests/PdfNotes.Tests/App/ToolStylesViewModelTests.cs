@@ -10,6 +10,7 @@ public sealed class ToolStylesViewModelTests : IDisposable
 {
     private readonly Shell shell = new();
     private readonly AppSettings settings = new();
+    private readonly FakeAppShell appShell = new();
     private readonly MainViewModel model;
     private readonly SelectTool select;
     private int saves, shown;
@@ -18,7 +19,7 @@ public sealed class ToolStylesViewModelTests : IDisposable
 
     public ToolStylesViewModelTests()
     {
-        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => saves++, TestFolders.New(), new ManualTime());
+        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => saves++, TestFolders.New(), new ManualTime(), shell: appShell);
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
         select = new SelectTool(new FakeCanvas(), () => model.Document?.Session);
         Styles.Attach(select);
@@ -62,7 +63,6 @@ public sealed class ToolStylesViewModelTests : IDisposable
         public IDocumentViewport Viewport { get; } = new FakeViewport();
         public IPageListView Pages { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();
-        public IToolView Tools { get; } = new FakeToolView();
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) => Answer.No;
         public void Tell(string text, NoticeKind kind) { }
         public string? ChooseSavePath(SavePathRequest request) => null;
@@ -181,25 +181,28 @@ public sealed class ToolStylesViewModelTests : IDisposable
     public void SetToolPutsTheToolInPlaceAndTheButtonsFollow()
     {
         var bar = model.ToolBar;
-        var canvas = (FakeToolView)shell.Tools;
         var changed = new List<string?>();
-        bar.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var used = new List<ToolKind>(); // what the view puts on the canvas
+        bar.PropertyChanged += (_, e) => { changed.Add(e.PropertyName); if (e.PropertyName == nameof(ToolBarViewModel.Current)) used.Add(bar.Current); };
         model.Ribbon.Current = RibbonTab.View;
         int before = shown;
 
         bar.SetTool(ToolKind.Curve);
         Assert.Equal(ToolKind.Curve, bar.Current);
-        Assert.Equal([ToolKind.Curve], canvas.Used);
+        Assert.Equal([ToolKind.Curve], used);
+        Assert.True(bar.Shape.IsChecked);
+        Assert.False(bar.Pen.IsChecked);
         Assert.Contains(nameof(ToolBarViewModel.Buttons), changed);
         Assert.True(bar.Buttons.ShapeGroup);
         Assert.Equal(ToolKind.Curve, settings.ShapeGroupTool); // the shape button selects it next time
         Assert.True(shown > before); // the style bar follows
 
         bar.Press("ShapeGroup");
-        Assert.Single(canvas.Used); // already the shape group's tool
+        Assert.Single(used); // already the shape group's tool
         bar.Press("Eraser");
         Assert.Equal(settings.Eraser, bar.Current);
         Assert.True(bar.Buttons.EraserOn);
+        Assert.True(bar.Eraser.IsChecked);
 
         bar.SetShapeKind(ShapeKind.Ellipse);
         Assert.Equal((ToolKind.Shape, ShapeKind.Ellipse), (bar.Current, bar.Buttons.ShapeKind));
@@ -207,8 +210,8 @@ public sealed class ToolStylesViewModelTests : IDisposable
 
         model.Display.NotesHidden = true;
         bar.SetTool(ToolKind.Select);
-        Assert.Equal(0, canvas.NotesShown); // the selection tool keeps the notes hidden
+        Assert.Empty(appShell.NotesHidden); // the selection tool keeps the notes hidden
         bar.SetTool(ToolKind.Pen);
-        Assert.Equal(1, canvas.NotesShown);
+        Assert.Equal([false], appShell.NotesHidden);
     }
 }

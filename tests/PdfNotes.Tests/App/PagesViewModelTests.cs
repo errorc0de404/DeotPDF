@@ -61,7 +61,6 @@ public sealed class PagesViewModelTests : IDisposable
         public IDocumentViewport Viewport => View;
         public IPageListView Pages => List;
         public IWindowCoordinator Window { get; } = new FakeWindow();
-        public IToolView Tools { get; } = new FakeToolView();
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) { Asked.Add(text); return Answer; }
         public void Tell(string text, NoticeKind kind) => Told.Add(text);
         public string? ChooseSavePath(SavePathRequest request) => null;

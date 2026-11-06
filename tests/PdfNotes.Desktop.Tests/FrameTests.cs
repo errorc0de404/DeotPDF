@@ -49,6 +49,10 @@ public sealed class FrameTests
     private static T Find<T>(MainWindow w, string name) where T : Control =>
         w.GetLogicalDescendants().OfType<T>().FirstOrDefault(c => c.Name == name) ?? w.FindControl<T>(name) ?? throw new InvalidOperationException($"{name} not found");
 
+    /// <summary>The swatch buttons of a palette (an items control, R4d).</summary>
+    private static List<Button> Swatches(MainWindow w, string name) =>
+        [.. Find<ItemsControl>(w, name).GetVisualDescendants().OfType<Button>().Where(b => b.Tag is RgbColor)];
+
     /// <summary>What a click does: the Click event, then the bound command.</summary>
     private static void Press(Button button)
     {
@@ -217,7 +221,7 @@ public sealed class FrameTests
         w.SetTool(ToolKind.Pen);
         Settle(w);
         // A basic swatch sets the pen color; the current one has the ring.
-        var red = Find<StackPanel>(w, "PalettePanel").Children.OfType<Button>().Single(b => (RgbColor)b.Tag! == ColorPalette.Basic[2]);
+        var red = Swatches(w, "PalettePanel").Single(b => (RgbColor)b.Tag! == ColorPalette.Basic[2]);
         Press(red);
         Assert.Equal(ColorPalette.Basic[2], w.ViewModel.ToolStyles.Pen.Color);
         Assert.Contains("current", red.Classes);
@@ -241,9 +245,10 @@ public sealed class FrameTests
         var chosen = picker.SelectedColor; // the code through the color plane (HSV) may round by one
         Assert.True(Math.Abs(chosen.R - 0x12) <= 1 && Math.Abs(chosen.G - 0xAB) <= 1 && Math.Abs(chosen.B - 0x34) <= 1);
         Press(picker.Add);
+        Settle(w);
         Assert.Equal(chosen, w.ViewModel.ToolStyles.Pen.Color);
         Assert.Contains(chosen, w.ViewModel.ToolStyles.UserColors);
-        Assert.Single(Find<StackPanel>(w, "RecentPanel").Children);
+        Assert.Single(Swatches(w, "RecentPanel"));
 
         // A drawn stroke has those values; selecting it lets the bar edit it in one Undo step.
         Drag(w, Line(new(100, 100), new(300, 160)));
@@ -254,7 +259,7 @@ public sealed class FrameTests
         Settle(w);
         Assert.True(Find<Border>(w, "StyleBar").IsEnabled);
         int steps = w.Document!.Session.UndoCount;
-        Press(Find<StackPanel>(w, "PalettePanel").Children.OfType<Button>().Single(b => (RgbColor)b.Tag! == ColorPalette.Basic[6]));
+        Press(Swatches(w, "PalettePanel").Single(b => (RgbColor)b.Tag! == ColorPalette.Basic[6]));
         Assert.Equal(ColorPalette.Basic[6], ((InkStroke)Annotations(w)[0]).Color);
         Assert.Equal(steps + 1, w.Document.Session.UndoCount);
         w.Close();

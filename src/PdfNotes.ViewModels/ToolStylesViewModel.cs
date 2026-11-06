@@ -34,7 +34,7 @@ public sealed record ShapeOptionsState(bool FillTarget, int BorderIndex);
 /// the eraser sizes, and applying a change to the tool and to the selected annotations (one Undo unit; slider drags merge
 /// until committed). <see cref="Changed"/> asks the view to show the bar again.
 /// </summary>
-public sealed class ToolStylesViewModel : ObservableObject
+public sealed partial class ToolStylesViewModel : ObservableObject
 {
     private readonly MainViewModel owner;
     private SelectTool? selection;
@@ -66,7 +66,12 @@ public sealed class ToolStylesViewModel : ObservableObject
     /// <summary>The style bar should show the current state again.</summary>
     public event EventHandler? Changed;
 
-    private void Show() => Changed?.Invoke(this, EventArgs.Empty);
+    private void Show()
+    {
+        Changed?.Invoke(this, EventArgs.Empty);
+        ShowBar();
+        owner.TextStyle.ShowBar(); // the text bar takes the style bar's place, and shares its user colors
+    }
 
     /// <summary>The tool or the selection changed: the bar shows the new state.</summary>
     public void Refresh() => Show();

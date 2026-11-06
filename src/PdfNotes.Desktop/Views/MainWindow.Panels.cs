@@ -187,23 +187,10 @@ public sealed partial class MainWindow
 
     public int ForeignAnnotationCount => viewModel.Foreign.Count;
 
-    private void InitializeForeign() => viewModel.Foreign.PropertyChanged += (_, e) =>
-    {
-        if (e.PropertyName == nameof(ForeignViewModel.IsShown)) ForeignEditButton.IsVisible = ForeignSeparator.IsVisible = viewModel.Foreign.IsShown;
-        UpdatePageCommands();
-    };
+    private void InitializeForeign() => viewModel.Foreign.PropertyChanged += (_, _) => UpdatePageCommands();
 
     /// <summary>다른 프로그램 주석 편집: converts and tells how many became editable. Returns that number.</summary>
-    public async Task<int> ConvertForeignAsync()
-    {
-        if (Document is not { } doc || busy) return 0;
-        FinishTextEditing();
-        Canvas.CancelTool();
-        if (viewModel.Display.NotesHidden) SetNotesHidden(false);
-        int converted = await viewModel.Foreign.ConvertAsync();
-        if (ReferenceEquals(Document, doc)) Canvas.Focus();
-        return converted;
-    }
+    public Task<int> ConvertForeignAsync() => viewModel.Foreign.ConvertFromRibbonAsync();
 
     // ----- a new version (roadmap 1.1) -----
 

@@ -52,7 +52,6 @@ public sealed class SearchViewModelTests : IDisposable
         public IDocumentViewport Viewport => View;
         public IPageListView Pages { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();
-        public IToolView Tools { get; } = new FakeToolView();
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) => Answer.No;
         public void Tell(string text, NoticeKind kind) { }
         public string? ChooseSavePath(SavePathRequest request) => null;
