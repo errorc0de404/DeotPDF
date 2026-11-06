@@ -1,44 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "dependencies": {
     "net10.0": {
-      "bblanchon.PDFium.Win32": {
-        "type": "Transitive",
-        "resolved": "156.0.8076",
-        "contentHash": "nWP8z9PAK1ArGUGPoYgSsRL8sFkgvVgOrlv82CjEPGpXdtSg/ctCr/Xe8aDI8k2nk3mXvYWGnOlZsRIA7IxupQ=="
-      },
-      "Clipper2": {
-        "type": "Transitive",
-        "resolved": "1.5.4",
-        "contentHash": "p7Mr9zOCYGx9D46CopNLxSSLYqFHLeJdyMVKt5hl9bYsywbhzw6daDJMpAus28X0R5BAaFX3fZJZaAD39zO3tw=="
-      },
-      "Microsoft.Extensions.DependencyInjection.Abstractions": {
-        "type": "Transitive",
-        "resolved": "10.0.13",
-        "contentHash": "G2GrGWNAPZBsii2F6AU8n+JT2tC1/I0Ml/e9ZyNCgPjf3hZqronP7o0X91aAynCmVeae8KkSIUNXXeXCNRmdVQ=="
-      },
-      "Microsoft.Extensions.Logging.Abstractions": {
-        "type": "Transitive",
-        "resolved": "10.0.13",
-        "contentHash": "aSZEhEig4fvNiw2zs8Z6NyDlniKtq6YjcF3DyHuqTEHcZ2VKA/6itMPZ+dW+yWABWExlDcQwwdbqX1Rcb7W8WQ==",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.13"
-        }
-      },
-      "PDFsharp": {
-        "type": "Transitive",
-        "resolved": "6.2.4",
-        "contentHash": "GhTr9F1uOYXHCIEOB5PXIgqn5a8WLsJL2m0eewTA0IvY1j6N4HGXHKKmEyB90/N6vrjmYamf41V9zbmdW2HY3g==",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "8.0.3",
-          "System.Security.Cryptography.Pkcs": "8.0.1"
-        }
-      },
-      "System.Security.Cryptography.Pkcs": {
-        "type": "Transitive",
-        "resolved": "10.0.13",
-        "contentHash": "a+EovgC1fBnwdlQ6cn3j4JFBfKqiFaFvoAhjisOoSvazLAcIznaBzPQP0oYnvccmeXfqUH1KebVZOxSeH6rMaw=="
-      },
       "pdfnotes.core": {
         "type": "Project",
         "dependencies": {
@@ -48,30 +11,98 @@
       "pdfnotes.pdf": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )",
           "PDFsharp": "[6.2.4, )",
-          "PdfNotes.Core": "[1.2.0-dev, )",
-          "PdfNotes.Text": "[1.2.0-dev, )",
-          "System.Security.Cryptography.Pkcs": "[10.0.13, )",
-          "bblanchon.PDFium.Win32": "[156.0.8076, )"
+          "PdfNotes.Core": "[1.2.1, )",
+          "PdfNotes.Text": "[1.2.1, )",
+          "bblanchon.PDFium.Linux": "[156.0.8076, )",
+          "bblanchon.PDFium.Win32": "[156.0.8076, )",
+          "bblanchon.PDFium.macOS": "[156.0.8076, )"
         }
       },
       "pdfnotes.text": {
         "type": "Project",
         "dependencies": {
-          "PdfNotes.Core": "[1.2.0-dev, )"
+          "PdfNotes.Core": "[1.2.1, )"
         }
+      },
+      "bblanchon.PDFium.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[156.0.8076, )",
+        "resolved": "156.0.8076",
+        "contentHash": "413fLxjGE6Wi/r1U1sBQ7mzIRcCOfo8PRt7y+7NMDGG9sRD77Q6UcqtSLbXSsKonfy6QJJjIrisEY+Wyw3neeA=="
+      },
+      "bblanchon.PDFium.macOS": {
+        "type": "CentralTransitive",
+        "requested": "[156.0.8076, )",
+        "resolved": "156.0.8076",
+        "contentHash": "Q01czvrzEWcnHA7K3bfGDhenSlrsO21ziWaSVSq8QLLox0ygwpQM23PAhrEn56Js9vrUYWS8z4pioOWC/b9s1Q=="
+      },
+      "bblanchon.PDFium.Win32": {
+        "type": "CentralTransitive",
+        "requested": "[156.0.8076, )",
+        "resolved": "156.0.8076",
+        "contentHash": "nWP8z9PAK1ArGUGPoYgSsRL8sFkgvVgOrlv82CjEPGpXdtSg/ctCr/Xe8aDI8k2nk3mXvYWGnOlZsRIA7IxupQ=="
+      },
+      "Clipper2": {
+        "type": "CentralTransitive",
+        "requested": "[1.5.4, )",
+        "resolved": "1.5.4",
+        "contentHash": "p7Mr9zOCYGx9D46CopNLxSSLYqFHLeJdyMVKt5hl9bYsywbhzw6daDJMpAus28X0R5BAaFX3fZJZaAD39zO3tw=="
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.13, )",
+        "resolved": "10.0.13",
+        "contentHash": "G2GrGWNAPZBsii2F6AU8n+JT2tC1/I0Ml/e9ZyNCgPjf3hZqronP7o0X91aAynCmVeae8KkSIUNXXeXCNRmdVQ=="
+      },
+      "Microsoft.Extensions.Logging.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.13, )",
+        "resolved": "10.0.13",
+        "contentHash": "aSZEhEig4fvNiw2zs8Z6NyDlniKtq6YjcF3DyHuqTEHcZ2VKA/6itMPZ+dW+yWABWExlDcQwwdbqX1Rcb7W8WQ==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.13"
+        }
+      },
+      "PDFsharp": {
+        "type": "CentralTransitive",
+        "requested": "[6.2.4, )",
+        "resolved": "6.2.4",
+        "contentHash": "GhTr9F1uOYXHCIEOB5PXIgqn5a8WLsJL2m0eewTA0IvY1j6N4HGXHKKmEyB90/N6vrjmYamf41V9zbmdW2HY3g==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.3",
+          "System.Security.Cryptography.Pkcs": "8.0.1"
+        }
+      },
+      "System.Security.Cryptography.Pkcs": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.13, )",
+        "resolved": "10.0.13",
+        "contentHash": "a+EovgC1fBnwdlQ6cn3j4JFBfKqiFaFvoAhjisOoSvazLAcIznaBzPQP0oYnvccmeXfqUH1KebVZOxSeH6rMaw=="
       }
     },
     "net10.0/win-x64": {
+      "bblanchon.PDFium.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[156.0.8076, )",
+        "resolved": "156.0.8076",
+        "contentHash": "413fLxjGE6Wi/r1U1sBQ7mzIRcCOfo8PRt7y+7NMDGG9sRD77Q6UcqtSLbXSsKonfy6QJJjIrisEY+Wyw3neeA=="
+      },
+      "bblanchon.PDFium.macOS": {
+        "type": "CentralTransitive",
+        "requested": "[156.0.8076, )",
+        "resolved": "156.0.8076",
+        "contentHash": "Q01czvrzEWcnHA7K3bfGDhenSlrsO21ziWaSVSq8QLLox0ygwpQM23PAhrEn56Js9vrUYWS8z4pioOWC/b9s1Q=="
+      },
       "bblanchon.PDFium.Win32": {
-        "type": "Transitive",
+        "type": "CentralTransitive",
+        "requested": "[156.0.8076, )",
         "resolved": "156.0.8076",
         "contentHash": "nWP8z9PAK1ArGUGPoYgSsRL8sFkgvVgOrlv82CjEPGpXdtSg/ctCr/Xe8aDI8k2nk3mXvYWGnOlZsRIA7IxupQ=="
       },
       "System.Security.Cryptography.Pkcs": {
-        "type": "Transitive",
+        "type": "CentralTransitive",
+        "requested": "[10.0.13, )",
         "resolved": "10.0.13",
         "contentHash": "a+EovgC1fBnwdlQ6cn3j4JFBfKqiFaFvoAhjisOoSvazLAcIznaBzPQP0oYnvccmeXfqUH1KebVZOxSeH6rMaw=="
       }

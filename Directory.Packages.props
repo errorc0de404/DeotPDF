@@ -1,0 +1,54 @@
+<Project>
+  <!-- Every package version of the repository, in one place (Central Package Management). Projects name packages
+       without a version. Pinned transitive versions apply to every project that gets the package through another one. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Model and PDF">
+    <PackageVersion Include="Clipper2" Version="1.5.4" />
+    <PackageVersion Include="PDFsharp" Version="6.2.4" />
+    <!-- PDFium for each system, all referenced by PdfNotes.Pdf so every app and test gets the native library it needs -->
+    <PackageVersion Include="bblanchon.PDFium.Win32" Version="156.0.8076" />
+    <PackageVersion Include="bblanchon.PDFium.Linux" Version="156.0.8076" />
+    <PackageVersion Include="bblanchon.PDFium.macOS" Version="156.0.8076" />
+  </ItemGroup>
+
+  <ItemGroup Label="Text and drawing">
+    <!-- Keep SkiaSharp on the version Avalonia uses (roadmap P2). Its Linux natives are separate packages, referenced by
+         PdfNotes.Text.Skia next to SkiaSharp. -->
+    <PackageVersion Include="SkiaSharp" Version="3.119.4" />
+    <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.119.4" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup Label="Desktop app">
+    <PackageVersion Include="Avalonia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.4" />
+  </ItemGroup>
+
+  <ItemGroup Label="CLI">
+    <PackageVersion Include="ModelContextProtocol.Core" Version="2.3.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Pinned transitive versions">
+    <!-- D14a: PDFsharp asks for Pkcs 8.0.1, which has known vulnerabilities -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+    <!-- 1.1: DeotPDF and deot share one release folder and the MCP SDK in deot needs 10.0.x of these, so every project
+         takes the same instead of PDFsharp's 8.0 -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
+  </ItemGroup>
+
+  <ItemGroup Label="Tests">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+  </ItemGroup>
+</Project>

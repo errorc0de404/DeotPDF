@@ -1,7 +1,13 @@
 {
-  "version": 1,
+  "version": 2,
   "dependencies": {
     "net10.0": {
+      "HarfBuzzSharp.NativeAssets.Linux": {
+        "type": "Direct",
+        "requested": "[8.3.1.5, )",
+        "resolved": "8.3.1.5",
+        "contentHash": "Rvm05tL7QTNEGrhcrfvN/J5j7SGjGclp8J70JTQW4498U4+4cPC5yovn5V1l6ngSGufK6Ck47JVp6alYwhkGKg=="
+      },
       "SkiaSharp": {
         "type": "Direct",
         "requested": "[3.119.4, )",
@@ -22,10 +28,11 @@
           "SkiaSharp": "3.119.4"
         }
       },
-      "Clipper2": {
-        "type": "Transitive",
-        "resolved": "1.5.4",
-        "contentHash": "p7Mr9zOCYGx9D46CopNLxSSLYqFHLeJdyMVKt5hl9bYsywbhzw6daDJMpAus28X0R5BAaFX3fZJZaAD39zO3tw=="
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "Direct",
+        "requested": "[3.119.4, )",
+        "resolved": "3.119.4",
+        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
       },
       "HarfBuzzSharp": {
         "type": "Transitive",
@@ -67,9 +74,27 @@
         "dependencies": {
           "PdfNotes.Core": "[1.2.1, )"
         }
+      },
+      "Clipper2": {
+        "type": "CentralTransitive",
+        "requested": "[1.5.4, )",
+        "resolved": "1.5.4",
+        "contentHash": "p7Mr9zOCYGx9D46CopNLxSSLYqFHLeJdyMVKt5hl9bYsywbhzw6daDJMpAus28X0R5BAaFX3fZJZaAD39zO3tw=="
       }
     },
     "net10.0/win-x64": {
+      "HarfBuzzSharp.NativeAssets.Linux": {
+        "type": "Direct",
+        "requested": "[8.3.1.5, )",
+        "resolved": "8.3.1.5",
+        "contentHash": "Rvm05tL7QTNEGrhcrfvN/J5j7SGjGclp8J70JTQW4498U4+4cPC5yovn5V1l6ngSGufK6Ck47JVp6alYwhkGKg=="
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "Direct",
+        "requested": "[3.119.4, )",
+        "resolved": "3.119.4",
+        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
+      },
       "HarfBuzzSharp.NativeAssets.macOS": {
         "type": "Transitive",
         "resolved": "8.3.1.5",
