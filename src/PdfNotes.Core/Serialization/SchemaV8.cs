@@ -57,12 +57,11 @@ public static class SchemaV8
         byte[] v7Header;
         try
         {
-            var root = JsonNode.Parse(header!, documentOptions: new() { MaxDepth = 16 })!.AsObject();
+            if (JsonNode.Parse(header!, documentOptions: new() { MaxDepth = 16 }) is not JsonObject root || root["tags"] is not JsonArray) return Invalid(envelopes);
             root["schemaVersion"] = SchemaV7.Version;
-            if (root["tags"] is not JsonArray) throw new InvalidDataException();
             v7Header = JsonSerializer.SerializeToUtf8Bytes(root, SchemaV1.JsonOptions);
         }
-        catch (Exception e) when (e is JsonException or InvalidDataException or InvalidOperationException or ArgumentException or NullReferenceException)
+        catch (Exception e) when (e is JsonException or InvalidOperationException or ArgumentException)
         {
             return Invalid(envelopes);
         }
@@ -75,17 +74,18 @@ public static class SchemaV8
             if (SchemaV2.GetVersion(e) != Version) return SchemaV2.SetVersion(e, 0);
             try
             {
-                var root = JsonNode.Parse(e, documentOptions: new() { MaxDepth = 16 })!.AsObject();
+                if (JsonNode.Parse(e, documentOptions: new() { MaxDepth = 16 }) is not JsonObject root) return SchemaV2.SetVersion(e, 0);
                 root["schemaVersion"] = SchemaV7.Version;
                 if (root["annotation"] is JsonObject annotation && annotation["pressures"] is { } node)
                 {
                     annotation.Remove("pressures");
-                    if (annotation["type"]?.GetValue<string>() != "ink" || annotation["id"] is null) return SchemaV2.SetVersion(e, 0);
-                    pressures[annotation["id"]!.GetValue<Guid>()] = [.. node.AsArray().Select(v => v!.GetValue<double>())];
+                    if (annotation["type"]?.GetValue<string>() != "ink" || annotation["id"] is not { } id) return SchemaV2.SetVersion(e, 0);
+                    if (node is not JsonArray values || values.Any(v => v is null)) return SchemaV2.SetVersion(e, 0);
+                    pressures[id.GetValue<Guid>()] = [.. values.Select(v => v!.GetValue<double>())];
                 }
                 return JsonSerializer.SerializeToUtf8Bytes(root, SchemaV1.JsonOptions);
             }
-            catch (Exception x) when (x is JsonException or InvalidOperationException or ArgumentException or NullReferenceException or FormatException)
+            catch (Exception x) when (x is JsonException or InvalidOperationException or ArgumentException or FormatException)
             {
                 return SchemaV2.SetVersion(e, 0);
             }

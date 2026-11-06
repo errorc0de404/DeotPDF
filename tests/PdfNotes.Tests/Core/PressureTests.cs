@@ -201,6 +201,22 @@ public sealed class PressureTests
         Assert.Equal(AnnotationReadStatus.Rejected, hr.Annotations[0].Status);
     }
 
+    /// <summary>R3h: JSON nulls where v8 expects objects or numbers reject that part instead of throwing.</summary>
+    [Fact]
+    public void NullsInV8DataAreRejectedNotThrown()
+    {
+        var data = SchemaV8.Serialize(With(Wedge()));
+        byte[][] envelopes = [.. data.Annotations.Select(a => a.Envelope)];
+        // A null pressure value: that envelope is rejected, the read goes on.
+        var node = System.Text.Json.Nodes.JsonNode.Parse(envelopes[0])!;
+        node["annotation"]!["pressures"] = new System.Text.Json.Nodes.JsonArray(0.5, null);
+        var read = SchemaV8.Read(data.Header, [System.Text.Encoding.UTF8.GetBytes(node.ToJsonString())], _ => null);
+        Assert.Equal(AnnotationReadStatus.Rejected, read.Annotations[0].Status);
+        // An envelope that is JSON null: rejected.
+        var empty = SchemaV8.Read(data.Header, [System.Text.Encoding.UTF8.GetBytes("null")], _ => null);
+        Assert.Equal(AnnotationReadStatus.Rejected, empty.Annotations[0].Status);
+    }
+
     [Fact]
     public void TheClipboardCarriesPressures()
     {

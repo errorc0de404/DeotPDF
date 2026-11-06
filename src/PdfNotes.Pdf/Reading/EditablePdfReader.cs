@@ -79,8 +79,8 @@ public static class EditablePdfReader
             }
 
             byte[]? original = null;
-            bool v4 = false; // v4 and later keep the original source archive and page placement
-            try { v4 = header is not null && System.Text.Json.Nodes.JsonNode.Parse(header)?["schemaVersion"]?.GetValue<int>() is SchemaV4.Version or SchemaV5.Version or SchemaV6.Version or SchemaV7.Version or SchemaV8.Version; }
+            bool v4 = false; // v4 and later keep the original source archive and page placement (a version this app cannot read has no model)
+            try { v4 = header is not null && System.Text.Json.Nodes.JsonNode.Parse(header)?["schemaVersion"]?.GetValue<int>() >= SchemaV4.Version; }
             catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException or FormatException) { }
             if (v4 && read.Model is { } restoredModel)
             {
