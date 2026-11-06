@@ -112,7 +112,7 @@ dotnet test PdfNotes.slnx -c Release --no-build
 dotnet run --project src/PdfNotes.Desktop -c Release -- path/to/file.pdf
 ```
 
-The lock files are for Windows (`dotnet restore --locked-mode` works there). On macOS and Linux add `-p:RuntimeIdentifier=osx-arm64`, `linux-x64` and so on.
+The lock files cover Windows, macOS and Linux, so `dotnet restore --locked-mode` works on each.
 
 To build the release packages for one system (they land in `artifacts/release`), use PowerShell:
 
@@ -263,7 +263,7 @@ dotnet test PdfNotes.slnx -c Release --no-build
 dotnet run --project src/PdfNotes.Desktop -c Release -- 열고싶은파일.pdf
 ```
 
-잠금 파일은 윈도우 기준이라 `dotnet restore --locked-mode`는 윈도우에서 됩니다. 맥·리눅스에서는 `-p:RuntimeIdentifier=osx-arm64`, `linux-x64`처럼 붙여 주세요.
+잠금 파일에 윈도우·맥·리눅스가 모두 들어 있어서 어느 OS에서든 `dotnet restore --locked-mode`가 됩니다.
 
 배포용 패키지는 PowerShell로 만듭니다(`artifacts/release`에 생김).
 

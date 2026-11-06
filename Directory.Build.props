@@ -9,7 +9,9 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- No default system: builds and tests run anywhere. The lock files cover the four release systems, so a locked
+         restore works on each of them and for any of these publish targets (tools/package-release.ps1 -Rid). -->
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <SelfContained>false</SelfContained>
   </PropertyGroup>
 </Project>

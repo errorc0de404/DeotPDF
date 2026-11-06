@@ -8,8 +8,7 @@
 # macOS and Linux packages are self-contained. The macOS app has no developer ID signature (decision 18): on a Mac it is
 # signed ad hoc so Apple silicon runs it, and the first start needs right-click > Open. Build the Linux package on
 # Linux and the macOS ones on a Mac (file modes, codesign); other systems can build them for a look.
-# Windows restores in locked mode against the tracked lock files (win-x64). Other runtimes are not in them, so those
-# restores write their own lock file under each project's obj folder and leave the tracked ones alone.
+# Every system restores in locked mode: the tracked lock files cover all four runtimes (Directory.Build.props).
 param(
     [Parameter(Mandatory)] [ValidateSet("win-x64", "linux-x64", "osx-x64", "osx-arm64")] [string]$Rid,
     [string]$Version,
@@ -78,8 +77,8 @@ function Build-Folder([string]$name, [bool]$selfContained) {
     New-Item -ItemType Directory -Force $top | Out-Null
     # The app files: next to the readme on Windows and Linux, inside DeotPDF.app/Contents/MacOS on macOS.
     $bin = if ($system -eq "macos") { Join-Path $top "DeotPDF.app/Contents/MacOS" } else { $top }
-    $restore = if ($system -eq "windows") { "-p:RestoreLockedMode=true" } else { "-p:NuGetLockFilePath=obj/packages.$Rid.lock.json" }
-    # The app and deot share one folder, so both resolve the same package versions (the shared projects pin them).
+    $restore = "-p:RestoreLockedMode=true"
+    # The app and deot share one folder, so both resolve the same package versions (pinned in Directory.Packages.props).
     foreach ($project in @("src/PdfNotes.Desktop/PdfNotes.Desktop.csproj", "tools/PdfNotes.Cli/PdfNotes.Cli.csproj")) {
         dotnet publish $project -c Release -r $Rid --self-contained $selfContained.ToString().ToLowerInvariant() $restore "-p:Version=$Version" -o $bin
         if ($LASTEXITCODE -ne 0) { throw "publish failed: $project" }

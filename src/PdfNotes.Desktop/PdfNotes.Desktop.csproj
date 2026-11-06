@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- DeotPDF, the desktop app for Windows, macOS and Linux (roadmap P4; the WPF app it replaced was retired in 1.2.1,
-       decision 21). Build another system with -p:RuntimeIdentifier=linux-x64 etc.; release packages: tools/package-release.ps1. -->
+       decision 21). Release packages for each system: tools/package-release.ps1 -Rid. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
