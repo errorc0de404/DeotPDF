@@ -1,4 +1,4 @@
-# Checks every push to main, p4 or a dev-* branch, and on demand. Nothing is uploaded.
+# Checks every push to main, a p4* or p5* work branch or a dev-* branch, and on demand. Nothing is uploaded.
 # - Windows: the shared test suite (model, PDF, text engine, editor, view models, CLI).
 # - Windows, Ubuntu, macOS: the CLI and PDF tests with each system's fonts, and the app under Avalonia.Headless with a
 #   smoke test of its release package.
@@ -6,7 +6,7 @@ name: Check
 
 on:
   push:
-    branches: [main, "dev-*", p4]
+    branches: [main, "dev-*", "p4*", "p5*"]
   workflow_dispatch:
 
 permissions:
