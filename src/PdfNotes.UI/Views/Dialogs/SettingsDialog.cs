@@ -31,7 +31,7 @@ public sealed record BackupActions(Func<(int Count, long Bytes)> Usage, Func<boo
 /// right. OK applies, Cancel discards. 화면 choices show at once through the preview; the caller undoes it on cancel.
 /// Choosing to back up into the original file asks once for confirmation.
 /// </summary>
-public sealed class SettingsDialog : Window, IAcceptDialog
+public sealed class SettingsDialog : DialogView
 {
     private readonly CheckBox quickErase = new() { Name = "QuickEraseBox", Content = Strings.Get("settings.quickErase") };
     private readonly CheckBox pageDrag = new() { Name = "PageDragBox", Content = Strings.Get("settings.pageDrag") };
@@ -79,9 +79,8 @@ public sealed class SettingsDialog : Window, IAcceptDialog
         this.preview = preview;
         initialMode = current.Backup.Mode;
         Title = Strings.Get("command.settings");
-        Width = 600; Height = 420; CanResize = false;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        DialogLook.Apply(this);
+        PreferredSize = (600, 420, 600, 420);
+        Resizable = false;
         categories.Bind(BorderBrushProperty, categories.GetResourceObservable("Divider"));
         quickErase.IsChecked = current.QuickErase;
         pageDrag.IsChecked = current.PageDrag;
@@ -96,8 +95,8 @@ public sealed class SettingsDialog : Window, IAcceptDialog
         var change = new Button { Name = "BackupFolderChange", Content = Strings.Get("settings.change"), Padding = new Thickness(8, 1), Margin = new Thickness(6, 0, 0, 0) };
         change.Click += async (_, _) =>
         {
-            var start = Directory.Exists(folder.Text) ? await StorageProvider.TryGetFolderFromPathAsync(folder.Text!) : null;
-            var chosen = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = Strings.Get("settings.backupFolder"), SuggestedStartLocation = start });
+            var start = Directory.Exists(folder.Text) ? await StorageProvider!.TryGetFolderFromPathAsync(folder.Text!) : null;
+            var chosen = await StorageProvider!.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = Strings.Get("settings.backupFolder"), SuggestedStartLocation = start });
             if (chosen.Count > 0 && chosen[0].TryGetLocalPath() is { } path) folder.Text = path;
         };
         var open = new Button { Name = "BackupFolderOpen", Content = Strings.Get("settings.openFolder"), Padding = new Thickness(8, 1), Margin = new Thickness(6, 0, 0, 0) };
@@ -172,10 +171,10 @@ public sealed class SettingsDialog : Window, IAcceptDialog
         categories.SelectionChanged += (_, _) => page.Content = categories.SelectedIndex >= 0 ? pages[categories.SelectedIndex].Content : null;
         categories.SelectedIndex = 0;
         var ok = new Button { Name = "OkButton", Content = Strings.Get("common.ok"), IsDefault = true, MinWidth = 84, Padding = new Thickness(10, 4) };
-        ok.Click += (_, _) => { if (Accept()) Close(true); };
+        ok.Click += (_, _) => { if (Accept()) Finish(true); };
         var cancel = new Button { Name = "CancelButton", Content = Strings.Get("common.cancel"), MinWidth = 84, Padding = new Thickness(10, 4) };
-        cancel.Click += (_, _) => Close(false);
-        KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(false); };
+        cancel.Click += (_, _) => Finish(false);
+        KeyDown += (_, e) => { if (e.Key == Key.Escape) Finish(false); };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Margin = new Thickness(0, 12, 0, 0), Children = { ok, cancel } };
         var root = new DockPanel { Margin = new Thickness(16) };
         DockPanel.SetDock(buttons, Dock.Bottom);
@@ -191,7 +190,8 @@ public sealed class SettingsDialog : Window, IAcceptDialog
     public ListBox Categories => categories;
 
     /// <summary>OK: switching to the original file needs its confirmation; a declined switch keeps the window open.</summary>
-    public bool Accept()
+
+    public override bool Accept()
     {
         var mode = originalMode.IsChecked == true ? BackupMode.Original : BackupMode.Folder;
         if (backup.IsChecked == true && mode == BackupMode.Original && initialMode != BackupMode.Original && !confirmOriginal())

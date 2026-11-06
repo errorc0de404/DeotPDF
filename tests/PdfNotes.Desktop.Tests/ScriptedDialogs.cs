@@ -25,7 +25,7 @@ internal sealed class ScriptedDialogs(Window owner) : IDesktopDialogs
     public Action<string>? MessageSink { get; set; }
 
     /// <summary>Gets each app window instead of showing it; true presses its OK (then <see cref="IAcceptDialog.Accept"/> runs).</summary>
-    public Func<Window, bool>? WindowOverride { get; set; }
+    public Func<DialogView, bool>? WindowOverride { get; set; }
 
     /// <summary>Returns the files of an open dialog (null cancels).</summary>
     public Func<string[]?>? OpenDialogOverride { get; set; }
@@ -44,17 +44,17 @@ internal sealed class ScriptedDialogs(Window owner) : IDesktopDialogs
     public string? ChooseSavePath(SavePathRequest request) =>
         SaveDialogOverride is { } choose ? choose(request) : real.ChooseSavePath(request);
 
-    public bool ShowWindow(Window window)
+    public bool ShowWindow(DialogView window)
     {
         if (WindowOverride is not { } run) return real.ShowWindow(window);
         try { return Press(run, window); }
         finally { (window as IDisposable)?.Dispose(); }
     }
 
-    public Task<bool> ShowWindowAsync(Window window) =>
+    public Task<bool> ShowWindowAsync(DialogView window) =>
         WindowOverride is null ? real.ShowWindowAsync(window) : Task.FromResult(ShowWindow(window));
 
-    public Task<bool> ShowChildAsync(Window child, Window parent) =>
+    public Task<bool> ShowChildAsync(DialogView child, DialogView parent) =>
         WindowOverride is { } run ? Task.FromResult(Press(run, child)) : real.ShowChildAsync(child, parent);
 
     public Task<string?> ChooseOpenPathAsync() =>
@@ -66,7 +66,7 @@ internal sealed class ScriptedDialogs(Window owner) : IDesktopDialogs
     public Task<string[]?> ChooseImageAsync() =>
         OpenDialogOverride is { } choose ? Task.FromResult(choose()) : real.ChooseImageAsync();
 
-    private static bool Press(Func<Window, bool> run, Window window) => run(window) && (window is not IAcceptDialog dialog || dialog.Accept());
+    private static bool Press(Func<DialogView, bool> run, DialogView window) => run(window) && window.Accept();
 }
 
 internal static class TestWindows

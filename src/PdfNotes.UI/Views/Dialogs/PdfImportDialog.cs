@@ -121,13 +121,17 @@ public sealed class PdfImportDialog : AppDialog
         // Only the rows in view are drawn (the WPF dialog): when the list scrolls or lays out new rows, and again at another screen scale.
         list.AddHandler(ScrollViewer.ScrollChangedEvent, (_, _) => RenderVisible());
         list.LayoutUpdated += (_, _) => RenderVisible();
-        ScalingChanged += (_, _) =>
-        {
-            scaleGeneration++;
-            foreach (var thumb in thumbs) thumb.Image = null;
-            RenderVisible();
-            if (previewIndex >= 0) ShowPreview(previewIndex);
-        };
+        // Another monitor scale (the window's or the screen's): the thumbnails at its pixels.
+        AttachedToVisualTree += (_, _) => { if (TopLevel.GetTopLevel(this) is { } top) top.ScalingChanged += Rescaled; };
+        DetachedFromVisualTree += (_, _) => { if (TopLevel.GetTopLevel(this) is { } top) top.ScalingChanged -= Rescaled; };
+    }
+
+    private void Rescaled(object? sender, EventArgs e)
+    {
+        scaleGeneration++;
+        foreach (var thumb in thumbs) thumb.Image = null;
+        RenderVisible();
+        if (previewIndex >= 0) ShowPreview(previewIndex);
     }
 
     public override bool Accept()

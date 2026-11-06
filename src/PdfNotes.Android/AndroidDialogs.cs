@@ -9,15 +9,17 @@ using AndroidUri = Android.Net.Uri;
 namespace PdfNotes.Android;
 
 /// <summary>
-/// The modal UI on Android (roadmap P5a–P5b): questions in Android's own dialog, answered asynchronously; the system's
-/// document picker to open and to save; messages as toasts. Questions asked synchronously (page commands) take their
-/// safe answer until the app's windows come to Android (P5c).
+/// The modal UI on Android (roadmap P5a–P5c): questions in Android's own dialog, answered asynchronously; the app's
+/// windows on cards inside its view (<see cref="MainView.ShowInViewAsync"/>); the system's document picker to open, to
+/// save and to choose PDFs and images; messages as toasts. A question asked synchronously takes its safe answer.
 /// </summary>
-public sealed class AndroidDialogs(Func<TopLevel?> topLevel) : IDesktopDialogs
+public sealed class AndroidDialogs(Func<MainView?> view) : IDesktopDialogs
 {
     private static global::Android.Content.Context Context => global::Android.App.Application.Context;
 
     public bool IsOpen { get; private set; }
+
+    private TopLevel? TopLevel => view() is { } shown ? Avalonia.Controls.TopLevel.GetTopLevel(shown) : null;
 
     public Answer Ask(string text, AskButtons buttons, NoticeKind kind)
     {
@@ -67,7 +69,7 @@ public sealed class AndroidDialogs(Func<TopLevel?> topLevel) : IDesktopDialogs
     /// <summary>The system's document picker; the grant is kept so the recent list can open it again.</summary>
     public async Task<DocumentLocation?> ChooseDocumentAsync()
     {
-        if (topLevel()?.StorageProvider is not { CanOpen: true } storage) return null;
+        if (TopLevel?.StorageProvider is not { CanOpen: true } storage) return null;
         IsOpen = true;
         try
         {
@@ -101,10 +103,47 @@ public sealed class AndroidDialogs(Func<TopLevel?> topLevel) : IDesktopDialogs
     }
 
     public string? ChooseSavePath(SavePathRequest request) => null;
-    public bool ShowWindow(Window window) => false;
-    public Task<bool> ShowWindowAsync(Window window) => Task.FromResult(false);
-    public Task<bool> ShowChildAsync(Window child, Window parent) => Task.FromResult(false);
+
+    /// <summary>A window cannot be waited for here: the app asks asynchronously (<see cref="ShowWindowAsync"/>).</summary>
+    public bool ShowWindow(DialogView dialog) => false;
+
+    public Task<bool> ShowWindowAsync(DialogView dialog) => view()?.ShowInViewAsync(dialog) ?? Task.FromResult(false);
+
+    /// <summary>A window opened from another goes on the card above it.</summary>
+    public Task<bool> ShowChildAsync(DialogView child, DialogView parent) => ShowWindowAsync(child);
+
     public Task<string?> ChooseOpenPathAsync() => Task.FromResult<string?>(null);
     public string[]? ChoosePdfFiles(string title) => null;
-    public Task<string[]?> ChooseImageAsync() => Task.FromResult<string[]?>(null);
+
+    /// <summary>PDFs to import or merge: picked documents are copied into the app's cache, which the import reads.</summary>
+    public Task<string[]?> ChoosePdfFilesAsync(string title) => ChooseCopiesAsync(title, [Pdf], multiple: true);
+
+    private static readonly FilePickerFileType Images = new("Images") { Patterns = ["*.png", "*.jpg", "*.jpeg"], MimeTypes = ["image/png", "image/jpeg"] }; // file type name, not UI text (D14e)
+
+    public Task<string[]?> ChooseImageAsync() => ChooseCopiesAsync(Strings.Get("image.insertTitle"), [Images], multiple: false);
+
+    private async Task<string[]?> ChooseCopiesAsync(string title, IReadOnlyList<FilePickerFileType> types, bool multiple)
+    {
+        if (TopLevel?.StorageProvider is not { CanOpen: true } storage) return null;
+        IsOpen = true;
+        try
+        {
+            var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions { Title = title, AllowMultiple = multiple, FileTypeFilter = types });
+            if (files.Count == 0) return null;
+            string folder = Path.Combine(Context.CacheDir!.AbsolutePath, "picked", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            var paths = new List<string>();
+            foreach (var file in files)
+            {
+                string name = string.Concat(file.Name.Split(Path.GetInvalidFileNameChars()));
+                string path = Path.Combine(folder, name.Length > 0 ? name : "document");
+                await using (var input = await file.OpenReadAsync())
+                await using (var output = File.Create(path))
+                    await input.CopyToAsync(output);
+                paths.Add(path);
+            }
+            return [.. paths];
+        }
+        finally { IsOpen = false; }
+    }
 }

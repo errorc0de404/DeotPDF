@@ -25,14 +25,14 @@ public interface IDesktopDialogs : IEditorDialogs
     /// <summary>A dialog is open (backups wait, spec 18.2).</summary>
     bool IsOpen { get; }
 
-    /// <summary>Shows one of the app's windows modally; true when it was closed with OK.</summary>
-    bool ShowWindow(Window window);
+    /// <summary>Shows one of the app's dialogs modally; true when it ended with OK.</summary>
+    bool ShowWindow(DialogView dialog);
 
     /// <summary>The same, waited for asynchronously (from async commands).</summary>
-    Task<bool> ShowWindowAsync(Window window);
+    Task<bool> ShowWindowAsync(DialogView dialog);
 
-    /// <summary>A window opened from another app window (<paramref name="parent"/>), such as the range picker of the merge window.</summary>
-    Task<bool> ShowChildAsync(Window child, Window parent);
+    /// <summary>A dialog opened from another (<paramref name="parent"/>), such as the range picker of the merge window.</summary>
+    Task<bool> ShowChildAsync(DialogView child, DialogView parent);
 
     /// <summary>Asks for a PDF to open; null when cancelled.</summary>
     Task<string?> ChooseOpenPathAsync();
@@ -73,15 +73,37 @@ public sealed class DesktopDialogs(Window owner) : IDesktopDialogs
 
     public string? ChooseSavePath(SavePathRequest request) => Wait(SaveAsync(request));
 
-    public bool ShowWindow(Window window) => Wait(window.ShowDialog<bool>(owner));
+    public bool ShowWindow(DialogView dialog) => Wait(Wrap(dialog).ShowDialog<bool>(owner));
 
-    public Task<bool> ShowChildAsync(Window child, Window parent) => child.ShowDialog<bool>(parent);
+    public Task<bool> ShowChildAsync(DialogView child, DialogView parent) => Wrap(child).ShowDialog<bool>(TopLevel.GetTopLevel(parent) as Window ?? owner);
 
-    public async Task<bool> ShowWindowAsync(Window window)
+    public async Task<bool> ShowWindowAsync(DialogView dialog)
     {
         IsOpen = true;
-        try { return await window.ShowDialog<bool>(owner); }
+        try { return await Wrap(dialog).ShowDialog<bool>(owner); }
         finally { IsOpen = false; }
+    }
+
+    /// <summary>A modal window around a dialog: the theme's colors, its size (clamped to the screen) or its content's.</summary>
+    public static Window Wrap(DialogView dialog)
+    {
+        var window = new Window { Title = dialog.Title, Content = dialog, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        DialogLook.Apply(window);
+        if (dialog.PreferredSize is { } size)
+        {
+            DialogLook.Fit(window, size.Width, size.Height, size.MinWidth, size.MinHeight);
+            window.CanResize = dialog.Resizable;
+        }
+        else
+        {
+            window.SizeToContent = SizeToContent.WidthAndHeight;
+            window.CanResize = false;
+        }
+        dialog.Finished = ok => window.Close(ok);
+        window.Opened += (_, _) => dialog.RaiseOpened();
+        window.Closing += (_, e) => { if (!dialog.CanClose) e.Cancel = true; };
+        window.Closed += (_, _) => { dialog.Finished = null; dialog.RaiseClosed(); };
+        return window;
     }
 
     private async Task<string?> SaveAsync(SavePathRequest request)

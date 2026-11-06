@@ -49,7 +49,7 @@ public sealed partial class MainView
     /// edited is backed up (the editor writes into the document as it goes) unless it is composing.
     /// </summary>
     bool IWindowCoordinator.InputPending =>
-        Canvas.IsToolActive || dialogs.IsOpen || buttonDown || editSession?.Model.IsComposing == true; // the canvas's first-key composition is the session's too
+        Canvas.IsToolActive || dialogs.IsOpen || HasDialogCard || buttonDown || editSession?.Model.IsComposing == true; // the canvas's first-key composition is the session's too
 
     /// <summary>Tells the other windows which file this one shows (spec 4.6).</summary>
     private void ShowingFile()

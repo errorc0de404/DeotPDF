@@ -9,23 +9,19 @@ using PdfNotes.Editor.Localization;
 namespace PdfNotes.UI.Views;
 
 /// <summary>
-/// The frame of the app's dialogs (roadmap P4 A5): the theme's colors, the content, then the buttons at the bottom right
-/// outside any scrolling, default button first (D13c). OK runs <see cref="Accept"/>; the window closes with true only when
-/// it accepts. Esc cancels.
+/// The frame of the app's dialogs (roadmap P4 A5, R4h): the content, then the buttons at the bottom right outside any
+/// scrolling, default button first (D13c). OK runs <see cref="DialogView.Accept"/>; the dialog ends with true only when it
+/// accepts. Esc cancels. A window on the desktop, a card on Android (<see cref="DialogView"/>).
 /// </summary>
-public abstract class AppDialog : Window, IAcceptDialog
+public abstract class AppDialog : DialogView
 {
     private readonly TextBlock error = new() { TextWrapping = TextWrapping.Wrap, MaxWidth = 420, Margin = new Thickness(0, 8, 0, 0), IsVisible = false };
 
     protected AppDialog(string title)
     {
         Title = title;
-        SizeToContent = SizeToContent.WidthAndHeight;
-        CanResize = false;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        DialogLook.Apply(this);
         error.Bind(TextBlock.ForegroundProperty, error.GetResourceObservable("Text.Danger"));
-        KeyDown += (_, e) => { if (e.Key == Key.Escape) { Close(false); e.Handled = true; } };
+        KeyDown += (_, e) => { if (e.Key == Key.Escape) { Finish(false); e.Handled = true; } };
     }
 
     /// <summary>The default button (tests and Enter).</summary>
@@ -37,8 +33,8 @@ public abstract class AppDialog : Window, IAcceptDialog
     protected void Build(Control body, string okText)
     {
         OkButton.Content = okText;
-        OkButton.Click += (_, _) => { if (Accept()) Close(true); };
-        CancelButton.Click += (_, _) => Close(false);
+        OkButton.Click += (_, _) => { if (Accept()) Finish(true); };
+        CancelButton.Click += (_, _) => Finish(false);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Margin = new Thickness(0, 16, 0, 0), Children = { OkButton, CancelButton } };
         DockPanel.SetDock(buttons, Dock.Bottom);
         DockPanel.SetDock(error, Dock.Bottom);
@@ -49,9 +45,10 @@ public abstract class AppDialog : Window, IAcceptDialog
     /// A resizable window of a preferred size that fits the screen it opens on (the WPF ScreenArea.Fit): never larger than
     /// the work area, never smaller than the minimum.
     /// </summary>
-    protected void Fit(double width, double height, double minWidth, double minHeight) => DialogLook.Fit(this, width, height, minWidth, minHeight);
+    protected void Fit(double width, double height, double minWidth, double minHeight) => PreferredSize = (width, height, minWidth, minHeight);
 
-    public abstract bool Accept();
+
+
 
     /// <summary>Shows why the input was not accepted (the window stays open).</summary>
     protected bool Fail(string message)

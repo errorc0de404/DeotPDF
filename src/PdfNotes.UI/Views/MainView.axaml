@@ -27,6 +27,7 @@
         </DataTemplate>
     </UserControl.Resources>
     <!-- Roadmap P4 A5: the WPF window's frame (MainWindow.xaml) on Avalonia, with the same names; P5a: a view the desktop window and the Android activity both show. -->
+    <Panel>
     <DockPanel>
         <!-- Top ribbon (spec 3.2): quick commands / tab heads / the tab's commands. Changing the tab keeps the tool. -->
         <Border x:Name="RibbonHost" DockPanel.Dock="Top" Background="{DynamicResource Bar.Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
@@ -544,4 +545,7 @@
             </Panel>
         </Panel>
     </DockPanel>
+    <!-- The app's windows shown inside the view where there are no windows (Android, P5c): MainView.ShowInViewAsync -->
+    <Panel x:Name="DialogLayer" IsVisible="False" Background="#66000000" />
+    </Panel>
 </UserControl>

@@ -17,7 +17,7 @@ namespace PdfNotes.UI.Views;
 /// 페이지 크기 / 내용 축소 (spec 11.6–11.8, D10d, the WPF PageTransformDialog): the settings scroll on the left, the
 /// placement preview on the right, the buttons below both. Opening or cancelling changes nothing.
 /// </summary>
-public sealed class PageTransformDialog : Window, IAcceptDialog
+public sealed class PageTransformDialog : DialogView
 {
     private readonly UniformGrid scope = new() { Name = "ScopeBox", Rows = 3, Columns = 1, Height = 84 };
     private readonly ComboBox preset = new() { Name = "PresetBox", HorizontalAlignment = HorizontalAlignment.Stretch }, mode = new() { Name = "ModeBox", HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -42,9 +42,7 @@ public sealed class PageTransformDialog : Window, IAcceptDialog
         this.resize = resize;
         this.targets = targets;
         Title = resize ? Strings.Get("transform.resizeTitle") : Strings.Get("transform.shrinkTitle");
-        DialogLook.Fit(this, 930, 760, 760, 560); // the WPF size and minimum, clamped to the screen
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        DialogLook.Apply(this);
+        PreferredSize = (930, 760, 760, 560); // the WPF size and minimum, clamped to the screen
         error.Bind(TextBlock.ForegroundProperty, error.GetResourceObservable("Text.Danger"));
         var root = new Grid { Margin = new Thickness(20), ColumnDefinitions = new ColumnDefinitions("330,*"), RowDefinitions = new RowDefinitions("*,Auto") };
         Content = root;
@@ -118,13 +116,14 @@ public sealed class PageTransformDialog : Window, IAcceptDialog
         width.TextChanged += (_, _) => Refresh();
         height.TextChanged += (_, _) => Refresh();
         percent.TextChanged += (_, _) => Refresh();
-        apply.Click += (_, _) => { if (Accept()) Close(true); };
-        cancel.Click += (_, _) => Close(false);
-        KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(false); };
+        apply.Click += (_, _) => { if (Accept()) Finish(true); };
+        cancel.Click += (_, _) => Finish(false);
+        KeyDown += (_, e) => { if (e.Key == Key.Escape) Finish(false); };
         Refresh();
     }
 
-    public bool Accept()
+
+    public override bool Accept()
     {
         if ((!resize && (!Value(percent, out double p) || p <= 0 || p > 100)) ||
             (resize && (!Value(width, out double w) || !Value(height, out double h) || w < 10 || w > 2000 || h < 10 || h > 2000)))

@@ -99,6 +99,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
         InitializeSelectionCommands();
         InitializeDrop();
         InitializeBackup();
+        InitializeDialogLayer();
         viewModel.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
     }
 
@@ -113,6 +114,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
         topLevel.AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
         topLevel.AddHandler(KeyUpEvent, OnWindowKeyUp, RoutingStrategies.Tunnel);
         topLevel.ScalingChanged += ScalingChanged;
+        topLevel.BackRequested += BackRequested;
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -122,6 +124,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
             topLevel.RemoveHandler(KeyDownEvent, OnWindowKeyDown);
             topLevel.RemoveHandler(KeyUpEvent, OnWindowKeyUp);
             topLevel.ScalingChanged -= ScalingChanged;
+            topLevel.BackRequested -= BackRequested;
         }
         topLevel = null;
         base.OnDetachedFromVisualTree(e);

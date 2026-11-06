@@ -57,6 +57,7 @@ public sealed partial class MainView
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        if (HasDialogCard) return; // a dialog on a card is modal: its own keys (Esc, Enter), none of the app's (P5c)
         bool repeat = repeatingKey && lastKey == e.Key;
         repeatingKey = true;
         lastKey = e.Key;

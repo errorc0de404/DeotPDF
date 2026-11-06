@@ -28,6 +28,8 @@ public sealed class App : Avalonia.Application
         if (ApplicationLifetime is ISingleViewApplicationLifetime single)
         {
             SkiaText.Register(); // one text engine for the screen and the PDF appearances (P2)
+            // A command's failure would otherwise vanish with its task: it goes to the log (adb logcat -s DeotPDF).
+            TaskScheduler.UnobservedTaskException += (_, e) => global::Android.Util.Log.Error("DeotPDF", "unobserved: " + e.Exception);
             var context = global::Android.App.Application.Context;
             string folder = Path.Combine(context.FilesDir!.AbsolutePath, "settings");
             Directory.CreateDirectory(folder);
@@ -37,7 +39,7 @@ public sealed class App : Avalonia.Application
             DesktopTheme.Use(this, settings.Theme, settings.Accent);
             var app = new AppServices(settings, AppInfo.DisplayName, s => s.Save(file), folder) { Texts = Strings.Current };
             MainView? shown = null;
-            shown = new MainView(app, new AndroidDialogs(() => shown is null ? null : Avalonia.Controls.TopLevel.GetTopLevel(shown)), compose: MainViewModels.Create,
+            shown = new MainView(app, new AndroidDialogs(() => shown), compose: MainViewModels.Create,
                 locations: new AndroidLocations(context));
             view = shown;
             single.MainView = shown;

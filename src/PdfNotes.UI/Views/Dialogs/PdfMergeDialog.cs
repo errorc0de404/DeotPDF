@@ -40,7 +40,6 @@ public sealed class PdfMergeDialog : AppDialog
         list.Bind(Border.BorderBrushProperty, list.GetResourceObservable("Border"));
         var add = new Button { Name = "MergeAddButton", Content = Strings.Get("merge.addFiles"), Padding = new Thickness(10, 4), IsEnabled = addFiles is not null };
         add.Click += async (_, _) => await AddFilesAsync();
-        Closing += (_, e) => { if (Content is Control { IsEnabled: false }) e.Cancel = true; }; // not while files are being added (Esc, the X)
         var line = new StackPanel { Orientation = Orientation.Horizontal, Children = { add } };
         if (insert)
             line.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(16, 0, 0, 0), Children = { new TextBlock { Text = Strings.Get("merge.position"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) }, position } });
@@ -58,7 +57,10 @@ public sealed class PdfMergeDialog : AppDialog
     public string TotalText => total.Text ?? "";
     public bool CanAccept => OkButton.IsEnabled;
 
-    public new MergePosition Position
+    /// <summary>Not while files are being added (Esc, the window's X).</summary>
+    public override bool CanClose => Content is not Control { IsEnabled: false };
+
+    public MergePosition Position
     {
         get => (MergePosition)Math.Max(0, position.SelectedIndex);
         set => position.SelectedIndex = (int)value;
@@ -166,7 +168,7 @@ public sealed class PdfMergeDialog : AppDialog
         var file = files[index];
         var picker = new PdfImportDialog(file.Name, file.Shown) { Title = Strings.Format("merge.pickTitle", ("name", file.Name)) };
         if (PageRanges.TryParse(file.Range, file.PageCount, out _) is null) picker.RangeBox.Text = file.Range;
-        bool ok = ShowPicker is { } show ? await show(picker) : await picker.ShowDialog<bool>(this);
+        bool ok = ShowPicker is { } show && await show(picker);
         picker.Abandon();
         if (ok && picker.Result is { } chosen) SetRange(index, PageRanges.Format(chosen, file.PageCount));
     }

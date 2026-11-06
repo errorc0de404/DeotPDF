@@ -13,6 +13,8 @@
                 <ResourceInclude Source="avares://PdfNotes.UI/Themes/Tokens.axaml" />
                 <ResourceInclude Source="avares://PdfNotes.UI/Themes/Colors.axaml" />
                 <ResourceInclude Source="avares://PdfNotes.UI/Themes/Controls.axaml" />
+                <!-- P5c: room for a finger -->
+                <ResourceInclude Source="avares://PdfNotes.UI/Themes/Touch.axaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

@@ -1,0 +1,19 @@
+<!-- Roadmap P5c: the tokens for a touch screen (Android tablets). The same keys as Tokens.axaml with room for a finger:
+     buttons and fields about 44 DIPs high, a slightly larger text. Included after Tokens.axaml, so these values win. -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Double x:Key="FontSize.Body">15</x:Double>
+    <x:Double x:Key="FontSize.Caption">13</x:Double>
+    <x:Double x:Key="FontSize.Title">20</x:Double>
+    <x:Double x:Key="Height.Field">40</x:Double>
+    <x:Double x:Key="Height.SubBarRow">44</x:Double>
+    <Thickness x:Key="Space.TabRow">10,4,10,0</Thickness>
+    <Thickness x:Key="Space.Ribbon">10,4,10,4</Thickness>
+    <Thickness x:Key="Space.RibbonTab">18,10</Thickness>
+    <Thickness x:Key="Space.SubBar">12,4</Thickness>
+    <Thickness x:Key="Space.ToolButton">10,10</Thickness>
+    <Thickness x:Key="Space.ToolButtonGap">2,0</Thickness>
+    <Thickness x:Key="Space.Button">14,10</Thickness>
+    <Thickness x:Key="Space.MenuItem">14,12</Thickness>
+    <Thickness x:Key="Space.Field">6,0</Thickness>
+</ResourceDictionary>
