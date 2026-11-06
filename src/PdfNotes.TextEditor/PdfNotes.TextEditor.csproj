@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- P2: the platform-neutral text box editor (caret, selection, typing, formatting, IME composition, undo while editing).
        No packages: the controls of each platform drive it. -->
-  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <PropertyGroup>
+    <!-- Plain IL for every system: an app that builds for one system (Android) uses the same build. -->
+    <IsRidAgnostic>true</IsRidAgnostic><TargetFramework>net10.0</TargetFramework></PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PdfNotes.Core\PdfNotes.Core.csproj" />
     <ProjectReference Include="..\PdfNotes.Text\PdfNotes.Text.csproj" />

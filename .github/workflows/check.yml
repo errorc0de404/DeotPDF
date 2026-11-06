@@ -118,3 +118,22 @@ jobs:
           }
           $out = & $deot schema
           if ($LASTEXITCODE -ne 0 -or ($out | ConvertFrom-Json).ok -ne $true) { throw "deot schema failed: $out" }
+
+  # Roadmap P5: the Android app builds (an APK for arm64 devices and the x64 emulator). It is tried on a device by hand.
+  android:
+    runs-on: windows-latest
+    env:
+      DOTNET_NOLOGO: "1"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Android workload
+        run: dotnet workload install android
+
+      - name: Build
+        run: dotnet build src/PdfNotes.Android -c Release

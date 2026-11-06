@@ -2,6 +2,8 @@
   <!-- The app's screen for every system (roadmap P5a): the main view, the canvas, the dialogs, the themes and the language
        markup. The desktop app (PdfNotes.Desktop) shows it in a window, the Android app (PdfNotes.Android) in its activity. -->
   <PropertyGroup>
+    <!-- Plain IL for every system: an app that builds for one system (Android) uses the same build. -->
+    <IsRidAgnostic>true</IsRidAgnostic>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>PdfNotes.UI</RootNamespace>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>

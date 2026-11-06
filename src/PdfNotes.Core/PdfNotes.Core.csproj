@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Plain IL for every system: an app that builds for one system (Android) uses the same build. -->
+    <IsRidAgnostic>true</IsRidAgnostic>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>

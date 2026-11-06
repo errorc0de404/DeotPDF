@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- DeotPDF for Android (roadmap P5): the app's screen (PdfNotes.UI) in one activity. Tablets first (Galaxy Tab S10 FE+). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <!-- arm64 for devices, x64 for the emulator (development) -->
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+    <ApplicationId>io.github.errorc0de404.deotpdf</ApplicationId>
+    <ApplicationTitle>DeotPDF</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
+    <RootNamespace>PdfNotes.Android</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- One APK that installs by itself (sideloading), also for Debug builds: no fast deployment. -->
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <!-- JDK 21 for the Android build only (Android Studio's own JDK stays the system's JAVA_HOME). -->
+    <JavaSdkDirectory Condition="'$(JavaSdkDirectory)' == '' and Exists('C:\Program Files\Microsoft\jdk-21.0.13.21-hotspot')">C:\Program Files\Microsoft\jdk-21.0.13.21-hotspot</JavaSdkDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Android" />
+    <PackageReference Include="bblanchon.PDFium.Android" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- P5a: a local sample to open at start while developing (not in the repository) -->
+    <AndroidAsset Include="Assets\sample.pdf" Condition="Exists('Assets\sample.pdf')" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PdfNotes.UI\PdfNotes.UI.csproj" />
+  </ItemGroup>
+</Project>
