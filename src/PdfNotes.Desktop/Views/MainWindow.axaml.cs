@@ -20,7 +20,7 @@ namespace PdfNotes.Desktop.Views;
 /// window shows them and turns platform input into editor calls. A3: canvas tools and keys; A4: text boxes; A5: the
 /// ribbon, the style bars, the page panel, search, outline, notes, dialogs and the rest of the WPF window's frame.
 /// </summary>
-public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
+public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, IAppShell
 {
     private readonly MainViewModel viewModel;
     private readonly IDesktopDialogs dialogs;
@@ -39,17 +39,11 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
         this.dialogs = dialogs?.Invoke(this) ?? new DesktopDialogs(this);
         clipboard = new DesktopClipboard(this);
         viewModel = new MainViewModel(this, this.dialogs, settings, App.DisplayName, saveSettings, appFolder, clipboard: clipboard, pageDialogs: this,
-            texts: Strings.Current);
-        viewModel.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(MainViewModel.Title)) Title = viewModel.Title;
-            else if (e.PropertyName == nameof(MainViewModel.Status)) StatusText.Text = viewModel.Status;
-            else if (e.PropertyName is nameof(MainViewModel.UndoTip) or nameof(MainViewModel.RedoTip)) UpdateCommands();
-        };
+            texts: Strings.Current, shell: this);
+        DataContext = viewModel; // the ribbon's file and view commands, the title and the status bar are bound (R4b–R4c)
         RestoreWindowPlacement();
         Canvas.SetMode(settings.ViewMode);
-        Canvas.ViewChanged += (_, _) => { viewModel.Navigation.ViewChanged(); UpdateViewStatus(); };
-        viewModel.Navigation.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(NavigationViewModel.Mode)) UpdateViewStatus(); };
+        Canvas.ViewChanged += (_, _) => viewModel.Navigation.ViewChanged();
         InitializeDisplay();
         InitializeTools();
         InitializeStyleBar();
@@ -67,7 +61,6 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
         InitializeDrop();
         InitializeLoading();
         InitializeForeign();
-        InitializeUpdates();
         InitializeBackup();
         Closing += WindowClosing;
         Closed += (_, _) => WindowClosed();
@@ -100,19 +93,26 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
 
     public Task<bool> CreateNoteAsync(NewPageSpec spec) => viewModel.Workflow.CreateNoteAsync(spec);
 
-    private async Task OpenWithDialogAsync()
-    {
-        if (busy) return;
-        if (await dialogs.ChooseOpenPathAsync() is { } path) await OpenFileAsync(path);
-    }
+    private Task OpenWithDialogAsync() => viewModel.OpenCommand.RunAsync();
 
     /// <summary>파일 › 새 노트: the page size and background, then a new unsaved note (spec 4.1).</summary>
-    public async Task<bool> NewNoteAsync()
+    public Task<bool> NewNoteAsync() => viewModel.NewNoteAsync();
+
+    // ----- what the view model's commands need from this window (IAppShell) -----
+
+    Task<string?> IAppShell.ChooseOpenPathAsync() => dialogs.ChooseOpenPathAsync();
+
+    NewPageSpec? IAppShell.ChooseNewNote()
     {
-        if (busy) return false;
         var dialog = new NewNoteDialog();
-        return dialogs.ShowWindow(dialog) && dialog.Result is { } spec && await CreateNoteAsync(spec);
+        return dialogs.ShowWindow(dialog) ? dialog.Result : null;
     }
+
+    void IAppShell.ShowSettings() => ShowSettings();
+    void IAppShell.ShowRecentMenu() => OpenRecentMenu();
+    void IAppShell.ShowZoomMenu() => OpenZoomMenu();
+    void IAppShell.UndoOrRedo(bool redo) => UndoTextAware(redo);
+    void IAppShell.OpenWebPage(string url) => OpenWebPage(url);
 
     /// <summary>Shows a document made elsewhere (tests: one built in memory).</summary>
     public void Show(OpenDocument opened) => viewModel.Workflow.Replace(opened);
@@ -137,11 +137,10 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
         previous?.Dispose();
         backup.Reset();
         ShowingFile();
-        Title = viewModel.Title;
-        StatusText.Text = viewModel.Status;
-        UpdateViewStatus();
+        viewModel.Navigation.ResetPageInput();
+        viewModel.Navigation.ResetZoomInput();
         UpdateStyleBar();
-        UpdateCommands();
+        UpdatePageCommands();
     }
 
     void IMainView.DocumentChanged()
@@ -156,7 +155,7 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
         viewModel.Pages.Refresh();
         RefreshOutline();
         UpdateStyleBar();
-        UpdateCommands();
+        UpdatePageCommands();
     }
 
     void IMainView.FinishTextEditing() => FinishTextEditing();
@@ -175,7 +174,7 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
         (BringOverride ?? Platform.WindowActivation.Bring)(other);
         return true;
     }
-    void IMainView.CommandsChanged() => UpdateCommands();
+    void IMainView.CommandsChanged() => UpdatePageCommands();
 
     void IMainView.OnUiThread(Action action)
     {
@@ -191,18 +190,6 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
     // ----- commands -----
 
     /// <summary>Undo/Redo and the busy state (spec 13.3): the buttons follow the document and name the step.</summary>
-    private void UpdateCommands()
-    {
-        UndoButton.IsEnabled = Document?.Session.CanUndo == true;
-        RedoButton.IsEnabled = Document?.Session.CanRedo == true;
-        ToolTip.SetTip(UndoButton, viewModel.UndoTip);
-        ToolTip.SetTip(RedoButton, viewModel.RedoTip);
-        foreach (var idle in new Control[] { QuickOpenButton, QuickSaveButton, NewButton, OpenButton, SaveButton, SaveAsButton, ExportFlattenedButton, ExportPagesFileButton, MergePdfsButton, RecentButton })
-            idle.IsEnabled = !busy;
-        RecentButton.IsEnabled = !busy && viewModel.Recent.HasFiles;
-        UpdatePageCommands();
-    }
-
     /// <summary>Ctrl+Z / Ctrl+Y (spec 13.2–13.3): while a text box is edited, only its own steps (<see cref="UndoTextAware"/>).</summary>
     public void Undo() => UndoTextAware(redo: false);
 
@@ -212,27 +199,13 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
 
     private void InitializeStatusBar()
     {
-        PreviousPageButton.Click += (_, _) => viewModel.Navigation.PreviousPage();
-        NextPageButton.Click += (_, _) => viewModel.Navigation.NextPage();
+        // The page box: Enter goes there, Esc or leaving shows the current page again; both give the keys back to the pages.
         PageBox.KeyDown += (_, e) =>
         {
-            if (e.Key == Avalonia.Input.Key.Enter) { viewModel.Navigation.GoToPageNumber(PageBox.Text ?? ""); Canvas.Focus(); UpdateViewStatus(); e.Handled = true; }
-            else if (e.Key == Avalonia.Input.Key.Escape) { Canvas.Focus(); e.Handled = true; }
+            if (e.Key == Avalonia.Input.Key.Enter) { viewModel.Navigation.CommitPageInput(); Canvas.Focus(); e.Handled = true; }
+            else if (e.Key == Avalonia.Input.Key.Escape) { viewModel.Navigation.ResetPageInput(); Canvas.Focus(); e.Handled = true; }
         };
-        PageBox.LostFocus += (_, _) => UpdateViewStatus();
-        ZoomButton.Click += (_, _) => OpenZoomMenu();
-    }
-
-    /// <summary>The status bar's page and zoom (<see cref="NavigationViewModel"/>); a box being typed in keeps its text.</summary>
-    private void UpdateViewStatus()
-    {
-        var navigation = viewModel.Navigation;
-        if (!PageBox.IsKeyboardFocusWithin) PageBox.Text = navigation.PageNumberText;
-        PageCountText.Text = navigation.PageCountText;
-        if (!ZoomBox.IsKeyboardFocusWithin) ZoomBox.Text = navigation.ZoomText;
-        ZoomText.Text = navigation.ZoomText;
-        ContinuousButton.IsChecked = navigation.Mode == ViewMode.Continuous;
-        SinglePageButton.IsChecked = navigation.Mode == ViewMode.SinglePage;
+        PageBox.LostFocus += (_, _) => viewModel.Navigation.ResetPageInput();
     }
 
     /// <summary>The zoom menu opened last (tests).</summary>

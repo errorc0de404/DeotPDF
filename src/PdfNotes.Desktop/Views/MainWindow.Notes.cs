@@ -118,15 +118,13 @@ public sealed partial class MainWindow
     /// </summary>
     public void SetNotesHidden(bool hidden)
     {
-        if (NotesHidden == hidden) { HideNotesButton.IsChecked = hidden; return; }
+        if (NotesHidden == hidden) return;
         FinishTextEditing();
         CloseNote();
         Canvas.CancelTool();
         viewModel.Display.NotesHidden = hidden;
         if (hidden) { SetTool(ToolKind.Select); selectTool.Select(null); }
         selectTool.IgnoreAnnotations = hidden;
-        HideNotesButton.IsChecked = hidden;
-        NotesHiddenText.IsVisible = hidden;
         UpdateStyleBar();
         Canvas.RefreshOverlays();
         _ = pages.InvalidateThumbnailsAsync();

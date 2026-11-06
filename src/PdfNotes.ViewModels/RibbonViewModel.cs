@@ -10,7 +10,27 @@ public sealed class RibbonViewModel(AppSettings settings) : ObservableObject
 {
     private RibbonTab current = RibbonTab.Home;
 
-    public RibbonTab Current { get => current; set => SetProperty(ref current, value); }
+    public RibbonTab Current
+    {
+        get => current;
+        set
+        {
+            if (!SetProperty(ref current, value)) return;
+            OnPropertyChanged(nameof(IsFile));
+            OnPropertyChanged(nameof(IsHome));
+            OnPropertyChanged(nameof(IsPage));
+            OnPropertyChanged(nameof(IsView));
+        }
+    }
+
+    public bool IsFile => current == RibbonTab.File;
+    public bool IsHome => current == RibbonTab.Home;
+    public bool IsPage => current == RibbonTab.Page;
+    public bool IsView => current == RibbonTab.View;
+
+    /// <summary>A tab head: shows that tab (the parameter is the tab's name, as the XAML gives it).</summary>
+    public Command<string> ShowCommand => show ??= new(name => { if (Enum.TryParse<RibbonTab>(name, out var tab)) Current = tab; });
+    private Command<string>? show;
 
     /// <summary>While true, <see cref="Auto"/> does nothing (an Undo is not canvas work, spec 3.3).</summary>
     public bool Hold { get; set; }

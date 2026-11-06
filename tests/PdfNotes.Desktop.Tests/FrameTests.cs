@@ -49,9 +49,11 @@ public sealed class FrameTests
     private static T Find<T>(MainWindow w, string name) where T : Control =>
         w.GetLogicalDescendants().OfType<T>().FirstOrDefault(c => c.Name == name) ?? w.FindControl<T>(name) ?? throw new InvalidOperationException($"{name} not found");
 
+    /// <summary>What a click does: the Click event, then the bound command.</summary>
     private static void Press(Button button)
     {
         button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        if (button.Command is { } command && command.CanExecute(button.CommandParameter)) command.Execute(button.CommandParameter);
         Dispatcher.UIThread.RunJobs();
     }
 

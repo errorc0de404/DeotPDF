@@ -209,14 +209,4 @@ public sealed partial class MainWindow
 
     /// <summary>The start-up check, run by <see cref="App"/> after the window is shown (test windows skip it).</summary>
     public Task CheckForUpdatesAtStartAsync() => viewModel.Update.CheckAtStartAsync();
-
-    private void InitializeUpdates()
-    {
-        viewModel.Update.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(UpdateViewModel.IsAvailable)) UpdateButton.IsVisible = viewModel.Update.IsAvailable;
-            else if (e.PropertyName == nameof(UpdateViewModel.AvailableText)) UpdateText.Text = viewModel.Update.AvailableText;
-        };
-        UpdateButton.Click += (_, _) => OpenWebPage(viewModel.Update.Url);
-    }
 }

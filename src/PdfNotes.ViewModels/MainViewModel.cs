@@ -69,6 +69,9 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     /// <summary>The UI texts of this window's language.</summary>
     public Texts Texts { get; }
 
+    /// <summary>What commands need from the screen.</summary>
+    public IAppShell Shell { get; }
+
     private Texts texts => Texts;
     private readonly string appName;
     private string title;
@@ -83,14 +86,16 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     /// <param name="settingsFolder">The app's settings folder: backups, the backup store's records, the running windows' markers.</param>
     /// <param name="time">Clock and timers (tests pass a fake one).</param>
     /// <param name="texts">The UI texts (the app passes the language in use; default Korean).</param>
+    /// <param name="shell">What commands need from the screen (file picker, own windows, menus); default none.</param>
     /// <param name="checkUpdates">Asks for the latest release (tests pass a fake one).</param>
     /// <param name="clipboard">The system clipboard (page copies; tests pass a fake one).</param>
     /// <param name="pageDialogs">The shell's page windows (import, merge, export).</param>
     public MainViewModel(IMainView view, IEditorDialogs dialogs, AppSettings settings, string appName, Action<AppSettings> saveSettings, string settingsFolder,
         TimeProvider? time = null, Func<Task<UpdateResult>>? checkUpdates = null, IEditorClipboard? clipboard = null, IPageDialogs? pageDialogs = null,
-        Texts? texts = null)
+        Texts? texts = null, IAppShell? shell = null)
     {
         Texts = texts ?? Texts.Korean;
+        Shell = shell ?? NoShell.Instance;
         undoTip = Texts.Get("ribbon.undoTip");
         redoTip = Texts.Get("ribbon.redoTip");
         this.view = view;
@@ -103,6 +108,7 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         Tools = new ToolSwitch(settings, SaveSettings);
         Ribbon = new RibbonViewModel(settings);
         Recent = new RecentViewModel(settings, SaveSettings);
+        Recent.PropertyChanged += (_, _) => recent?.Refresh(); // the recent button is off when the list empties
         Update = new UpdateViewModel(settings, SaveSettings, dialogs, this.time, checkUpdates ?? (() => UpdateCheck.CheckAsync()), Texts);
         Loading = new LoadingViewModel(After, Texts);
         Outline = new OutlineViewModel(this);
@@ -234,6 +240,39 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
 
     public string RedoTip { get => redoTip; private set => SetProperty(ref redoTip, value); }
 
+    // ----- commands of the quick bar and the 파일 tab (R4b) -----
+
+    public AsyncCommand OpenCommand => open ??= new(async () => { if (await Shell.ChooseOpenPathAsync() is { } path) await Workflow.OpenFileAsync(path); }, () => !IsBusy);
+    public AsyncCommand NewCommand => @new ??= new(() => NewNoteAsync(), () => !IsBusy);
+    public AsyncCommand SaveCommand => save ??= new(() => Workflow.SaveAsync(saveAs: false), () => !IsBusy);
+    public AsyncCommand SaveAsCommand => saveAs ??= new(() => Workflow.SaveAsync(saveAs: true), () => !IsBusy);
+    public Command RecentCommand => recent ??= new(Shell.ShowRecentMenu, () => !IsBusy && Recent.HasFiles);
+    public AsyncCommand MergeCommand => merge ??= new(() => ImportExport.MergeAsync(), () => !IsBusy);
+    public AsyncCommand ExportFlattenedCommand => exportFlattened ??= new(() => ImportExport.ExportPagesAsync(allPages: true, flatten: true), () => !IsBusy); // the export window, preset (spec 11.10)
+    public AsyncCommand ExportPagesCommand => exportPages ??= new(() => ImportExport.ExportPagesAsync(allPages: true), () => !IsBusy);
+    public Command SettingsCommand => settingsCommand ??= new(Shell.ShowSettings);
+    public Command UndoCommand => undo ??= new(() => Shell.UndoOrRedo(redo: false), () => Document?.Session.CanUndo == true);
+    public Command RedoCommand => redo ??= new(() => Shell.UndoOrRedo(redo: true), () => Document?.Session.CanRedo == true);
+    private AsyncCommand? open, @new, save, saveAs, merge, exportFlattened, exportPages;
+    private Command? recent, settingsCommand, undo, redo;
+
+    // ----- commands of the 보기 tab (R4c) -----
+
+    public Command HideNotesCommand => hideNotes ??= new(() => Shell.SetNotesHidden(!Display.NotesHidden));
+    public Command SearchCommand => search ??= new(Shell.OpenSearch);
+    public Command OpenUpdatePageCommand => openUpdatePage ??= new(() => Shell.OpenWebPage(Update.Url));
+    private Command? hideNotes, search, openUpdatePage;
+
+    /// <summary>파일 › 새 노트: the page size and background, then a new unsaved note (spec 4.1).</summary>
+    public async Task<bool> NewNoteAsync() => !IsBusy && Shell.ChooseNewNote() is { } spec && await Workflow.CreateNoteAsync(spec);
+
+    /// <summary>The busy state, the document's undo history or the recent list changed: buttons ask their commands again.</summary>
+    public void RefreshCommands()
+    {
+        foreach (var command in new[] { open, @new, save, saveAs, merge, exportFlattened, exportPages }) command?.Refresh();
+        foreach (var command in new[] { recent, undo, redo }) command?.Refresh();
+    }
+
     /// <summary>Recomputes the title and the undo/redo tips from the open document.</summary>
     public void Refresh()
     {
@@ -248,6 +287,7 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         if (!ReferenceEquals(sender, Document?.Session)) return;
         view.DocumentChanged();
         Refresh();
+        RefreshCommands();
         view.CommandsChanged();
         _ = Foreign.RecountAsync(); // imported pages may bring other apps' annotations
         Search.Schedule(keep: true); // text edits, deleted or moved pages: results follow the document
@@ -272,6 +312,7 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         Outline.Load();
         Search.DocumentReplaced();
         Refresh();
+        RefreshCommands();
         view.CommandsChanged();
         _ = Foreign.RecountAsync();
     }
@@ -288,6 +329,7 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         OnPropertyChanged(nameof(IsBusy));
         Refresh();
         Foreign.Refresh();
+        RefreshCommands();
         view.CommandsChanged();
     }
 

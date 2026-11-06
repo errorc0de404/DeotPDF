@@ -32,6 +32,9 @@ public sealed class NavigationViewModel(MainViewModel owner, IMainView view) : O
 
     public ViewMode Mode => Viewport.Mode;
 
+    public bool IsContinuous => Mode == ViewMode.Continuous;
+    public bool IsSinglePage => Mode == ViewMode.SinglePage;
+
     /// <summary>The view scrolled, zoomed or changed its pages: the status bar follows.</summary>
     public void ViewChanged()
     {
@@ -39,7 +42,60 @@ public sealed class NavigationViewModel(MainViewModel owner, IMainView view) : O
         OnPropertyChanged(nameof(PageCountText));
         OnPropertyChanged(nameof(ZoomText));
         OnPropertyChanged(nameof(Mode));
+        OnPropertyChanged(nameof(IsContinuous));
+        OnPropertyChanged(nameof(IsSinglePage));
+        // A box the user is typing in keeps its text; one showing the last value follows the view.
+        string page = PageNumberText, zoom = ZoomText;
+        if (PageInput == pageShown) PageInput = page;
+        if (ZoomInput == zoomShown) ZoomInput = zoom;
+        (pageShown, zoomShown) = (page, zoom);
     }
+
+    // ----- the page box and the zoom box (R4c) -----
+
+    private string pageInput = "1", pageShown = "1", zoomInput = "100%", zoomShown = "100%";
+
+    /// <summary>The page box's text: the current page, or what the user is typing.</summary>
+    public string PageInput { get => pageInput; set => SetProperty(ref pageInput, value); }
+
+    /// <summary>The zoom box's text: the current zoom, or what the user is typing.</summary>
+    public string ZoomInput { get => zoomInput; set => SetProperty(ref zoomInput, value); }
+
+    /// <summary>Enter in the page box: go there (a number that is not one is ignored), then show the page again.</summary>
+    public void CommitPageInput()
+    {
+        GoToPageNumber(PageInput);
+        ResetPageInput();
+    }
+
+    /// <summary>Esc or leaving the page box: show the current page again.</summary>
+    public void ResetPageInput() => PageInput = pageShown = PageNumberText;
+
+    /// <summary>Enter in the zoom box, or a preset picked from its list: zoom there, then show the zoom again.</summary>
+    public void CommitZoomInput(string? text = null)
+    {
+        SetZoomText(text ?? ZoomInput);
+        ResetZoomInput();
+    }
+
+    /// <summary>Esc or leaving the zoom box: show the current zoom again.</summary>
+    public void ResetZoomInput() => ZoomInput = zoomShown = ZoomText;
+
+    /// <summary>The zoom box's list (up to 800 %).</summary>
+    public IReadOnlyList<string> ZoomPresets { get; } = [.. ZoomSteps.MenuPercents.Where(p => p <= 800).Select(p => p + "%")];
+
+    // ----- commands (R4c) -----
+
+    public Command PreviousPageCommand => previousPage ??= new(PreviousPage);
+    public Command NextPageCommand => nextPage ??= new(NextPage);
+    public Command ZoomInCommand => zoomIn ??= new(() => ZoomBy(1.25));
+    public Command ZoomOutCommand => zoomOut ??= new(() => ZoomBy(1 / 1.25));
+    public Command FitWidthCommand => fitWidth ??= new(FitWidth);
+    public Command FitPageCommand => fitPage ??= new(FitPage);
+    public Command ContinuousCommand => continuous ??= new(() => SetMode(ViewMode.Continuous));
+    public Command SinglePageCommand => singlePage ??= new(() => SetMode(ViewMode.SinglePage));
+    public Command ZoomMenuCommand => zoomMenu ??= new(() => owner.Shell.ShowZoomMenu());
+    private Command? previousPage, nextPage, zoomIn, zoomOut, fitWidth, fitPage, continuous, singlePage, zoomMenu;
 
     /// <summary>The page box: a one-based number goes there (clamped); anything else is ignored.</summary>
     public bool GoToPageNumber(string text)

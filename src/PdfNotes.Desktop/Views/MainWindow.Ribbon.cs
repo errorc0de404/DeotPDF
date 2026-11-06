@@ -21,26 +21,8 @@ public sealed partial class MainWindow
 
     private void InitializeRibbon()
     {
-        foreach (var head in new[] { FileTabButton, HomeTabButton, PageTabButton, ViewTabButton })
-            head.Click += (_, _) => { if (head.Tag is string name && Enum.TryParse<RibbonTab>(name, out var tab)) viewModel.Ribbon.Current = tab; };
-        viewModel.Ribbon.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(RibbonViewModel.Current)) ShowCurrentTab(); };
-        ShowCurrentTab();
-
-        // Quick commands and 파일
-        QuickOpenButton.Click += (_, _) => _ = OpenWithDialogAsync();
-        OpenButton.Click += (_, _) => _ = OpenWithDialogAsync();
-        QuickSaveButton.Click += (_, _) => _ = SaveAsync(saveAs: false);
-        SaveButton.Click += (_, _) => _ = SaveAsync(saveAs: false);
-        SaveAsButton.Click += (_, _) => _ = SaveAsync(saveAs: true);
-        UndoButton.Click += (_, _) => Undo();
-        RedoButton.Click += (_, _) => Redo();
-        NewButton.Click += (_, _) => _ = NewNoteAsync();
-        RecentButton.Click += (_, _) => OpenRecentMenu();
-        MergePdfsButton.Click += (_, _) => _ = MergePdfsAsync();
-        ExportFlattenedButton.Click += (_, _) => _ = ExportPagesAsync(allPages: true, flatten: true); // the export window, preset (spec 11.10)
-        ExportPagesFileButton.Click += (_, _) => _ = ExportPagesAsync(allPages: true);
-        SettingsButton.Click += (_, _) => ShowSettings();
-        SettingsRibbonButton.Click += (_, _) => ShowSettings();
+        // The tab heads, the quick commands, 파일 and 보기 are bound to the view model (R4b–R4c).
+        viewModel.Ribbon.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(RibbonViewModel.Current) && viewModel.Ribbon.IsPage) UpdatePageCommands(); };
 
         // 필기 (the tools are wired in MainWindow.Tools.cs)
         InsertImageButton.Click += (_, _) => _ = InsertImageFromFileAsync();
@@ -61,45 +43,21 @@ public sealed partial class MainWindow
         ResizePageButton.Click += (_, _) => ShowPageTransform(true);
         PagePanelButton.Click += (_, _) => SetPagePanelVisible(PagePanelButton.IsChecked == true);
         viewModel.Pages.PropertyChanged += (_, e) => { if (e.PropertyName is nameof(PagesViewModel.CanPaste) or nameof(PagesViewModel.CanDelete)) UpdatePageCommands(); };
-        viewModel.Recent.PropertyChanged += (_, _) => UpdateCommands(); // the recent button is off when the list empties
 
-        // 보기
-        ZoomOutButton.Click += (_, _) => viewModel.Navigation.ZoomBy(1 / 1.25);
-        ZoomInButton.Click += (_, _) => viewModel.Navigation.ZoomBy(1.25);
-        ZoomBox.ItemsSource = ZoomSteps.MenuPercents.Where(p => p <= 800).Select(p => p + "%").ToArray();
+        // 보기: the zoom box is bound; a preset from its list or Enter applies it, Esc or leaving shows the zoom again
         ZoomBox.SelectionChanged += (_, _) =>
         {
-            if (ZoomBox.SelectedItem is string text) { viewModel.Navigation.SetZoomText(text); ZoomBox.SelectedIndex = -1; UpdateViewStatus(); }
+            if (ZoomBox.SelectedItem is string text) { viewModel.Navigation.CommitZoomInput(text); ZoomBox.SelectedIndex = -1; }
         };
         ZoomBox.KeyDown += (_, e) =>
         {
             if (e.Key is not (Key.Enter or Key.Escape)) return;
-            if (e.Key == Key.Enter) viewModel.Navigation.SetZoomText(ZoomBox.Text ?? "");
+            if (e.Key == Key.Enter) viewModel.Navigation.CommitZoomInput();
+            else viewModel.Navigation.ResetZoomInput();
             Canvas.Focus();
-            UpdateViewStatus();
             e.Handled = true;
         };
-        ZoomBox.LostFocus += (_, _) => UpdateViewStatus();
-        FitWidthButton.Click += (_, _) => viewModel.Navigation.FitWidth();
-        FitPageButton.Click += (_, _) => viewModel.Navigation.FitPage();
-        ContinuousButton.Click += (_, _) => { viewModel.Navigation.SetMode(ViewMode.Continuous); UpdateViewStatus(); };
-        SinglePageButton.Click += (_, _) => { viewModel.Navigation.SetMode(ViewMode.SinglePage); UpdateViewStatus(); };
-        HideNotesButton.Click += (_, _) => SetNotesHidden(HideNotesButton.IsChecked == true);
-        SearchButton.Click += (_, _) => OpenSearch();
-    }
-
-    private void ShowCurrentTab()
-    {
-        var tab = viewModel.Ribbon.Current;
-        FileTabButton.IsChecked = tab == RibbonTab.File;
-        HomeTabButton.IsChecked = tab == RibbonTab.Home;
-        PageTabButton.IsChecked = tab == RibbonTab.Page;
-        ViewTabButton.IsChecked = tab == RibbonTab.View;
-        FileTab.IsVisible = tab == RibbonTab.File;
-        HomeTab.IsVisible = tab == RibbonTab.Home;
-        PageTab.IsVisible = tab == RibbonTab.Page;
-        ViewTab.IsVisible = tab == RibbonTab.View;
-        if (tab == RibbonTab.Page) UpdatePageCommands();
+        ZoomBox.LostFocus += (_, _) => viewModel.Navigation.ResetZoomInput();
     }
 
     /// <summary>Paste needs copied pages that fit this document; delete needs at least one page left.</summary>
@@ -135,7 +93,7 @@ public sealed partial class MainWindow
         {
             var item = Menus.Item(Path.GetFileName(path), () => _ = viewModel.OpenRecentAsync(path));
             ToolTip.SetTip(item, path);
-            item.ContextMenu = new ContextMenu { Items = { Menus.Item(Strings.Get("recent.remove"), () => { viewModel.Recent.Remove(path); UpdateCommands(); }) } };
+            item.ContextMenu = new ContextMenu { Items = { Menus.Item(Strings.Get("recent.remove"), () => viewModel.Recent.Remove(path)) } };
             menu.Items.Add(item);
         }
         menu.Open(RecentButton);
