@@ -237,14 +237,7 @@
         "dependencies": {
           "Avalonia": "[12.1.4, )",
           "Avalonia.Desktop": "[12.1.4, )",
-          "Avalonia.Skia": "[12.1.4, )",
-          "Avalonia.Themes.Fluent": "[12.1.4, )",
-          "PdfNotes.Editor": "[1.2.1, )",
-          "PdfNotes.Pdf": "[1.2.1, )",
-          "PdfNotes.Render.Skia": "[1.2.1, )",
-          "PdfNotes.Text.Skia": "[1.2.1, )",
-          "PdfNotes.TextEditor.Avalonia": "[1.2.1, )",
-          "PdfNotes.ViewModels": "[1.2.1, )"
+          "PdfNotes.UI": "[1.2.1, )"
         }
       },
       "pdfnotes.core": {
@@ -310,6 +303,20 @@
           "Avalonia.Skia": "[12.1.4, )",
           "PdfNotes.Text.Skia": "[1.2.1, )",
           "PdfNotes.TextEditor": "[1.2.1, )"
+        }
+      },
+      "pdfnotes.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.4, )",
+          "Avalonia.Skia": "[12.1.4, )",
+          "Avalonia.Themes.Fluent": "[12.1.4, )",
+          "PdfNotes.Editor": "[1.2.1, )",
+          "PdfNotes.Pdf": "[1.2.1, )",
+          "PdfNotes.Render.Skia": "[1.2.1, )",
+          "PdfNotes.Text.Skia": "[1.2.1, )",
+          "PdfNotes.TextEditor.Avalonia": "[1.2.1, )",
+          "PdfNotes.ViewModels": "[1.2.1, )"
         }
       },
       "pdfnotes.viewmodels": {

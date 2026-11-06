@@ -5,7 +5,7 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
-using PdfNotes.Desktop.Views;
+using PdfNotes.UI.Views;
 using PdfNotes.Editor.Localization;
 using PdfNotes.Editor.Platform;
 using PdfNotes.Editor.Services;
@@ -27,22 +27,22 @@ public sealed class UiRegressionTests
         var window = new MainWindow(TestWindows.App(new AppSettings(), folder), TestWindows.Dialogs) { Width = 1200, Height = 1000 };
         window.Script.PromptOverride = (_, _) => Answer.No;
         window.Script.MessageSink = _ => { };
-        window.EditorClipboard.InMemory = true;
+        window.View.EditorClipboard.InMemory = true;
         window.Show();
-        Assert.True(await window.OpenFileAsync(pdf));
-        window.DocumentCanvas.SetZoom(1);
-        window.DocumentCanvas.GoToPage(0);
-        window.DocumentCanvas.Focus();
+        Assert.True(await window.View.OpenFileAsync(pdf));
+        window.View.DocumentCanvas.SetZoom(1);
+        window.View.DocumentCanvas.GoToPage(0);
+        window.View.DocumentCanvas.Focus();
         Dispatcher.UIThread.RunJobs();
         return window;
     }
 
-    private static IReadOnlyList<Annotation> Annotations(MainWindow w, int page = 0) => w.Document!.Session.Current.Pages[page].Annotations;
+    private static IReadOnlyList<Annotation> Annotations(MainWindow w, int page = 0) => w.View.Document!.Session.Current.Pages[page].Annotations;
 
     private static Point At(MainWindow w, Point2 page, int index = 0)
     {
-        var dip = w.DocumentCanvas.PageTransform(index).PageToDip.Transform(page);
-        return w.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
+        var dip = w.View.DocumentCanvas.PageTransform(index).PageToDip.Transform(page);
+        return w.View.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
     }
 
     private static void Drag(MainWindow w, Point2 a, Point2 b, RawInputModifiers modifiers = RawInputModifiers.None)
@@ -92,7 +92,7 @@ public sealed class UiRegressionTests
     public void ZoomAndPageKeys() => Headless.Run(async () =>
     {
         var w = await Opened();
-        var canvas = w.DocumentCanvas;
+        var canvas = w.View.DocumentCanvas;
         double start = canvas.Zoom;
         Press(w, Key.OemPlus, RawInputModifiers.Control);
         Assert.True(canvas.Zoom > start);
@@ -111,7 +111,7 @@ public sealed class UiRegressionTests
         Assert.Equal(2, canvas.CurrentPageIndex);
         Press(w, Key.Home, RawInputModifiers.Control);
         Assert.Equal(0, canvas.CurrentPageIndex);
-        Assert.False(w.Document!.Session.IsDirty);
+        Assert.False(w.View.Document!.Session.IsDirty);
         w.Close();
     });
 
@@ -123,11 +123,11 @@ public sealed class UiRegressionTests
         var w = await Opened();
         foreach (var tool in new[] { ToolKind.Pen, ToolKind.Shape, ToolKind.Lasso })
         {
-            w.SetTool(tool);
+            w.View.SetTool(tool);
             Press(w, Key.Escape);
-            Assert.Equal(ToolKind.Select, w.ViewModel.Tools.Current);
+            Assert.Equal(ToolKind.Select, w.View.ViewModel.Tools.Current);
         }
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         w.MouseMove(At(w, new(100, 400)));
         w.MouseDown(At(w, new(100, 400)), MouseButton.Left);
         w.MouseMove(At(w, new(160, 420)));
@@ -135,7 +135,7 @@ public sealed class UiRegressionTests
         w.MouseUp(At(w, new(160, 420)), MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
         Assert.Empty(Annotations(w));
-        Assert.Equal(ToolKind.Pen, w.ViewModel.Tools.Current); // Esc cancelled the stroke only
+        Assert.Equal(ToolKind.Pen, w.View.ViewModel.Tools.Current); // Esc cancelled the stroke only
 
         w.MouseDown(At(w, new(100, 450)), MouseButton.Left);
         w.MouseMove(At(w, new(180, 470)));
@@ -144,7 +144,7 @@ public sealed class UiRegressionTests
         w.MouseUp(At(w, new(180, 470)), MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
         Assert.Empty(Annotations(w));
-        Assert.False(w.LastCanvasMenu?.IsOpen == true);
+        Assert.False(w.View.LastCanvasMenu?.IsOpen == true);
 
         Click(w, new(300, 500));
         Assert.IsType<InkStroke>(Assert.Single(Annotations(w)));
@@ -156,17 +156,17 @@ public sealed class UiRegressionTests
     public void TheZoomMenuChecksTheCurrentZoomAndFits() => Headless.Run(async () =>
     {
         var w = await Opened();
-        var menu = w.OpenZoomMenu();
+        var menu = w.View.OpenZoomMenu();
         var items = menu.Items.OfType<MenuItem>().ToList();
         Assert.Single(items, i => i.IsChecked && (string)i.Header! == "100%");
-        double before = w.DocumentCanvas.Zoom;
+        double before = w.View.DocumentCanvas.Zoom;
         var fit = items.Single(i => (string)i.Header! == Strings.Get("view.fitPage"));
         fit.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
         menu.Close();
         Dispatcher.UIThread.RunJobs();
-        Assert.NotEqual(before, w.DocumentCanvas.Zoom);
-        Assert.Equal(w.ViewModel.Navigation.ZoomText, w.FindControl<TextBlock>("ZoomText")!.Text);
-        Assert.False(w.Document!.Session.IsDirty);
+        Assert.NotEqual(before, w.View.DocumentCanvas.Zoom);
+        Assert.Equal(w.View.ViewModel.Navigation.ZoomText, w.View.FindControl<TextBlock>("ZoomText")!.Text);
+        Assert.False(w.View.Document!.Session.IsDirty);
         w.Close();
     });
 
@@ -178,17 +178,17 @@ public sealed class UiRegressionTests
     public void PdfTextIsHighlightedAndCopied() => Headless.Run(async () =>
     {
         var w = await Opened(1);
-        var glyphs = w.ViewModel.PageGlyphs(0);
+        var glyphs = w.View.ViewModel.PageGlyphs(0);
         string text = string.Concat(glyphs.Select(g => g.Text));
         int original = text.IndexOf("Original", StringComparison.Ordinal), pdf = text.IndexOf("PDF", StringComparison.Ordinal), english = text.IndexOf("English", StringComparison.Ordinal);
         Assert.True(original >= 0 && english > original, text);
-        w.SetTool(ToolKind.FreeHighlight);
+        w.View.SetTool(ToolKind.FreeHighlight);
         DragAlong(w, Edge(glyphs[original], false), Edge(glyphs[original + 3], true), Edge(glyphs[original + 7], true));
         var one = Assert.IsType<PdfTextHighlight>(Assert.Single(Annotations(w)));
         Assert.Single(one.Quads);
         Assert.Equal("Original", one.SourceTextHint);
         // A press on an existing highlight selects it (spec 9); with another font (macOS) the first one can reach "PDF".
-        w.Undo();
+        w.View.Undo();
         DragAlong(w, Edge(glyphs[pdf], false), Edge(glyphs[english], false), Edge(glyphs[english + 6], true));
         var two = Assert.IsType<PdfTextHighlight>(Assert.Single(Annotations(w)));
         // The marked characters run from "PDF" to "English" over two lines. (Windows fonts give one quad per line; the macOS
@@ -200,14 +200,14 @@ public sealed class UiRegressionTests
         Assert.True(lines[^1] - lines[0] > lineHeight / 2, $"{two.Quads.Length} quads on one line");
         if (OperatingSystem.IsWindows()) Assert.Equal(2, two.Quads.Length);
 
-        w.Undo();
+        w.View.Undo();
         Assert.Empty(Annotations(w));
-        w.SetTool(ToolKind.Select);
+        w.View.SetTool(ToolKind.Select);
         DragAlong(w, Edge(glyphs[english], false), Edge(glyphs[english + 6], true));
-        Assert.True(w.Selection.HasTextSelection);
-        Assert.Equal("English", w.Selection.SelectedText);
+        Assert.True(w.View.Selection.HasTextSelection);
+        Assert.Equal("English", w.View.Selection.SelectedText);
         Press(w, Key.C, RawInputModifiers.Control);
-        Assert.Equal(w.Selection.SelectedText, w.EditorClipboard.GetText());
+        Assert.Equal(w.View.Selection.SelectedText, w.View.EditorClipboard.GetText());
         Assert.Empty(Annotations(w)); // selecting text changes nothing
         w.Close();
     });
@@ -217,17 +217,17 @@ public sealed class UiRegressionTests
     public void ARecentFileThatIsGoneIsRemoved() => Headless.Run(async () =>
     {
         var w = await Opened(1);
-        string path = w.Document!.FilePath!;
-        Assert.Equal(path, w.RecentFiles[0]);
-        Assert.True(await w.CreateNoteAsync(NewPageSpec.Default));
+        string path = w.View.Document!.FilePath!;
+        Assert.Equal(path, w.View.RecentFiles[0]);
+        Assert.True(await w.View.CreateNoteAsync(NewPageSpec.Default));
         File.Delete(path);
-        var menu = w.OpenRecentMenu();
+        var menu = w.View.OpenRecentMenu();
         var item = menu.Items.OfType<MenuItem>().First(i => (string)i.Header! == Path.GetFileName(path));
         item.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
         menu.Close();
-        Headless.Pump(() => !w.RecentFiles.Contains(path));
-        Assert.Equal(Strings.Format("recent.missing", ("name", Path.GetFileName(path))), w.ViewModel.Status); // in the status line, no dialog
-        Assert.Null(w.Document!.FilePath);
+        Headless.Pump(() => !w.View.RecentFiles.Contains(path));
+        Assert.Equal(Strings.Format("recent.missing", ("name", Path.GetFileName(path))), w.View.ViewModel.Status); // in the status line, no dialog
+        Assert.Null(w.View.Document!.FilePath);
         w.Close();
     });
 
@@ -238,22 +238,22 @@ public sealed class UiRegressionTests
         string pdf = Path.Combine(Headless.TempFolder(), "linked.pdf");
         ProbeSamplePdf.CreateLinked(pdf, 5);
         var w = await Opened(pdf: pdf);
-        var link = w.PageLinks(0).First(l => l.TargetPage is > 0);
+        var link = w.View.PageLinks(0).First(l => l.TargetPage is > 0);
         var center = new Point2((link.Area.UpperLeft.X + link.Area.LowerRight.X) / 2, (link.Area.UpperLeft.Y + link.Area.LowerRight.Y) / 2);
-        w.SetTool(ToolKind.Select);
+        w.View.SetTool(ToolKind.Select);
         Click(w, center);
-        Headless.Pump(() => w.DocumentCanvas.CurrentPageIndex == link.TargetPage);
+        Headless.Pump(() => w.View.DocumentCanvas.CurrentPageIndex == link.TargetPage);
 
-        w.DocumentCanvas.GoToPage(0);
+        w.View.DocumentCanvas.GoToPage(0);
         Dispatcher.UIThread.RunJobs();
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Click(w, center);
-        Assert.Equal(0, w.DocumentCanvas.CurrentPageIndex);
+        Assert.Equal(0, w.View.DocumentCanvas.CurrentPageIndex);
         Assert.Single(Annotations(w)); // a dot
         Click(w, center, RawInputModifiers.Control);
-        Headless.Pump(() => w.DocumentCanvas.CurrentPageIndex == link.TargetPage);
+        Headless.Pump(() => w.View.DocumentCanvas.CurrentPageIndex == link.TargetPage);
         Assert.Single(Annotations(w));
-        Assert.False(MainWindow.IsOpenableUri("javascript:alert(1)"));
+        Assert.False(MainView.IsOpenableUri("javascript:alert(1)"));
         w.Close();
     });
 
@@ -262,24 +262,24 @@ public sealed class UiRegressionTests
     public void ShapesWithShiftAndPolygons() => Headless.Run(async () =>
     {
         var w = await Opened(1);
-        w.ViewModel.Settings.ShapeKind = ShapeKind.Ellipse;
-        w.SetTool(ToolKind.Shape);
+        w.View.ViewModel.Settings.ShapeKind = ShapeKind.Ellipse;
+        w.View.SetTool(ToolKind.Shape);
         Drag(w, new(100, 350), new(260, 420), RawInputModifiers.Shift);
         var circle = Assert.IsType<ShapeAnnotation>(Assert.Single(Annotations(w)));
         Assert.Equal(ShapeKind.Ellipse, circle.ShapeKind);
         Assert.Equal(circle.Box.Width, circle.Box.Height, 1);
 
-        w.ViewModel.Settings.ShapeKind = ShapeKind.Polygon;
-        w.SetTool(ToolKind.Shape);
+        w.View.ViewModel.Settings.ShapeKind = ShapeKind.Polygon;
+        w.View.SetTool(ToolKind.Shape);
         foreach (var p in new Point2[] { new(320, 350), new(420, 360), new(400, 460), new(330, 440) }) Click(w, p);
         Press(w, Key.Enter);
         var polygon = Assert.IsType<ShapeAnnotation>(Annotations(w)[^1]);
         Assert.Equal(ShapeKind.Polygon, polygon.ShapeKind);
         Assert.Equal(4, polygon.Points.Length);
 
-        w.SetTool(ToolKind.Select);
+        w.View.SetTool(ToolKind.Select);
         Click(w, new(180, 350 + circle.Box.Height / 2));
-        Assert.Equal([circle.Id], w.Selection.SelectedIds);
+        Assert.Equal([circle.Id], w.View.Selection.SelectedIds);
         Press(w, Key.Delete);
         Assert.DoesNotContain(Annotations(w), a => a.Id == circle.Id);
         w.Close();

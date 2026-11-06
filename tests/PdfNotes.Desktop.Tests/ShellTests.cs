@@ -3,8 +3,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
-using PdfNotes.Desktop.Themes;
-using PdfNotes.Desktop.Views;
+using PdfNotes.UI.Themes;
+using PdfNotes.UI.Views;
 using PdfNotes.Editor.Services;
 
 namespace PdfNotes.Desktop.Tests;
@@ -28,7 +28,7 @@ public sealed class ShellTests
     [Fact]
     public void LightAndDarkDefineTheSameTokens()
     {
-        var desktop = Path.Combine("src", "PdfNotes.Desktop", "Themes");
+        var desktop = Path.Combine("src", "PdfNotes.UI", "Themes");
         var colors = Load(desktop, "Colors.axaml");
         var themes = colors.Elements().Single(e => e.Name.LocalName == "ResourceDictionary.ThemeDictionaries").Elements()
             .ToDictionary(e => (string)e.Attribute(X + "Key")!, Entries);
@@ -74,10 +74,10 @@ public sealed class ShellTests
     {
         var window = new MainWindow(TestWindows.App(new AppSettings(), Headless.TempFolder()));
         window.Show();
-        Assert.NotNull(window.FindControl<Border>("RibbonHost"));
-        Assert.NotNull(window.FindControl<Border>("StatusBar"));
-        Assert.Same(window.DocumentCanvas, window.FindControl<PdfNotes.Desktop.Canvas.DocumentCanvas>("Canvas"));
-        Assert.Equal(1, window.DocumentCanvas.PageCount); // a new note until a file is opened
+        Assert.NotNull(window.View.FindControl<Border>("RibbonHost"));
+        Assert.NotNull(window.View.FindControl<Border>("StatusBar"));
+        Assert.Same(window.View.DocumentCanvas, window.View.FindControl<PdfNotes.UI.Canvas.DocumentCanvas>("Canvas"));
+        Assert.Equal(1, window.View.DocumentCanvas.PageCount); // a new note until a file is opened
         window.Close();
     });
 }

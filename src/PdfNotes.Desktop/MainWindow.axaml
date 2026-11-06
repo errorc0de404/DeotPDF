@@ -1,0 +1,12 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PdfNotes.ViewModels"
+        x:Class="PdfNotes.Desktop.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="{Binding Title}"
+        Width="1200" Height="860" MinWidth="720" MinHeight="480"
+        Background="{DynamicResource Window.Background}" Foreground="{DynamicResource Text.Primary}"
+        FontFamily="{DynamicResource Font.Ui}" FontSize="{DynamicResource FontSize.Body}">
+    <!-- The desktop window around the app's view (roadmap P5a): its placement, closing and the other windows are here,
+         everything else is MainView. -->
+</Window>

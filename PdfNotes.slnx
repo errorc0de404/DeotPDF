@@ -3,6 +3,7 @@
     <Project Path="src/PdfNotes.Cli/PdfNotes.Cli.csproj" />
     <Project Path="src/PdfNotes.Core/PdfNotes.Core.csproj" />
     <Project Path="src/PdfNotes.Desktop/PdfNotes.Desktop.csproj" />
+    <Project Path="src/PdfNotes.UI/PdfNotes.UI.csproj" />
     <Project Path="src/PdfNotes.Editor/PdfNotes.Editor.csproj" />
     <Project Path="src/PdfNotes.Text/PdfNotes.Text.csproj" />
     <Project Path="src/PdfNotes.Text.Skia/PdfNotes.Text.Skia.csproj" />

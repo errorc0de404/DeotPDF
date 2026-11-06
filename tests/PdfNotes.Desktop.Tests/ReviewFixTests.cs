@@ -7,7 +7,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
-using PdfNotes.Desktop.Views;
+using PdfNotes.UI.Views;
 using PdfNotes.Editor.Layout;
 using PdfNotes.Editor.Platform;
 using PdfNotes.Editor.Services;
@@ -29,21 +29,21 @@ public sealed class ReviewFixTests
         var window = new MainWindow(TestWindows.App(new AppSettings(), Headless.TempFolder()), TestWindows.Dialogs) { Width = width, Height = height };
         window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No;
         window.Script.MessageSink = _ => { };
-        window.EditorClipboard.InMemory = true;
+        window.View.EditorClipboard.InMemory = true;
         window.Show();
-        window.DocumentCanvas.SetZoom(1);
-        window.DocumentCanvas.GoToPage(0);
+        window.View.DocumentCanvas.SetZoom(1);
+        window.View.DocumentCanvas.GoToPage(0);
         Dispatcher.UIThread.RunJobs();
         return window;
     }
 
     private static T Find<T>(MainWindow w, string name) where T : Control =>
-        w.GetLogicalDescendants().OfType<T>().FirstOrDefault(c => c.Name == name) ?? w.FindControl<T>(name) ?? throw new InvalidOperationException(name);
+        w.GetLogicalDescendants().OfType<T>().FirstOrDefault(c => c.Name == name) ?? w.View.FindControl<T>(name) ?? throw new InvalidOperationException(name);
 
     private static Point At(MainWindow w, Point2 page)
     {
-        var dip = w.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
-        return w.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
+        var dip = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
+        return w.View.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
     }
 
     private static void Drag(MainWindow w, params Point2[] points)
@@ -70,7 +70,7 @@ public sealed class ReviewFixTests
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static IReadOnlyList<Annotation> Annotations(MainWindow w) => w.Document!.Session.Current.Pages[0].Annotations;
+    private static IReadOnlyList<Annotation> Annotations(MainWindow w) => w.View.Document!.Session.Current.Pages[0].Annotations;
 
     [Fact]
     public void UndoWorksWithThePageListFocused() => Headless.Run(async () =>
@@ -78,14 +78,14 @@ public sealed class ReviewFixTests
         string pdf = Path.Combine(Headless.TempFolder(), "p.pdf");
         ProbeSamplePdf.Create(pdf, 3);
         var w = Window();
-        Assert.True(await w.OpenFileAsync(pdf));
+        Assert.True(await w.View.OpenFileAsync(pdf));
         Dispatcher.UIThread.RunJobs();
-        w.PageListBox.SelectedIndex = 1;
-        w.PageListBox.ContainerFromIndex(1)!.Focus(); // a row has the keyboard after a click
+        w.View.PageListBox.SelectedIndex = 1;
+        w.View.PageListBox.ContainerFromIndex(1)!.Focus(); // a row has the keyboard after a click
         Key(w, Avalonia.Input.Key.Delete); // the list's own key (asks first: yes)
-        Assert.True(w.Document!.Session.Current.Pages.Count == 2, $"focus {w.FocusManager?.GetFocusedElement()?.GetType().Name}, selected {w.PageListBox.SelectedItems?.Count}");
+        Assert.True(w.View.Document!.Session.Current.Pages.Count == 2, $"focus {w.FocusManager?.GetFocusedElement()?.GetType().Name}, selected {w.View.PageListBox.SelectedItems?.Count}");
         Key(w, Avalonia.Input.Key.Z, RawInputModifiers.Control); // the window's Undo still works there
-        Assert.Equal(3, w.Document.Session.Current.Pages.Count);
+        Assert.Equal(3, w.View.Document.Session.Current.Pages.Count);
         w.Close();
     });
 
@@ -93,24 +93,24 @@ public sealed class ReviewFixTests
     public void TypingEditsABoxOnlyAfterTheTextToolAndNeverWithSpace() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Text);
+        w.View.SetTool(ToolKind.Text);
         Click(w, new(100, 400));
         w.KeyTextInput("abc");
-        w.FinishTextEditing();
+        w.View.FinishTextEditing();
         var box = Assert.IsType<TextBoxAnnotation>(Assert.Single(Annotations(w)));
         Thread.Sleep(700);
         Click(w, new Point2(box.Transform.OffsetX + 6, box.Transform.OffsetY + 8)); // the text tool selects it
-        Assert.Equal([box.Id], w.Selection.SelectedIds);
+        Assert.Equal([box.Id], w.View.Selection.SelectedIds);
         // A space with the box selected from the text tool is the pan hand, not a character.
-        w.DocumentCanvas.Focus();
+        w.View.DocumentCanvas.Focus();
         w.KeyTextInput(" ");
-        Assert.False(w.IsEditingText);
+        Assert.False(w.View.IsEditingText);
         // The selection tool chosen directly: typing does nothing to the box.
-        w.SetTool(ToolKind.Select);
-        w.Selection.Select(box.Id);
-        w.DocumentCanvas.Focus();
+        w.View.SetTool(ToolKind.Select);
+        w.View.Selection.Select(box.Id);
+        w.View.DocumentCanvas.Focus();
         w.KeyTextInput("x");
-        Assert.False(w.IsEditingText);
+        Assert.False(w.View.IsEditingText);
         Assert.Equal("abc", ((TextBoxAnnotation)Annotations(w)[0]).Text);
         // Backspace does not delete the selection (only Delete does, as in the WPF window).
         Key(w, Avalonia.Input.Key.Back);
@@ -122,23 +122,23 @@ public sealed class ReviewFixTests
     public void EditingKeepsTheBoxSelectedAndABlankBoxReturnsToTheTextTool() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Text);
+        w.View.SetTool(ToolKind.Text);
         Click(w, new(100, 400));
         w.KeyTextInput("x");
-        w.FinishTextEditing();
+        w.View.FinishTextEditing();
         var box = (TextBoxAnnotation)Annotations(w)[0];
         Thread.Sleep(700);
         var inside = new Point2(box.Transform.OffsetX + 6, box.Transform.OffsetY + 8);
         Click(w, inside); // the text tool selects it
         Click(w, inside); // a second press edits it
-        Assert.True(w.IsEditingText);
-        Assert.Equal([box.Id], w.Selection.SelectedIds);
-        w.ActiveTextEditor!.Model!.SelectAll();
-        w.ActiveTextEditor.Model.Key(PdfNotes.TextEditor.EditorKey.Delete);
-        w.FinishTextEditing(); // blank: the box goes, and the visit of the selection tool ends
+        Assert.True(w.View.IsEditingText);
+        Assert.Equal([box.Id], w.View.Selection.SelectedIds);
+        w.View.ActiveTextEditor!.Model!.SelectAll();
+        w.View.ActiveTextEditor.Model.Key(PdfNotes.TextEditor.EditorKey.Delete);
+        w.View.FinishTextEditing(); // blank: the box goes, and the visit of the selection tool ends
         Dispatcher.UIThread.RunJobs();
         Assert.Empty(Annotations(w));
-        Assert.Equal(ToolKind.Text, w.CurrentTool);
+        Assert.Equal(ToolKind.Text, w.View.CurrentTool);
         w.Close();
     });
 
@@ -146,10 +146,10 @@ public sealed class ReviewFixTests
     public void ATextBoxFromTheQuickMenuTakesTheTextTool() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Pen);
-        w.BeginNewTextAtClick(0, new(200, 300));
-        Assert.True(w.IsEditingText);
-        Assert.Equal(ToolKind.Text, w.CurrentTool);
+        w.View.SetTool(ToolKind.Pen);
+        w.View.BeginNewTextAtClick(0, new(200, 300));
+        Assert.True(w.View.IsEditingText);
+        Assert.Equal(ToolKind.Text, w.View.CurrentTool);
         w.Close();
     });
 
@@ -159,12 +159,12 @@ public sealed class ReviewFixTests
         var w = Window();
         string target = Path.Combine(Headless.TempFolder(), "note.pdf");
         w.Script.SaveDialogOverride = _ => target;
-        w.SetTool(ToolKind.Note);
+        w.View.SetTool(ToolKind.Note);
         Click(w, new(200, 200));
-        w.NoteTextBox!.Text = "저장 전 메모";
+        w.View.NoteTextBox!.Text = "저장 전 메모";
         Key(w, Avalonia.Input.Key.S, RawInputModifiers.Control); // the note box keeps the keyboard: no focus change closes it
-        Headless.Pump(() => File.Exists(target) && !w.ViewModel.IsBusy);
-        Assert.Null(w.OpenNoteAnnotation);
+        Headless.Pump(() => File.Exists(target) && !w.View.ViewModel.IsBusy);
+        Assert.Null(w.View.OpenNoteAnnotation);
         Assert.Contains(Annotations(w), a => a is StickyNote { Text: "저장 전 메모" });
         await Task.CompletedTask;
         w.Close();
@@ -176,18 +176,18 @@ public sealed class ReviewFixTests
         string pdf = Path.Combine(Headless.TempFolder(), "l.pdf");
         ProbeSamplePdf.CreateLinked(pdf, 5);
         var w = Window();
-        Assert.True(await w.OpenFileAsync(pdf));
-        w.SetOutlineVisible(true);
+        Assert.True(await w.View.OpenFileAsync(pdf));
+        w.View.SetOutlineVisible(true);
         Dispatcher.UIThread.RunJobs();
         w.UpdateLayout();
-        var header = w.OutlineView.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "2장"); // the item's title
+        var header = w.View.OutlineView.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "2장"); // the item's title
         var center = header.TranslatePoint(new Point(header.Bounds.Width / 2, header.Bounds.Height / 2), w)!.Value;
         w.MouseDown(center, MouseButton.Left);
         w.MouseUp(center, MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(3, w.DocumentCanvas.CurrentPageIndex);
-        Assert.True(w.ViewModel.Navigation.GoBack());
-        Assert.False(w.ViewModel.Navigation.CanGoBack); // one jump remembered, not two
+        Assert.Equal(3, w.View.DocumentCanvas.CurrentPageIndex);
+        Assert.True(w.View.ViewModel.Navigation.GoBack());
+        Assert.False(w.View.ViewModel.Navigation.CanGoBack); // one jump remembered, not two
         w.Close();
     });
 
@@ -195,25 +195,25 @@ public sealed class ReviewFixTests
     public void EscInABarFieldKeepsTheValueAndEnterAppliesOnce() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Drag(w, new(100, 100), new(160, 120), new(220, 140));
         var ink = Annotations(w)[0];
-        w.SetTool(ToolKind.Select);
-        w.Selection.Select(ink.Id);
+        w.View.SetTool(ToolKind.Select);
+        w.View.Selection.Select(ink.Id);
         Dispatcher.UIThread.RunJobs();
         var box = Find<TextBox>(w, "WidthBox");
         double before = ((InkStroke)Annotations(w)[0]).WidthPt;
-        int steps = w.Document!.Session.UndoCount;
+        int steps = w.View.Document!.Session.UndoCount;
         box.Focus();
         box.Text = "9";
         Key(w, Avalonia.Input.Key.Escape);
         Assert.Equal(before, ((InkStroke)Annotations(w)[0]).WidthPt, 6);
-        Assert.Equal(steps, w.Document.Session.UndoCount);
+        Assert.Equal(steps, w.View.Document.Session.UndoCount);
         box.Focus();
         box.Text = "2.25";
         Key(w, Avalonia.Input.Key.Enter);
         Assert.Equal(2.25, ((InkStroke)Annotations(w)[0]).WidthPt, 6); // not rounded by a second apply
-        Assert.Equal(steps + 1, w.Document.Session.UndoCount);
+        Assert.Equal(steps + 1, w.View.Document.Session.UndoCount);
         w.Close();
     });
 
@@ -223,8 +223,8 @@ public sealed class ReviewFixTests
         string pdf = Path.Combine(Headless.TempFolder(), "s.pdf");
         ProbeSamplePdf.Create(pdf, 4);
         var w = Window(1200, 900);
-        Assert.True(await w.OpenFileAsync(pdf));
-        var canvas = w.DocumentCanvas;
+        Assert.True(await w.View.OpenFileAsync(pdf));
+        var canvas = w.View.DocumentCanvas;
         canvas.SetMode(ViewMode.SinglePage);
         canvas.SetZoom(1.5);
         canvas.GoToPage(0);
@@ -255,7 +255,7 @@ public sealed class ReviewFixTests
     public void ScrollBarsAppearOnlyWhenThePagesDoNotFit() => Headless.Run(() =>
     {
         var w = Window();
-        var canvas = w.DocumentCanvas;
+        var canvas = w.View.DocumentCanvas;
         var bars = canvas.Children.OfType<Avalonia.Controls.Primitives.ScrollBar>().ToList();
         canvas.SetMode(ViewMode.SinglePage);
         canvas.FitPage();
@@ -287,8 +287,8 @@ public sealed class ReviewFixTests
         Assert.Equal(96, ImageFiles.Dpi(plain), 3);
         Assert.Equal(300, ImageFiles.Dpi(dense), 0);
         var w = Window();
-        Assert.True(w.InsertImage(plain));
-        Assert.True(w.InsertImage(dense));
+        Assert.True(w.View.InsertImage(plain));
+        Assert.True(w.View.InsertImage(dense));
         var images = Annotations(w).OfType<ImageAnnotation>().ToArray();
         double Width(ImageAnnotation i) => AnnotationGeometry.Bounds([i]).Width;
         Assert.Equal(Width(images[0]) * 96 / 300, Width(images[1]), 1);
@@ -302,16 +302,16 @@ public sealed class ReviewFixTests
     public void UndoWhileEditingGoesBackAWordNotTheWholeBox() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Text);
+        w.View.SetTool(ToolKind.Text);
         Click(w, new(100, 400));
         foreach (string piece in new[] { "hello", " ", "world" }) { w.KeyTextInput(piece); Dispatcher.UIThread.RunJobs(); }
-        w.Undo(); // the quick button: the editor's own step (spec 13.2), the box and the edit stay
+        w.View.Undo(); // the quick button: the editor's own step (spec 13.2), the box and the edit stay
         Dispatcher.UIThread.RunJobs();
-        Assert.True(w.IsEditingText);
+        Assert.True(w.View.IsEditingText);
         string text = ((TextBoxAnnotation)Assert.Single(Annotations(w))).Text;
         Assert.StartsWith("hello", text);
         Assert.DoesNotContain("world", text);
-        w.Redo();
+        w.View.Redo();
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("hello world", ((TextBoxAnnotation)Annotations(w)[0]).Text);
         w.Close();
@@ -321,17 +321,17 @@ public sealed class ReviewFixTests
     public void AFirstSyllableLeftForAFieldStaysInTheBoxAndTheFieldTypes() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Text);
+        w.View.SetTool(ToolKind.Text);
         Click(w, new(100, 400));
         w.KeyTextInput("가");
-        w.FinishTextEditing();
+        w.View.FinishTextEditing();
         var box = Assert.IsType<TextBoxAnnotation>(Assert.Single(Annotations(w)));
         Thread.Sleep(700);
         Click(w, new Point2(box.Transform.OffsetX + 10, box.Transform.OffsetY + 8));
-        w.DocumentCanvas.Focus();
+        w.View.DocumentCanvas.Focus();
         Dispatcher.UIThread.RunJobs();
-        w.DocumentCanvas.ProbePreedit("ㅎ");
-        Assert.True(w.IsEditingText);
+        w.View.DocumentCanvas.ProbePreedit("ㅎ");
+        Assert.True(w.View.IsEditingText);
         var size = Find<TextBox>(w, "TextSizeBox");
         size.Focus();
         Dispatcher.UIThread.RunJobs();
@@ -348,10 +348,10 @@ public sealed class ReviewFixTests
     public void LayersOverThePagesReachTheEdgeWithoutScrollBars() => Headless.Run(() =>
     {
         var w = Window();
-        w.DocumentCanvas.SetZoom(0.2); // the whole page fits: no bars
+        w.View.DocumentCanvas.SetZoom(0.2); // the whole page fits: no bars
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(new Thickness(0), Find<Avalonia.Controls.Canvas>(w, "TextLayer").Margin);
-        w.DocumentCanvas.SetZoom(3);
+        w.View.DocumentCanvas.SetZoom(3);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(12, Find<Avalonia.Controls.Canvas>(w, "NoteLayer").Margin.Right);
         w.Close();

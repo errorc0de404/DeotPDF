@@ -8,8 +8,8 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
-using PdfNotes.Desktop.Canvas;
-using PdfNotes.Desktop.Views;
+using PdfNotes.UI.Canvas;
+using PdfNotes.UI.Views;
 using PdfNotes.Editor.Platform;
 using PdfNotes.Editor.Services;
 using PdfNotes.Editor.Tools;
@@ -31,10 +31,10 @@ public sealed class FrameTests
         var window = new MainWindow(TestWindows.App(settings ?? new AppSettings(), Headless.TempFolder()), TestWindows.Dialogs) { Width = width, Height = height };
         window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No; // yes to questions, never save on close
         window.Script.MessageSink = _ => { };
-        window.EditorClipboard.InMemory = true;
+        window.View.EditorClipboard.InMemory = true;
         window.Show();
-        window.DocumentCanvas.SetZoom(1);
-        window.DocumentCanvas.GoToPage(0);
+        window.View.DocumentCanvas.SetZoom(1);
+        window.View.DocumentCanvas.GoToPage(0);
         Settle(window);
         return window;
     }
@@ -47,7 +47,7 @@ public sealed class FrameTests
     }
 
     private static T Find<T>(MainWindow w, string name) where T : Control =>
-        w.GetLogicalDescendants().OfType<T>().FirstOrDefault(c => c.Name == name) ?? w.FindControl<T>(name) ?? throw new InvalidOperationException($"{name} not found");
+        w.GetLogicalDescendants().OfType<T>().FirstOrDefault(c => c.Name == name) ?? w.View.FindControl<T>(name) ?? throw new InvalidOperationException($"{name} not found");
 
     /// <summary>The swatch buttons of a palette (an items control, R4d).</summary>
     private static List<Button> Swatches(MainWindow w, string name) =>
@@ -63,8 +63,8 @@ public sealed class FrameTests
 
     private static Point At(MainWindow w, Point2 page)
     {
-        var dip = w.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
-        return w.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
+        var dip = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
+        return w.View.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
     }
 
     private static void Drag(MainWindow w, params Point2[] points)
@@ -87,7 +87,7 @@ public sealed class FrameTests
     private static Point2[] Line(Point2 a, Point2 b, int n = 8) =>
         [.. Enumerable.Range(0, n).Select(i => new Point2(a.X + (b.X - a.X) * i / (n - 1), a.Y + (b.Y - a.Y) * i / (n - 1)))];
 
-    private static IReadOnlyList<Annotation> Annotations(MainWindow w, int page = 0) => w.Document!.Session.Current.Pages[page].Annotations;
+    private static IReadOnlyList<Annotation> Annotations(MainWindow w, int page = 0) => w.View.Document!.Session.Current.Pages[page].Annotations;
 
     // ----- layout (D13b–D13e) -----
 
@@ -111,12 +111,12 @@ public sealed class FrameTests
     {
         switch (bar)
         {
-            case "Pen": w.SetTool(ToolKind.Pen); break;
-            case "Highlighter": w.SetTool(ToolKind.FreeHighlight); break;
-            case "Line": w.SetTool(ToolKind.Curve); break;
-            case "Shape": w.SetTool(ToolKind.Shape); break;
-            case "Eraser": w.SetTool(ToolKind.AreaEraser); break;
-            case "Text": w.SetTool(ToolKind.Text); break;
+            case "Pen": w.View.SetTool(ToolKind.Pen); break;
+            case "Highlighter": w.View.SetTool(ToolKind.FreeHighlight); break;
+            case "Line": w.View.SetTool(ToolKind.Curve); break;
+            case "Shape": w.View.SetTool(ToolKind.Shape); break;
+            case "Eraser": w.View.SetTool(ToolKind.AreaEraser); break;
+            case "Text": w.View.SetTool(ToolKind.Text); break;
         }
         Settle(w);
     }
@@ -129,7 +129,7 @@ public sealed class FrameTests
             var w = Window(width, 800);
             foreach (var tab in Enum.GetValues<RibbonTab>())
             {
-                w.ShowRibbonTab(tab);
+                w.View.ShowRibbonTab(tab);
                 Settle(w);
                 var panel = Find<WrapPanel>(w, tab + "Tab");
                 var (rows, clipped) = Rows(panel);
@@ -162,7 +162,7 @@ public sealed class FrameTests
         foreach (var bar in new[] { "Pen", "Highlighter", "Line", "Shape", "Eraser", "Text" })
         {
             ShowBar(w, bar);
-            double y = w.DocumentCanvas.TranslatePoint(new Point(0, 0), w)!.Value.Y;
+            double y = w.View.DocumentCanvas.TranslatePoint(new Point(0, 0), w)!.Value.Y;
             top ??= y;
             Assert.Equal(top.Value, y, 3);
         }
@@ -175,41 +175,41 @@ public sealed class FrameTests
     public void TabsToolButtonsAndTheAutomaticTabFollowTheViewModel() => Headless.Run(() =>
     {
         var w = Window();
-        Assert.Equal(RibbonTab.Home, w.CurrentRibbonTab);
+        Assert.Equal(RibbonTab.Home, w.View.CurrentRibbonTab);
         Press(Find<RadioButton>(w, "PageTabButton"));
-        Assert.Equal(RibbonTab.Page, w.CurrentRibbonTab);
+        Assert.Equal(RibbonTab.Page, w.View.CurrentRibbonTab);
         Assert.True(Find<WrapPanel>(w, "PageTab").IsVisible);
         Assert.False(Find<WrapPanel>(w, "HomeTab").IsVisible);
-        w.SetTool(ToolKind.Pen); // a tool change shows 필기 (spec 3.2)
-        Assert.Equal(RibbonTab.Home, w.CurrentRibbonTab);
+        w.View.SetTool(ToolKind.Pen); // a tool change shows 필기 (spec 3.2)
+        Assert.Equal(RibbonTab.Home, w.View.CurrentRibbonTab);
 
         Press(Find<RadioButton>(w, "LassoToolButton"));
-        Assert.Equal(ToolKind.Lasso, w.CurrentTool);
+        Assert.Equal(ToolKind.Lasso, w.View.CurrentTool);
         Assert.True(Find<RadioButton>(w, "LassoToolButton").IsChecked);
         Assert.False(Find<RadioButton>(w, "PenToolButton").IsChecked);
         // The eraser button takes the eraser used last; the eraser bar picks one.
         Press(Find<RadioButton>(w, "EraserToolButton"));
-        Assert.True(w.CurrentTool is ToolKind.StrokeEraser or ToolKind.AreaEraser);
+        Assert.True(w.View.CurrentTool is ToolKind.StrokeEraser or ToolKind.AreaEraser);
         Press(Find<RadioButton>(w, "StrokeEraserButton"));
-        Assert.Equal(ToolKind.StrokeEraser, w.CurrentTool);
+        Assert.Equal(ToolKind.StrokeEraser, w.View.CurrentTool);
         Assert.True(Find<Border>(w, "EraserBorder").IsVisible);
         Assert.False(Find<Border>(w, "StyleBar").IsVisible);
         // The shape menu chooses the shape and the tool.
-        var menu = w.OpenShapeMenu();
+        var menu = w.View.OpenShapeMenu();
         var ellipse = menu.Items.OfType<MenuItem>().Single(i => (string)i.Header! == PdfNotes.Editor.Localization.Strings.Get("shape.ellipse"));
         ellipse.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
         menu.Close();
-        Assert.Equal(ToolKind.Shape, w.CurrentTool);
-        Assert.Equal(ShapeKind.Ellipse, w.ViewModel.Settings.ShapeKind);
+        Assert.Equal(ToolKind.Shape, w.View.CurrentTool);
+        Assert.Equal(ShapeKind.Ellipse, w.View.ViewModel.Settings.ShapeKind);
         Assert.True(Find<RadioButton>(w, "ShapeToolButton").IsChecked);
 
         // A lasso result goes to the selection tool and marks the lasso button to come back to (spec 5.4).
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Drag(w, Line(new(100, 100), new(200, 120)));
-        w.SetTool(ToolKind.Lasso);
+        w.View.SetTool(ToolKind.Lasso);
         Drag(w, new(60, 60), new(260, 60), new(260, 200), new(60, 200), new(60, 60));
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(ToolKind.Select, w.CurrentTool);
+        Assert.Equal(ToolKind.Select, w.View.CurrentTool);
         Assert.Contains("return", Find<RadioButton>(w, "LassoToolButton").Classes);
         w.Close();
     });
@@ -218,12 +218,12 @@ public sealed class FrameTests
     public void TheStyleBarSetsColorWidthAndTransparencyAndKeepsUserColors() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Settle(w);
         // A basic swatch sets the pen color; the current one has the ring.
         var red = Swatches(w, "PalettePanel").Single(b => (RgbColor)b.Tag! == ColorPalette.Basic[2]);
         Press(red);
-        Assert.Equal(ColorPalette.Basic[2], w.ViewModel.ToolStyles.Pen.Color);
+        Assert.Equal(ColorPalette.Basic[2], w.View.ViewModel.ToolStyles.Pen.Color);
         Assert.Contains("current", red.Classes);
         // The width field applies on Enter.
         var width = Find<TextBox>(w, "WidthBox");
@@ -231,37 +231,37 @@ public sealed class FrameTests
         width.Text = "3.5";
         w.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(3.5, w.ViewModel.ToolStyles.Pen.WidthPt, 3);
+        Assert.Equal(3.5, w.View.ViewModel.ToolStyles.Pen.WidthPt, 3);
         var transparency = Find<TextBox>(w, "TransparencyBox");
         transparency.Focus();
         transparency.Text = "40";
         w.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(40, w.ViewModel.ToolStyles.Pen.TransparencyPercent, 3);
+        Assert.Equal(40, w.View.ViewModel.ToolStyles.Pen.TransparencyPercent, 3);
         // The + window adds a user color to every palette.
-        var picker = w.CustomColorPickers["CustomColor"];
+        var picker = w.View.CustomColorPickers["CustomColor"];
         picker.Code.Text = "#12AB34";
         Dispatcher.UIThread.RunJobs();
         var chosen = picker.SelectedColor; // the code through the color plane (HSV) may round by one
         Assert.True(Math.Abs(chosen.R - 0x12) <= 1 && Math.Abs(chosen.G - 0xAB) <= 1 && Math.Abs(chosen.B - 0x34) <= 1);
         Press(picker.Add);
         Settle(w);
-        Assert.Equal(chosen, w.ViewModel.ToolStyles.Pen.Color);
-        Assert.Contains(chosen, w.ViewModel.ToolStyles.UserColors);
+        Assert.Equal(chosen, w.View.ViewModel.ToolStyles.Pen.Color);
+        Assert.Contains(chosen, w.View.ViewModel.ToolStyles.UserColors);
         Assert.Single(Swatches(w, "RecentPanel"));
 
         // A drawn stroke has those values; selecting it lets the bar edit it in one Undo step.
         Drag(w, Line(new(100, 100), new(300, 160)));
         var ink = Assert.IsType<InkStroke>(Assert.Single(Annotations(w)));
         Assert.Equal(3.5, ink.WidthPt, 3);
-        w.SetTool(ToolKind.Select);
-        w.Selection.Select(ink.Id);
+        w.View.SetTool(ToolKind.Select);
+        w.View.Selection.Select(ink.Id);
         Settle(w);
         Assert.True(Find<Border>(w, "StyleBar").IsEnabled);
-        int steps = w.Document!.Session.UndoCount;
+        int steps = w.View.Document!.Session.UndoCount;
         Press(Swatches(w, "PalettePanel").Single(b => (RgbColor)b.Tag! == ColorPalette.Basic[6]));
         Assert.Equal(ColorPalette.Basic[6], ((InkStroke)Annotations(w)[0]).Color);
-        Assert.Equal(steps + 1, w.Document.Session.UndoCount);
+        Assert.Equal(steps + 1, w.View.Document.Session.UndoCount);
         w.Close();
     });
 
@@ -269,21 +269,21 @@ public sealed class FrameTests
     public void LineAndShapeOptionsAndTheHighlighterKindsAreOnTheBar() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Line);
+        w.View.SetTool(ToolKind.Line);
         Settle(w);
         Assert.True(Find<StackPanel>(w, "LineOptionsPanel").IsVisible);
         Find<ComboBox>(w, "DashBox").SelectedIndex = 2;
-        Assert.Equal(DashStyle.Dot, w.ViewModel.ToolStyles.LineOptions.Dash);
-        w.SetTool(ToolKind.Shape);
+        Assert.Equal(DashStyle.Dot, w.View.ViewModel.ToolStyles.LineOptions.Dash);
+        w.View.SetTool(ToolKind.Shape);
         Settle(w);
         Assert.True(Find<StackPanel>(w, "ShapeOptionsPanel").IsVisible);
         Find<ComboBox>(w, "ShapeBorderBox").SelectedIndex = 2; // dashed border
-        Assert.True(w.ViewModel.ToolStyles.Shape.BorderEnabled);
-        w.SetTool(ToolKind.FreeHighlight);
+        Assert.True(w.View.ViewModel.ToolStyles.Shape.BorderEnabled);
+        w.View.SetTool(ToolKind.FreeHighlight);
         Settle(w);
         Assert.True(Find<StackPanel>(w, "MarkKindPanel").IsVisible);
         Press(Find<RadioButton>(w, "MarkUnderlineButton"));
-        Assert.Equal(TextMarkupKind.Underline, w.ViewModel.ToolStyles.MarkKind);
+        Assert.Equal(TextMarkupKind.Underline, w.View.ViewModel.ToolStyles.MarkKind);
         Assert.True(Find<ToggleButton>(w, "HighlighterSnapButton").IsVisible);
         w.Close();
     });
@@ -292,23 +292,23 @@ public sealed class FrameTests
     public void TheTextBarFormatsTheEditedBoxAndSelectedBoxes() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Text);
+        w.View.SetTool(ToolKind.Text);
         Settle(w);
         Assert.True(Find<Border>(w, "TextStyleBorder").IsVisible);
         Click(w, new(100, 400));
-        Assert.True(w.IsEditingText);
+        Assert.True(w.View.IsEditingText);
         w.KeyTextInput("abc");
         Dispatcher.UIThread.RunJobs();
-        w.ActiveTextEditor!.Model!.SelectAll();
+        w.View.ActiveTextEditor!.Model!.SelectAll();
         var bold = Find<ToggleButton>(w, "TextBButton");
         bold.IsChecked = true; // what the click toggles first
         Press(bold);
-        w.FinishTextEditing();
+        w.View.FinishTextEditing();
         var box = Assert.IsType<TextBoxAnnotation>(Assert.Single(Annotations(w)));
         Assert.All(box.Runs, r => Assert.True(r.Bold));
         // With the box selected (not edited) the bar edits the whole box: the fill target and a color.
-        w.SetTool(ToolKind.Select);
-        w.Selection.Select(box.Id);
+        w.View.SetTool(ToolKind.Select);
+        w.View.Selection.Select(box.Id);
         Settle(w);
         Press(Find<RadioButton>(w, "TextTargetFill"));
         var swatches = Find<WrapPanel>(w, "TextStylePanel").GetVisualDescendants().OfType<Button>().Where(b => b.Tag is RgbColor).ToList();
@@ -323,18 +323,18 @@ public sealed class FrameTests
     public void FavoritesStoreAndApplyThePen() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Pen);
-        w.ViewModel.ToolStyles.SetColor(ColorPalette.Basic[5]);
-        w.ViewModel.ToolStyles.SetWidth(4);
-        w.StoreFavorite(0); // 즐겨찾기 교체 (an empty slot stores it on a click too)
-        Assert.NotNull(w.Favorites[0]);
-        w.ViewModel.ToolStyles.SetColor(ColorPalette.Basic[0]);
-        w.SetTool(ToolKind.Select);
+        w.View.SetTool(ToolKind.Pen);
+        w.View.ViewModel.ToolStyles.SetColor(ColorPalette.Basic[5]);
+        w.View.ViewModel.ToolStyles.SetWidth(4);
+        w.View.StoreFavorite(0); // 즐겨찾기 교체 (an empty slot stores it on a click too)
+        Assert.NotNull(w.View.Favorites[0]);
+        w.View.ViewModel.ToolStyles.SetColor(ColorPalette.Basic[0]);
+        w.View.SetTool(ToolKind.Select);
         w.KeyPress(Key.D1, RawInputModifiers.Control, PhysicalKey.Digit1, "1"); // Ctrl+1 (spec 24.7)
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(ToolKind.Pen, w.CurrentTool);
-        Assert.Equal(ColorPalette.Basic[5], w.ViewModel.ToolStyles.Pen.Color);
-        Assert.Equal(4, w.ViewModel.ToolStyles.Pen.WidthPt, 3);
+        Assert.Equal(ToolKind.Pen, w.View.CurrentTool);
+        Assert.Equal(ColorPalette.Basic[5], w.View.ViewModel.ToolStyles.Pen.Color);
+        Assert.Equal(4, w.View.ViewModel.ToolStyles.Pen.WidthPt, 3);
         w.Close();
     });
 
@@ -347,46 +347,46 @@ public sealed class FrameTests
         ProbeSamplePdf.Create(pdf, 3);
         var w = Window();
         w.Script.WindowOverride = window => true; // OK on every app window
-        Assert.True(await w.OpenFileAsync(pdf));
+        Assert.True(await w.View.OpenFileAsync(pdf));
         Settle(w);
-        Assert.Equal(3, w.PageThumbnails.Count);
-        await w.ViewModel.Pages.RenderThumbnailsAsync();
-        Assert.All(w.PageThumbnails, t => Assert.IsAssignableFrom<Avalonia.Media.IImage>(t.Image));
-        Assert.Equal(PagesViewModel.ThumbnailWidth, w.PageThumbnails[0].ImageWidth, 3);
+        Assert.Equal(3, w.View.PageThumbnails.Count);
+        await w.View.ViewModel.Pages.RenderThumbnailsAsync();
+        Assert.All(w.View.PageThumbnails, t => Assert.IsAssignableFrom<Avalonia.Media.IImage>(t.Image));
+        Assert.Equal(PagesViewModel.ThumbnailWidth, w.View.PageThumbnails[0].ImageWidth, 3);
         // A click on the second row goes to that page.
-        w.PageListBox.SelectedIndex = 1;
+        w.View.PageListBox.SelectedIndex = 1;
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(1, w.ActivePageIndex);
-        Assert.Equal(1, w.DocumentCanvas.CurrentPageIndex);
+        Assert.Equal(1, w.View.ActivePageIndex);
+        Assert.Equal(1, w.View.DocumentCanvas.CurrentPageIndex);
         // 삽입: the blank page dialog (OK with the active page's size) puts a page after it.
         Press(Find<Button>(w, "InsertPageButton"));
-        Assert.Equal(4, w.Document!.Session.Current.Pages.Count);
-        Assert.Equal(PageSourceKind.Generated, w.Document.Session.Current.Pages[2].Setup.Source.Kind);
+        Assert.Equal(4, w.View.Document!.Session.Current.Pages.Count);
+        Assert.Equal(PageSourceKind.Generated, w.View.Document.Session.Current.Pages[2].Setup.Source.Kind);
         // Rotate, copy and paste, move, delete (one Undo step each).
-        var ids = w.Document.Session.Current.Pages.Select(p => p.Id).ToArray();
+        var ids = w.View.Document.Session.Current.Pages.Select(p => p.Id).ToArray();
         Press(Find<Button>(w, "RotateRightButton"));
-        Assert.Equal(90, w.Document.Session.Current.Pages[2].Setup.Rotation);
-        Assert.True(w.MovePagesTo([ids[0]], 4));
-        Assert.Equal(ids[0], w.Document.Session.Current.Pages[^1].Id);
-        w.ViewModel.Pages.SelectPages([ids[1]]);
+        Assert.Equal(90, w.View.Document.Session.Current.Pages[2].Setup.Rotation);
+        Assert.True(w.View.MovePagesTo([ids[0]], 4));
+        Assert.Equal(ids[0], w.View.Document.Session.Current.Pages[^1].Id);
+        w.View.ViewModel.Pages.SelectPages([ids[1]]);
         Press(Find<Button>(w, "CopyPageButton"));
         Assert.True(Find<Button>(w, "PastePageButton").IsEnabled);
         Press(Find<Button>(w, "PastePageButton"));
-        Assert.Equal(5, w.Document.Session.Current.Pages.Count);
-        w.ViewModel.Pages.SelectPages([ids[1]]);
+        Assert.Equal(5, w.View.Document.Session.Current.Pages.Count);
+        w.View.ViewModel.Pages.SelectPages([ids[1]]);
         Press(Find<Button>(w, "DeletePageButton")); // asks first (PromptOverride says yes)
-        Assert.Equal(4, w.Document.Session.Current.Pages.Count);
-        Assert.DoesNotContain(w.Document.Session.Current.Pages, p => p.Id == ids[1]);
+        Assert.Equal(4, w.View.Document.Session.Current.Pages.Count);
+        Assert.DoesNotContain(w.View.Document.Session.Current.Pages, p => p.Id == ids[1]);
         // The context menu has the page commands.
-        var menu = w.OpenPageMenu();
+        var menu = w.View.OpenPageMenu();
         Assert.Contains(menu.Items.OfType<MenuItem>(), i => (string)i.Header! == PdfNotes.Editor.Localization.Strings.Get("page.rotateRight"));
         menu.Close();
         // The handle hides and shows the list.
         Press(Find<Button>(w, "PagePanelHandle"));
-        Assert.False(w.PagePanelVisible);
+        Assert.False(w.View.PagePanelVisible);
         Assert.Contains("closed", Find<Button>(w, "PagePanelHandle").Classes);
         Press(Find<Button>(w, "PagePanelHandle"));
-        Assert.True(w.PagePanelVisible);
+        Assert.True(w.View.PagePanelVisible);
         w.Close();
     });
 
@@ -396,27 +396,27 @@ public sealed class FrameTests
         string pdf = Path.Combine(Headless.TempFolder(), "pages.pdf");
         ProbeSamplePdf.Create(pdf, 2);
         var w = Window();
-        Assert.True(await w.OpenFileAsync(pdf));
+        Assert.True(await w.View.OpenFileAsync(pdf));
         Settle(w);
         // 내용 축소 at 50 %.
         w.Script.WindowOverride = window => { if (window is PageTransformDialog d) d.PercentBox.Text = "50"; return true; };
-        Assert.True(w.ShowPageTransform(resize: false));
-        Assert.NotNull(w.Document!.Session.Current.Pages[0].Setup.Content);
+        Assert.True(w.View.ShowPageTransform(resize: false));
+        Assert.NotNull(w.View.Document!.Session.Current.Pages[0].Setup.Content);
         // 페이지 크기 to A5.
         w.Script.WindowOverride = window => { if (window is PageTransformDialog d) { d.WidthBox.Text = "148"; d.HeightBox.Text = "210"; } return true; };
-        Assert.True(w.ShowPageTransform(resize: true));
-        Assert.Equal(Units.MillimetersToPoints(148), w.Document.Session.Current.Pages[0].Setup.Frame.DisplayWidthPt, 1);
+        Assert.True(w.View.ShowPageTransform(resize: true));
+        Assert.Equal(Units.MillimetersToPoints(148), w.View.Document.Session.Current.Pages[0].Setup.Frame.DisplayWidthPt, 1);
         // 이 페이지의 필기 삭제 removes the notes (after the question).
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Drag(w, Line(new(50, 50), new(120, 90)));
         Assert.NotEmpty(Annotations(w));
-        Assert.True(w.ClearSelectedPageNotes());
+        Assert.True(w.View.ClearSelectedPageNotes());
         Assert.Empty(Annotations(w));
         // 내보내기: the range window, then the file name.
         string target = Path.Combine(Headless.TempFolder(), "out.pdf");
         w.Script.SaveDialogOverride = _ => target;
         w.Script.WindowOverride = window => { if (window is PageExportDialog d) d.RangeBox.Text = "1-2"; return true; };
-        Assert.Equal(1, await w.ExportPagesAsync(allPages: true));
+        Assert.Equal(1, await w.View.ExportPagesAsync(allPages: true));
         Assert.True(File.Exists(target));
         w.Close();
     });
@@ -430,9 +430,9 @@ public sealed class FrameTests
         var w = Window();
         w.Script.OpenDialogOverride = () => [other];
         w.Script.WindowOverride = window => { if (window is PdfImportDialog d) d.RangeBox.Text = "2-3"; return true; };
-        int before = w.Document!.Session.Current.Pages.Count;
-        Assert.True(await w.ImportPdfPagesAsync());
-        Assert.Equal(before + 2, w.Document.Session.Current.Pages.Count);
+        int before = w.View.Document!.Session.Current.Pages.Count;
+        Assert.True(await w.View.ImportPdfPagesAsync());
+        Assert.Equal(before + 2, w.View.Document.Session.Current.Pages.Count);
         w.Close();
     });
 
@@ -444,37 +444,37 @@ public sealed class FrameTests
         string pdf = Path.Combine(Headless.TempFolder(), "linked.pdf");
         ProbeSamplePdf.CreateLinked(pdf, 5);
         var w = Window();
-        Assert.True(await w.OpenFileAsync(pdf));
+        Assert.True(await w.View.OpenFileAsync(pdf));
         Settle(w);
         // Ctrl+F opens the bar; the query searches after the delay.
         w.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
         Dispatcher.UIThread.RunJobs();
-        Assert.True(w.IsSearchOpen);
+        Assert.True(w.View.IsSearchOpen);
         Assert.True(Find<Border>(w, "SearchBar").IsVisible);
-        w.SearchField.Text = "Target line";
-        Headless.Pump(() => !w.ViewModel.Search.IsSearching && w.ViewModel.Search.Hits.Count > 0);
-        await w.ViewModel.Search.Running;
-        Assert.Equal(5, w.ViewModel.Search.Hits.Count);
+        w.View.SearchField.Text = "Target line";
+        Headless.Pump(() => !w.View.ViewModel.Search.IsSearching && w.View.ViewModel.Search.Hits.Count > 0);
+        await w.View.ViewModel.Search.Running;
+        Assert.Equal(5, w.View.ViewModel.Search.Hits.Count);
         Assert.Equal("1/5", Find<TextBlock>(w, "SearchCount").Text);
         Press(Find<Button>(w, "SearchNextButton"));
-        Assert.Equal(1, w.ViewModel.Search.Index);
+        Assert.Equal(1, w.View.ViewModel.Search.Index);
         Press(Find<Button>(w, "SearchCloseButton"));
-        Assert.False(w.IsSearchOpen);
+        Assert.False(w.View.IsSearchOpen);
         // The outline: toggle on, a tree of the bookmarks; following one jumps there.
         Assert.True(Find<ToggleButton>(w, "OutlineButton").IsEnabled);
-        w.SetOutlineVisible(true);
+        w.View.SetOutlineVisible(true);
         Settle(w);
-        Assert.True(w.OutlineShown);
-        var second = OutlineViewModel.All(w.Outline).First(i => i.Title == "2장");
-        int beforeJump = w.DocumentCanvas.CurrentPageIndex;
-        w.FollowOutline(second);
-        Assert.Equal(3, w.DocumentCanvas.CurrentPageIndex);
-        Assert.True(w.ViewModel.Navigation.CanGoBack);
+        Assert.True(w.View.OutlineShown);
+        var second = OutlineViewModel.All(w.View.Outline).First(i => i.Title == "2장");
+        int beforeJump = w.View.DocumentCanvas.CurrentPageIndex;
+        w.View.FollowOutline(second);
+        Assert.Equal(3, w.View.DocumentCanvas.CurrentPageIndex);
+        Assert.True(w.View.ViewModel.Navigation.CanGoBack);
         w.KeyPress(Key.Left, RawInputModifiers.Alt, PhysicalKey.ArrowLeft, null); // back (spec 24.3)
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(beforeJump, w.DocumentCanvas.CurrentPageIndex);
+        Assert.Equal(beforeJump, w.View.DocumentCanvas.CurrentPageIndex);
         // Links of the first page are found under the pointer.
-        Assert.NotEmpty(w.PageLinks(0));
+        Assert.NotEmpty(w.View.PageLinks(0));
         w.Close();
     });
 
@@ -484,17 +484,17 @@ public sealed class FrameTests
     public void AStickyNoteCardIsTypedAndBecomesOneNote() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Note);
+        w.View.SetTool(ToolKind.Note);
         Click(w, new(200, 200));
-        Assert.NotNull(w.OpenNoteAnnotation);
-        Assert.NotNull(w.NoteTextBox);
+        Assert.NotNull(w.View.OpenNoteAnnotation);
+        Assert.NotNull(w.View.NoteTextBox);
         Assert.Empty(Annotations(w)); // not in the document while it is open and empty
-        w.NoteTextBox!.Text = "메모 내용";
-        int steps = w.Document!.Session.UndoCount;
-        w.CloseNote();
+        w.View.NoteTextBox!.Text = "메모 내용";
+        int steps = w.View.Document!.Session.UndoCount;
+        w.View.CloseNote();
         var note = Assert.IsType<StickyNote>(Assert.Single(Annotations(w)));
         Assert.Equal("메모 내용", note.Text);
-        Assert.Equal(steps + 1, w.Document.Session.UndoCount);
+        Assert.Equal(steps + 1, w.View.Document.Session.UndoCount);
         w.Close();
     });
 
@@ -502,23 +502,23 @@ public sealed class FrameTests
     public void HidingNotesAndInsertingAnImage() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Drag(w, Line(new(100, 100), new(200, 150)));
         Press(Find<RadioButton>(w, "ViewTabButton"));
         var hide = Find<ToggleButton>(w, "HideNotesButton");
         hide.IsChecked = true;
         Press(hide);
-        Assert.True(w.NotesHidden);
+        Assert.True(w.View.NotesHidden);
         Assert.True(Find<TextBlock>(w, "NotesHiddenText").IsVisible);
-        Assert.Equal(ToolKind.Select, w.CurrentTool);
+        Assert.Equal(ToolKind.Select, w.View.CurrentTool);
         // Inserting shows the notes again (spec 24.10) and selects the new image.
         using var bitmap = new SkiaSharp.SKBitmap(40, 20);
         bitmap.Erase(SkiaSharp.SKColors.OrangeRed);
         using var png = SkiaSharp.SKImage.FromBitmap(bitmap).Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
-        Assert.True(w.InsertImage(png.ToArray()));
-        Assert.False(w.NotesHidden);
+        Assert.True(w.View.InsertImage(png.ToArray()));
+        Assert.False(w.View.NotesHidden);
         var image = Assert.IsType<ImageAnnotation>(Annotations(w).Last());
-        Assert.Equal([image.Id], w.Selection.SelectedIds);
+        Assert.Equal([image.Id], w.View.Selection.SelectedIds);
         w.Close();
     });
 
@@ -526,39 +526,39 @@ public sealed class FrameTests
     public void TheCanvasMenuAndTheClipboard() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Drag(w, Line(new(100, 100), new(300, 160)));
         var ink = Annotations(w)[0];
         // On an empty place: a new text box, the quick tools and paste.
-        var empty = w.DocumentCanvas.PageTransform(0).PageToDip.Transform(new Point2(400, 600));
-        var menu = w.OpenAnnotationMenu(empty)!;
+        var empty = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(new Point2(400, 600));
+        var menu = w.View.OpenAnnotationMenu(empty)!;
         Assert.Contains(menu.Items.OfType<MenuItem>(), i => (string)i.Header! == PdfNotes.Editor.Localization.Strings.Get("menu.addTextBox"));
         menu.Close();
         // On the stroke: it is selected; copy, then paste puts a second one (system clipboard of the window).
-        var on = w.DocumentCanvas.PageTransform(0).PageToDip.Transform(new Point2(200, 130));
-        menu = w.OpenAnnotationMenu(on)!;
-        Assert.Equal([ink.Id], w.Selection.SelectedIds);
+        var on = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(new Point2(200, 130));
+        menu = w.View.OpenAnnotationMenu(on)!;
+        Assert.Equal([ink.Id], w.View.Selection.SelectedIds);
         var copy = menu.Items.OfType<MenuItem>().First(i => (string)i.Header! == PdfNotes.Editor.Localization.Strings.Get("command.copy"));
         copy.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
         menu.Close();
-        Assert.True(w.PasteSelection());
+        Assert.True(w.View.PasteSelection());
         Assert.Equal(2, Annotations(w).Count);
         // Plain text pastes as a text box.
-        w.EditorClipboard.SetText("붙여 넣은 글");
-        Assert.True(w.PasteSelection(new Point2(200, 400)));
-        w.FinishTextEditing();
+        w.View.EditorClipboard.SetText("붙여 넣은 글");
+        Assert.True(w.View.PasteSelection(new Point2(200, 400)));
+        w.View.FinishTextEditing();
         Assert.Contains(Annotations(w), a => a is TextBoxAnnotation { Text: "붙여 넣은 글" });
         // Arrows move the selection (spec 5.3).
-        w.SetTool(ToolKind.Select);
-        w.Selection.Select(ink.Id);
-        w.DocumentCanvas.Focus();
-        var before = w.Document!.Session.Current.FindAnnotation(ink.Id)!.Annotation;
-        int steps = w.Document.Session.UndoCount;
+        w.View.SetTool(ToolKind.Select);
+        w.View.Selection.Select(ink.Id);
+        w.View.DocumentCanvas.Focus();
+        var before = w.View.Document!.Session.Current.FindAnnotation(ink.Id)!.Annotation;
+        int steps = w.View.Document.Session.UndoCount;
         w.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
         w.KeyRelease(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(steps + 1, w.Document.Session.UndoCount);
-        var bounds = (Before: AnnotationGeometry.Bounds([before]), After: AnnotationGeometry.Bounds([w.Document.Session.Current.FindAnnotation(ink.Id)!.Annotation]));
+        Assert.Equal(steps + 1, w.View.Document.Session.UndoCount);
+        var bounds = (Before: AnnotationGeometry.Bounds([before]), After: AnnotationGeometry.Bounds([w.View.Document.Session.Current.FindAnnotation(ink.Id)!.Annotation]));
         Assert.True(bounds.After.X > bounds.Before.X, $"{bounds}");
         w.Close();
     });
@@ -567,33 +567,33 @@ public sealed class FrameTests
     public void TheFirstKeyOnASelectedBoxComposesThroughTheCanvas() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Text);
+        w.View.SetTool(ToolKind.Text);
         Click(w, new(100, 400));
         w.KeyTextInput("가");
-        w.FinishTextEditing();
+        w.View.FinishTextEditing();
         var box = Assert.IsType<TextBoxAnnotation>(Assert.Single(Annotations(w)));
         // The text tool selects the box (a visit of the selection tool that returns to the text tool, spec 5.4).
         Thread.Sleep(700);
         Click(w, new Point2(box.Transform.OffsetX + 10, box.Transform.OffsetY + 8));
-        Assert.Equal(ToolKind.Select, w.CurrentTool);
-        Assert.Equal([box.Id], w.Selection.SelectedIds);
-        w.DocumentCanvas.Focus();
+        Assert.Equal(ToolKind.Select, w.View.CurrentTool);
+        Assert.Equal([box.Id], w.View.Selection.SelectedIds);
+        w.View.DocumentCanvas.Focus();
         Dispatcher.UIThread.RunJobs();
         // The IME composes the first syllable on the canvas: the box opens with it, the document does not have it yet.
-        w.DocumentCanvas.ProbePreedit("ㅎ");
-        Assert.True(w.IsEditingText);
-        Assert.Equal("ㅎ", w.ActiveTextEditor!.Model!.Composition);
-        w.DocumentCanvas.ProbePreedit("하");
+        w.View.DocumentCanvas.ProbePreedit("ㅎ");
+        Assert.True(w.View.IsEditingText);
+        Assert.Equal("ㅎ", w.View.ActiveTextEditor!.Model!.Composition);
+        w.View.DocumentCanvas.ProbePreedit("하");
         Assert.Equal("가", ((TextBoxAnnotation)Annotations(w)[0]).Text);
-        Assert.True(w.DocumentCanvas.IsFocused);
+        Assert.True(w.View.DocumentCanvas.IsFocused);
         // The commit goes into the box and the editor takes the keyboard for the rest.
         w.KeyTextInput("하");
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("가하", ((TextBoxAnnotation)Annotations(w)[0]).Text);
-        Assert.True(w.ActiveTextEditor!.IsFocused);
+        Assert.True(w.View.ActiveTextEditor!.IsFocused);
         w.KeyTextInput("다");
         Dispatcher.UIThread.RunJobs();
-        w.FinishTextEditing();
+        w.View.FinishTextEditing();
         Assert.Equal("가하다", ((TextBoxAnnotation)Annotations(w)[0]).Text);
         w.Close();
     });
@@ -605,10 +605,10 @@ public sealed class FrameTests
         string pdf = Path.Combine(Headless.TempFolder(), "look.pdf");
         ProbeSamplePdf.CreateLinked(pdf, 4);
         var w = Window(1200, 800);
-        Assert.True(await w.OpenFileAsync(pdf));
-        await w.ViewModel.Pages.RenderThumbnailsAsync();
-        w.DocumentCanvas.PlanRendersNow();
-        Headless.Pump(() => w.DocumentCanvas.Queue is { IsIdle: true });
+        Assert.True(await w.View.OpenFileAsync(pdf));
+        await w.View.ViewModel.Pages.RenderThumbnailsAsync();
+        w.View.DocumentCanvas.PlanRendersNow();
+        Headless.Pump(() => w.View.DocumentCanvas.Queue is { IsIdle: true });
         string? folder = Environment.GetEnvironmentVariable("PDFNOTES_SNAPSHOT");
         void Shot(string name)
         {
@@ -619,13 +619,13 @@ public sealed class FrameTests
         }
         foreach (var (tab, tool) in new[] { (RibbonTab.Home, ToolKind.Pen), (RibbonTab.File, ToolKind.FreeHighlight), (RibbonTab.Page, ToolKind.Shape), (RibbonTab.View, ToolKind.Text) })
         {
-            w.SetTool(tool);
-            w.ShowRibbonTab(tab);
+            w.View.SetTool(tool);
+            w.View.ShowRibbonTab(tab);
             Shot($"{tab}-{tool}");
         }
-        w.OpenSearch();
-        w.SetOutlineVisible(true);
-        w.SetTool(ToolKind.AreaEraser);
+        w.View.OpenSearch();
+        w.View.SetOutlineVisible(true);
+        w.View.SetTool(ToolKind.AreaEraser);
         Shot("search-outline-eraser");
         w.Close();
     });
@@ -640,8 +640,8 @@ public sealed class FrameTests
         string pdf = Path.Combine(Headless.TempFolder(), "t.pdf");
         ProbeSamplePdf.CreateLinked(pdf, 1);
         var w = Window();
-        Assert.True(await w.OpenFileAsync(pdf));
-        var doc = w.Document!;
+        Assert.True(await w.View.OpenFileAsync(pdf));
+        var doc = w.View.Document!;
         var page = doc.Session.Current.Pages[0];
         double zoom = 132 / (page.Setup.Frame.DisplayWidthPt * Units.DipsPerPoint);
         using var bitmap = await PageSnapshots.RenderAsync(doc, doc.Session.Current, page, zoom, 1.5, false, false, CancellationToken.None);
@@ -654,11 +654,11 @@ public sealed class FrameTests
     public void TheEditedBoxHasItsFrameAndTheAlignmentListHasNoSharedControls() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Text);
+        w.View.SetTool(ToolKind.Text);
         Click(w, new(100, 400));
         w.KeyTextInput("frame");
         Dispatcher.UIThread.RunJobs();
-        var box = w.EditingText!;
+        var box = w.View.EditingText!;
         // The frame's top edge just left of the box's top-right corner: the 0.5 DIP accent line over a white halo.
         var corner = At(w, new Point2(box.Transform.OffsetX + box.WidthPt - 4, box.Transform.OffsetY));
         using var frame = w.CaptureRenderedFrame()!;
@@ -695,10 +695,10 @@ public sealed class FrameTests
         var settings = new AppSettings();
         var w = Window(settings: settings);
         w.Script.WindowOverride = window => { ((SettingsDialog)window).Categories.SelectedIndex = 0; window.GetLogicalDescendants().OfType<CheckBox>().First(c => c.Name == "PageDragBox").IsChecked = true; return true; };
-        Assert.True(w.ShowSettings());
+        Assert.True(w.View.ShowSettings());
         Assert.True(settings.PageDrag);
         w.Script.WindowOverride = window => { window.GetLogicalDescendants().OfType<CheckBox>().First(c => c.Name == "PageDragBox").IsChecked = false; return false; };
-        Assert.False(w.ShowSettings());
+        Assert.False(w.View.ShowSettings());
         Assert.True(settings.PageDrag);
         w.Close();
     });
@@ -709,8 +709,8 @@ public sealed class FrameTests
         var w = Window();
         w.Script.PromptOverride = (_, _) => Answer.No; // the empty note is not kept
         w.Script.WindowOverride = window => { if (window is NewNoteDialog d) d.LandscapeButton.IsChecked = true; return true; };
-        Assert.True(await w.NewNoteAsync());
-        var setup = w.Document!.Session.Current.Pages[0].Setup;
+        Assert.True(await w.View.NewNoteAsync());
+        var setup = w.View.Document!.Session.Current.Pages[0].Setup;
         Assert.True(setup.WidthPt > setup.HeightPt);
         w.Close();
     });

@@ -1,5 +1,5 @@
 using Avalonia.Controls;
-using PdfNotes.Desktop.Views;
+using PdfNotes.UI.Views;
 using PdfNotes.Editor.Platform;
 
 using PdfNotes.Editor.Services;

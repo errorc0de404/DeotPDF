@@ -8,7 +8,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
-using PdfNotes.Desktop.Views;
+using PdfNotes.UI.Views;
 using PdfNotes.Editor.Layout;
 using PdfNotes.Editor.Platform;
 using PdfNotes.Editor.Services;
@@ -29,10 +29,10 @@ public sealed class BindingTests
         var window = new MainWindow(TestWindows.App(new AppSettings(), Headless.TempFolder()), TestWindows.Dialogs) { Width = 1200, Height = 1000 };
         window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No;
         window.Script.MessageSink = _ => { };
-        window.EditorClipboard.InMemory = true;
+        window.View.EditorClipboard.InMemory = true;
         window.Show();
-        window.DocumentCanvas.SetZoom(1);
-        window.DocumentCanvas.GoToPage(0);
+        window.View.DocumentCanvas.SetZoom(1);
+        window.View.DocumentCanvas.GoToPage(0);
         Settle(window);
         return window;
     }
@@ -45,17 +45,17 @@ public sealed class BindingTests
     }
 
     private static T Find<T>(MainWindow w, string name) where T : Control =>
-        w.GetLogicalDescendants().OfType<T>().FirstOrDefault(c => c.Name == name) ?? w.FindControl<T>(name) ?? throw new InvalidOperationException($"{name} not found");
+        w.GetLogicalDescendants().OfType<T>().FirstOrDefault(c => c.Name == name) ?? w.View.FindControl<T>(name) ?? throw new InvalidOperationException($"{name} not found");
 
     private static Avalonia.Point At(MainWindow w, Point2 page)
     {
-        var dip = w.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
-        return w.DocumentCanvas.TranslatePoint(new Avalonia.Point(dip.X, dip.Y), w)!.Value;
+        var dip = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
+        return w.View.DocumentCanvas.TranslatePoint(new Avalonia.Point(dip.X, dip.Y), w)!.Value;
     }
 
     private static void Stroke(MainWindow w)
     {
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Point2[] points = [.. Enumerable.Range(0, 8).Select(i => new Point2(80 + 180 * i / 7.0, 100 + 30 * i / 7.0))];
         w.MouseMove(At(w, points[0]));
         w.MouseDown(At(w, points[0]), MouseButton.Left);
@@ -68,8 +68,8 @@ public sealed class BindingTests
     public void TheTitleAndTheStatusLineFollowTheViewModel() => Headless.Run(() =>
     {
         var w = Window();
-        Assert.Equal(w.ViewModel.Title, w.Title);
-        w.ViewModel.Status = "바인딩 확인"; // not UI text (D14e)
+        Assert.Equal(w.View.ViewModel.Title, w.Title);
+        w.View.ViewModel.Status = "바인딩 확인"; // not UI text (D14e)
         Settle(w);
         Assert.Equal("바인딩 확인", Find<TextBlock>(w, "StatusText").Text); // not UI text (D14e)
         Stroke(w);
@@ -87,10 +87,10 @@ public sealed class BindingTests
         Assert.False(redo.IsEffectivelyEnabled);
         Stroke(w);
         Assert.True(undo.IsEffectivelyEnabled);
-        Assert.Equal(w.ViewModel.UndoTip, ToolTip.GetTip(undo));
-        w.ViewModel.UndoCommand.Execute();
+        Assert.Equal(w.View.ViewModel.UndoTip, ToolTip.GetTip(undo));
+        w.View.ViewModel.UndoCommand.Execute();
         Settle(w);
-        Assert.Empty(w.Document!.Session.Current.Pages[0].Annotations);
+        Assert.Empty(w.View.Document!.Session.Current.Pages[0].Annotations);
         Assert.False(undo.IsEffectivelyEnabled);
         Assert.True(redo.IsEffectivelyEnabled);
         w.Close();
@@ -102,7 +102,7 @@ public sealed class BindingTests
         var w = Window();
         foreach (var tab in Enum.GetValues<RibbonTab>())
         {
-            w.ViewModel.Ribbon.Current = tab;
+            w.View.ViewModel.Ribbon.Current = tab;
             Settle(w);
             foreach (var other in Enum.GetValues<RibbonTab>())
             {
@@ -113,7 +113,7 @@ public sealed class BindingTests
         // A tab head runs the view model's command.
         var head = Find<RadioButton>(w, "FileTabButton");
         head.Command!.Execute(head.CommandParameter);
-        Assert.Equal(RibbonTab.File, w.ViewModel.Ribbon.Current);
+        Assert.Equal(RibbonTab.File, w.View.ViewModel.Ribbon.Current);
         w.Close();
     });
 
@@ -123,10 +123,10 @@ public sealed class BindingTests
         var w = Window();
         var recent = Find<Button>(w, "RecentButton");
         Assert.False(recent.IsEffectivelyEnabled);
-        w.ViewModel.Recent.Add(Path.Combine(Path.GetTempPath(), "somewhere.pdf"));
+        w.View.ViewModel.Recent.Add(Path.Combine(Path.GetTempPath(), "somewhere.pdf"));
         Settle(w);
         Assert.True(recent.IsEffectivelyEnabled);
-        w.ViewModel.Recent.Remove(Path.Combine(Path.GetTempPath(), "somewhere.pdf"));
+        w.View.ViewModel.Recent.Remove(Path.Combine(Path.GetTempPath(), "somewhere.pdf"));
         Settle(w);
         Assert.False(recent.IsEffectivelyEnabled);
         w.Close();
@@ -136,7 +136,7 @@ public sealed class BindingTests
     public void TheStatusBarAndTheViewTabFollowTheView() => Headless.Run(() =>
     {
         var w = Window();
-        var navigation = w.ViewModel.Navigation;
+        var navigation = w.View.ViewModel.Navigation;
         navigation.SetZoom(2);
         Settle(w);
         Assert.Equal(navigation.ZoomText, Find<TextBlock>(w, "ZoomText").Text);
@@ -151,11 +151,11 @@ public sealed class BindingTests
         Settle(w);
         Assert.True(Find<ToggleButton>(w, "ContinuousButton").IsChecked);
 
-        w.ViewModel.HideNotesCommand.Execute();
+        w.View.ViewModel.HideNotesCommand.Execute();
         Settle(w);
         Assert.True(Find<ToggleButton>(w, "HideNotesButton").IsChecked);
         Assert.True(Find<TextBlock>(w, "NotesHiddenText").IsVisible);
-        w.ViewModel.HideNotesCommand.Execute();
+        w.View.ViewModel.HideNotesCommand.Execute();
         Settle(w);
         Assert.False(Find<TextBlock>(w, "NotesHiddenText").IsVisible);
         w.Close();
@@ -165,7 +165,7 @@ public sealed class BindingTests
     public void ABoxBeingTypedInKeepsItsTextUntilEnterOrEsc() => Headless.Run(() =>
     {
         var w = Window();
-        var navigation = w.ViewModel.Navigation;
+        var navigation = w.View.ViewModel.Navigation;
         var zoomBox = Find<ComboBox>(w, "ZoomBox");
         zoomBox.Text = "15"; // the user typing
         navigation.SetZoom(1.5); // the view changes meanwhile (Ctrl+wheel)
@@ -174,7 +174,7 @@ public sealed class BindingTests
         Assert.Equal(navigation.ZoomText, Find<TextBlock>(w, "ZoomText").Text);
         navigation.CommitZoomInput(); // Enter
         Settle(w);
-        Assert.Equal(0.15, w.DocumentCanvas.Zoom, 3);
+        Assert.Equal(0.15, w.View.DocumentCanvas.Zoom, 3);
         Assert.Equal(navigation.ZoomText, zoomBox.Text);
 
         var pageBox = Find<TextBox>(w, "PageBox");
@@ -201,18 +201,18 @@ public sealed class BindingTests
         var pen = Find<RadioButton>(w, "PenToolButton");
         var lasso = Find<RadioButton>(w, "LassoToolButton");
         ClickOn(w, lasso);
-        Assert.Equal(ToolKind.Lasso, w.CurrentTool);
+        Assert.Equal(ToolKind.Lasso, w.View.CurrentTool);
         Assert.True(lasso.IsChecked);
         Assert.False(pen.IsChecked);
         // The eraser bar picks the mode; the eraser button stays on for either.
         ClickOn(w, Find<RadioButton>(w, "EraserToolButton"));
         ClickOn(w, Find<RadioButton>(w, "AreaEraserButton"));
-        Assert.Equal(ToolKind.AreaEraser, w.CurrentTool);
+        Assert.Equal(ToolKind.AreaEraser, w.View.CurrentTool);
         Assert.True(Find<RadioButton>(w, "EraserToolButton").IsChecked);
         Assert.True(Find<RadioButton>(w, "AreaEraserButton").IsChecked);
         Assert.False(Find<RadioButton>(w, "StrokeEraserButton").IsChecked);
         // A tool chosen elsewhere (a shortcut) moves the buttons too.
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Settle(w);
         Assert.True(pen.IsChecked);
         Assert.False(Find<RadioButton>(w, "EraserToolButton").IsChecked);
@@ -225,8 +225,8 @@ public sealed class BindingTests
     public void TheStyleBarFollowsTheToolAndKeepsWhatIsBeingTyped() => Headless.Run(() =>
     {
         var w = Window();
-        var styles = w.ViewModel.ToolStyles;
-        w.SetTool(ToolKind.Pen);
+        var styles = w.View.ViewModel.ToolStyles;
+        w.View.SetTool(ToolKind.Pen);
         styles.SetWidth(2.5);
         Settle(w);
         var box = Find<TextBox>(w, "WidthBox");
@@ -241,14 +241,14 @@ public sealed class BindingTests
         Assert.Equal(7, styles.Pen.WidthPt, 3);
         Assert.Equal("7", box.Text);
         // The line tool shows its options; the shape button draws the shape group's tool.
-        w.SetTool(ToolKind.Line);
+        w.View.SetTool(ToolKind.Line);
         Settle(w);
         Assert.True(Find<StackPanel>(w, "LineOptionsPanel").IsVisible);
         Assert.False(Find<StackPanel>(w, "ShapeOptionsPanel").IsVisible);
         Assert.Equal(styles.LineBar.DashIndex, Find<ComboBox>(w, "DashBox").SelectedIndex);
-        Assert.Equal(PdfNotes.Desktop.Themes.AppIcon.ShapeOutline(ToolKind.Line, w.ViewModel.Settings.ShapeKind), Find<PdfNotes.Desktop.Themes.IconLabel>(w, "ShapeToolLabel").Outline);
+        Assert.Equal(PdfNotes.UI.Themes.AppIcon.ShapeOutline(ToolKind.Line, w.View.ViewModel.Settings.ShapeKind), Find<PdfNotes.UI.Themes.IconLabel>(w, "ShapeToolLabel").Outline);
         // The text tool swaps the style bar for the text bar.
-        w.SetTool(ToolKind.Text);
+        w.View.SetTool(ToolKind.Text);
         Settle(w);
         Assert.True(Find<Border>(w, "TextStyleBorder").IsVisible);
         Assert.False(Find<Border>(w, "StyleBar").IsVisible);
@@ -260,17 +260,17 @@ public sealed class BindingTests
     {
         var w = Window();
         Button Favorite(int i) => Find<ItemsControl>(w, "FavoritesPanel").GetVisualDescendants().OfType<Button>().ElementAt(i);
-        Assert.Equal(w.ViewModel.Settings.Favorites.Length, Find<ItemsControl>(w, "FavoritesPanel").GetVisualDescendants().OfType<Button>().Count());
-        w.ViewModel.Favorites.Clear(1); // the default slots hold favorites
+        Assert.Equal(w.View.ViewModel.Settings.Favorites.Length, Find<ItemsControl>(w, "FavoritesPanel").GetVisualDescendants().OfType<Button>().Count());
+        w.View.ViewModel.Favorites.Clear(1); // the default slots hold favorites
         Settle(w);
-        Assert.Null(Favorite(1).GetVisualDescendants().OfType<PdfNotes.Desktop.Themes.FavoriteMark>().Single().Favorite);
-        w.SetTool(ToolKind.Pen);
-        w.ViewModel.ToolStyles.SetWidth(3);
+        Assert.Null(Favorite(1).GetVisualDescendants().OfType<PdfNotes.UI.Themes.FavoriteMark>().Single().Favorite);
+        w.View.SetTool(ToolKind.Pen);
+        w.View.ViewModel.ToolStyles.SetWidth(3);
         Favorite(1).Command!.Execute(null); // an empty favorite stores the pen
         Settle(w);
-        Assert.NotNull(Favorite(1).GetVisualDescendants().OfType<PdfNotes.Desktop.Themes.FavoriteMark>().Single().Favorite);
-        Assert.Equal(w.ViewModel.Favorites.Tip(w.ViewModel.Settings.Favorites[1], 1), ToolTip.GetTip(Favorite(1)));
-        w.ViewModel.Display.Apply(w.ViewModel.Display.Stored with { Favorites = false });
+        Assert.NotNull(Favorite(1).GetVisualDescendants().OfType<PdfNotes.UI.Themes.FavoriteMark>().Single().Favorite);
+        Assert.Equal(w.View.ViewModel.Favorites.Tip(w.View.ViewModel.Settings.Favorites[1], 1), ToolTip.GetTip(Favorite(1)));
+        w.View.ViewModel.Display.Apply(w.View.ViewModel.Display.Stored with { Favorites = false });
         Settle(w);
         Assert.False(Find<StackPanel>(w, "FavoritesGroup").IsVisible);
         w.Close();

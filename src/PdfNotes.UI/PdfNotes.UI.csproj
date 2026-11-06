@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The app's screen for every system (roadmap P5a): the main view, the canvas, the dialogs, the themes and the language
+       markup. The desktop app (PdfNotes.Desktop) shows it in a window, the Android app (PdfNotes.Android) in its activity. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>PdfNotes.UI</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- AVLN3001: the main view has no parameterless constructor on purpose (the app gives it its services); it is made in
+         code, never by the XAML runtime loader. -->
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PdfNotes.ViewModels\PdfNotes.ViewModels.csproj" />
+    <ProjectReference Include="..\PdfNotes.Editor\PdfNotes.Editor.csproj" />
+    <ProjectReference Include="..\PdfNotes.Pdf\PdfNotes.Pdf.csproj" />
+    <ProjectReference Include="..\PdfNotes.Text.Skia\PdfNotes.Text.Skia.csproj" />
+    <ProjectReference Include="..\PdfNotes.TextEditor.Avalonia\PdfNotes.TextEditor.Avalonia.csproj" />
+    <ProjectReference Include="..\PdfNotes.Render.Skia\PdfNotes.Render.Skia.csproj" />
+  </ItemGroup>
+</Project>

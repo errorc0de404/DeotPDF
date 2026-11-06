@@ -6,7 +6,7 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
-using PdfNotes.Desktop.Views;
+using PdfNotes.UI.Views;
 using PdfNotes.Editor.Localization;
 using PdfNotes.Editor.Platform;
 using PdfNotes.Editor.Services;
@@ -31,8 +31,8 @@ public sealed class RegressionTests
         window.Script.PromptOverride = (_, _) => Answer.No;
         window.Script.MessageSink = _ => { };
         window.Show();
-        window.DocumentCanvas.SetZoom(1);
-        window.DocumentCanvas.GoToPage(0);
+        window.View.DocumentCanvas.SetZoom(1);
+        window.View.DocumentCanvas.GoToPage(0);
         Dispatcher.UIThread.RunJobs();
         return window;
     }
@@ -44,12 +44,12 @@ public sealed class RegressionTests
         return path;
     }
 
-    private static IReadOnlyList<Annotation> Annotations(MainWindow w, int page = 0) => w.Document!.Session.Current.Pages[page].Annotations;
+    private static IReadOnlyList<Annotation> Annotations(MainWindow w, int page = 0) => w.View.Document!.Session.Current.Pages[page].Annotations;
 
     private static Point At(MainWindow w, Point2 page)
     {
-        var dip = w.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
-        return w.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
+        var dip = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
+        return w.View.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
     }
 
     private static void Drag(MainWindow w, Point2 a, Point2 b)
@@ -77,7 +77,7 @@ public sealed class RegressionTests
 
     private static void Stroke(MainWindow w, double y = 100)
     {
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Drag(w, new(80, y), new(260, y + 30));
     }
 
@@ -94,7 +94,7 @@ public sealed class RegressionTests
         w.Close();
         Headless.Pump(() => asked == 1);
         Assert.False(closed);
-        Assert.True(w.Document!.Session.IsDirty);
+        Assert.True(w.View.Document!.Session.IsDirty);
 
         // Save, but the Save As dialog of the new note is cancelled: still open, nothing lost.
         w.Script.PromptOverride = (_, _) => { asked++; return Answer.Yes; };
@@ -118,7 +118,7 @@ public sealed class RegressionTests
         string folder = Headless.TempFolder();
         string pdf = Sample(folder);
         var w = Window(folder);
-        Assert.True(await w.OpenFileAsync(pdf));
+        Assert.True(await w.View.OpenFileAsync(pdf));
         Assert.DoesNotContain("*", w.Title);
         Stroke(w);
         Assert.Contains(" *", w.Title);
@@ -128,19 +128,19 @@ public sealed class RegressionTests
         w.Script.MessageSink = messages.Add;
         try
         {
-            Assert.False(await w.SaveAsync(saveAs: false));
+            Assert.False(await w.View.SaveAsync(saveAs: false));
             Assert.Single(messages);
             Assert.Equal(before, File.ReadAllBytes(pdf));
-            Assert.True(w.Document!.Session.IsDirty);
+            Assert.True(w.View.Document!.Session.IsDirty);
             Assert.Contains(" *", w.Title);
         }
         finally { File.SetAttributes(pdf, FileAttributes.Normal); }
-        Assert.True(await w.SaveAsync(saveAs: false));
+        Assert.True(await w.View.SaveAsync(saveAs: false));
         Assert.DoesNotContain("*", w.Title);
         long size = new FileInfo(pdf).Length;
         Stroke(w, 300);
         Press(w, Avalonia.Input.Key.Z, RawInputModifiers.Control); // back to the saved state, then save again: the file does not grow
-        Assert.True(await w.SaveAsync(saveAs: false));
+        Assert.True(await w.View.SaveAsync(saveAs: false));
         Assert.Equal(size, new FileInfo(pdf).Length, size / 50.0);
         w.Close();
     });
@@ -161,26 +161,26 @@ public sealed class RegressionTests
         var w = Window(folder);
         var messages = new List<string>();
         w.Script.MessageSink = messages.Add;
-        var shown = w.Document;
+        var shown = w.View.Document;
         foreach (string path in new[] { damaged, password, signed, Path.Combine(folder, "missing.pdf") })
         {
             int count = messages.Count;
-            Assert.False(await w.OpenFileAsync(path));
-            Assert.Same(shown, w.Document);
+            Assert.False(await w.View.OpenFileAsync(path));
+            Assert.Same(shown, w.View.Document);
             Assert.Equal(count + 1, messages.Count);
         }
 
         string restricted = Path.Combine(folder, "restricted.pdf");
         ProbeSamplePdf.CreateOwnerEncrypted(plain, restricted);
         messages.Clear();
-        Assert.True(await w.OpenFileAsync(restricted));
-        Assert.Contains(Strings.Get("status.restricted").Trim(), w.ViewModel.Status);
+        Assert.True(await w.View.OpenFileAsync(restricted));
+        Assert.Contains(Strings.Get("status.restricted").Trim(), w.View.ViewModel.Status);
         Stroke(w);
         string copy = Path.Combine(folder, "copy.pdf");
-        Assert.True(await w.SaveToAsync(copy));
+        Assert.True(await w.View.SaveToAsync(copy));
         Assert.Single(messages);
         Stroke(w, 300);
-        Assert.True(await w.SaveToAsync(copy));
+        Assert.True(await w.View.SaveToAsync(copy));
         Assert.Single(messages); // once
         w.Close();
     });
@@ -191,18 +191,18 @@ public sealed class RegressionTests
     {
         string folder = Headless.TempFolder();
         var w = Window(folder);
-        w.SetTool(ToolKind.Text);
+        w.View.SetTool(ToolKind.Text);
         Click(w, new(100, 400));
-        Assert.True(w.IsEditingText);
+        Assert.True(w.View.IsEditingText);
         w.KeyTextInput("저장 중 글");
         Dispatcher.UIThread.RunJobs();
         string path = Path.Combine(folder, "typed.pdf");
-        Assert.True(await w.SaveToAsync(path));
-        Assert.False(w.Document!.Session.IsDirty);
+        Assert.True(await w.View.SaveToAsync(path));
+        Assert.False(w.View.Document!.Session.IsDirty);
         w.Close();
 
         var again = Window(folder);
-        Assert.True(await again.OpenFileAsync(path));
+        Assert.True(await again.View.OpenFileAsync(path));
         Assert.Equal("저장 중 글", Assert.IsType<TextBoxAnnotation>(Assert.Single(Annotations(again))).Text);
         again.Close();
     });
@@ -214,18 +214,18 @@ public sealed class RegressionTests
         string folder = Headless.TempFolder();
         string pdf = Sample(folder);
         var w = Window(folder);
-        Assert.True(await w.OpenFileAsync(pdf));
+        Assert.True(await w.View.OpenFileAsync(pdf));
         Stroke(w);
         string flat = Path.Combine(folder, "flat.pdf");
         SavePathRequest? asked = null;
         w.Script.SaveDialogOverride = request => { asked = request; return flat; };
         w.Script.WindowOverride = _ => true;
-        Assert.Equal(1, await w.ExportPagesAsync(allPages: true, flatten: true));
+        Assert.Equal(1, await w.View.ExportPagesAsync(allPages: true, flatten: true));
         Assert.True(File.Exists(flat));
-        Assert.True(w.Document!.Session.IsDirty); // the export does not save the document
+        Assert.True(w.View.Document!.Session.IsDirty); // the export does not save the document
 
         var reopened = Window(folder);
-        Assert.True(await reopened.OpenFileAsync(flat));
+        Assert.True(await reopened.View.OpenFileAsync(flat));
         Assert.Empty(Annotations(reopened)); // merged into the page: nothing to edit
         reopened.Close();
 
@@ -234,7 +234,7 @@ public sealed class RegressionTests
         var messages = new List<string>();
         w.Script.MessageSink = messages.Add;
         w.Script.SaveDialogOverride = _ => pdf;
-        Assert.NotEqual(1, await w.ExportPagesAsync(allPages: true, flatten: true));
+        Assert.NotEqual(1, await w.View.ExportPagesAsync(allPages: true, flatten: true));
         Assert.Equal(before, File.ReadAllBytes(pdf));
         w.Script.PromptOverride = (_, _) => Answer.No;
         w.Close();
@@ -250,7 +250,7 @@ public sealed class RegressionTests
         string folder = Headless.TempFolder();
         var w = Window(folder);
         Stroke(w);
-        string? file = w.WriteCrashBackup(new InvalidOperationException("boom"));
+        string? file = w.View.WriteCrashBackup(new InvalidOperationException("boom"));
         Assert.NotNull(file);
         Assert.StartsWith("crash_", Path.GetFileName(file));
         Assert.Contains("boom", File.ReadAllText(Path.ChangeExtension(file, ".txt")));
@@ -265,19 +265,19 @@ public sealed class RegressionTests
         var next = Window(folder);
         string? asked = null;
         next.Script.PromptOverride = (text, _) => { asked = text; return Answer.Yes; };
-        Assert.True(await next.OfferRecoveryAsync());
+        Assert.True(await next.View.OfferRecoveryAsync());
         string crashQuestion = Strings.Get("backup.recoverCrash");
         Assert.StartsWith(crashQuestion[..crashQuestion.IndexOf('{')], asked); // the crash wording, not the plain abnormal-end one
-        Assert.Equal(file, next.Document!.FilePath);
+        Assert.Equal(file, next.View.Document!.FilePath);
 
         // 백업 비우기: No keeps them, Yes deletes the app's backups (the crash text goes with its PDF).
-        await next.OpenFileAsync(Sample(folder)); // the crash file is not the open document any more
-        Assert.Equal(1, next.Backups.Usage().Count);
+        await next.View.OpenFileAsync(Sample(folder)); // the crash file is not the open document any more
+        Assert.Equal(1, next.View.Backups.Usage().Count);
         next.Script.PromptOverride = (_, _) => Answer.No;
-        Assert.False(next.ClearBackups());
+        Assert.False(next.View.ClearBackups());
         Assert.True(File.Exists(file));
         next.Script.PromptOverride = (_, _) => Answer.Yes;
-        Assert.True(next.ClearBackups());
+        Assert.True(next.View.ClearBackups());
         Assert.False(File.Exists(file));
         Assert.False(File.Exists(Path.ChangeExtension(file, ".txt")));
         next.Close();
@@ -300,15 +300,15 @@ public sealed class RegressionTests
         string pdf = Path.Combine(folder, "foreign.pdf");
         ForeignAnnotationSample.Create(pdf);
         var w = Window(folder);
-        Assert.True(await w.OpenFileAsync(pdf));
-        Headless.Pump(() => w.ForeignAnnotationCount > 0);
-        int before = w.Document!.Session.Current.Pages.Sum(p => p.Annotations.Count);
-        int converted = await w.ConvertForeignAsync();
+        Assert.True(await w.View.OpenFileAsync(pdf));
+        Headless.Pump(() => w.View.ForeignAnnotationCount > 0);
+        int before = w.View.Document!.Session.Current.Pages.Sum(p => p.Annotations.Count);
+        int converted = await w.View.ConvertForeignAsync();
         Assert.True(converted > 0);
-        Assert.Equal(before + converted, w.Document.Session.Current.Pages.Sum(p => p.Annotations.Count));
-        Assert.True(w.Document.Session.IsDirty);
-        w.Undo();
-        Assert.Equal(before, w.Document.Session.Current.Pages.Sum(p => p.Annotations.Count));
+        Assert.Equal(before + converted, w.View.Document.Session.Current.Pages.Sum(p => p.Annotations.Count));
+        Assert.True(w.View.Document.Session.IsDirty);
+        w.View.Undo();
+        Assert.Equal(before, w.View.Document.Session.Current.Pages.Sum(p => p.Annotations.Count));
         w.Script.PromptOverride = (_, _) => Answer.No;
         w.Close();
     });
@@ -320,16 +320,16 @@ public sealed class RegressionTests
         var w = Window();
         Stroke(w);
         var id = Assert.Single(Annotations(w)).Id;
-        w.SetTool(ToolKind.Select);
+        w.View.SetTool(ToolKind.Select);
         Click(w, new(170, 115));
-        Assert.Contains(id, w.Selection.SelectedIds);
-        var dip = w.DocumentCanvas.PageTransform(0).PageToDip.Transform(new Point2(170, 115));
-        RunMenu(w.OpenAnnotationMenu(dip)!, "command.lock");
+        Assert.Contains(id, w.View.Selection.SelectedIds);
+        var dip = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(new Point2(170, 115));
+        RunMenu(w.View.OpenAnnotationMenu(dip)!, "command.lock");
         Assert.True(Assert.Single(Annotations(w)).Locked);
         Click(w, new(170, 115));
         Press(w, Avalonia.Input.Key.Delete);
         Assert.Single(Annotations(w));
-        RunMenu(w.OpenAnnotationMenu(dip)!, "command.unlock");
+        RunMenu(w.View.OpenAnnotationMenu(dip)!, "command.unlock");
         Assert.False(Assert.Single(Annotations(w)).Locked);
         Click(w, new(170, 115));
         Press(w, Avalonia.Input.Key.Delete);

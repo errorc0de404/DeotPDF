@@ -6,8 +6,8 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using PdfNotes.Desktop.Platform;
-using PdfNotes.Desktop.Themes;
-using PdfNotes.Desktop.Views;
+using PdfNotes.UI.Themes;
+using PdfNotes.UI.Views;
 using PdfNotes.Editor.Localization;
 using PdfNotes.Editor.Services;
 using PdfNotes.ViewModels;
@@ -17,7 +17,7 @@ namespace PdfNotes.Desktop;
 public sealed class App : Application
 {
     /// <summary>The name the user sees (window title, message boxes). The file-format id stays "PdfNotes".</summary>
-    public const string DisplayName = "DeotPDF";
+    public const string DisplayName = PdfNotes.UI.AppInfo.DisplayName;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -42,8 +42,8 @@ public sealed class App : Application
             window.Opened += async (_, _) =>
             {
                 // "DeotPDF file.pdf" (Explorer, Open with, a .desktop launcher). After an abnormal end the newest backup can be opened first (spec 18.2).
-                if (!await window.OfferRecoveryAsync() && desktop.Args is [{ } path] && File.Exists(path)) await window.OpenFileAsync(path);
-                await window.CheckForUpdatesAtStartAsync(); // the first-run question and the daily check (development versions skip it)
+                if (!await window.View.OfferRecoveryAsync() && desktop.Args is [{ } path] && File.Exists(path)) await window.View.OpenFileAsync(path);
+                await window.View.CheckForUpdatesAtStartAsync(); // the first-run question and the daily check (development versions skip it)
             };
         }
         base.OnFrameworkInitializationCompleted();
@@ -61,7 +61,7 @@ public sealed class App : Application
         {
             if (item.TryGetLocalPath() is not { } path || !File.Exists(path)) continue;
             if (BackupStore.WindowShowing(folder, path) is { } other) { WindowActivation.Bring(other); continue; }
-            if (window.ShowsUntouchedNote) { _ = window.OpenFileAsync(path); continue; }
+            if (window.View.ShowsUntouchedNote) { _ = window.View.OpenFileAsync(path); continue; }
             try { Process.Start(new ProcessStartInfo(Environment.ProcessPath!, [path]) { UseShellExecute = false }); }
             catch (Exception x) when (x is InvalidOperationException or System.ComponentModel.Win32Exception) { }
         }
@@ -84,8 +84,8 @@ public sealed class App : Application
     {
         if (crashing) return;
         crashing = true;
-        string? file = window.WriteCrashBackup(error);
-        try { window.TellCrash(Strings.Get(file is null ? "app.crash" : "app.crashBackedUp")); }
+        string? file = window.View.WriteCrashBackup(error);
+        try { window.View.TellCrash(Strings.Get(file is null ? "app.crash" : "app.crashBackedUp")); }
         catch (Exception) { } // the message is a courtesy; the backup is what matters
         Environment.Exit(1);
     }

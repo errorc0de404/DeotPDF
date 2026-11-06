@@ -3,7 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
-using PdfNotes.Desktop.Views;
+using PdfNotes.UI.Views;
 using PdfNotes.Editor.Input;
 using PdfNotes.Editor.Platform;
 using PdfNotes.Editor.Services;
@@ -24,19 +24,19 @@ public sealed class EditingTests
         window.Script.PromptOverride = (_, _) => Answer.No;
         window.Script.MessageSink = _ => { };
         window.Show();
-        window.DocumentCanvas.SetZoom(1);
-        window.DocumentCanvas.GoToPage(0);
+        window.View.DocumentCanvas.SetZoom(1);
+        window.View.DocumentCanvas.GoToPage(0);
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         return window;
     }
 
-    private static IReadOnlyList<Annotation> Annotations(MainWindow w) => w.Document!.Session.Current.Pages[0].Annotations;
+    private static IReadOnlyList<Annotation> Annotations(MainWindow w) => w.View.Document!.Session.Current.Pages[0].Annotations;
 
     /// <summary>The window point of a canonical point on page 0.</summary>
     private static Point At(MainWindow w, Point2 page)
     {
-        var dip = w.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
-        return w.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
+        var dip = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
+        return w.View.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
     }
 
     private static void Drag(MainWindow w, MouseButton button, params Point2[] points)
@@ -72,12 +72,12 @@ public sealed class EditingTests
     public void ThePenDrawsAndUndoRedoKeysWork() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Drag(w, MouseButton.Left, Line(new(100, 100), new(300, 160)));
         var ink = Assert.IsType<InkStroke>(Assert.Single(Annotations(w)));
         Assert.True(ink.Points.Length >= 2);
         Assert.False(ink.HasPressure); // a mouse has no pressure
-        Assert.Equal(w.ViewModel.ToolStyles.Pen.Color, ink.Color);
+        Assert.Equal(w.View.ViewModel.ToolStyles.Pen.Color, ink.Color);
         Key(w, Avalonia.Input.Key.Z, RawInputModifiers.Control);
         Assert.Empty(Annotations(w));
         Key(w, Avalonia.Input.Key.Y, RawInputModifiers.Control);
@@ -89,7 +89,7 @@ public sealed class EditingTests
     public void ErasersSelectionLassoLinesAndShapes() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Drag(w, MouseButton.Left, Line(new(100, 100), new(300, 100)));
         Drag(w, MouseButton.Left, Line(new(100, 200), new(300, 200)));
         Assert.Equal(2, Annotations(w).Count);
@@ -97,40 +97,40 @@ public sealed class EditingTests
         // The middle button erases with the area eraser while the pen stays the tool (spec 7.5).
         Drag(w, MouseButton.Middle, Line(new(200, 80), new(200, 120)));
         Assert.Equal(3, Annotations(w).Count); // the first stroke cut in two
-        Assert.Equal(ToolKind.Pen, w.CurrentTool);
+        Assert.Equal(ToolKind.Pen, w.View.CurrentTool);
 
-        w.SetTool(ToolKind.StrokeEraser);
+        w.View.SetTool(ToolKind.StrokeEraser);
         Drag(w, MouseButton.Left, Line(new(150, 190), new(150, 210), 4));
         Assert.Equal(2, Annotations(w).Count);
 
         // Select a piece and move it.
-        w.SetTool(ToolKind.Select);
+        w.View.SetTool(ToolKind.Select);
         var piece = (InkStroke)Annotations(w)[0];
         var on = piece.Transform.Transform(piece.Outline[0][0]);
         var inside = AnnotationGeometry.LocalBounds(piece);
         var center = new Point2(inside.X + inside.Width / 2, inside.Y + inside.Height / 2);
         Click(w, center);
-        Assert.Equal([piece.Id], w.Selection.SelectedIds);
+        Assert.Equal([piece.Id], w.View.Selection.SelectedIds);
         Drag(w, MouseButton.Left, Line(center, new(center.X + 40, center.Y + 60), 6));
         var moved = Annotations(w).Single(a => a.Id == piece.Id);
         Assert.NotEqual(piece.Transform, moved.Transform);
         Key(w, Avalonia.Input.Key.Escape);
-        Assert.Empty(w.Selection.SelectedIds);
+        Assert.Empty(w.View.Selection.SelectedIds);
         Key(w, Avalonia.Input.Key.Delete);
         Assert.Equal(2, Annotations(w).Count);
 
         // The lasso selects what it encloses and hands over to the selection tool.
-        w.SetTool(ToolKind.Lasso);
+        w.View.SetTool(ToolKind.Lasso);
         Drag(w, MouseButton.Left, new(60, 60), new(360, 60), new(360, 400), new(60, 400), new(60, 60));
-        Assert.Equal(ToolKind.Select, w.CurrentTool);
-        Assert.NotEmpty(w.Selection.SelectedIds);
+        Assert.Equal(ToolKind.Select, w.View.CurrentTool);
+        Assert.NotEmpty(w.View.Selection.SelectedIds);
         Key(w, Avalonia.Input.Key.Delete);
         Assert.Empty(Annotations(w));
 
-        w.SetTool(ToolKind.Line);
+        w.View.SetTool(ToolKind.Line);
         Drag(w, MouseButton.Left, Line(new(100, 500), new(300, 560), 6));
         Assert.IsType<LineAnnotation>(Assert.Single(Annotations(w)));
-        w.SetTool(ToolKind.Shape);
+        w.View.SetTool(ToolKind.Shape);
         Drag(w, MouseButton.Left, Line(new(320, 500), new(420, 600), 6));
         Assert.Contains(Annotations(w), a => a is ShapeAnnotation);
         w.Close();
@@ -140,8 +140,8 @@ public sealed class EditingTests
     public void APenWithPressureAndItsEraserEnd() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Pen);
-        var canvas = w.DocumentCanvas;
+        w.View.SetTool(ToolKind.Pen);
+        var canvas = w.View.DocumentCanvas;
         CanvasPointer Pen(Point2 page, double pressure, bool eraser = false)
         {
             var dip = canvas.PageTransform(0).PageToDip.Transform(page);
@@ -153,13 +153,13 @@ public sealed class EditingTests
         canvas.ProbePen(Pen(path[^1], 0), 2);
         var stroke = Assert.IsType<InkStroke>(Assert.Single(Annotations(w)));
         Assert.True(stroke.HasPressure && stroke.Pressures[^1] > stroke.Pressures[0] + .5);
-        w.ViewModel.Settings.Eraser = ToolKind.StrokeEraser;
+        w.View.ViewModel.Settings.Eraser = ToolKind.StrokeEraser;
         var across = Line(new(250, 280), new(255, 360), 6);
         canvas.ProbePen(Pen(across[0], .5, eraser: true), 0);
         foreach (var p in across.Skip(1)) canvas.ProbePen(Pen(p, .5, eraser: true), 1);
         canvas.ProbePen(Pen(across[^1], .5, eraser: true), 2);
         Assert.Empty(Annotations(w));
-        Assert.Equal(ToolKind.Pen, w.CurrentTool);
+        Assert.Equal(ToolKind.Pen, w.View.CurrentTool);
         w.Close();
     });
 
@@ -167,17 +167,17 @@ public sealed class EditingTests
     public void SaveAndReopenKeepTheDrawing() => Headless.Run(async () =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Pen);
+        w.View.SetTool(ToolKind.Pen);
         Drag(w, MouseButton.Left, Line(new(100, 100), new(300, 160)));
-        w.SetTool(ToolKind.Shape);
+        w.View.SetTool(ToolKind.Shape);
         Drag(w, MouseButton.Left, Line(new(320, 500), new(420, 600), 6));
         string path = Path.Combine(Headless.TempFolder(), "saved.pdf");
-        Assert.True(await w.SaveToAsync(path));
+        Assert.True(await w.View.SaveToAsync(path));
         var kinds = Annotations(w).Select(a => a.Kind).ToArray();
         w.Close();
 
         var again = Window();
-        Assert.True(await again.OpenFileAsync(path));
+        Assert.True(await again.View.OpenFileAsync(path));
         Assert.Equal(kinds, Annotations(again).Select(a => a.Kind).ToArray());
         again.Close();
     });
@@ -186,27 +186,27 @@ public sealed class EditingTests
     public void ATextBoxIsTypedFinishedAndUndoneInOneStep() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Text);
-        int steps = w.Document!.Session.UndoCount;
+        w.View.SetTool(ToolKind.Text);
+        int steps = w.View.Document!.Session.UndoCount;
         Click(w, new(100, 400));
-        Assert.True(w.IsEditingText);
-        Assert.NotNull(w.ActiveTextEditor);
+        Assert.True(w.View.IsEditingText);
+        Assert.NotNull(w.View.ActiveTextEditor);
         w.KeyTextInput("abc 한글");
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         // Written into the document while typing (other views see it), not drawn by the canvas meanwhile.
         Assert.Equal("abc 한글", Assert.IsType<TextBoxAnnotation>(Assert.Single(Annotations(w))).Text);
         Key(w, Avalonia.Input.Key.Escape);
-        Assert.False(w.IsEditingText);
-        Assert.Equal(steps + 1, w.Document.Session.UndoCount);
-        w.Undo();
+        Assert.False(w.View.IsEditingText);
+        Assert.Equal(steps + 1, w.View.Document.Session.UndoCount);
+        w.View.Undo();
         Assert.Empty(Annotations(w));
 
         // A box left blank leaves nothing, not even an Undo step.
         Click(w, new(100, 500));
-        Assert.True(w.IsEditingText);
+        Assert.True(w.View.IsEditingText);
         Key(w, Avalonia.Input.Key.Escape);
         Assert.Empty(Annotations(w));
-        Assert.Equal(steps, w.Document.Session.UndoCount);
+        Assert.Equal(steps, w.View.Document.Session.UndoCount);
         w.Close();
     });
 
@@ -214,52 +214,52 @@ public sealed class EditingTests
     public void AnExistingBoxIsEditedAndAnImeCompositionIsCommittedOnFinish() => Headless.Run(() =>
     {
         var w = Window();
-        w.SetTool(ToolKind.Text);
+        w.View.SetTool(ToolKind.Text);
         Click(w, new(100, 400));
         w.KeyTextInput("첫 글");
         Key(w, Avalonia.Input.Key.Escape);
         var box = Assert.IsType<TextBoxAnnotation>(Assert.Single(Annotations(w)));
-        int steps = w.Document!.Session.UndoCount;
+        int steps = w.View.Document!.Session.UndoCount;
 
         // The text tool on the box selects it; a second press on it edits.
         var inside = new Point2(box.Transform.OffsetX + 10, box.Transform.OffsetY + 8);
         Click(w, inside);
-        Assert.Equal(ToolKind.Select, w.CurrentTool);
-        Assert.Equal([box.Id], w.Selection.SelectedIds);
+        Assert.Equal(ToolKind.Select, w.View.CurrentTool);
+        Assert.Equal([box.Id], w.View.Selection.SelectedIds);
         int releases = 0; bool? lastChanged = null;
-        w.Selection.Released += (_, changed) => { releases++; lastChanged = changed; };
+        w.View.Selection.Released += (_, changed) => { releases++; lastChanged = changed; };
         Click(w, inside);
-        Assert.True(w.IsEditingText, $"releases {releases}, changed {lastChanged}, return {w.ViewModel.Tools.Return}, selected {w.Selection.SelectedIds.Count}");
-        var model = w.EditingText is not null ? w.ActiveTextEditor!.Model! : null;
+        Assert.True(w.View.IsEditingText, $"releases {releases}, changed {lastChanged}, return {w.View.ViewModel.Tools.Return}, selected {w.View.Selection.SelectedIds.Count}");
+        var model = w.View.EditingText is not null ? w.View.ActiveTextEditor!.Model! : null;
         model!.Select(box.Text.Length, box.Text.Length);
         // An IME composition is not in the document until it is committed; finishing commits it (spec 6.1).
         model.SetComposition("하");
         Assert.Equal("첫 글", ((TextBoxAnnotation)Annotations(w)[0]).Text);
-        w.FinishTextEditing();
+        w.View.FinishTextEditing();
         Assert.Equal("첫 글하", ((TextBoxAnnotation)Annotations(w)[0]).Text);
-        Assert.Equal(steps + 1, w.Document.Session.UndoCount);
-        w.Undo();
+        Assert.Equal(steps + 1, w.View.Document.Session.UndoCount);
+        w.View.Undo();
         Assert.Equal("첫 글", ((TextBoxAnnotation)Annotations(w)[0]).Text);
-        Assert.Equal([box.Id], w.Selection.SelectedIds); // the Undo shows what it changed (spec 13.3)
+        Assert.Equal([box.Id], w.View.Selection.SelectedIds); // the Undo shows what it changed (spec 13.3)
         Key(w, Avalonia.Input.Key.Escape);
-        Assert.Empty(w.Selection.SelectedIds);
+        Assert.Empty(w.View.Selection.SelectedIds);
 
         // With the selection tool chosen directly a typed key does not edit the box (spec 5.4: only a visit from the text tool).
-        w.SetTool(ToolKind.Select);
+        w.View.SetTool(ToolKind.Select);
         Thread.Sleep(700); // a new click, not the second half of a double click
         Click(w, inside);
-        Assert.Equal([box.Id], w.Selection.SelectedIds);
+        Assert.Equal([box.Id], w.View.Selection.SelectedIds);
         w.KeyTextInput("?");
-        Assert.False(w.IsEditingText);
+        Assert.False(w.View.IsEditingText);
         // Selected from the text tool, a typed key starts editing it with that key.
         Key(w, Avalonia.Input.Key.Escape);
-        w.SetTool(ToolKind.Text);
+        w.View.SetTool(ToolKind.Text);
         Thread.Sleep(700);
         Click(w, inside); // the text tool selects it (and the canvas has the keyboard)
-        Assert.Equal([box.Id], w.Selection.SelectedIds);
-        Assert.False(w.IsEditingText);
+        Assert.Equal([box.Id], w.View.Selection.SelectedIds);
+        Assert.False(w.View.IsEditingText);
         w.KeyTextInput("!");
-        Assert.True(w.IsEditingText);
+        Assert.True(w.View.IsEditingText);
         Key(w, Avalonia.Input.Key.Escape);
         Assert.EndsWith("!", ((TextBoxAnnotation)Annotations(w)[0]).Text);
         w.Close();

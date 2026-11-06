@@ -10,8 +10,8 @@ using Avalonia.VisualTree;
 using Avalonia.Threading;
 using PdfNotes.Core.Models;
 using PdfNotes.Desktop.Platform;
-using PdfNotes.Desktop.Themes;
-using PdfNotes.Desktop.Views;
+using PdfNotes.UI.Themes;
+using PdfNotes.UI.Views;
 using PdfNotes.Editor.Layout;
 using PdfNotes.Editor.Platform;
 using PdfNotes.Editor.Services;
@@ -32,7 +32,7 @@ public sealed class PlatformTests
         var window = new MainWindow(TestWindows.App(settings ?? new AppSettings(), folder), TestWindows.Dialogs) { Width = 1200, Height = 900 };
         window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No;
         window.Script.MessageSink = _ => { };
-        window.EditorClipboard.InMemory = true;
+        window.View.EditorClipboard.InMemory = true;
         window.Show();
         Dispatcher.UIThread.RunJobs();
         return window;
@@ -48,15 +48,15 @@ public sealed class PlatformTests
     /// <summary>A pen stroke across the middle of the canvas (the document has unsaved changes).</summary>
     private static void AddStroke(MainWindow w)
     {
-        w.SetTool(ToolKind.Pen);
-        var c = w.DocumentCanvas;
+        w.View.SetTool(ToolKind.Pen);
+        var c = w.View.DocumentCanvas;
         Avalonia.Point At(double dx) => c.TranslatePoint(new Avalonia.Point(c.Bounds.Width / 2 + dx, c.Bounds.Height / 2), w)!.Value;
         w.MouseMove(At(-60));
         w.MouseDown(At(-60), MouseButton.Left);
         for (int dx = -40; dx <= 60; dx += 20) w.MouseMove(At(dx));
         w.MouseUp(At(60), MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
-        Assert.True(w.Document!.Session.IsDirty);
+        Assert.True(w.View.Document!.Session.IsDirty);
     }
 
     [Fact]
@@ -113,14 +113,14 @@ public sealed class PlatformTests
             """);
         var settings = AppSettings.Load(file);
         var w = Window(folder, settings);
-        Assert.Equal(ViewMode.SinglePage, w.DocumentCanvas.Mode);
-        Assert.False(w.FindControl<Control>("FavoritesGroup")!.IsVisible);
-        Assert.False(w.PagePanelVisible);
-        Assert.Equal([recent], w.ViewModel.Recent.Files);
-        Assert.Equal(3, w.ViewModel.Settings.BackupIntervalMinutes);
-        Assert.Equal(7, w.ViewModel.Settings.BackupKeep);
-        Assert.Equal(new RgbColor(0xC6, 0x28, 0x28), w.ViewModel.Settings.Pen.ToStyle(StrokeStyle.DefaultPen, AnnotationKind.Ink).Color);
-        Assert.Equal(AccentColor.Green, w.ViewModel.Settings.Accent);
+        Assert.Equal(ViewMode.SinglePage, w.View.DocumentCanvas.Mode);
+        Assert.False(w.View.FindControl<Control>("FavoritesGroup")!.IsVisible);
+        Assert.False(w.View.PagePanelVisible);
+        Assert.Equal([recent], w.View.ViewModel.Recent.Files);
+        Assert.Equal(3, w.View.ViewModel.Settings.BackupIntervalMinutes);
+        Assert.Equal(7, w.View.ViewModel.Settings.BackupKeep);
+        Assert.Equal(new RgbColor(0xC6, 0x28, 0x28), w.View.ViewModel.Settings.Pen.ToStyle(StrokeStyle.DefaultPen, AnnotationKind.Ink).Color);
+        Assert.Equal(AccentColor.Green, w.View.ViewModel.Settings.Accent);
         w.Close();
 
         // Saving keeps what this app does not know (another version's keys, spec 4.6 merge).
@@ -168,12 +168,12 @@ public sealed class PlatformTests
         var w = Window(folder);
         string? asked = null;
         w.Script.PromptOverride = (text, _) => { asked = text; return Answer.Yes; };
-        Assert.Equal(1, w.Backups.Usage().Count);
-        Assert.True(await w.OfferRecoveryAsync());
+        Assert.Equal(1, w.View.Backups.Usage().Count);
+        Assert.True(await w.View.OfferRecoveryAsync());
         Assert.Contains("lecture.pdf", asked);
-        Assert.Equal(backupFile, w.Document!.FilePath);
+        Assert.Equal(backupFile, w.View.Document!.FilePath);
         // Asked once: the marker is gone, the backup stays.
-        Assert.False(await w.OfferRecoveryAsync());
+        Assert.False(await w.View.OfferRecoveryAsync());
         Assert.True(File.Exists(backupFile));
         w.Close();
     });
@@ -193,7 +193,7 @@ public sealed class PlatformTests
         string folder = Headless.TempFolder();
         string pdf = SamplePdf(folder);
         var w = Window(folder);
-        Assert.True(await w.OpenFileAsync(pdf));
+        Assert.True(await w.View.OpenFileAsync(pdf));
         var marker = Assert.Single(Directory.GetFiles(Path.Combine(folder, "sessions"), "*.json"));
         var json = JsonNode.Parse(File.ReadAllText(marker))!;
         Assert.Equal(Path.GetFullPath(pdf), (string?)json["documentPath"]);
@@ -214,14 +214,14 @@ public sealed class PlatformTests
         other.SetOpenDocument(pdf, 4242);
         var w = Window(folder);
         long? brought = null;
-        w.BringOverride = id => brought = id;
-        var before = w.Document;
-        await w.OpenFileAsync(pdf);
+        w.View.BringOverride = id => brought = id;
+        var before = w.View.Document;
+        await w.View.OpenFileAsync(pdf);
         Assert.Equal(4242, brought);
-        Assert.Same(before, w.Document);
+        Assert.Same(before, w.View.Document);
         other.End();
         brought = null;
-        Assert.True(await w.OpenFileAsync(pdf)); // nobody shows it any more
+        Assert.True(await w.View.OpenFileAsync(pdf)); // nobody shows it any more
         Assert.Null(brought);
         w.Close();
     });
@@ -233,22 +233,22 @@ public sealed class PlatformTests
         string folder = Headless.TempFolder();
         var settings = new AppSettings { BackupFolder = Path.Combine(folder, "Backups") };
         var w = Window(folder, settings);
-        w.BackupIntervalOverride = TimeSpan.FromHours(1);
+        w.View.BackupIntervalOverride = TimeSpan.FromHours(1);
         AddStroke(w);
         // A button held anywhere in the window (here on the status line): the backup waits.
-        var status = w.FindControl<Control>("StatusText")!;
+        var status = w.View.FindControl<Control>("StatusText")!;
         var on = status.TranslatePoint(new Avalonia.Point(2, status.Bounds.Height / 2), w)!.Value;
         w.MouseDown(on, MouseButton.Left);
-        w.BackupIntervalOverride = TimeSpan.Zero;
+        w.View.BackupIntervalOverride = TimeSpan.Zero;
         Thread.Sleep(1200);
         Dispatcher.UIThread.RunJobs();
-        Assert.Null(w.LastBackupFile);
+        Assert.Null(w.View.LastBackupFile);
         w.MouseUp(on, MouseButton.Left);
-        Headless.Pump(() => w.LastBackupFile is not null);
-        Assert.StartsWith(Path.Combine(folder, "Backups"), w.LastBackupFile);
-        Assert.True(File.Exists(w.LastBackupFile));
-        Assert.True(w.Document!.Session.IsDirty); // folder mode leaves the document unsaved
-        Assert.Equal(1, w.Backups.Usage().Count);
+        Headless.Pump(() => w.View.LastBackupFile is not null);
+        Assert.StartsWith(Path.Combine(folder, "Backups"), w.View.LastBackupFile);
+        Assert.True(File.Exists(w.View.LastBackupFile));
+        Assert.True(w.View.Document!.Session.IsDirty); // folder mode leaves the document unsaved
+        Assert.Equal(1, w.View.Backups.Usage().Count);
         w.Script.PromptOverride = (_, _) => Answer.No; // close without saving
         w.Close();
         Dispatcher.UIThread.RunJobs();
@@ -311,7 +311,7 @@ public sealed class PlatformTests
         var w = Window(folder);
         try
         {
-            Assert.True(await w.OpenFileAsync(pdf)); // the theme changes below run without waiting in between
+            Assert.True(await w.View.OpenFileAsync(pdf)); // the theme changes below run without waiting in between
             DesktopTheme.Use(app, ThemeChoice.System, AccentColor.Blue);
             Assert.Equal(Avalonia.Styling.ThemeVariant.Default, app.RequestedThemeVariant);
             DesktopTheme.Use(app, ThemeChoice.Light, AccentColor.Blue);
@@ -335,10 +335,10 @@ public sealed class PlatformTests
     });
 
     private static List<TextBlock> Numbers(MainWindow w) =>
-        [.. w.FindControl<ListBox>("PageList")!.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Name == "Number").OrderBy(t => t.TranslatePoint(default, w)!.Value.Y)];
+        [.. w.View.FindControl<ListBox>("PageList")!.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Name == "Number").OrderBy(t => t.TranslatePoint(default, w)!.Value.Y)];
 
     private static List<Border> Frames(MainWindow w) =>
-        [.. w.FindControl<ListBox>("PageList")!.GetVisualDescendants().OfType<Border>().Where(t => t.Name == "Frame").OrderBy(t => t.TranslatePoint(default, w)!.Value.Y)];
+        [.. w.View.FindControl<ListBox>("PageList")!.GetVisualDescendants().OfType<Border>().Where(t => t.Name == "Frame").OrderBy(t => t.TranslatePoint(default, w)!.Value.Y)];
 
     [Fact]
     public void ColorPlaneConvertsBetweenRgbAndHsv()
