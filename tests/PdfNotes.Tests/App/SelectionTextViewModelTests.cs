@@ -20,7 +20,7 @@ public sealed class SelectionTextViewModelTests : IDisposable
 
     public SelectionTextViewModelTests()
     {
-        model = new MainViewModel(shell, shell, settings, "DeotPDF", new ManualTime(), _ => saves++, clipboard: clipboard);
+        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => saves++, TestFolders.New(), new ManualTime(), clipboard: clipboard);
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
         select = new SelectTool(new FakeCanvas(), () => model.Document?.Session);
         model.ToolStyles.Attach(select);

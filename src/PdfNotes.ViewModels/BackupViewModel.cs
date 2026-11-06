@@ -31,6 +31,7 @@ public sealed class BackupViewModel : ObservableObject
     private ITimer? timer;
     private bool running;
     private string? lastFailure;
+    private readonly string settingsFolder;
 
     /// <param name="folder">The settings folder: the backup store keeps its records and the running windows' markers there.</param>
     public BackupViewModel(MainViewModel owner, IMainView view, IEditorDialogs dialogs, TimeProvider time, string folder)
@@ -39,6 +40,7 @@ public sealed class BackupViewModel : ObservableObject
         this.view = view;
         this.dialogs = dialogs;
         this.time = time;
+        settingsFolder = folder;
         Store = new BackupStore(folder);
     }
 
@@ -127,7 +129,7 @@ public sealed class BackupViewModel : ObservableObject
                 }
                 catch (SaveFailedException e) when (e.Failure is SaveFailure.Locked or SaveFailure.AccessDenied) { } // into the backup folder
             }
-            string folder = Settings.EffectiveBackupFolder;
+            string folder = Settings.BackupFolderIn(settingsFolder);
             Directory.CreateDirectory(folder);
             string file = Store.NewFile(folder, doc.FilePath);
             long revision = await doc.WriteCopyAsync(file);
@@ -198,7 +200,7 @@ public sealed class BackupViewModel : ObservableObject
     {
         try
         {
-            string folder = Settings.EffectiveBackupFolder;
+            string folder = Settings.BackupFolderIn(settingsFolder);
             Directory.CreateDirectory(folder);
             string stamp = Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
             if (error is not null)

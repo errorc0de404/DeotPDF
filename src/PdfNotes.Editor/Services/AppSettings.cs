@@ -181,7 +181,7 @@ public sealed class AppSettings
     /// <summary>Pen favorites group on the 필기 tab (spec 24.7), shown by default; the quick menu row stays either way.</summary>
     public bool ShowFavorites { get; set; } = true;
 
-    /// <summary>UI language pack (spec 18.1, D14e): the built-in Korean or a pack found in <see cref="LanguageFolders"/>; read at start.</summary>
+    /// <summary>UI language pack (spec 18.1, D14e): the built-in Korean or a pack found in <see cref="LanguageFoldersIn"/>; read at start.</summary>
     public string Language { get; set; } = PdfNotes.Editor.Localization.Strings.BuiltInLanguage;
 
     /// <summary>
@@ -192,7 +192,7 @@ public sealed class AppSettings
     public DateTime? UpdateCheckedAt { get; set; }
 
     /// <summary>Where language packs are looked for: the app folder's <c>Languages</c>, then the settings folder's (the user's copy wins).</summary>
-    public static string[] LanguageFolders => [Path.Combine(AppContext.BaseDirectory, "Languages"), Path.Combine(Folder, "Languages")];
+    public static string[] LanguageFoldersIn(string settingsFolder) => [Path.Combine(AppContext.BaseDirectory, "Languages"), Path.Combine(settingsFolder, "Languages")];
 
     /// <summary>
     /// The highlighter kind (spec 9.1: null = highlight, underline or strikeout) and the underline and strikeout styles,
@@ -234,17 +234,18 @@ public sealed class AppSettings
     public int BackupIntervalMinutes { get; set; } = 5;
     public BackupMode BackupMode { get; set; } = BackupMode.Folder;
 
-    /// <summary>Backup folder; null or empty uses <see cref="DefaultBackupFolder"/>.</summary>
+    /// <summary>Backup folder; null or empty uses <see cref="DefaultBackupFolderIn"/>.</summary>
     public string? BackupFolder { get; set; }
     public int BackupKeep { get; set; } = 10;
 
     public static readonly int[] BackupIntervals = [1, 3, 5, 10, 15, 30];
     public const int MinBackupKeep = 1, MaxBackupKeep = 50;
 
-    /// <summary>Backups go next to the settings (<see cref="Folder"/>/Backups).</summary>
-    public static string DefaultBackupFolder => Path.Combine(Folder, "Backups");
+    /// <summary>Backups go next to the settings (<c>Backups</c> in the settings folder).</summary>
+    public static string DefaultBackupFolderIn(string settingsFolder) => Path.Combine(settingsFolder, "Backups");
 
-    [JsonIgnore] public string EffectiveBackupFolder => string.IsNullOrWhiteSpace(BackupFolder) ? DefaultBackupFolder : BackupFolder;
+    /// <summary>The chosen backup folder, or the default one in <paramref name="settingsFolder"/>.</summary>
+    public string BackupFolderIn(string settingsFolder) => string.IsNullOrWhiteSpace(BackupFolder) ? DefaultBackupFolderIn(settingsFolder) : BackupFolder;
 
     public sealed class StyleSettings
     {
@@ -266,12 +267,13 @@ public sealed class AppSettings
         (RecentColors ?? []).Select(text => RgbColor.TryParse(text, out var c) ? c : (RgbColor?)null)
             .OfType<RgbColor>().Distinct().Take(ColorPalette.MaxUser).ToList();
 
-    /// <summary>The settings file, <c>settings.json</c> in <see cref="Folder"/>.</summary>
-    public static string DefaultPath => Path.Combine(Folder, "settings.json");
+    /// <summary>The settings file, <c>settings.json</c> in the settings folder.</summary>
+    public static string FileIn(string settingsFolder) => Path.Combine(settingsFolder, "settings.json");
 
     /// <summary>
     /// The app's settings folder (decision 18): settings, backups, the running windows' markers and the user's language
-    /// packs. The environment variable PDFNOTES_SETTINGS_DIR replaces it for tests and validation runs.
+    /// packs. The environment variable PDFNOTES_SETTINGS_DIR replaces it for tests and validation runs. Only start code
+    /// (the app's <c>Program</c>/<c>App</c>, the CLI's default) reads it; everything else is given the folder.
     /// </summary>
     public static string Folder =>
         Environment.GetEnvironmentVariable("PDFNOTES_SETTINGS_DIR") is { Length: > 0 } dir ? dir
@@ -291,11 +293,10 @@ public sealed class AppSettings
         _ => Path.Combine(environment("XDG_CONFIG_HOME") is { Length: > 0 } config && Path.IsPathRooted(config) ? config : Path.Combine(home, ".config"), "PdfNotes")
     };
 
-    public static AppSettings Load(string? path = null)
+    public static AppSettings Load(string path)
     {
         try
         {
-            path ??= DefaultPath;
             if (!File.Exists(path)) return new();
             var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), Options) ?? new();
             if (!Enum.IsDefined(settings.ViewMode)) settings.ViewMode = ViewMode.Continuous;
@@ -344,11 +345,10 @@ public sealed class AppSettings
     }
 
     /// <summary>Writes atomically (temp file + move). Failures are ignored: settings are a convenience.</summary>
-    public void Save(string? path = null)
+    public void Save(string path)
     {
         try
         {
-            path ??= DefaultPath;
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var mine = ToJson();
             string temp = path + ".tmp";

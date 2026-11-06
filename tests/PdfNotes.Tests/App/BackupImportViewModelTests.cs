@@ -22,7 +22,7 @@ public sealed class BackupImportViewModelTests : IDisposable
     {
         Directory.CreateDirectory(folder);
         settings.BackupFolder = Path.Combine(folder, "Backups");
-        model = new MainViewModel(shell, shell, settings, "DeotPDF", time, _ => { }, pageDialogs: shell, backupFolder: folder);
+        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => { }, folder, time, pageDialogs: shell);
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
         model.Pages.DocumentReplaced();
     }

@@ -10,7 +10,7 @@ public enum EscapeStep { None, CancelOperation, ClearSelection, ReturnToTool, Se
 /// The current canvas tool and the automatic selection visit (spec 5.4, 5.6, 9.3, D14d). A lasso result, a clicked line,
 /// shape or highlight is edited with the selection tool; <see cref="Return"/> remembers the tool to go back to.
 /// </summary>
-public sealed class ToolSwitch(AppSettings settings)
+public sealed class ToolSwitch(AppSettings settings, Action saveSettings)
 {
     public ToolKind Current { get; private set; } = ToolKind.Pen;
 
@@ -43,12 +43,12 @@ public sealed class ToolSwitch(AppSettings settings)
         if (kind is ToolKind.Line or ToolKind.Curve or ToolKind.Shape && settings.ShapeGroupTool != kind)
         {
             settings.ShapeGroupTool = kind; // the shape button selects this tool next time
-            settings.Save();
+            saveSettings();
         }
         if (kind is ToolKind.StrokeEraser or ToolKind.AreaEraser && settings.Eraser != kind)
         {
             settings.Eraser = kind;
-            settings.Save();
+            saveSettings();
         }
         return kind;
     }

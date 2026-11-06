@@ -19,10 +19,10 @@ public sealed partial class MainWindow : IPageDialogs
     {
         var display = viewModel.Display.Stored;
         var dialog = new SettingsDialog(new(settings.QuickErase, settings.PageDrag,
-            new(settings.AutoBackup, settings.BackupIntervalMinutes, settings.BackupMode, settings.EffectiveBackupFolder, settings.BackupKeep), display,
+            new(settings.AutoBackup, settings.BackupIntervalMinutes, settings.BackupMode, settings.BackupFolderIn(appFolder), settings.BackupKeep), display,
             settings.Language, settings.CheckUpdates == true, settings.FingerDrawing, settings.PenPressure),
             () => Confirm(Strings.Get("settings.backupInPlaceConfirm"), NoticeKind.Warning),
-            PreviewDisplay, Strings.Discover(AppSettings.LanguageFolders), new(viewModel.Backup.Store.Usage, viewModel.Backup.Clear), new(viewModel.Update.CheckAsync, OpenWebPage));
+            PreviewDisplay, Strings.Discover(AppSettings.LanguageFoldersIn(appFolder)), new(viewModel.Backup.Store.Usage, viewModel.Backup.Clear), new(viewModel.Update.CheckAsync, OpenWebPage));
         if (!dialogs.ShowWindow(dialog) || dialog.Result is not { } values) { PreviewDisplay(display); return false; } // cancel undoes the preview
         SetDisplay(values.Display ?? display);
         settings.QuickErase = values.QuickErase;
@@ -32,7 +32,7 @@ public sealed partial class MainWindow : IPageDialogs
         settings.AutoBackup = values.Backup.Enabled;
         settings.BackupIntervalMinutes = values.Backup.IntervalMinutes;
         settings.BackupMode = values.Backup.Mode;
-        settings.BackupFolder = FilePaths.Same(values.Backup.Folder, AppSettings.DefaultBackupFolder) ? null : values.Backup.Folder;
+        settings.BackupFolder = FilePaths.Same(values.Backup.Folder, AppSettings.DefaultBackupFolderIn(appFolder)) ? null : values.Backup.Folder;
         settings.BackupKeep = values.Backup.Keep;
         bool languageChanged = !string.Equals(settings.Language, values.Language, StringComparison.OrdinalIgnoreCase);
         settings.Language = values.Language;

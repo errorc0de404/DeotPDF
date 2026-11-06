@@ -145,7 +145,7 @@ public sealed class TextBoxEditorHeadlessTests
     public void TheTextBarViewModelFormatsTheEditedBox() => Run(() =>
     {
         var (window, editor) = Show("abc def");
-        var main = new MainViewModel(new Shell(), new Shell(), new AppSettings(), "DeotPDF", saveSettings: _ => { });
+        var main = new MainViewModel(new Shell(), new Shell(), new AppSettings(), "DeotPDF", _ => { }, TestFolders.New());
         main.TextStyle.Attach(new Adapter(editor), new SelectTool(new NoCanvas(), () => null));
         editor.Model!.Select(0, 3);
         main.TextStyle.SetFlag('B', true);

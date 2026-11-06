@@ -21,7 +21,7 @@ public sealed class NavigationViewModelTests : IDisposable
 
     public NavigationViewModelTests()
     {
-        model = new MainViewModel(shell, shell, settings, "DeotPDF", new ManualTime(), _ => saves++);
+        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => saves++, TestFolders.New(), new ManualTime());
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
         var session = model.Document!.Session;
         var spec = session.Current.Pages[0].Setup;

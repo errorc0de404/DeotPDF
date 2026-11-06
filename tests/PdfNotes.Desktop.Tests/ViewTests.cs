@@ -6,6 +6,7 @@ using Avalonia.Platform;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Desktop.Views;
 using PdfNotes.Editor.Layout;
+using PdfNotes.Editor.Services;
 using PdfNotes.Pdf.Engine;
 using PdfNotes.Pdf.Prototype;
 
@@ -18,7 +19,7 @@ public sealed class ViewTests
     {
         string pdf = Path.Combine(Headless.TempFolder(), "sample.pdf");
         ProbeSamplePdf.Create(pdf, pages);
-        var window = new MainWindow { Width = 1000, Height = 760 };
+        var window = new MainWindow(new AppSettings(), _ => { }, Headless.TempFolder()) { Width = 1000, Height = 760 };
         window.Show();
         Assert.True(await window.OpenFileAsync(pdf));
         window.DocumentCanvas.PageNumberSize = 0; // compared with PDFium, which draws no page numbers

@@ -28,7 +28,7 @@ public sealed class FrameTests
 {
     private static MainWindow Window(double width = 1200, double height = 1000, AppSettings? settings = null)
     {
-        var window = new MainWindow(settings ?? new AppSettings(), _ => { }, dialogs: TestWindows.Dialogs) { Width = width, Height = height };
+        var window = new MainWindow(settings ?? new AppSettings(), _ => { }, Headless.TempFolder(), TestWindows.Dialogs) { Width = width, Height = height };
         window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No; // yes to questions, never save on close
         window.Script.MessageSink = _ => { };
         window.EditorClipboard.InMemory = true;

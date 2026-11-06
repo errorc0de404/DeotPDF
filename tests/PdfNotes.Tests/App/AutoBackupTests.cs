@@ -170,12 +170,12 @@ public sealed class AutoBackupTests : IDisposable
         Assert.Equal(5, settings.BackupIntervalMinutes);
         Assert.Equal(BackupMode.Folder, settings.BackupMode);
         Assert.Equal(10, settings.BackupKeep);
-        Assert.Equal(Path.Combine(AppSettings.Folder, "Backups"), settings.EffectiveBackupFolder);
+        Assert.Equal(Path.Combine(folder, "Backups"), settings.BackupFolderIn(folder));
 
         string path = Path.Combine(folder, "settings.json");
         new AppSettings { AutoBackup = false, BackupIntervalMinutes = 15, BackupMode = BackupMode.Original, BackupFolder = folder, BackupKeep = 50 }.Save(path);
         var read = AppSettings.Load(path);
-        Assert.Equal((false, 15, BackupMode.Original, folder, 50), (read.AutoBackup, read.BackupIntervalMinutes, read.BackupMode, read.EffectiveBackupFolder, read.BackupKeep));
+        Assert.Equal((false, 15, BackupMode.Original, folder, 50), (read.AutoBackup, read.BackupIntervalMinutes, read.BackupMode, read.BackupFolderIn(Path.GetTempPath()), read.BackupKeep));
         Assert.DoesNotContain("effectiveBackupFolder", File.ReadAllText(path));
 
         File.WriteAllText(path, """{ "backupIntervalMinutes": 7, "backupMode": "folder", "backupKeep": 400, "backupFolder": "relative\\dir" }""");

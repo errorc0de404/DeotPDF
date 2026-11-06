@@ -29,7 +29,7 @@ public sealed class PlatformTests
 {
     private static MainWindow Window(string folder, AppSettings? settings = null)
     {
-        var window = new MainWindow(settings ?? new AppSettings(), _ => { }, folder, dialogs: TestWindows.Dialogs) { Width = 1200, Height = 900 };
+        var window = new MainWindow(settings ?? new AppSettings(), _ => { }, folder, TestWindows.Dialogs) { Width = 1200, Height = 900 };
         window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No;
         window.Script.MessageSink = _ => { };
         window.EditorClipboard.InMemory = true;
@@ -70,9 +70,11 @@ public sealed class PlatformTests
         Assert.Equal(Path.Combine(config, "PdfNotes"), AppSettings.FolderFor(SettingsPlatform.Linux, v => v == "XDG_CONFIG_HOME" ? config : null, "/home/a", ""));
         // A relative XDG_CONFIG_HOME is ignored (XDG base directory rules).
         Assert.Equal(Path.Combine("/home/a", ".config", "PdfNotes"), AppSettings.FolderFor(SettingsPlatform.Linux, v => v == "XDG_CONFIG_HOME" ? "config" : null, "/home/a", ""));
-        // Backups, markers and language packs live in the same folder (the tests' folder here).
-        Assert.Equal(Path.Combine(AppSettings.Folder, "Backups"), AppSettings.DefaultBackupFolder);
-        Assert.Equal(Path.Combine(AppSettings.Folder, "settings.json"), AppSettings.DefaultPath);
+        // Settings, backups and language packs live in the folder the app gives them.
+        string folder = Path.Combine(Path.GetTempPath(), "settings-folder");
+        Assert.Equal(Path.Combine(folder, "Backups"), AppSettings.DefaultBackupFolderIn(folder));
+        Assert.Equal(Path.Combine(folder, "settings.json"), AppSettings.FileIn(folder));
+        Assert.Equal(Path.Combine(folder, "Languages"), AppSettings.LanguageFoldersIn(folder)[^1]);
     }
 
     /// <summary>A settings file as DeotPDF 1.1 (WPF) writes it: the Avalonia window starts from it.</summary>

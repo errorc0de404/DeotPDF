@@ -29,19 +29,16 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
     private bool closeConfirmed;
     private readonly string appFolder;
 
-    public MainWindow() : this(AppSettings.Load(), saveSettings: null) { }
-
     /// <param name="saveSettings">How settings are stored (tests pass one that does nothing).</param>
-    /// <param name="appFolder">The settings folder for backups and the running windows' markers (tests pass their own).</param>
+    /// <param name="appFolder">The settings folder: backups, the running windows' markers, language packs (tests pass their own).</param>
     /// <param name="dialogs">Makes the window's modal UI for it (default <see cref="DesktopDialogs"/>; tests pass a scripted one).</param>
-    public MainWindow(AppSettings settings, Action<AppSettings>? saveSettings, string? appFolder = null, Func<Window, IDesktopDialogs>? dialogs = null)
+    public MainWindow(AppSettings settings, Action<AppSettings> saveSettings, string appFolder, Func<Window, IDesktopDialogs>? dialogs = null)
     {
-        this.appFolder = appFolder ?? AppSettings.Folder;
+        this.appFolder = appFolder;
         InitializeComponent();
         this.dialogs = dialogs?.Invoke(this) ?? new DesktopDialogs(this);
         clipboard = new DesktopClipboard(this);
-        viewModel = new MainViewModel(this, this.dialogs, settings, App.DisplayName, saveSettings: saveSettings ?? (s => s.Save()), clipboard: clipboard, pageDialogs: this,
-            backupFolder: this.appFolder);
+        viewModel = new MainViewModel(this, this.dialogs, settings, App.DisplayName, saveSettings, appFolder, clipboard: clipboard, pageDialogs: this);
         viewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.Title)) Title = viewModel.Title;

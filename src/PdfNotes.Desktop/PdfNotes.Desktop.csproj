@@ -8,6 +8,9 @@
     <RootNamespace>PdfNotes.Desktop</RootNamespace>
     <ApplicationIcon>Assets\DeotPDF.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- AVLN3001: the main window has no parameterless constructor on purpose (App gives it settings and the settings
+         folder); it is made in code, never by the XAML runtime loader. -->
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />

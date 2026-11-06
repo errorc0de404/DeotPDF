@@ -21,7 +21,7 @@ public sealed class PagesViewModelTests : IDisposable
 
     public PagesViewModelTests()
     {
-        model = new MainViewModel(shell, shell, settings, "DeotPDF", time, _ => saves++, clipboard: clipboard);
+        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => saves++, TestFolders.New(), time, clipboard: clipboard);
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
         Pages.DocumentReplaced();
         var spec = Session.Current.Pages[0].Setup;

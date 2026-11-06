@@ -18,7 +18,7 @@ public sealed class ToolStylesViewModelTests : IDisposable
 
     public ToolStylesViewModelTests()
     {
-        model = new MainViewModel(shell, shell, settings, "DeotPDF", new ManualTime(), _ => saves++);
+        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => saves++, TestFolders.New(), new ManualTime());
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
         select = new SelectTool(new FakeCanvas(), () => model.Document?.Session);
         Styles.Attach(select);

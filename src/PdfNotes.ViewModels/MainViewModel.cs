@@ -74,24 +74,23 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     private readonly TimeProvider time;
     private readonly Action<AppSettings> saveSettings;
 
-    /// <param name="time">Clock and timers (tests pass a fake one).</param>
     /// <param name="saveSettings">Writes the app settings (tests pass one that writes nothing).</param>
+    /// <param name="settingsFolder">The app's settings folder: backups, the backup store's records, the running windows' markers.</param>
+    /// <param name="time">Clock and timers (tests pass a fake one).</param>
     /// <param name="checkUpdates">Asks for the latest release (tests pass a fake one).</param>
     /// <param name="clipboard">The system clipboard (page copies; tests pass a fake one).</param>
     /// <param name="pageDialogs">The shell's page windows (import, merge, export).</param>
-    /// <param name="backupFolder">Where the backup store keeps its records (default: the settings folder; tests pass a temporary one).</param>
-    public MainViewModel(IMainView view, IEditorDialogs dialogs, AppSettings settings, string appName,
-        TimeProvider? time = null, Action<AppSettings>? saveSettings = null, Func<Task<UpdateResult>>? checkUpdates = null, IEditorClipboard? clipboard = null,
-        IPageDialogs? pageDialogs = null, string? backupFolder = null)
+    public MainViewModel(IMainView view, IEditorDialogs dialogs, AppSettings settings, string appName, Action<AppSettings> saveSettings, string settingsFolder,
+        TimeProvider? time = null, Func<Task<UpdateResult>>? checkUpdates = null, IEditorClipboard? clipboard = null, IPageDialogs? pageDialogs = null)
     {
         this.view = view;
         this.appName = appName;
         this.time = time ?? TimeProvider.System;
-        this.saveSettings = saveSettings ?? (s => s.Save());
+        this.saveSettings = saveSettings;
         title = appName;
         Settings = settings;
         Workflow = new DocumentWorkflow(this, dialogs);
-        Tools = new ToolSwitch(settings);
+        Tools = new ToolSwitch(settings, SaveSettings);
         Ribbon = new RibbonViewModel(settings);
         Recent = new RecentViewModel(settings, SaveSettings);
         Update = new UpdateViewModel(settings, SaveSettings, dialogs, this.time, checkUpdates ?? (() => UpdateCheck.CheckAsync()));
@@ -109,7 +108,7 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         ImportExport = new ImportExportViewModel(this, view, dialogs, pageDialogs ?? NoPageDialogs.Instance);
         ToolStyles = new ToolStylesViewModel(this);
         ToolBar = new ToolBarViewModel(this, view);
-        Backup = new BackupViewModel(this, view, dialogs, this.time, backupFolder ?? AppSettings.Folder);
+        Backup = new BackupViewModel(this, view, dialogs, this.time, settingsFolder);
     }
 
     /// <summary>Page windows that always cancel (a view model made without them).</summary>

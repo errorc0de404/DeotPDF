@@ -22,17 +22,20 @@ public sealed class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        var settings = AppSettings.Load();
-        UseLanguage(settings.Language);
+        // The one place the app looks up its settings folder (the start hand-over in Program aside); the rest is given it.
+        string folder = AppSettings.Folder;
+        string file = AppSettings.FileIn(folder);
+        var settings = AppSettings.Load(file);
+        UseLanguage(settings.Language, folder);
         UsePlatformFont(this);
         DesktopTheme.Use(this, settings.Theme, settings.Accent);
         // Headless tests have no lifetime: they make their own windows.
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var window = new MainWindow();
+            var window = new MainWindow(settings, s => s.Save(file), folder);
             desktop.MainWindow = window;
             CatchCrashes(window);
-            if (TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable) activatable.Activated += (_, e) => FilesActivated(window, e);
+            if (TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable) activatable.Activated += (_, e) => FilesActivated(window, folder, e);
             window.Opened += async (_, _) =>
             {
                 // "DeotPDF file.pdf" (Explorer, Open with, a .desktop launcher). After an abnormal end the newest backup can be opened first (spec 18.2).
@@ -48,13 +51,13 @@ public sealed class App : Application
     /// brought forward where another window shows it, opened here while this window still shows its untouched first
     /// note, and otherwise in a new process, so one window stays one document (spec 4.6).
     /// </summary>
-    private static void FilesActivated(MainWindow window, ActivatedEventArgs e)
+    private static void FilesActivated(MainWindow window, string folder, ActivatedEventArgs e)
     {
         if (e is not FileActivatedEventArgs files) return;
         foreach (var item in files.Files)
         {
             if (item.TryGetLocalPath() is not { } path || !File.Exists(path)) continue;
-            if (BackupStore.WindowShowing(AppSettings.Folder, path) is { } other) { WindowActivation.Bring(other); continue; }
+            if (BackupStore.WindowShowing(folder, path) is { } other) { WindowActivation.Bring(other); continue; }
             if (window.ShowsUntouchedNote) { _ = window.OpenFileAsync(path); continue; }
             try { Process.Start(new ProcessStartInfo(Environment.ProcessPath!, [path]) { UseShellExecute = false }); }
             catch (Exception x) when (x is InvalidOperationException or System.ComponentModel.Win32Exception) { }
@@ -99,10 +102,11 @@ public sealed class App : Application
     /// Applies the language pack before any window exists (D14e, as the WPF app). Problems fall back to Korean and go to
     /// <c>Languages/language.log</c> in the settings folder.
     /// </summary>
-    private static void UseLanguage(string? language)
+    private static void UseLanguage(string? language, string folder)
     {
-        var problems = Strings.Apply(language, AppSettings.LanguageFolders);
-        string log = Path.Combine(AppSettings.LanguageFolders[^1], "language.log");
+        var folders = AppSettings.LanguageFoldersIn(folder);
+        var problems = Strings.Apply(language, folders);
+        string log = Path.Combine(folders[^1], "language.log");
         try
         {
             if (problems.Count == 0) { if (File.Exists(log)) File.Delete(log); return; }

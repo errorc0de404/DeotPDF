@@ -160,7 +160,7 @@ public sealed class EditorSessionTests : IDisposable
     public void ToolSwitchRemembersTheShapeAndEraserChoiceAndReturnsFromAVisit()
     {
         var settings = AppSettings.Load(Path.Combine(folder, "settings.json"));
-        var tools = new ToolSwitch(settings);
+        var tools = new ToolSwitch(settings, () => { });
         Assert.Equal(ToolKind.Pen, tools.Current);
         Assert.Equal(ToolKind.Select, tools.Choose(ToolKind.Pen, notesHidden: true));
         tools.Choose(ToolKind.Curve, notesHidden: false);

@@ -18,7 +18,7 @@ public sealed class MainViewModelTests : IDisposable
     public MainViewModelTests()
     {
         Directory.CreateDirectory(folder);
-        model = new MainViewModel(shell, shell, new AppSettings(), "DeotPDF", saveSettings: _ => { });
+        model = new MainViewModel(shell, shell, new AppSettings(), "DeotPDF", _ => { }, TestFolders.New());
         model.PropertyChanged += (_, e) => shell.Log.Add("changed:" + e.PropertyName);
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
     }

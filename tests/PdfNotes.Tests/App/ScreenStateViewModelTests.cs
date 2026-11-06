@@ -23,7 +23,7 @@ public sealed class ScreenStateViewModelTests : IDisposable
     public ScreenStateViewModelTests()
     {
         Directory.CreateDirectory(folder);
-        model = new MainViewModel(shell, shell, settings, "DeotPDF", time, _ => saves++, () => latest());
+        model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => saves++, TestFolders.New(), time, () => latest());
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
     }
 

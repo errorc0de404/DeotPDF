@@ -17,7 +17,7 @@ public sealed class SearchViewModelTests : IDisposable
 
     public SearchViewModelTests()
     {
-        model = new MainViewModel(shell, shell, new AppSettings(), "DeotPDF", time, _ => { });
+        model = new MainViewModel(shell, shell, new AppSettings(), "DeotPDF", _ => { }, TestFolders.New(), time);
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
         var session = model.Document!.Session;
         var spec = session.Current.Pages[0].Setup;
