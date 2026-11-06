@@ -20,9 +20,9 @@ public sealed class EditingTests
     private static MainWindow Window()
     {
         var settings = new AppSettings();
-        var window = new MainWindow(settings, _ => { }) { Width = 1200, Height = 1000 }; // the ribbon, the bars and the page list take room (A5)
-        window.PromptOverride = (_, _) => Answer.No;
-        window.MessageSink = _ => { };
+        var window = new MainWindow(settings, _ => { }, dialogs: TestWindows.Dialogs) { Width = 1200, Height = 1000 }; // the ribbon, the bars and the page list take room (A5)
+        window.Script.PromptOverride = (_, _) => Answer.No;
+        window.Script.MessageSink = _ => { };
         window.Show();
         window.DocumentCanvas.SetZoom(1);
         window.DocumentCanvas.GoToPage(0);

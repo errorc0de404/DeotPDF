@@ -29,9 +29,9 @@ public sealed class PlatformTests
 {
     private static MainWindow Window(string folder, AppSettings? settings = null)
     {
-        var window = new MainWindow(settings ?? new AppSettings(), _ => { }, folder) { Width = 1200, Height = 900 };
-        window.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No;
-        window.MessageSink = _ => { };
+        var window = new MainWindow(settings ?? new AppSettings(), _ => { }, folder, dialogs: TestWindows.Dialogs) { Width = 1200, Height = 900 };
+        window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No;
+        window.Script.MessageSink = _ => { };
         window.EditorClipboard.InMemory = true;
         window.Show();
         Dispatcher.UIThread.RunJobs();
@@ -165,7 +165,7 @@ public sealed class PlatformTests
             """);
         var w = Window(folder);
         string? asked = null;
-        w.PromptOverride = (text, _) => { asked = text; return Answer.Yes; };
+        w.Script.PromptOverride = (text, _) => { asked = text; return Answer.Yes; };
         Assert.Equal(1, w.Backups.Usage().Count);
         Assert.True(await w.OfferRecoveryAsync());
         Assert.Contains("lecture.pdf", asked);
@@ -247,7 +247,7 @@ public sealed class PlatformTests
         Assert.True(File.Exists(w.LastBackupFile));
         Assert.True(w.Document!.Session.IsDirty); // folder mode leaves the document unsaved
         Assert.Equal(1, w.Backups.Usage().Count);
-        w.PromptOverride = (_, _) => Answer.No; // close without saving
+        w.Script.PromptOverride = (_, _) => Answer.No; // close without saving
         w.Close();
         Dispatcher.UIThread.RunJobs();
     });

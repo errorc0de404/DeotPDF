@@ -25,9 +25,9 @@ public sealed class ReviewFixTests
 {
     private static MainWindow Window(double width = 1200, double height = 1000)
     {
-        var window = new MainWindow(new AppSettings(), _ => { }) { Width = width, Height = height };
-        window.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No;
-        window.MessageSink = _ => { };
+        var window = new MainWindow(new AppSettings(), _ => { }, dialogs: TestWindows.Dialogs) { Width = width, Height = height };
+        window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No;
+        window.Script.MessageSink = _ => { };
         window.EditorClipboard.InMemory = true;
         window.Show();
         window.DocumentCanvas.SetZoom(1);
@@ -157,7 +157,7 @@ public sealed class ReviewFixTests
     {
         var w = Window();
         string target = Path.Combine(Headless.TempFolder(), "note.pdf");
-        w.SaveDialogOverride = _ => target;
+        w.Script.SaveDialogOverride = _ => target;
         w.SetTool(ToolKind.Note);
         Click(w, new(200, 200));
         w.NoteTextBox!.Text = "저장 전 메모";

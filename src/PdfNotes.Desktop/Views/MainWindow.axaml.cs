@@ -23,7 +23,7 @@ namespace PdfNotes.Desktop.Views;
 public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
 {
     private readonly MainViewModel viewModel;
-    private readonly DesktopDialogs dialogs;
+    private readonly IDesktopDialogs dialogs;
     private readonly DesktopClipboard clipboard;
     private PageRenderQueue<SKImage>? queue;
     private bool closeConfirmed;
@@ -33,13 +33,14 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
 
     /// <param name="saveSettings">How settings are stored (tests pass one that does nothing).</param>
     /// <param name="appFolder">The settings folder for backups and the running windows' markers (tests pass their own).</param>
-    public MainWindow(AppSettings settings, Action<AppSettings>? saveSettings, string? appFolder = null)
+    /// <param name="dialogs">Makes the window's modal UI for it (default <see cref="DesktopDialogs"/>; tests pass a scripted one).</param>
+    public MainWindow(AppSettings settings, Action<AppSettings>? saveSettings, string? appFolder = null, Func<Window, IDesktopDialogs>? dialogs = null)
     {
         this.appFolder = appFolder ?? AppSettings.Folder;
         InitializeComponent();
-        dialogs = new DesktopDialogs(this);
+        this.dialogs = dialogs?.Invoke(this) ?? new DesktopDialogs(this);
         clipboard = new DesktopClipboard(this);
-        viewModel = new MainViewModel(this, dialogs, settings, App.DisplayName, saveSettings: saveSettings ?? (s => s.Save()), clipboard: clipboard, pageDialogs: this,
+        viewModel = new MainViewModel(this, this.dialogs, settings, App.DisplayName, saveSettings: saveSettings ?? (s => s.Save()), clipboard: clipboard, pageDialogs: this,
             backupFolder: this.appFolder);
         viewModel.PropertyChanged += (_, e) =>
         {
@@ -83,22 +84,8 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
     private AppSettings settings => viewModel.Settings;
     private bool busy => viewModel.IsBusy;
 
-    // ----- test hooks: replace modal UI when set (as the WPF window's) -----
-
-    /// <summary>Answers questions instead of a dialog.</summary>
-    public Func<string, AskButtons, Answer>? PromptOverride { get => dialogs.PromptOverride; set => dialogs.PromptOverride = value; }
-
-    /// <summary>Returns the save path (null = cancelled) instead of the save dialog.</summary>
-    public Func<SavePathRequest, string?>? SaveDialogOverride { get => dialogs.SaveDialogOverride; set => dialogs.SaveDialogOverride = value; }
-
-    /// <summary>Receives messages instead of a dialog.</summary>
-    public Action<string>? MessageSink { get => dialogs.MessageSink; set => dialogs.MessageSink = value; }
-
-    /// <summary>Replaces each window of this app's own (new note, page size, settings, import, merge, export) in tests.</summary>
-    public Func<Window, bool>? WindowOverride { get => dialogs.WindowOverride; set => dialogs.WindowOverride = value; }
-
-    /// <summary>Returns the files to open or insert instead of the file dialog (null cancels).</summary>
-    public Func<string[]?>? OpenDialogOverride { get => dialogs.OpenDialogOverride; set => dialogs.OpenDialogOverride = value; }
+    /// <summary>The window's modal UI (questions, messages, file dialogs, app windows).</summary>
+    public IDesktopDialogs Dialogs => dialogs;
 
     /// <summary>The system clipboard of this window (tests use an in-memory one).</summary>
     public DesktopClipboard EditorClipboard => clipboard;

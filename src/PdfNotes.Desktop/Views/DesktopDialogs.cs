@@ -16,28 +16,44 @@ public interface IAcceptDialog
 }
 
 /// <summary>
-/// The editor's modal UI on Avalonia (D14d <see cref="IEditorDialogs"/>): questions, messages, the file dialogs and the
-/// app's own windows. The editor asks synchronously; Avalonia's dialogs are asynchronous, so the call waits in a nested
-/// dispatcher frame (the UI keeps running). Tests replace each with an override.
+/// The main window's modal UI: the editor's questions and messages (<see cref="IEditorDialogs"/>), the file dialogs and
+/// the app's own windows. Whoever makes the window gives it one (<see cref="DesktopDialogs"/> in the app; tests pass a
+/// scripted one).
 /// </summary>
-public sealed class DesktopDialogs(Window owner) : IEditorDialogs
+public interface IDesktopDialogs : IEditorDialogs
 {
-    public Func<string, AskButtons, Answer>? PromptOverride { get; set; }
-    public Func<SavePathRequest, string?>? SaveDialogOverride { get; set; }
-    public Action<string>? MessageSink { get; set; }
-
-    /// <summary>Gets each app window instead of showing it; true presses its OK (then <see cref="IAcceptDialog.Accept"/> runs).</summary>
-    public Func<Window, bool>? WindowOverride { get; set; }
-
-    /// <summary>Returns the files of an open dialog (null cancels).</summary>
-    public Func<string[]?>? OpenDialogOverride { get; set; }
-
     /// <summary>A dialog is open (backups wait, spec 18.2).</summary>
+    bool IsOpen { get; }
+
+    /// <summary>Shows one of the app's windows modally; true when it was closed with OK.</summary>
+    bool ShowWindow(Window window);
+
+    /// <summary>The same, waited for asynchronously (from async commands).</summary>
+    Task<bool> ShowWindowAsync(Window window);
+
+    /// <summary>A window opened from another app window (<paramref name="parent"/>), such as the range picker of the merge window.</summary>
+    Task<bool> ShowChildAsync(Window child, Window parent);
+
+    /// <summary>Asks for a PDF to open; null when cancelled.</summary>
+    Task<string?> ChooseOpenPathAsync();
+
+    /// <summary>PDFs to read (import, merge), or null.</summary>
+    string[]? ChoosePdfFiles(string title);
+
+    /// <summary>An image file to insert, or null.</summary>
+    Task<string[]?> ChooseImageAsync();
+}
+
+/// <summary>
+/// <see cref="IDesktopDialogs"/> on Avalonia. The editor asks synchronously; Avalonia's dialogs are asynchronous, so the
+/// call waits in a nested dispatcher frame (the UI keeps running).
+/// </summary>
+public sealed class DesktopDialogs(Window owner) : IDesktopDialogs
+{
     public bool IsOpen { get; private set; }
 
     public Answer Ask(string text, AskButtons buttons, NoticeKind kind)
     {
-        if (PromptOverride is { } answer) return answer(text, buttons);
         var choices = buttons == AskButtons.YesNo
             ? new[] { (Strings.Get("dialog.yes"), Answer.Yes), (Strings.Get("dialog.no"), Answer.No) }
             : [(Strings.Get("dialog.save"), Answer.Yes), (Strings.Get("dialog.dontSave"), Answer.No), (Strings.Get("dialog.cancel"), Answer.Cancel)];
@@ -46,31 +62,17 @@ public sealed class DesktopDialogs(Window owner) : IEditorDialogs
 
     public void Tell(string text, NoticeKind kind)
     {
-        if (MessageSink is { } sink) { sink(text); return; }
         Wait(ShowBox(text, [(Strings.Get("dialog.ok"), Answer.Yes)], Answer.Yes));
     }
 
-    public string? ChooseSavePath(SavePathRequest request)
-    {
-        if (SaveDialogOverride is { } choose) return choose(request);
-        return Wait(SaveAsync(request));
-    }
+    public string? ChooseSavePath(SavePathRequest request) => Wait(SaveAsync(request));
 
-    /// <summary>Shows one of the app's windows modally; true when it was closed with OK.</summary>
-    public bool ShowWindow(Window window)
-    {
-        if (WindowOverride is { } run)
-        {
-            try { return run(window) && (window is not IAcceptDialog dialog || dialog.Accept()); }
-            finally { (window as IDisposable)?.Dispose(); }
-        }
-        return Wait(window.ShowDialog<bool>(owner));
-    }
+    public bool ShowWindow(Window window) => Wait(window.ShowDialog<bool>(owner));
 
-    /// <summary>The same, waited for asynchronously (from async commands).</summary>
+    public Task<bool> ShowChildAsync(Window child, Window parent) => child.ShowDialog<bool>(parent);
+
     public async Task<bool> ShowWindowAsync(Window window)
     {
-        if (WindowOverride is not null) return ShowWindow(window);
         IsOpen = true;
         try { return await window.ShowDialog<bool>(owner); }
         finally { IsOpen = false; }
@@ -94,18 +96,14 @@ public sealed class DesktopDialogs(Window owner) : IEditorDialogs
     public static readonly FilePickerFileType Images = new(Strings.Get("image.typeName"))
         { Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp"], MimeTypes = ["image/png", "image/jpeg", "image/bmp"], AppleUniformTypeIdentifiers = ["public.image"] }; // not UI text (D14e)
 
-    /// <summary>Asks for a PDF to open; null when cancelled.</summary>
     public async Task<string?> ChooseOpenPathAsync() => (await ChooseFilesAsync(Strings.Get("file.openTitle"), [Pdf], multiple: false))?.FirstOrDefault();
 
-    /// <summary>PDFs to read (import, merge), or null.</summary>
     public string[]? ChoosePdfFiles(string title) => Wait(ChooseFilesAsync(title, [Pdf], multiple: true));
 
-    /// <summary>An image file to insert, or null.</summary>
     public Task<string[]?> ChooseImageAsync() => ChooseFilesAsync(Strings.Get("image.insertTitle"), [Images], multiple: false);
 
     private async Task<string[]?> ChooseFilesAsync(string title, IReadOnlyList<FilePickerFileType> types, bool multiple)
     {
-        if (OpenDialogOverride is { } choose) return choose();
         var files = await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions { Title = title, AllowMultiple = multiple, FileTypeFilter = types });
         var paths = files.Select(f => f.TryGetLocalPath()).OfType<string>().ToArray();
         return paths.Length > 0 ? paths : null;

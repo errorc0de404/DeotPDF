@@ -27,7 +27,7 @@ public sealed class PdfMergeDialog : AppDialog
     public IReadOnlyList<(MergeFile File, int[] Pages)>? Result { get; private set; }
 
     /// <summary>Shows the one-file range window of 고르기… (the window that owns this one shows it).</summary>
-    public Func<PdfImportDialog, bool>? ShowPicker { get; set; }
+    public Func<PdfImportDialog, Task<bool>>? ShowPicker { get; set; }
 
     public PdfMergeDialog(IEnumerable<MergeFile> files, bool insert, Func<Task<IReadOnlyList<MergeFile>>>? addFiles = null)
         : base(insert ? Strings.Get("merge.importTitle") : Strings.Get("merge.title"))
@@ -166,7 +166,7 @@ public sealed class PdfMergeDialog : AppDialog
         var file = files[index];
         var picker = new PdfImportDialog(file.Name, file.Shown) { Title = Strings.Format("merge.pickTitle", ("name", file.Name)) };
         if (PageRanges.TryParse(file.Range, file.PageCount, out _) is null) picker.RangeBox.Text = file.Range;
-        bool ok = ShowPicker is { } show ? show(picker) : await picker.ShowDialog<bool>(this);
+        bool ok = ShowPicker is { } show ? await show(picker) : await picker.ShowDialog<bool>(this);
         picker.Abandon();
         if (ok && picker.Result is { } chosen) SetRange(index, PageRanges.Format(chosen, file.PageCount));
     }

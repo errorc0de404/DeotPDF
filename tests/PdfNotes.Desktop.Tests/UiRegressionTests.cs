@@ -24,9 +24,9 @@ public sealed class UiRegressionTests
     {
         string folder = Headless.TempFolder();
         if (pdf is null) { pdf = Path.Combine(folder, "doc.pdf"); ProbeSamplePdf.Create(pdf, pages); }
-        var window = new MainWindow(new AppSettings(), _ => { }, folder) { Width = 1200, Height = 1000 };
-        window.PromptOverride = (_, _) => Answer.No;
-        window.MessageSink = _ => { };
+        var window = new MainWindow(new AppSettings(), _ => { }, folder, dialogs: TestWindows.Dialogs) { Width = 1200, Height = 1000 };
+        window.Script.PromptOverride = (_, _) => Answer.No;
+        window.Script.MessageSink = _ => { };
         window.EditorClipboard.InMemory = true;
         window.Show();
         Assert.True(await window.OpenFileAsync(pdf));

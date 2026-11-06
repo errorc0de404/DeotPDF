@@ -65,7 +65,7 @@ public sealed partial class MainWindow : IPageDialogs
     async Task<MergeChoice?> IPageDialogs.ChooseMergeAsync(IReadOnlyList<MergeFile> files, bool insert, Func<Task<IReadOnlyList<MergeFile>>> addFiles)
     {
         var merge = new PdfMergeDialog(files, insert, addFiles);
-        if (dialogs.WindowOverride is { } run) merge.ShowPicker = picker => run(picker) && picker.Accept();
+        merge.ShowPicker = picker => dialogs.ShowChildAsync(picker, merge);
         return await dialogs.ShowWindowAsync(merge) && merge.Result is { } result ? new MergeChoice(result, merge.Position) : null;
     }
 

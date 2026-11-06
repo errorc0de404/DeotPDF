@@ -28,9 +28,9 @@ public sealed class FrameTests
 {
     private static MainWindow Window(double width = 1200, double height = 1000, AppSettings? settings = null)
     {
-        var window = new MainWindow(settings ?? new AppSettings(), _ => { }) { Width = width, Height = height };
-        window.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No; // yes to questions, never save on close
-        window.MessageSink = _ => { };
+        var window = new MainWindow(settings ?? new AppSettings(), _ => { }, dialogs: TestWindows.Dialogs) { Width = width, Height = height };
+        window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No; // yes to questions, never save on close
+        window.Script.MessageSink = _ => { };
         window.EditorClipboard.InMemory = true;
         window.Show();
         window.DocumentCanvas.SetZoom(1);
@@ -339,7 +339,7 @@ public sealed class FrameTests
         string pdf = Path.Combine(Headless.TempFolder(), "pages.pdf");
         ProbeSamplePdf.Create(pdf, 3);
         var w = Window();
-        w.WindowOverride = window => true; // OK on every app window
+        w.Script.WindowOverride = window => true; // OK on every app window
         Assert.True(await w.OpenFileAsync(pdf));
         Settle(w);
         Assert.Equal(3, w.PageThumbnails.Count);
@@ -392,11 +392,11 @@ public sealed class FrameTests
         Assert.True(await w.OpenFileAsync(pdf));
         Settle(w);
         // 내용 축소 at 50 %.
-        w.WindowOverride = window => { if (window is PageTransformDialog d) d.PercentBox.Text = "50"; return true; };
+        w.Script.WindowOverride = window => { if (window is PageTransformDialog d) d.PercentBox.Text = "50"; return true; };
         Assert.True(w.ShowPageTransform(resize: false));
         Assert.NotNull(w.Document!.Session.Current.Pages[0].Setup.Content);
         // 페이지 크기 to A5.
-        w.WindowOverride = window => { if (window is PageTransformDialog d) { d.WidthBox.Text = "148"; d.HeightBox.Text = "210"; } return true; };
+        w.Script.WindowOverride = window => { if (window is PageTransformDialog d) { d.WidthBox.Text = "148"; d.HeightBox.Text = "210"; } return true; };
         Assert.True(w.ShowPageTransform(resize: true));
         Assert.Equal(Units.MillimetersToPoints(148), w.Document.Session.Current.Pages[0].Setup.Frame.DisplayWidthPt, 1);
         // 이 페이지의 필기 삭제 removes the notes (after the question).
@@ -407,8 +407,8 @@ public sealed class FrameTests
         Assert.Empty(Annotations(w));
         // 내보내기: the range window, then the file name.
         string target = Path.Combine(Headless.TempFolder(), "out.pdf");
-        w.SaveDialogOverride = _ => target;
-        w.WindowOverride = window => { if (window is PageExportDialog d) d.RangeBox.Text = "1-2"; return true; };
+        w.Script.SaveDialogOverride = _ => target;
+        w.Script.WindowOverride = window => { if (window is PageExportDialog d) d.RangeBox.Text = "1-2"; return true; };
         Assert.Equal(1, await w.ExportPagesAsync(allPages: true));
         Assert.True(File.Exists(target));
         w.Close();
@@ -421,8 +421,8 @@ public sealed class FrameTests
         string other = Path.Combine(folder, "other.pdf");
         ProbeSamplePdf.Create(other, 4);
         var w = Window();
-        w.OpenDialogOverride = () => [other];
-        w.WindowOverride = window => { if (window is PdfImportDialog d) d.RangeBox.Text = "2-3"; return true; };
+        w.Script.OpenDialogOverride = () => [other];
+        w.Script.WindowOverride = window => { if (window is PdfImportDialog d) d.RangeBox.Text = "2-3"; return true; };
         int before = w.Document!.Session.Current.Pages.Count;
         Assert.True(await w.ImportPdfPagesAsync());
         Assert.Equal(before + 2, w.Document.Session.Current.Pages.Count);
@@ -687,10 +687,10 @@ public sealed class FrameTests
     {
         var settings = new AppSettings();
         var w = Window(settings: settings);
-        w.WindowOverride = window => { ((SettingsDialog)window).Categories.SelectedIndex = 0; window.GetLogicalDescendants().OfType<CheckBox>().First(c => c.Name == "PageDragBox").IsChecked = true; return true; };
+        w.Script.WindowOverride = window => { ((SettingsDialog)window).Categories.SelectedIndex = 0; window.GetLogicalDescendants().OfType<CheckBox>().First(c => c.Name == "PageDragBox").IsChecked = true; return true; };
         Assert.True(w.ShowSettings());
         Assert.True(settings.PageDrag);
-        w.WindowOverride = window => { window.GetLogicalDescendants().OfType<CheckBox>().First(c => c.Name == "PageDragBox").IsChecked = false; return false; };
+        w.Script.WindowOverride = window => { window.GetLogicalDescendants().OfType<CheckBox>().First(c => c.Name == "PageDragBox").IsChecked = false; return false; };
         Assert.False(w.ShowSettings());
         Assert.True(settings.PageDrag);
         w.Close();
@@ -700,8 +700,8 @@ public sealed class FrameTests
     public void ANewNoteUsesItsWindow() => Headless.Run(async () =>
     {
         var w = Window();
-        w.PromptOverride = (_, _) => Answer.No; // the empty note is not kept
-        w.WindowOverride = window => { if (window is NewNoteDialog d) d.LandscapeButton.IsChecked = true; return true; };
+        w.Script.PromptOverride = (_, _) => Answer.No; // the empty note is not kept
+        w.Script.WindowOverride = window => { if (window is NewNoteDialog d) d.LandscapeButton.IsChecked = true; return true; };
         Assert.True(await w.NewNoteAsync());
         var setup = w.Document!.Session.Current.Pages[0].Setup;
         Assert.True(setup.WidthPt > setup.HeightPt);

@@ -27,9 +27,9 @@ public sealed class RegressionTests
     {
         folder ??= Headless.TempFolder();
         var settings = new AppSettings { BackupFolder = Path.Combine(folder, "Backups") };
-        var window = new MainWindow(settings, _ => { }, folder) { Width = 1200, Height = 1000 };
-        window.PromptOverride = (_, _) => Answer.No;
-        window.MessageSink = _ => { };
+        var window = new MainWindow(settings, _ => { }, folder, dialogs: TestWindows.Dialogs) { Width = 1200, Height = 1000 };
+        window.Script.PromptOverride = (_, _) => Answer.No;
+        window.Script.MessageSink = _ => { };
         window.Show();
         window.DocumentCanvas.SetZoom(1);
         window.DocumentCanvas.GoToPage(0);
@@ -90,20 +90,20 @@ public sealed class RegressionTests
         bool closed = false;
         w.Closed += (_, _) => closed = true;
         int asked = 0;
-        w.PromptOverride = (_, _) => { asked++; return Answer.Cancel; };
+        w.Script.PromptOverride = (_, _) => { asked++; return Answer.Cancel; };
         w.Close();
         Headless.Pump(() => asked == 1);
         Assert.False(closed);
         Assert.True(w.Document!.Session.IsDirty);
 
         // Save, but the Save As dialog of the new note is cancelled: still open, nothing lost.
-        w.PromptOverride = (_, _) => { asked++; return Answer.Yes; };
-        w.SaveDialogOverride = _ => null;
+        w.Script.PromptOverride = (_, _) => { asked++; return Answer.Yes; };
+        w.Script.SaveDialogOverride = _ => null;
         w.Close();
         Headless.Pump(() => asked == 2);
         Assert.False(closed);
 
-        w.PromptOverride = (_, _) => Answer.No;
+        w.Script.PromptOverride = (_, _) => Answer.No;
         w.Close();
         Headless.Pump(() => closed);
     });
@@ -125,7 +125,7 @@ public sealed class RegressionTests
         byte[] before = File.ReadAllBytes(pdf);
         File.SetAttributes(pdf, FileAttributes.ReadOnly);
         var messages = new List<string>();
-        w.MessageSink = messages.Add;
+        w.Script.MessageSink = messages.Add;
         try
         {
             Assert.False(await w.SaveAsync(saveAs: false));
@@ -160,7 +160,7 @@ public sealed class RegressionTests
         ProbeSamplePdf.CreateSigned(plain, signed);
         var w = Window(folder);
         var messages = new List<string>();
-        w.MessageSink = messages.Add;
+        w.Script.MessageSink = messages.Add;
         var shown = w.Document;
         foreach (string path in new[] { damaged, password, signed, Path.Combine(folder, "missing.pdf") })
         {
@@ -218,8 +218,8 @@ public sealed class RegressionTests
         Stroke(w);
         string flat = Path.Combine(folder, "flat.pdf");
         SavePathRequest? asked = null;
-        w.SaveDialogOverride = request => { asked = request; return flat; };
-        w.WindowOverride = _ => true;
+        w.Script.SaveDialogOverride = request => { asked = request; return flat; };
+        w.Script.WindowOverride = _ => true;
         Assert.Equal(1, await w.ExportPagesAsync(allPages: true, flatten: true));
         Assert.True(File.Exists(flat));
         Assert.True(w.Document!.Session.IsDirty); // the export does not save the document
@@ -232,11 +232,11 @@ public sealed class RegressionTests
         // The document's own file is refused.
         byte[] before = File.ReadAllBytes(pdf);
         var messages = new List<string>();
-        w.MessageSink = messages.Add;
-        w.SaveDialogOverride = _ => pdf;
+        w.Script.MessageSink = messages.Add;
+        w.Script.SaveDialogOverride = _ => pdf;
         Assert.NotEqual(1, await w.ExportPagesAsync(allPages: true, flatten: true));
         Assert.Equal(before, File.ReadAllBytes(pdf));
-        w.PromptOverride = (_, _) => Answer.No;
+        w.Script.PromptOverride = (_, _) => Answer.No;
         w.Close();
     });
 
@@ -264,7 +264,7 @@ public sealed class RegressionTests
 
         var next = Window(folder);
         string? asked = null;
-        next.PromptOverride = (text, _) => { asked = text; return Answer.Yes; };
+        next.Script.PromptOverride = (text, _) => { asked = text; return Answer.Yes; };
         Assert.True(await next.OfferRecoveryAsync());
         string crashQuestion = Strings.Get("backup.recoverCrash");
         Assert.StartsWith(crashQuestion[..crashQuestion.IndexOf('{')], asked); // the crash wording, not the plain abnormal-end one
@@ -273,15 +273,15 @@ public sealed class RegressionTests
         // 백업 비우기: No keeps them, Yes deletes the app's backups (the crash text goes with its PDF).
         await next.OpenFileAsync(Sample(folder)); // the crash file is not the open document any more
         Assert.Equal(1, next.Backups.Usage().Count);
-        next.PromptOverride = (_, _) => Answer.No;
+        next.Script.PromptOverride = (_, _) => Answer.No;
         Assert.False(next.ClearBackups());
         Assert.True(File.Exists(file));
-        next.PromptOverride = (_, _) => Answer.Yes;
+        next.Script.PromptOverride = (_, _) => Answer.Yes;
         Assert.True(next.ClearBackups());
         Assert.False(File.Exists(file));
         Assert.False(File.Exists(Path.ChangeExtension(file, ".txt")));
         next.Close();
-        w.PromptOverride = (_, _) => Answer.No;
+        w.Script.PromptOverride = (_, _) => Answer.No;
         w.Close();
     });
 
@@ -309,7 +309,7 @@ public sealed class RegressionTests
         Assert.True(w.Document.Session.IsDirty);
         w.Undo();
         Assert.Equal(before, w.Document.Session.Current.Pages.Sum(p => p.Annotations.Count));
-        w.PromptOverride = (_, _) => Answer.No;
+        w.Script.PromptOverride = (_, _) => Answer.No;
         w.Close();
     });
 
