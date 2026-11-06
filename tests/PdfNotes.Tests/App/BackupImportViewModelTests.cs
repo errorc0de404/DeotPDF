@@ -58,13 +58,13 @@ public sealed class BackupImportViewModelTests : IDisposable
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) { Asked.Add(text); return Answer; }
         public void Tell(string text, NoticeKind kind) => Told.Add(text);
         public string? ChooseSavePath(SavePathRequest request) => null;
-        public string[]? ChoosePdfFiles(string title) => Files;
+        public Task<string[]?> ChoosePdfFilesAsync(string title) => Task.FromResult(Files);
         public Task<int[]?> ChooseImportPagesAsync(MergeFile file) => Task.FromResult(ImportPages);
         public Task<MergeChoice?> ChooseMergeAsync(IReadOnlyList<MergeFile> files, bool insert, Func<Task<IReadOnlyList<MergeFile>>> addFiles) =>
             Task.FromResult<MergeChoice?>(new([.. files.Select(f => (f, new[] { 0 }))], MergePosition.Start));
-        public PageExportChoice? ChooseExport(int pageCount, string range, bool flatten) { ExportAsked = (pageCount, range, flatten); return Export; }
-        public NewPageSpec? ChooseBlankPage(bool insert, PageSetup reference) => null;
-        public PageTransformRequest? ChooseTransform(bool resize, DocumentModel model, Page active, Func<PageApplyScope, PageSetup[]> targets) => null;
+        public Task<PageExportChoice?> ChooseExportAsync(int pageCount, string range, bool flatten) { ExportAsked = (pageCount, range, flatten); return Task.FromResult(Export); }
+        public Task<NewPageSpec?> ChooseBlankPageAsync(bool insert, PageSetup reference) => Task.FromResult<NewPageSpec?>(null);
+        public Task<PageTransformRequest?> ChooseTransformAsync(bool resize, DocumentModel model, Page active, Func<PageApplyScope, PageSetup[]> targets) => Task.FromResult<PageTransformRequest?>(null);
     }
 
     [Fact]

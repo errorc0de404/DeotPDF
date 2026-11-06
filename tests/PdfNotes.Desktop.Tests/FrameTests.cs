@@ -400,17 +400,17 @@ public sealed class FrameTests
         Settle(w);
         // 내용 축소 at 50 %.
         w.Script.WindowOverride = window => { if (window is PageTransformDialog d) d.PercentBox.Text = "50"; return true; };
-        Assert.True(w.View.ShowPageTransform(resize: false));
+        Assert.True(w.View.ShowPageTransformAsync(resize: false).GetAwaiter().GetResult());
         Assert.NotNull(w.View.Document!.Session.Current.Pages[0].Setup.Content);
         // 페이지 크기 to A5.
         w.Script.WindowOverride = window => { if (window is PageTransformDialog d) { d.WidthBox.Text = "148"; d.HeightBox.Text = "210"; } return true; };
-        Assert.True(w.View.ShowPageTransform(resize: true));
+        Assert.True(w.View.ShowPageTransformAsync(resize: true).GetAwaiter().GetResult());
         Assert.Equal(Units.MillimetersToPoints(148), w.View.Document.Session.Current.Pages[0].Setup.Frame.DisplayWidthPt, 1);
         // 이 페이지의 필기 삭제 removes the notes (after the question).
         w.View.SetTool(ToolKind.Pen);
         Drag(w, Line(new(50, 50), new(120, 90)));
         Assert.NotEmpty(Annotations(w));
-        Assert.True(w.View.ClearSelectedPageNotes());
+        Assert.True(w.View.ClearSelectedPageNotesAsync().GetAwaiter().GetResult());
         Assert.Empty(Annotations(w));
         // 내보내기: the range window, then the file name.
         string target = Path.Combine(Headless.TempFolder(), "out.pdf");
@@ -695,10 +695,10 @@ public sealed class FrameTests
         var settings = new AppSettings();
         var w = Window(settings: settings);
         w.Script.WindowOverride = window => { ((SettingsDialog)window).Categories.SelectedIndex = 0; window.GetLogicalDescendants().OfType<CheckBox>().First(c => c.Name == "PageDragBox").IsChecked = true; return true; };
-        Assert.True(w.View.ShowSettings());
+        Assert.True(w.View.ShowSettingsAsync().GetAwaiter().GetResult());
         Assert.True(settings.PageDrag);
         w.Script.WindowOverride = window => { window.GetLogicalDescendants().OfType<CheckBox>().First(c => c.Name == "PageDragBox").IsChecked = false; return false; };
-        Assert.False(w.View.ShowSettings());
+        Assert.False(w.View.ShowSettingsAsync().GetAwaiter().GetResult());
         Assert.True(settings.PageDrag);
         w.Close();
     });

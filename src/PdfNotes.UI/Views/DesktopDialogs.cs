@@ -43,6 +43,9 @@ public interface IDesktopDialogs : IEditorDialogs
     /// <summary>PDFs to read (import, merge), or null.</summary>
     string[]? ChoosePdfFiles(string title);
 
+    /// <summary>The same, answered later (Android's picker, P5c).</summary>
+    Task<string[]?> ChoosePdfFilesAsync(string title) => Task.FromResult(ChoosePdfFiles(title));
+
     /// <summary>An image file to insert, or null.</summary>
     Task<string[]?> ChooseImageAsync();
 }

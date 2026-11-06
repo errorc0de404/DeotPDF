@@ -126,8 +126,8 @@ internal static class FakeScreens
 internal sealed class FakeAppShell : IAppShell
 {
     public Task<DocumentLocation?> ChooseDocumentAsync() => Task.FromResult<DocumentLocation?>(null);
-    public NewPageSpec? ChooseNewNote() => null;
-    public void ShowSettings() { }
+    public Task<NewPageSpec?> ChooseNewNoteAsync() => Task.FromResult<NewPageSpec?>(null);
+    public Task ShowSettingsAsync() => Task.CompletedTask;
     public void ShowRecentMenu() { }
     public void ShowZoomMenu() { }
     public void OpenWebPage(string url) { }

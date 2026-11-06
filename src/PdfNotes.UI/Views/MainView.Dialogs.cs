@@ -21,7 +21,7 @@ public sealed partial class MainView : IPageDialogs
     /// Opens the settings window. OK stores the values in the app settings; nothing here is document state, so the
     /// unsaved mark and Undo stay. Returns true when OK was chosen.
     /// </summary>
-    public bool ShowSettings()
+    public async Task<bool> ShowSettingsAsync()
     {
         var display = viewModel.Display.Stored;
         var dialog = new SettingsDialog(new(settings.QuickErase, settings.PageDrag,
@@ -29,7 +29,7 @@ public sealed partial class MainView : IPageDialogs
             settings.Language, settings.CheckUpdates == true, settings.FingerDrawing, settings.PenPressure),
             () => Confirm(Strings.Get("settings.backupInPlaceConfirm"), NoticeKind.Warning),
             PreviewDisplay, Strings.Discover(AppSettings.LanguageFoldersIn(appFolder)), new(viewModel.Backup.Store.Usage, viewModel.Backup.Clear), new(viewModel.Update.CheckAsync, OpenWebPage));
-        if (!dialogs.ShowWindow(dialog) || dialog.Result is not { } values) { PreviewDisplay(display); return false; } // cancel undoes the preview
+        if (!await dialogs.ShowWindowAsync(dialog) || dialog.Result is not { } values) { PreviewDisplay(display); return false; } // cancel undoes the preview
         SetDisplay(values.Display ?? display);
         settings.QuickErase = values.QuickErase;
         settings.PageDrag = values.PageDrag;
@@ -59,7 +59,7 @@ public sealed partial class MainView : IPageDialogs
 
     // ----- the page windows (IPageDialogs) -----
 
-    string[]? IPageDialogs.ChoosePdfFiles(string title) => dialogs.ChoosePdfFiles(title);
+    Task<string[]?> IPageDialogs.ChoosePdfFilesAsync(string title) => dialogs.ChoosePdfFilesAsync(title);
 
     async Task<int[]?> IPageDialogs.ChooseImportPagesAsync(MergeFile file)
     {
@@ -75,25 +75,25 @@ public sealed partial class MainView : IPageDialogs
         return await dialogs.ShowWindowAsync(merge) && merge.Result is { } result ? new MergeChoice(result, merge.Position) : null;
     }
 
-    PageExportChoice? IPageDialogs.ChooseExport(int pageCount, string range, bool flatten)
+    async Task<PageExportChoice?> IPageDialogs.ChooseExportAsync(int pageCount, string range, bool flatten)
     {
         var dialog = new PageExportDialog(pageCount, range) { Flatten = flatten };
-        return dialogs.ShowWindow(dialog) && dialog.Result is { } groups ? new PageExportChoice(groups, dialog.Flatten) : null;
+        return await dialogs.ShowWindowAsync(dialog) && dialog.Result is { } groups ? new PageExportChoice(groups, dialog.Flatten) : null;
     }
 
-    NewPageSpec? IPageDialogs.ChooseBlankPage(bool insert, PageSetup reference)
+    async Task<NewPageSpec?> IPageDialogs.ChooseBlankPageAsync(bool insert, PageSetup reference)
     {
         var (w, h) = PageEdits.DisplayedSize(reference);
         var dialog = new NewNoteDialog(insert ? Strings.Get("page.insertBlank") : Strings.Get("page.addBlank"),
             (Units.PointsToMillimeters(w), Units.PointsToMillimeters(h)), reference.Background?.Kind ?? PageBackgroundKind.Blank);
-        return dialogs.ShowWindow(dialog) ? dialog.Result : null;
+        return await dialogs.ShowWindowAsync(dialog) ? dialog.Result : null;
     }
 
-    PageTransformRequest? IPageDialogs.ChooseTransform(bool resize, DocumentModel model, Page active, Func<PageApplyScope, PageSetup[]> targets)
+    async Task<PageTransformRequest?> IPageDialogs.ChooseTransformAsync(bool resize, DocumentModel model, Page active, Func<PageApplyScope, PageSetup[]> targets)
     {
         if (Document is not { } doc) return null;
         double zoom = 700 / (Math.Max(active.Setup.Frame.DisplayWidthPt, active.Setup.Frame.DisplayHeightPt) * Units.DipsPerPoint);
         var dialog = new PageTransformDialog(resize, active.Setup, targets, PageSnapshots.Render(doc, model, active, zoom, RenderScaling));
-        return dialogs.ShowWindow(dialog) ? dialog.Result : null;
+        return await dialogs.ShowWindowAsync(dialog) ? dialog.Result : null;
     }
 }

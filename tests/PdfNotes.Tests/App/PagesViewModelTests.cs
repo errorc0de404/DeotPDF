@@ -85,24 +85,24 @@ public sealed class PagesViewModelTests : IDisposable
     }
 
     [Fact]
-    public void DeleteAsksAndKeepsOnePage()
+    public async Task DeleteAsksAndKeepsOnePage()
     {
         List.Select([Id(1)]);
         shell.Answer = Answer.No;
-        Assert.False(Pages.DeleteSelected());
+        Assert.False(await Pages.DeleteSelectedAsync());
         Assert.Equal(3, Session.Current.Pages.Count);
         Assert.Equal(Strings.Format("page.deleteConfirm", ("count", 1)), shell.Asked.Single());
 
         shell.Answer = Answer.Yes;
         var third = Id(2);
-        Assert.True(Pages.DeleteSelected());
+        Assert.True(await Pages.DeleteSelectedAsync());
         Assert.Equal(2, Session.Current.Pages.Count);
         Assert.Equal([third], List.Selected); // the page now in its place
         Assert.Equal(1, Pages.ActivePageIndex);
 
         List.Select([Id(0), Id(1)]);
         Assert.False(Pages.CanDelete);
-        Assert.False(Pages.DeleteSelected());
+        Assert.False(await Pages.DeleteSelectedAsync());
         Assert.Equal(Strings.Get("page.lastPage"), shell.Told.Single());
         Assert.Equal(2, Session.Current.Pages.Count);
     }

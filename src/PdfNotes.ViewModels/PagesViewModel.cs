@@ -339,18 +339,18 @@ public sealed class PagesViewModel : ObservableObject
 
     // ----- the commands of the 페이지 tab and the context menu (R4e) -----
 
-    public Command InsertBlankCommand => field ??= new(() => AddBlankWithDialog(insertAfterActive: true));
-    public Command AddBlankCommand => field ??= new(() => AddBlankWithDialog(insertAfterActive: false));
+    public AsyncCommand InsertBlankCommand => field ??= new(() => AddBlankWithDialogAsync(insertAfterActive: true));
+    public AsyncCommand AddBlankCommand => field ??= new(() => AddBlankWithDialogAsync(insertAfterActive: false));
     public Command CopyCommand => field ??= new(() => Copy(PageCopyMode.WithAnnotations));
     public Command CopyPageOnlyCommand => field ??= new(() => Copy(PageCopyMode.PageOnly));
     public Command PasteCommand => field ??= new(() => Paste(), () => CanPaste);
-    public Command DeleteCommand => field ??= new(() => DeleteSelected(), () => CanDelete);
-    public Command ClearNotesCommand => field ??= new(() => ClearSelectedNotes());
+    public AsyncCommand DeleteCommand => field ??= new(() => DeleteSelectedAsync(), () => CanDelete);
+    public AsyncCommand ClearNotesCommand => field ??= new(() => ClearSelectedNotesAsync());
     public AsyncCommand ExportCommand => field ??= new(() => owner.ImportExport.ExportPagesAsync());
     public Command RotateLeftCommand => field ??= new(() => RotateSelected(false));
     public Command RotateRightCommand => field ??= new(() => RotateSelected(true));
-    public Command ShrinkCommand => field ??= new(() => TransformWithDialog(resize: false));
-    public Command ResizeCommand => field ??= new(() => TransformWithDialog(resize: true));
+    public AsyncCommand ShrinkCommand => field ??= new(() => TransformWithDialogAsync(resize: false));
+    public AsyncCommand ResizeCommand => field ??= new(() => TransformWithDialogAsync(resize: true));
 
     /// <summary>The command of a menu row.</summary>
     public System.Windows.Input.ICommand CommandFor(PageCommand command) => command switch
@@ -369,19 +369,19 @@ public sealed class PagesViewModel : ObservableObject
     };
 
     /// <summary>Blank page (spec 11.5): the new page window, sized like the reference page; at the end (add) or after the active page (insert).</summary>
-    public bool AddBlankWithDialog(bool insertAfterActive)
+    public async Task<bool> AddBlankWithDialogAsync(bool insertAfterActive)
     {
-        if (BlankReference(insertAfterActive) is not { } reference || owner.PageDialogs.ChooseBlankPage(insertAfterActive, reference.Setup) is not { } spec) return false;
+        if (BlankReference(insertAfterActive) is not { } reference || await owner.PageDialogs.ChooseBlankPageAsync(insertAfterActive, reference.Setup) is not { } spec) return false;
         return AddBlank(insertAfterActive, spec);
     }
 
     /// <summary>페이지 크기·내용 축소 (spec 11.6–11.8): the window with a preview of the active page; the targets are fixed when it opens.</summary>
-    public bool TransformWithDialog(bool resize)
+    public async Task<bool> TransformWithDialogAsync(bool resize)
     {
         if (Document is not { } doc || owner.IsBusy) return false;
         var model = doc.Session.Current;
         var targets = Enum.GetValues<PageApplyScope>().ToDictionary(scope => scope, Targets);
-        var request = owner.PageDialogs.ChooseTransform(resize, model, model.Pages[ActivePageIndex], scope => [.. targets[scope].Select(id => model.GetPage(id).Setup)]);
+        var request = await owner.PageDialogs.ChooseTransformAsync(resize, model, model.Pages[ActivePageIndex], scope => [.. targets[scope].Select(id => model.GetPage(id).Setup)]);
         return request is not null && ApplyTransform(resize, request with { TargetPageIds = targets[request.Scope] });
     }
 
@@ -389,7 +389,7 @@ public sealed class PagesViewModel : ObservableObject
     /// 이 페이지의 필기 삭제 (spec 11.11): every annotation of the selected pages, locked ones too, after one confirmation, as
     /// one Undo unit. True when something was deleted.
     /// </summary>
-    public bool ClearSelectedNotes()
+    public async Task<bool> ClearSelectedNotesAsync()
     {
         if (Document is not { } doc) return false;
         owner.Editing.FinishTextEditing();
@@ -399,7 +399,7 @@ public sealed class PagesViewModel : ObservableObject
         if (count == 0) { owner.Status = texts.Get("clearNotes.nothing"); return false; }
         string which = selected.Count == 1 ? texts.Get("clearNotes.thisPage") : texts.Format("clearNotes.selectedPages", ("count", selected.Count));
         string lockedNote = locked > 0 ? texts.Format("clearNotes.lockedIncluded", ("count", locked)) : "";
-        if (dialogs.Ask(texts.Format("clearNotes.confirm", ("which", which), ("count", count), ("locked", lockedNote)), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes) return false;
+        if (await dialogs.AskAsync(texts.Format("clearNotes.confirm", ("which", which), ("count", count), ("locked", lockedNote)), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes) return false;
         owner.Selection.ClearSelection();
         bool done = Run(m => DocumentEdits.ClearPages(m, ids));
         if (done) owner.Status = texts.Format("clearNotes.done", ("count", count));
@@ -442,13 +442,13 @@ public sealed class PagesViewModel : ObservableObject
     }
 
     /// <summary>Deletes the selected pages after asking (spec 11.2). The last page, or all pages at once, cannot be deleted.</summary>
-    public bool DeleteSelected()
+    public async Task<bool> DeleteSelectedAsync()
     {
         var ids = SelectedPageIds;
         if (Document is not { } doc || ids.Length == 0) return false;
         if (ids.Length >= doc.Session.Current.Pages.Count)
         { dialogs.Tell(texts.Get("page.lastPage"), NoticeKind.Information); return false; }
-        if (dialogs.Ask(texts.Format("page.deleteConfirm", ("count", ids.Length)), AskButtons.YesNo, NoticeKind.Question) != Answer.Yes) return false;
+        if (await dialogs.AskAsync(texts.Format("page.deleteConfirm", ("count", ids.Length)), AskButtons.YesNo, NoticeKind.Question) != Answer.Yes) return false;
         int first = doc.Session.Current.IndexOfPage(ids[0]);
         bool done = Run(m => DocumentEdits.DeletePages(m, ids));
         if (done) SelectPages([doc.Session.Current.Pages[Math.Min(first, doc.Session.Current.Pages.Count - 1)].Id]);

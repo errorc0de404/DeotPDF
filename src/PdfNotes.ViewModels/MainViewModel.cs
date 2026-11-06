@@ -172,11 +172,11 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
     public AsyncCommand MergeCommand => merge ??= new(() => ImportExport.MergeAsync(), () => !IsBusy);
     public AsyncCommand ExportFlattenedCommand => exportFlattened ??= new(() => ImportExport.ExportPagesAsync(allPages: true, flatten: true), () => !IsBusy); // the export window, preset (spec 11.10)
     public AsyncCommand ExportPagesCommand => exportPages ??= new(() => ImportExport.ExportPagesAsync(allPages: true), () => !IsBusy);
-    public Command SettingsCommand => settingsCommand ??= new(Shell.ShowSettings);
+    public AsyncCommand SettingsCommand => field ??= new(Shell.ShowSettingsAsync);
     public Command UndoCommand => undo ??= new(() => UndoOrRedo(redo: false), () => Document?.Session.CanUndo == true);
     public Command RedoCommand => redo ??= new(() => UndoOrRedo(redo: true), () => Document?.Session.CanRedo == true);
     private AsyncCommand? open, @new, save, saveAs, merge, exportFlattened, exportPages;
-    private Command? recent, settingsCommand, undo, redo;
+    private Command? recent, undo, redo;
 
     // ----- commands of the 보기 tab (R4c) -----
 
@@ -196,7 +196,7 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
     private Command? hideNotes, search, openUpdatePage;
 
     /// <summary>파일 › 새 노트: the page size and background, then a new unsaved note (spec 4.1).</summary>
-    public async Task<bool> NewNoteAsync() => !IsBusy && Shell.ChooseNewNote() is { } spec && await Workflow.CreateNoteAsync(spec);
+    public async Task<bool> NewNoteAsync() => !IsBusy && await Shell.ChooseNewNoteAsync() is { } spec && await Workflow.CreateNoteAsync(spec);
 
     /// <summary>The busy state, the document's undo history or the recent list changed: buttons ask their commands again.</summary>
     public void RefreshCommands()

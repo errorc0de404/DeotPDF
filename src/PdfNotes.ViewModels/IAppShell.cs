@@ -13,10 +13,10 @@ public interface IAppShell
     Task<DocumentLocation?> ChooseDocumentAsync();
 
     /// <summary>The new note window (spec 4.1): the page size and background, or null when cancelled.</summary>
-    NewPageSpec? ChooseNewNote();
+    Task<NewPageSpec?> ChooseNewNoteAsync();
 
     /// <summary>The settings window (spec 18.1).</summary>
-    void ShowSettings();
+    Task ShowSettingsAsync();
 
     /// <summary>The recent documents list (spec 24.1).</summary>
     void ShowRecentMenu();
@@ -36,8 +36,8 @@ public sealed class NoShell : IAppShell
 {
     public static readonly NoShell Instance = new();
     public Task<DocumentLocation?> ChooseDocumentAsync() => Task.FromResult<DocumentLocation?>(null);
-    public NewPageSpec? ChooseNewNote() => null;
-    public void ShowSettings() { }
+    public Task<NewPageSpec?> ChooseNewNoteAsync() => Task.FromResult<NewPageSpec?>(null);
+    public Task ShowSettingsAsync() => Task.CompletedTask;
     public void ShowRecentMenu() { }
     public void ShowZoomMenu() { }
     public void OpenWebPage(string url) { }

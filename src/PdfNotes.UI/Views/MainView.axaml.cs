@@ -178,13 +178,13 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
 
     Task<DocumentLocation?> IAppShell.ChooseDocumentAsync() => dialogs.ChooseDocumentAsync();
 
-    NewPageSpec? IAppShell.ChooseNewNote()
+    async Task<NewPageSpec?> IAppShell.ChooseNewNoteAsync()
     {
         var dialog = new NewNoteDialog();
-        return dialogs.ShowWindow(dialog) ? dialog.Result : null;
+        return await dialogs.ShowWindowAsync(dialog) ? dialog.Result : null;
     }
 
-    void IAppShell.ShowSettings() => ShowSettings();
+    Task IAppShell.ShowSettingsAsync() => ShowSettingsAsync();
     void IAppShell.ShowRecentMenu() => OpenRecentMenu();
     void IAppShell.ShowZoomMenu() => OpenZoomMenu();
     void IAppShell.OpenWebPage(string url) => OpenWebPage(url);

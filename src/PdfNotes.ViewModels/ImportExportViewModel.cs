@@ -34,7 +34,7 @@ public sealed record PageExportChoice(int[][] Groups, bool Flatten);
 public interface IPageDialogs
 {
     /// <summary>PDF files to read, or null when cancelled.</summary>
-    string[]? ChoosePdfFiles(string title);
+    Task<string[]?> ChoosePdfFilesAsync(string title);
 
     /// <summary>The pages of one file to insert (zero-based), or null when cancelled.</summary>
     Task<int[]?> ChooseImportPagesAsync(MergeFile file);
@@ -43,16 +43,16 @@ public interface IPageDialogs
     Task<MergeChoice?> ChooseMergeAsync(IReadOnlyList<MergeFile> files, bool insert, Func<Task<IReadOnlyList<MergeFile>>> addFiles);
 
     /// <summary>The export window, starting at <paramref name="range"/>; <paramref name="flatten"/> preselects 필기 합친 PDF.</summary>
-    PageExportChoice? ChooseExport(int pageCount, string range, bool flatten);
+    Task<PageExportChoice?> ChooseExportAsync(int pageCount, string range, bool flatten);
 
     /// <summary>The blank page window (spec 11.5): size and background, starting at <paramref name="reference"/>'s; null when cancelled.</summary>
-    NewPageSpec? ChooseBlankPage(bool insert, PageSetup reference);
+    Task<NewPageSpec?> ChooseBlankPageAsync(bool insert, PageSetup reference);
 
     /// <summary>
     /// The resize (<paramref name="resize"/>) or shrink window (spec 11.6–11.8) with a preview of <paramref name="active"/>;
     /// <paramref name="targets"/> gives the pages of each scope. Null when cancelled.
     /// </summary>
-    PageTransformRequest? ChooseTransform(bool resize, DocumentModel model, Page active, Func<PageApplyScope, PageSetup[]> targets);
+    Task<PageTransformRequest?> ChooseTransformAsync(bool resize, DocumentModel model, Page active, Func<PageApplyScope, PageSetup[]> targets);
 }
 
 /// <summary>
@@ -79,7 +79,7 @@ public sealed class ImportExportViewModel(MainViewModel owner, IEditorDialogs di
     public async Task<bool> ImportPagesAsync(IReadOnlyList<string>? paths = null, int? at = null)
     {
         if (Document is not { } target || importing) return false;
-        paths ??= pageDialogs.ChoosePdfFiles(texts.Get("import.chooseTitle"));
+        paths ??= await pageDialogs.ChoosePdfFilesAsync(texts.Get("import.chooseTitle"));
         if (paths is not { Count: > 0 }) return false;
         importing = true;
         var opened = new List<MergeFile>();
@@ -144,7 +144,7 @@ public sealed class ImportExportViewModel(MainViewModel owner, IEditorDialogs di
     public async Task<bool> MergeAsync(IReadOnlyList<string>? paths = null)
     {
         if (owner.IsBusy || importing) return false;
-        paths ??= pageDialogs.ChoosePdfFiles(texts.Get("merge.title"));
+        paths ??= await pageDialogs.ChoosePdfFilesAsync(texts.Get("merge.title"));
         if (paths is not { Count: > 0 }) return false;
         importing = true;
         var opened = new List<MergeFile>();
@@ -194,7 +194,7 @@ public sealed class ImportExportViewModel(MainViewModel owner, IEditorDialogs di
     /// <summary>`파일 추가…` of the merge window: chooses and opens more files; they are disposed with the others.</summary>
     private async Task<IReadOnlyList<MergeFile>> AddMergeFilesAsync(List<MergeFile> owned)
     {
-        if (pageDialogs.ChoosePdfFiles(texts.Get("merge.addFilesTitle")) is not { Length: > 0 } more) return [];
+        if (await pageDialogs.ChoosePdfFilesAsync(texts.Get("merge.addFilesTitle")) is not { Length: > 0 } more) return [];
         var added = new List<MergeFile>();
         await OpenForImportAsync(more, added);
         owned.AddRange(added);
@@ -258,7 +258,7 @@ public sealed class ImportExportViewModel(MainViewModel owner, IEditorDialogs di
         owner.Editing.FinishTextEditing();
         var model = doc.Session.Current;
         var selected = owner.Pages.SelectedPageIds.Select(model.IndexOfPage).Where(i => i >= 0);
-        var choice = pageDialogs.ChooseExport(model.Pages.Count, allPages || flatten ? PageRanges.All : PageRanges.Format(selected, model.Pages.Count), flatten);
+        var choice = await pageDialogs.ChooseExportAsync(model.Pages.Count, allPages || flatten ? PageRanges.All : PageRanges.Format(selected, model.Pages.Count), flatten);
         if (choice?.Groups is not { Length: > 0 } groups) return 0;
         return await owner.Workflow.ExportPagesAsync(groups, choice.Flatten);
     }

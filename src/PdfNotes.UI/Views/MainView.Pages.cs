@@ -72,8 +72,8 @@ public sealed partial class MainView : IPageThumbnailSource
     // ----- commands -----
 
     /// <summary>Blank page (spec 11.5): at the end (add) or after the active page (insert); without <paramref name="spec"/> the new page window asks.</summary>
-    public bool AddBlankPage(bool insertAfterActive, NewPageSpec? spec = null) =>
-        spec is null ? pages.AddBlankWithDialog(insertAfterActive) : pages.AddBlank(insertAfterActive, spec);
+    public async Task<bool> AddBlankPageAsync(bool insertAfterActive, NewPageSpec? spec = null) =>
+        spec is null ? await pages.AddBlankWithDialogAsync(insertAfterActive) : pages.AddBlank(insertAfterActive, spec);
 
     /// <summary>The page menu opened last (tests).</summary>
     public ContextMenu? LastPageMenu { get; private set; }
@@ -93,15 +93,15 @@ public sealed partial class MainView : IPageThumbnailSource
     }
 
     /// <summary>페이지 크기·내용 축소 (spec 11.6–11.8).</summary>
-    public bool ShowPageTransform(bool resize) => pages.TransformWithDialog(resize);
+    public Task<bool> ShowPageTransformAsync(bool resize) => pages.TransformWithDialogAsync(resize);
 
     /// <summary>이 페이지의 필기 삭제 (spec 11.11).</summary>
-    public bool ClearSelectedPageNotes() => pages.ClearSelectedNotes();
+    public Task<bool> ClearSelectedPageNotesAsync() => pages.ClearSelectedNotesAsync();
 
     private void PageListKeyDown(object? sender, KeyEventArgs e)
     {
         bool ctrl = e.KeyModifiers == KeyModifiers.Control || e.KeyModifiers == KeyModifiers.Meta;
-        if (e.Key == Key.Delete && e.KeyModifiers == KeyModifiers.None) { pages.DeleteSelected(); e.Handled = true; }
+        if (e.Key == Key.Delete && e.KeyModifiers == KeyModifiers.None) { _ = pages.DeleteSelectedAsync(); e.Handled = true; }
         else if (ctrl && e.Key == Key.C) { pages.Copy(); e.Handled = true; }
         else if (ctrl && e.Key == Key.V) { pages.Paste(); e.Handled = true; }
         else if (ctrl && e.Key == Key.A) { pages.SelectAll(); e.Handled = true; }

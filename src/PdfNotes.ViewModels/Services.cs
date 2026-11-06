@@ -78,12 +78,12 @@ public sealed record ScreenServices(IEditorDialogs Dialogs, IDocumentViewport Vi
     private sealed class NoPageDialogs : IPageDialogs
     {
         public static readonly NoPageDialogs Instance = new();
-        public string[]? ChoosePdfFiles(string title) => null;
+        public Task<string[]?> ChoosePdfFilesAsync(string title) => Task.FromResult<string[]?>(null);
         public Task<int[]?> ChooseImportPagesAsync(MergeFile file) => Task.FromResult<int[]?>(null);
         public Task<MergeChoice?> ChooseMergeAsync(IReadOnlyList<MergeFile> files, bool insert, Func<Task<IReadOnlyList<MergeFile>>> addFiles) => Task.FromResult<MergeChoice?>(null);
-        public PageExportChoice? ChooseExport(int pageCount, string range, bool flatten) => null;
-        public PdfNotes.Core.Models.NewPageSpec? ChooseBlankPage(bool insert, PdfNotes.Core.Models.PageSetup reference) => null;
-        public PageTransformRequest? ChooseTransform(bool resize, PdfNotes.Core.Models.DocumentModel model, PdfNotes.Core.Models.Page active, Func<PdfNotes.Core.Commands.PageApplyScope, PdfNotes.Core.Models.PageSetup[]> targets) => null;
+        public Task<PageExportChoice?> ChooseExportAsync(int pageCount, string range, bool flatten) => Task.FromResult<PageExportChoice?>(null);
+        public Task<PdfNotes.Core.Models.NewPageSpec?> ChooseBlankPageAsync(bool insert, PdfNotes.Core.Models.PageSetup reference) => Task.FromResult<PdfNotes.Core.Models.NewPageSpec?>(null);
+        public Task<PageTransformRequest?> ChooseTransformAsync(bool resize, PdfNotes.Core.Models.DocumentModel model, PdfNotes.Core.Models.Page active, Func<PdfNotes.Core.Commands.PageApplyScope, PdfNotes.Core.Models.PageSetup[]> targets) => Task.FromResult<PageTransformRequest?>(null);
     }
 }
 
