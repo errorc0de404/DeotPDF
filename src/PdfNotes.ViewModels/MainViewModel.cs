@@ -65,11 +65,16 @@ public interface IMainView
 public sealed class MainViewModel : ObservableObject, IDocumentHost
 {
     private readonly IMainView view;
+
+    /// <summary>The UI texts of this window's language.</summary>
+    public Texts Texts { get; }
+
+    private Texts texts => Texts;
     private readonly string appName;
     private string title;
     private string status = "";
-    private string undoTip = Strings.Get("ribbon.undoTip");
-    private string redoTip = Strings.Get("ribbon.redoTip");
+    private string undoTip;
+    private string redoTip;
 
     private readonly TimeProvider time;
     private readonly Action<AppSettings> saveSettings;
@@ -77,30 +82,35 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     /// <param name="saveSettings">Writes the app settings (tests pass one that writes nothing).</param>
     /// <param name="settingsFolder">The app's settings folder: backups, the backup store's records, the running windows' markers.</param>
     /// <param name="time">Clock and timers (tests pass a fake one).</param>
+    /// <param name="texts">The UI texts (the app passes the language in use; default Korean).</param>
     /// <param name="checkUpdates">Asks for the latest release (tests pass a fake one).</param>
     /// <param name="clipboard">The system clipboard (page copies; tests pass a fake one).</param>
     /// <param name="pageDialogs">The shell's page windows (import, merge, export).</param>
     public MainViewModel(IMainView view, IEditorDialogs dialogs, AppSettings settings, string appName, Action<AppSettings> saveSettings, string settingsFolder,
-        TimeProvider? time = null, Func<Task<UpdateResult>>? checkUpdates = null, IEditorClipboard? clipboard = null, IPageDialogs? pageDialogs = null)
+        TimeProvider? time = null, Func<Task<UpdateResult>>? checkUpdates = null, IEditorClipboard? clipboard = null, IPageDialogs? pageDialogs = null,
+        Texts? texts = null)
     {
+        Texts = texts ?? Texts.Korean;
+        undoTip = Texts.Get("ribbon.undoTip");
+        redoTip = Texts.Get("ribbon.redoTip");
         this.view = view;
         this.appName = appName;
         this.time = time ?? TimeProvider.System;
         this.saveSettings = saveSettings;
         title = appName;
         Settings = settings;
-        Workflow = new DocumentWorkflow(this, dialogs);
+        Workflow = new DocumentWorkflow(this, dialogs, Texts);
         Tools = new ToolSwitch(settings, SaveSettings);
         Ribbon = new RibbonViewModel(settings);
         Recent = new RecentViewModel(settings, SaveSettings);
-        Update = new UpdateViewModel(settings, SaveSettings, dialogs, this.time, checkUpdates ?? (() => UpdateCheck.CheckAsync()));
-        Loading = new LoadingViewModel(After);
+        Update = new UpdateViewModel(settings, SaveSettings, dialogs, this.time, checkUpdates ?? (() => UpdateCheck.CheckAsync()), Texts);
+        Loading = new LoadingViewModel(After, Texts);
         Outline = new OutlineViewModel(this);
         Foreign = new ForeignViewModel(this, view.OnUiThread);
         Search = new SearchViewModel(this, view);
         Navigation = new NavigationViewModel(this, view);
         Display = new DisplayViewModel(settings, SaveSettings);
-        Favorites = new FavoritesViewModel(settings, SaveSettings);
+        Favorites = new FavoritesViewModel(settings, SaveSettings, Texts);
         Pages = new PagesViewModel(this, view, dialogs, clipboard ?? NoClipboard.Instance);
         Selection = new SelectionViewModel(this, view, dialogs, clipboard ?? NoClipboard.Instance);
         TextStyle = new TextStyleViewModel(this, dialogs);
@@ -195,7 +205,7 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         if (!File.Exists(path))
         {
             Recent.Remove(path);
-            Status = Strings.Format("recent.missing", ("name", Path.GetFileName(path)));
+            Status = texts.Format("recent.missing", ("name", Path.GetFileName(path)));
             return false;
         }
         return await Workflow.OpenFileAsync(path);
@@ -227,10 +237,10 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     /// <summary>Recomputes the title and the undo/redo tips from the open document.</summary>
     public void Refresh()
     {
-        Title = Document is { } doc ? $"{doc.DisplayName}{(doc.Session.IsDirty ? " *" : "")} - {appName}" : appName;
+        Title = Document is { } doc ? $"{doc.DisplayNameIn(texts)}{(doc.Session.IsDirty ? " *" : "")} - {appName}" : appName;
         if (Document?.Session is not { } session) return;
-        UndoTip = session.UndoLabel is { } undo ? Strings.Format("ribbon.undoNamed", ("name", Strings.Get(undo))) : Strings.Get("ribbon.undoTip");
-        RedoTip = session.RedoLabel is { } redo ? Strings.Format("ribbon.redoNamed", ("name", Strings.Get(redo))) : Strings.Get("ribbon.redoTip");
+        UndoTip = session.UndoLabel is { } undo ? texts.Format("ribbon.undoNamed", ("name", texts.Get(undo))) : texts.Get("ribbon.undoTip");
+        RedoTip = session.RedoLabel is { } redo ? texts.Format("ribbon.redoNamed", ("name", texts.Get(redo))) : texts.Get("ribbon.redoTip");
     }
 
     private void SessionStateChanged(object? sender, EventArgs e)

@@ -5,6 +5,7 @@ using PdfNotes.Pdf.Prototype;
 using PdfNotes.Pdf.Reading;
 using PdfNotes.Pdf.Writing;
 using PdfNotes.Tests.Core;
+using PdfNotes.Editor.Localization;
 
 namespace PdfNotes.Tests.App;
 
@@ -69,7 +70,7 @@ public sealed class DocumentLocationTests : IDisposable
         {
             Assert.Null(doc.FilePath);
             Assert.Same(location, doc.Location);
-            Assert.Equal("lecture.pdf", doc.DisplayName);
+            Assert.Equal("lecture.pdf", doc.DisplayNameIn(Texts.Korean));
             Assert.Equal(2, doc.Session.Current.Pages.Count);
             AddStroke(doc);
             await doc.SaveAsync(location);
@@ -138,7 +139,7 @@ public sealed class DocumentLocationTests : IDisposable
         using var doc = await OpenDocument.OpenPdfAsync(path);
         var file = Assert.IsType<FileLocation>(doc.Location);
         Assert.Equal(path, doc.FilePath);
-        Assert.Equal("Doc.pdf", doc.DisplayName);
+        Assert.Equal("Doc.pdf", doc.DisplayNameIn(Texts.Korean));
         Assert.Equal(OperatingSystem.IsLinux(), DocumentLocation.File(Path.Combine(folder, "doc.pdf")).Key != file.Key);
         File.AppendAllText(path, "\n%");
         Assert.True(doc.FileChangedExternally());

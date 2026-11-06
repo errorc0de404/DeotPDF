@@ -87,6 +87,7 @@ public sealed class PagesViewModel : ObservableObject
     public const double ThumbnailWidth = 132;
 
     private readonly MainViewModel owner;
+    private Texts texts => owner.Texts;
     private readonly IMainView view;
     private readonly IEditorDialogs dialogs;
     private readonly IEditorClipboard clipboard;
@@ -302,20 +303,20 @@ public sealed class PagesViewModel : ObservableObject
         bool many = SelectedPageIds.Length > 1;
         return
         [
-            new(PageCommand.InsertBlank, Strings.Get("page.insertBlank")),
+            new(PageCommand.InsertBlank, texts.Get("page.insertBlank")),
             PageMenuEntry.Separator,
-            new(PageCommand.CopyWithNotes, Strings.Get("page.copyWithNotes")),
-            new(PageCommand.CopyPageOnly, Strings.Get("page.copyPageOnly")),
-            new(PageCommand.Paste, Strings.Get("command.paste"), CanPaste),
-            new(PageCommand.Delete, Strings.Get("command.delete"), CanDelete),
-            new(PageCommand.ClearNotes, many ? Strings.Get("page.clearSelectedNotes") : Strings.Get("page.clearNotes"), SelectionHasNotes),
-            new(PageCommand.Export, Strings.Get("page.exportMenu")),
+            new(PageCommand.CopyWithNotes, texts.Get("page.copyWithNotes")),
+            new(PageCommand.CopyPageOnly, texts.Get("page.copyPageOnly")),
+            new(PageCommand.Paste, texts.Get("command.paste"), CanPaste),
+            new(PageCommand.Delete, texts.Get("command.delete"), CanDelete),
+            new(PageCommand.ClearNotes, many ? texts.Get("page.clearSelectedNotes") : texts.Get("page.clearNotes"), SelectionHasNotes),
+            new(PageCommand.Export, texts.Get("page.exportMenu")),
             PageMenuEntry.Separator,
-            new(PageCommand.RotateRight, Strings.Get("page.rotateRight")),
-            new(PageCommand.RotateLeft, Strings.Get("page.rotateLeft")),
+            new(PageCommand.RotateRight, texts.Get("page.rotateRight")),
+            new(PageCommand.RotateLeft, texts.Get("page.rotateLeft")),
             PageMenuEntry.Separator,
-            new(PageCommand.Shrink, Strings.Get("page.shrinkContent")),
-            new(PageCommand.Resize, Strings.Get("page.resize")),
+            new(PageCommand.Shrink, texts.Get("page.shrinkContent")),
+            new(PageCommand.Resize, texts.Get("page.resize")),
         ];
     }
 
@@ -328,7 +329,7 @@ public sealed class PagesViewModel : ObservableObject
         view.FinishTextEditing();
         view.CancelTool();
         try { return Document.Session.Execute(build(Document.Session.Current)); }
-        catch (InvalidOperationException) { dialogs.Tell(Strings.Get("page.lastPage"), NoticeKind.Information); return false; }
+        catch (InvalidOperationException) { dialogs.Tell(texts.Get("page.lastPage"), NoticeKind.Information); return false; }
     }
 
     /// <summary>Deletes the selected pages after asking (spec 11.2). The last page, or all pages at once, cannot be deleted.</summary>
@@ -337,8 +338,8 @@ public sealed class PagesViewModel : ObservableObject
         var ids = SelectedPageIds;
         if (Document is not { } doc || ids.Length == 0) return false;
         if (ids.Length >= doc.Session.Current.Pages.Count)
-        { dialogs.Tell(Strings.Get("page.lastPage"), NoticeKind.Information); return false; }
-        if (dialogs.Ask(Strings.Format("page.deleteConfirm", ("count", ids.Length)), AskButtons.YesNo, NoticeKind.Question) != Answer.Yes) return false;
+        { dialogs.Tell(texts.Get("page.lastPage"), NoticeKind.Information); return false; }
+        if (dialogs.Ask(texts.Format("page.deleteConfirm", ("count", ids.Length)), AskButtons.YesNo, NoticeKind.Question) != Answer.Yes) return false;
         int first = doc.Session.Current.IndexOfPage(ids[0]);
         bool done = Run(m => DocumentEdits.DeletePages(m, ids));
         if (done) SelectPages([doc.Session.Current.Pages[Math.Min(first, doc.Session.Current.Pages.Count - 1)].Id]);
@@ -388,8 +389,8 @@ public sealed class PagesViewModel : ObservableObject
             return Run(m => resize ? PageTransforms.Resize(m, ids, request.WidthMm, request.HeightMm, request.Mode, request.Alignment, request.FreePosition)
                 : PageTransforms.Shrink(m, ids, request.Percent, request.Alignment, request.FreePosition));
         }
-        catch (ArgumentException) { dialogs.Tell(Strings.Get("page.badTransform"), NoticeKind.Information); return false; }
-        catch (NotSupportedException error) { dialogs.Tell(Strings.Get(error.Message), NoticeKind.Information); return false; } // Pdf reports a language pack key
+        catch (ArgumentException) { dialogs.Tell(texts.Get("page.badTransform"), NoticeKind.Information); return false; }
+        catch (NotSupportedException error) { dialogs.Tell(texts.Get(error.Message), NoticeKind.Information); return false; } // Pdf reports a language pack key
     }
 
     // ----- page clipboard (spec 11.4, D14g) -----
@@ -437,7 +438,7 @@ public sealed class PagesViewModel : ObservableObject
         view.FinishTextEditing();
         var ids = SelectedPageIds;
         pageClipboard = PageClipboard.Capture(doc.Session.Current, ids, mode);
-        owner.Status = pageClipboard.Pages.Length == 1 ? Strings.Get("page.copiedOne") : Strings.Format("page.copied", ("count", pageClipboard.Pages.Length));
+        owner.Status = pageClipboard.Pages.Length == 1 ? texts.Get("page.copiedOne") : texts.Format("page.copied", ("count", pageClipboard.Pages.Length));
         CommandsChanged();
         // This copy is the newest at once: another window's older pages on the clipboard must not be pasted instead.
         try { clipboard.SetData(PageTransfer.Format, PageTransfer.Encode(doc.Session.SessionId, [])); }
@@ -502,7 +503,7 @@ public sealed class PagesViewModel : ObservableObject
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or PdfOpenException or InvalidDataException or InvalidOperationException)
         {
-            dialogs.Tell(Strings.Get("clipboard.pasteFailed"), NoticeKind.Warning);
+            dialogs.Tell(texts.Get("clipboard.pasteFailed"), NoticeKind.Warning);
             return false;
         }
         finally

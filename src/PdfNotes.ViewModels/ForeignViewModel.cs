@@ -10,6 +10,8 @@ namespace PdfNotes.ViewModels;
 /// </summary>
 public sealed class ForeignViewModel(MainViewModel owner, Action<Action> onUiThread) : ObservableObject
 {
+    private Texts texts => owner.Texts;
+
     private OpenDocument? counted;
     private int countedParts = -1;
     private int count;
@@ -62,7 +64,7 @@ public sealed class ForeignViewModel(MainViewModel owner, Action<Action> onUiThr
                 if (!ReferenceEquals(owner.Document, doc) || countedParts != parts) return;
                 count = found;
                 Refresh();
-                if (first && found > 0 && !owner.IsBusy) owner.Status = Strings.Format("status.foreignFound", ("count", found)); // told once (spec 14.6)
+                if (first && found > 0 && !owner.IsBusy) owner.Status = texts.Format("status.foreignFound", ("count", found)); // told once (spec 14.6)
             }
             finally { shown.TrySetResult(); }
         });
@@ -75,7 +77,7 @@ public sealed class ForeignViewModel(MainViewModel owner, Action<Action> onUiThr
         if (owner.Document is not { } doc || owner.IsBusy) return 0;
         int converted = await doc.ConvertForeignAsync();
         if (!ReferenceEquals(owner.Document, doc)) return 0;
-        owner.Status = Strings.Format("status.foreignConverted", ("count", converted));
+        owner.Status = texts.Format("status.foreignConverted", ("count", converted));
         Refresh();
         return converted;
     }

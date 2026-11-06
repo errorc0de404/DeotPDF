@@ -32,6 +32,7 @@ public sealed class BackupViewModel : ObservableObject
     private bool running;
     private string? lastFailure;
     private readonly string settingsFolder;
+    private Texts texts => owner.Texts;
 
     /// <param name="folder">The settings folder: the backup store keeps its records and the running windows' markers there.</param>
     public BackupViewModel(MainViewModel owner, IMainView view, IEditorDialogs dialogs, TimeProvider time, string folder)
@@ -136,14 +137,14 @@ public sealed class BackupViewModel : ObservableObject
             Store.Added(BackupStore.DocumentKey(doc.FilePath), file, Settings.BackupKeep);
             schedule.Done(revision);
             if (ReferenceEquals(doc, owner.Document) && doc.Session.SavedRevision != revision)
-                Store.SetRecoverable(new(doc.DisplayName, file, Now));
+                Store.SetRecoverable(new(doc.DisplayNameIn(texts), file, Now));
             Backed(file);
             return true;
         }
         catch (Exception e)
         {
             schedule.Failed(Now);
-            string message = Strings.Format("backup.failed", ("reason", SaveFailureMessages.For(e)));
+            string message = texts.Format("backup.failed", ("reason", SaveFailureMessages.For(e, texts)));
             if (message != lastFailure && ReferenceEquals(doc, owner.Document)) owner.Status = message;
             lastFailure = message;
             return false;
@@ -160,7 +161,7 @@ public sealed class BackupViewModel : ObservableObject
         LastTime = Now;
         LastFile = file;
         lastFailure = null;
-        if (!owner.IsBusy) owner.Status = Strings.Format("backup.done", ("time", string.Format(CultureInfo.CurrentCulture, "{0:HH:mm}", LastTime)));
+        if (!owner.IsBusy) owner.Status = texts.Format("backup.done", ("time", string.Format(CultureInfo.CurrentCulture, "{0:HH:mm}", LastTime)));
     }
 
     private static bool OriginalWritable(OpenDocument doc, string path)
@@ -184,7 +185,7 @@ public sealed class BackupViewModel : ObservableObject
     {
         var (count, bytes) = Store.Usage();
         if (count == 0) return false;
-        if (dialogs.Ask(Strings.Format("settings.clearBackupsConfirm", ("count", count), ("size", FileSizes.Format(bytes))), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes) return false;
+        if (dialogs.Ask(texts.Format("settings.clearBackupsConfirm", ("count", count), ("size", FileSizes.Format(bytes))), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes) return false;
         Store.Clear();
         LastFile = null;
         return true;
@@ -210,7 +211,7 @@ public sealed class BackupViewModel : ObservableObject
             string file = Path.Combine(folder, $"crash_{stamp}.pdf");
             doc.WriteCrashCopy(file);
             Store.Added(BackupStore.CrashKey, file, Settings.BackupKeep);
-            Store.SetRecoverable(new(doc.DisplayName, file, Now));
+            Store.SetRecoverable(new(doc.DisplayNameIn(texts), file, Now));
             return file;
         }
         catch (Exception) { return null; } // the original error is what matters now
@@ -227,8 +228,8 @@ public sealed class BackupViewModel : ObservableObject
         var newest = abandoned[0];
         bool crash = Path.GetFileName(newest.File).StartsWith("crash_", StringComparison.OrdinalIgnoreCase);
         string when = string.Format(CultureInfo.CurrentCulture, "{0:yyyy-MM-dd HH:mm}", newest.Created);
-        string text = crash ? Strings.Format("backup.recoverCrash", ("name", newest.DocumentName), ("time", when))
-            : Strings.Format("backup.recoverUnclean", ("name", newest.DocumentName), ("time", when));
+        string text = crash ? texts.Format("backup.recoverCrash", ("name", newest.DocumentName), ("time", when))
+            : texts.Format("backup.recoverUnclean", ("name", newest.DocumentName), ("time", when));
         if (dialogs.Ask(text, AskButtons.YesNo, NoticeKind.Question) != Answer.Yes) return false;
         return await owner.Workflow.OpenFileAsync(newest.File);
     }

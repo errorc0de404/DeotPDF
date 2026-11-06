@@ -39,7 +39,7 @@ public sealed record LanguagePack(string Language, string Name, int Version, IRe
 /// </summary>
 public static class Strings
 {
-    public const string BuiltInLanguage = "ko";
+    public const string BuiltInLanguage = Texts.BuiltInLanguage;
 
     private static readonly Lazy<LanguagePack> BuiltIn = new(() =>
     {
@@ -49,7 +49,6 @@ public static class Strings
         return LanguagePack.Parse(reader.ReadToEnd());
     });
 
-    private static IReadOnlyDictionary<string, string>? active;
     private static readonly List<string> diagnostics = [];
 
     /// <summary>The built-in Korean pack.</summary>
@@ -61,14 +60,22 @@ public static class Strings
     /// <summary>Problems found when the last pack was applied or discovered (missing keys, placeholders, unreadable files).</summary>
     public static IReadOnlyList<string> Diagnostics => diagnostics;
 
-    /// <summary>The text of <paramref name="key"/> (the key itself when even Korean lacks it).</summary>
-    public static string Get(string key) =>
-        (active ?? Korean.Values).TryGetValue(key, out var text) || Korean.Values.TryGetValue(key, out text) ? Unescape(text) : key;
+    /// <summary>
+    /// The texts in use, set at start (<see cref="Apply"/>). The view models and the editor's services are given it; the
+    /// desktop views read <see cref="Get"/> and <see cref="Format"/>, which use it.
+    /// </summary>
+    public static Texts Current => current ?? Texts.Korean;
+    private static Texts? current; // null until a pack is applied (Texts.Korean reads this class: no initializer cycle)
 
-    /// <summary>The text of <paramref name="key"/> with its named placeholders filled, values formatted for the current culture.</summary>
-    public static string Format(string key, params (string Name, object? Value)[] values)
+    /// <summary>The text of <paramref name="key"/> in <see cref="Current"/> (the key itself when even Korean lacks it).</summary>
+    public static string Get(string key) => Current.Get(key);
+
+    /// <summary>The text of <paramref name="key"/> in <see cref="Current"/> with its named placeholders filled.</summary>
+    public static string Format(string key, params (string Name, object? Value)[] values) => Current.Format(key, values);
+
+    /// <summary>Fills the named placeholders of <paramref name="text"/>, values formatted for the current culture.</summary>
+    internal static string Fill(string text, (string Name, object? Value)[] values)
     {
-        string text = (active ?? Korean.Values).TryGetValue(key, out var found) || Korean.Values.TryGetValue(key, out found) ? found : key;
         var result = new StringBuilder(text.Length + 16);
         for (int i = 0; i < text.Length; i++)
         {
@@ -105,7 +112,7 @@ public static class Strings
         return names;
     }
 
-    private static string Unescape(string text) => text.Contains('{') || text.Contains('}') ? text.Replace("{{", "{").Replace("}}", "}") : text;
+    internal static string Unescape(string text) => text.Contains('{') || text.Contains('}') ? text.Replace("{{", "{").Replace("}}", "}") : text;
 
     /// <summary>
     /// Uses <paramref name="pack"/> (null: Korean). Its keys are checked against Korean: missing keys, placeholder
@@ -116,7 +123,7 @@ public static class Strings
         diagnostics.Clear();
         if (pack is null || pack.Language == BuiltInLanguage && pack.Path is null)
         {
-            active = null;
+            current = null;
             Language = BuiltInLanguage;
             PageRanges.All = Get("range.all");
             return;
@@ -138,7 +145,7 @@ public static class Strings
         }
         foreach (var key in pack.Values.Keys.Where(k => !Korean.Values.ContainsKey(k)).Order(StringComparer.Ordinal))
             diagnostics.Add($"{source}: unknown key {key}");
-        active = merged;
+        current = new Texts(merged);
         Language = pack.Language;
         PageRanges.All = Get("range.all");
     }
@@ -181,4 +188,32 @@ public static class Strings
         diagnostics.AddRange(problems);
         return diagnostics;
     }
+}
+
+/// <summary>
+/// The texts of one language pack (D14e), given to the view models and the editor's services so they do not read a
+/// global. Keys missing from the pack fall back to Korean, then to the key itself.
+/// </summary>
+public sealed class Texts
+{
+    public const string BuiltInLanguage = "ko";
+
+    private readonly IReadOnlyDictionary<string, string> values;
+
+    internal Texts(IReadOnlyDictionary<string, string> values) => this.values = values;
+
+    /// <summary>The texts of <paramref name="pack"/> as they are (no checks; <see cref="Strings.Apply"/> checks a pack against Korean).</summary>
+    public static Texts From(LanguagePack pack) => new(pack.Values);
+
+    /// <summary>The built-in Korean texts.</summary>
+    public static Texts Korean => korean.Value;
+    private static readonly Lazy<Texts> korean = new(() => new Texts(Strings.Korean.Values));
+
+    /// <summary>The text of <paramref name="key"/> (the key itself when even Korean lacks it).</summary>
+    public string Get(string key) =>
+        values.TryGetValue(key, out var text) || Strings.Korean.Values.TryGetValue(key, out text) ? Strings.Unescape(text) : key;
+
+    /// <summary>The text of <paramref name="key"/> with its named placeholders filled, values formatted for the current culture.</summary>
+    public string Format(string key, params (string Name, object? Value)[] values) =>
+        Strings.Fill(this.values.TryGetValue(key, out var found) || Strings.Korean.Values.TryGetValue(key, out found) ? found : key, values);
 }

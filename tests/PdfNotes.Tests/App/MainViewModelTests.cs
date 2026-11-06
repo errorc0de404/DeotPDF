@@ -23,6 +23,17 @@ public sealed class MainViewModelTests : IDisposable
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
     }
 
+    /// <summary>R3f: the view model shows the texts it is given, not the process-wide language.</summary>
+    [Fact]
+    public void TheViewModelUsesTheTextsItIsGiven()
+    {
+        var english = Texts.From(new LanguagePack("en", "English", 1, new Dictionary<string, string> { ["ribbon.undoTip"] = "Undo (Ctrl+Z)" }, null));
+        var other = new MainViewModel(shell, shell, new AppSettings(), "DeotPDF", _ => { }, TestFolders.New(), texts: english);
+        Assert.Equal("Undo (Ctrl+Z)", other.UndoTip);
+        Assert.Equal(Texts.Korean.Get("ribbon.redoTip"), other.RedoTip); // a key the pack lacks is Korean
+        Assert.NotEqual(other.UndoTip, model.UndoTip);
+    }
+
     public void Dispose()
     {
         model.Workflow.Detach()?.Dispose();
@@ -62,7 +73,7 @@ public sealed class MainViewModelTests : IDisposable
     [Fact]
     public void TitleFollowsTheUnsavedMarkAndUndoTipsNameTheStep()
     {
-        string name = model.Document!.DisplayName;
+        string name = model.Document!.DisplayNameIn(model.Texts);
         Assert.Equal($"{name} - DeotPDF", model.Title);
         Assert.Equal(Strings.Get("ribbon.undoTip"), model.UndoTip);
 

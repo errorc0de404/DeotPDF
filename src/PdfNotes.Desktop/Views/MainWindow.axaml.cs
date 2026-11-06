@@ -38,7 +38,8 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator
         InitializeComponent();
         this.dialogs = dialogs?.Invoke(this) ?? new DesktopDialogs(this);
         clipboard = new DesktopClipboard(this);
-        viewModel = new MainViewModel(this, this.dialogs, settings, App.DisplayName, saveSettings, appFolder, clipboard: clipboard, pageDialogs: this);
+        viewModel = new MainViewModel(this, this.dialogs, settings, App.DisplayName, saveSettings, appFolder, clipboard: clipboard, pageDialogs: this,
+            texts: Strings.Current);
         viewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.Title)) Title = viewModel.Title;

@@ -51,6 +51,8 @@ public interface IPageDialogs
 /// </summary>
 public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, IEditorDialogs dialogs, IPageDialogs pageDialogs) : ObservableObject
 {
+    private Texts texts => owner.Texts;
+
     private bool importing;
 
     /// <summary>An import or a merge is in progress (another one is refused).</summary>
@@ -67,7 +69,7 @@ public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, I
     public async Task<bool> ImportPagesAsync(IReadOnlyList<string>? paths = null, int? at = null)
     {
         if (Document is not { } target || importing) return false;
-        paths ??= pageDialogs.ChoosePdfFiles(Strings.Get("import.chooseTitle"));
+        paths ??= pageDialogs.ChoosePdfFiles(texts.Get("import.chooseTitle"));
         if (paths is not { Count: > 0 }) return false;
         importing = true;
         var opened = new List<MergeFile>();
@@ -89,13 +91,13 @@ public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, I
                 if (merge is not null) position = merge.Position;
             }
             if (chosen is not { Count: > 0 } || !ReferenceEquals(Document, target)) return false;
-            owner.Status = Strings.Get("import.loading");
+            owner.Status = texts.Get("import.loading");
             var files = chosen.Select(c => (c.File.File, c.Pages)).ToArray();
             try { prepared = await Task.Run(() => target.PrepareImports(files)); }
             catch (Exception e) when (IsImportFailure(e))
             {
                 owner.Status = "";
-                dialogs.Tell(Strings.Get("import.failed"), NoticeKind.Warning);
+                dialogs.Tell(texts.Get("import.failed"), NoticeKind.Warning);
                 return false;
             }
             if (!ReferenceEquals(Document, target)) return false;
@@ -110,11 +112,11 @@ public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, I
             catch (InvalidOperationException)
             {
                 owner.Status = "";
-                dialogs.Tell(Strings.Get("import.failed"), NoticeKind.Warning);
+                dialogs.Tell(texts.Get("import.failed"), NoticeKind.Warning);
                 return false;
             }
             owner.Pages.SelectPages(ids);
-            owner.Status = ids.Length == 1 ? Strings.Get("import.doneOne") : Strings.Format("import.done", ("count", ids.Length));
+            owner.Status = ids.Length == 1 ? texts.Get("import.doneOne") : texts.Format("import.done", ("count", ids.Length));
             return true;
         }
         finally
@@ -132,7 +134,7 @@ public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, I
     public async Task<bool> MergeAsync(IReadOnlyList<string>? paths = null)
     {
         if (owner.IsBusy || importing) return false;
-        paths ??= pageDialogs.ChoosePdfFiles(Strings.Get("merge.title"));
+        paths ??= pageDialogs.ChoosePdfFiles(texts.Get("merge.title"));
         if (paths is not { Count: > 0 }) return false;
         importing = true;
         var opened = new List<MergeFile>();
@@ -142,13 +144,13 @@ public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, I
             if (!await OpenForImportAsync(paths, opened) || opened.Count == 0) return false;
             var merge = await pageDialogs.ChooseMergeAsync(opened, insert: false, () => AddMergeFilesAsync(opened));
             if (merge?.Files is not { Count: > 0 } chosen) return false;
-            owner.Status = Strings.Get("merge.merging");
+            owner.Status = texts.Get("merge.merging");
             var files = chosen.Select(c => (c.File.File, c.Pages)).ToArray();
             try { prepared = await Task.Run(() => OpenDocument.PrepareForNew(files)); }
             catch (Exception e) when (IsImportFailure(e))
             {
                 owner.Status = "";
-                dialogs.Tell(Strings.Get("merge.failed"), NoticeKind.Warning);
+                dialogs.Tell(texts.Get("merge.failed"), NoticeKind.Warning);
                 return false;
             }
             owner.Status = "";
@@ -161,11 +163,11 @@ public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, I
             catch (Exception e) when (e is ArgumentException or InvalidOperationException or InvalidDataException)
             {
                 foreach (var part in parts) part.Pdf?.Dispose();
-                dialogs.Tell(Strings.Get("merge.failed"), NoticeKind.Warning);
+                dialogs.Tell(texts.Get("merge.failed"), NoticeKind.Warning);
                 return false;
             }
             owner.Workflow.Replace(merged);
-            owner.Status = Strings.Format("merge.done", ("files", chosen.Count), ("pages", merged.Session.Current.Pages.Count));
+            owner.Status = texts.Format("merge.done", ("files", chosen.Count), ("pages", merged.Session.Current.Pages.Count));
             return true;
         }
         finally
@@ -182,7 +184,7 @@ public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, I
     /// <summary>`파일 추가…` of the merge window: chooses and opens more files; they are disposed with the others.</summary>
     private async Task<IReadOnlyList<MergeFile>> AddMergeFilesAsync(List<MergeFile> owned)
     {
-        if (pageDialogs.ChoosePdfFiles(Strings.Get("merge.addFilesTitle")) is not { Length: > 0 } more) return [];
+        if (pageDialogs.ChoosePdfFiles(texts.Get("merge.addFilesTitle")) is not { Length: > 0 } more) return [];
         var added = new List<MergeFile>();
         await OpenForImportAsync(more, added);
         owned.AddRange(added);
@@ -202,7 +204,7 @@ public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, I
         foreach (var path in paths)
         {
             string name = Path.GetFileName(path);
-            owner.Status = Strings.Format("status.openingFile", ("name", name));
+            owner.Status = texts.Format("status.openingFile", ("name", name));
             try
             {
                 var (file, shown) = await Task.Run(() =>
@@ -225,11 +227,11 @@ public sealed class ImportExportViewModel(MainViewModel owner, IMainView view, I
                 into.Add(new MergeFile(name, file, shown));
                 signed |= file.Signed;
             }
-            catch (PdfOpenException e) { failed.Add($"{name}\n\n{OpenFailureMessages.For(e.Failure)}"); }
+            catch (PdfOpenException e) { failed.Add($"{name}\n\n{OpenFailureMessages.For(e.Failure, texts)}"); }
         }
         owner.Status = "";
         if (failed.Count > 0) dialogs.Tell(string.Join("\n\n", failed), NoticeKind.Warning);
-        if (signed) dialogs.Tell(Strings.Get("import.signedNotice"), NoticeKind.Information);
+        if (signed) dialogs.Tell(texts.Get("import.signedNotice"), NoticeKind.Information);
         return into.Count > 0;
     }
 

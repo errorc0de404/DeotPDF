@@ -143,7 +143,7 @@ public sealed partial class MainWindow
         {
             int slot = i;
             var button = new Button { Name = $"Favorite{i}", Theme = (Avalonia.Styling.ControlTheme)this.FindResource("ToolButton")!, Padding = new Thickness(2), Content = FavoriteIcon(settings.Favorites[i]) };
-            ToolTip.SetTip(button, FavoritesViewModel.Tip(settings.Favorites[i], i));
+            ToolTip.SetTip(button, viewModel.Favorites.Tip(settings.Favorites[i], i));
             button.Click += (_, _) => ApplyFavorite(slot);
             button.ContextMenu = new ContextMenu
             {

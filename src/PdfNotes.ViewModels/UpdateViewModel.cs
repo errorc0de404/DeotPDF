@@ -9,7 +9,7 @@ namespace PdfNotes.ViewModels;
 /// start whether to check at start; then it checks at most once a day and, when there is a newer release, shows it in
 /// the status bar. Settings › 정보 turns it on or off and checks at once. Nothing is downloaded or installed.
 /// </summary>
-public sealed class UpdateViewModel(AppSettings settings, Action save, IEditorDialogs dialogs, TimeProvider time, Func<Task<UpdateResult>> check) : ObservableObject
+public sealed class UpdateViewModel(AppSettings settings, Action save, IEditorDialogs dialogs, TimeProvider time, Func<Task<UpdateResult>> check, Texts texts) : ObservableObject
 {
     private string? availableText;
     private string? url;
@@ -29,7 +29,7 @@ public sealed class UpdateViewModel(AppSettings settings, Action save, IEditorDi
         if (UpdateCheck.IsDevelopment(version)) return;
         if (settings.CheckUpdates is null)
         {
-            settings.CheckUpdates = dialogs.Ask(Strings.Get("update.ask"), AskButtons.YesNo, NoticeKind.Question) == Answer.Yes;
+            settings.CheckUpdates = dialogs.Ask(texts.Get("update.ask"), AskButtons.YesNo, NoticeKind.Question) == Answer.Yes;
             save();
         }
         if (UpdateCheck.Due(settings.CheckUpdates, settings.UpdateCheckedAt, time.GetUtcNow().UtcDateTime, version)) await CheckAsync();
@@ -48,7 +48,7 @@ public sealed class UpdateViewModel(AppSettings settings, Action save, IEditorDi
         {
             url = result.Url;
             OnPropertyChanged(nameof(Url));
-            AvailableText = Strings.Format("about.available", ("version", result.Version!));
+            AvailableText = texts.Format("about.available", ("version", result.Version!));
         }
         return result;
     }

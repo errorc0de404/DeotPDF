@@ -58,6 +58,8 @@ public sealed record TextBarState(
 /// </summary>
 public sealed class TextStyleViewModel(MainViewModel owner, IEditorDialogs dialogs) : ObservableObject
 {
+    private Texts texts => owner.Texts;
+
     private ITextEditorSession? editor;
     private SelectTool? selection;
     private TextColorTarget target = TextColorTarget.Text;
@@ -187,7 +189,7 @@ public sealed class TextStyleViewModel(MainViewModel owner, IEditorDialogs dialo
     public void SetFont(string family)
     {
         if (string.IsNullOrWhiteSpace(family)) return;
-        if (!TextLayout.FontAvailable(family)) { dialogs.Tell(Strings.Get("text.fontMissing"), NoticeKind.Information); family = TextLayout.FallbackFont; }
+        if (!TextLayout.FontAvailable(family)) { dialogs.Tell(texts.Get("text.fontMissing"), NoticeKind.Information); family = TextLayout.FallbackFont; }
         Format(r => r with { FontFamily = family });
     }
 
@@ -273,7 +275,7 @@ public sealed class TextStyleViewModel(MainViewModel owner, IEditorDialogs dialo
         var style = CurrentStyle with { Start = 0, Length = 0 };
         if (slot is { } i) owner.Settings.TextSlots[i] = style; else owner.Settings.DefaultText = style;
         owner.SaveSettings();
-        owner.Status = slot is { } number ? Strings.Format("text.slotSaved", ("number", number + 1)) : Strings.Get("text.defaultSaved");
+        owner.Status = slot is { } number ? texts.Format("text.slotSaved", ("number", number + 1)) : texts.Get("text.defaultSaved");
     }
 
     /// <summary>Applies a saved slot's format (an empty slot does nothing).</summary>

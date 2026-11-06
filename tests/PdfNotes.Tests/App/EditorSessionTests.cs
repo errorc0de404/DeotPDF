@@ -6,6 +6,7 @@ using PdfNotes.Core.Models;
 using PdfNotes.Editor.Platform;
 using PdfNotes.Editor.Session;
 using PdfNotes.Tests.Core;
+using PdfNotes.Editor.Localization;
 
 namespace PdfNotes.Tests.App;
 
@@ -56,7 +57,7 @@ public sealed class EditorSessionTests : IDisposable
 
     private DocumentWorkflow NewWorkflow()
     {
-        var workflow = new DocumentWorkflow(host, host);
+        var workflow = new DocumentWorkflow(host, host, Texts.Korean);
         host.Workflow = workflow;
         workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
         return workflow;

@@ -9,7 +9,7 @@ namespace PdfNotes.ViewModels;
 /// The four pen favorites (spec 24.7; P1 V4): their slots (app settings), names and kinds. Applying one changes the
 /// tool styles, which stay with the view until the style bar moves (V7).
 /// </summary>
-public sealed class FavoritesViewModel(AppSettings settings, Action save) : ObservableObject
+public sealed class FavoritesViewModel(AppSettings settings, Action save, Texts texts) : ObservableObject
 {
     public IReadOnlyList<AppSettings.FavoriteSettings?> Slots => settings.Favorites;
 
@@ -32,16 +32,16 @@ public sealed class FavoritesViewModel(AppSettings settings, Action save) : Obse
     }
 
     /// <summary>`펜 2pt (Ctrl+1)`, `밑줄 1.5pt (Ctrl+3)`; an empty slot says how to fill it.</summary>
-    public static string Tip(AppSettings.FavoriteSettings? slot, int index)
+    public string Tip(AppSettings.FavoriteSettings? slot, int index)
     {
-        if (slot is null) return Strings.Get("favorites.emptyTip");
-        string name = slot.Tool != ToolKind.FreeHighlight ? Strings.Get("ribbon.pen") : slot.MarkKind switch
+        if (slot is null) return texts.Get("favorites.emptyTip");
+        string name = slot.Tool != ToolKind.FreeHighlight ? texts.Get("ribbon.pen") : slot.MarkKind switch
         {
-            TextMarkupKind.Underline => Strings.Get("markup.underline"),
-            TextMarkupKind.StrikeOut => Strings.Get("text.strikeOut"),
-            _ => Strings.Get("ribbon.highlighter")
+            TextMarkupKind.Underline => texts.Get("markup.underline"),
+            TextMarkupKind.StrikeOut => texts.Get("text.strikeOut"),
+            _ => texts.Get("ribbon.highlighter")
         };
-        return Strings.Format("favorites.tip", ("name", name), ("width", Math.Round(slot.Style.WidthPt, 1)), ("key", index + 1));
+        return texts.Format("favorites.tip", ("name", name), ("width", Math.Round(slot.Style.WidthPt, 1)), ("key", index + 1));
     }
 
     /// <summary>The annotation a favorite draws: ink (pen), free highlight, or a text mark (underline, strikeout).</summary>

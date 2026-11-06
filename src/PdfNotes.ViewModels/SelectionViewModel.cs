@@ -45,6 +45,8 @@ public sealed record AnnotationMenu(IReadOnlyList<AnnotationMenuEntry> Entries, 
 /// </summary>
 public sealed class SelectionViewModel(MainViewModel owner, IMainView view, IEditorDialogs dialogs, IEditorClipboard clipboard) : ObservableObject
 {
+    private Texts texts => owner.Texts;
+
     private SelectTool? selection;
     private Action<byte[]> checkImage = _ => { };
 
@@ -59,7 +61,7 @@ public sealed class SelectionViewModel(MainViewModel owner, IMainView view, IEdi
 
     private OpenDocument? Document => owner.Document;
 
-    private void Warn(string key) => dialogs.Tell(Strings.Get(key), NoticeKind.Warning);
+    private void Warn(string key) => dialogs.Tell(texts.Get(key), NoticeKind.Warning);
 
     /// <summary>Whether an edit command can run (with the canvas focused): paste and select all need a document only.</summary>
     public bool CanExecute(SelectionCommand command) => Document is not null &&
@@ -211,8 +213,8 @@ public sealed class SelectionViewModel(MainViewModel owner, IMainView view, IEdi
         var entries = new List<AnnotationMenuEntry>();
         if (hit is null && onTextSelection)
         {
-            entries.Add(new(AnnotationCommand.CopyText, Strings.Get("command.copy")));
-            entries.Add(new(AnnotationCommand.HighlightText, Strings.Get("command.highlight"), !owner.Display.NotesHidden));
+            entries.Add(new(AnnotationCommand.CopyText, texts.Get("command.copy")));
+            entries.Add(new(AnnotationCommand.HighlightText, texts.Get("command.highlight"), !owner.Display.NotesHidden));
             return new(entries, pageId, []);
         }
         if (hit is { } id && model.FindAnnotation(id)?.Annotation is { } annotation)
@@ -220,28 +222,28 @@ public sealed class SelectionViewModel(MainViewModel owner, IMainView view, IEdi
             if (!annotation.Locked && !Tool.SelectedIds.Contains(id)) { owner.ToolBar.SetTool(ToolKind.Select); Tool.Select(id); }
             Guid[] targets = annotation.Locked ? [id] : [.. Tool.SelectedIds];
             bool unlocked = !annotation.Locked;
-            if (annotation is TextBoxAnnotation) entries.Add(new(AnnotationCommand.SavedStyles, Strings.Get("text.savedStyles"), unlocked));
-            entries.Add(annotation.Locked ? new(AnnotationCommand.Unlock, Strings.Get("command.unlock"), SeparatorBefore: entries.Count > 0)
-                : new(AnnotationCommand.Lock, Strings.Get("command.lock"), SeparatorBefore: entries.Count > 0));
-            entries.Add(new(AnnotationCommand.Copy, Strings.Get("command.copy"), SeparatorBefore: true));
-            entries.Add(new(AnnotationCommand.Cut, Strings.Get("command.cut"), unlocked));
-            entries.Add(new(AnnotationCommand.Paste, Strings.Get("command.paste"), CanPaste));
-            entries.Add(new(AnnotationCommand.Delete, Strings.Get("command.delete"), unlocked));
-            entries.Add(new(AnnotationCommand.Forward, Strings.Get("order.forward"), unlocked, SeparatorBefore: true));
-            entries.Add(new(AnnotationCommand.Backward, Strings.Get("order.backward"), unlocked));
-            entries.Add(new(AnnotationCommand.ToFront, Strings.Get("order.toFront"), unlocked));
-            entries.Add(new(AnnotationCommand.ToBack, Strings.Get("order.toBack"), unlocked));
+            if (annotation is TextBoxAnnotation) entries.Add(new(AnnotationCommand.SavedStyles, texts.Get("text.savedStyles"), unlocked));
+            entries.Add(annotation.Locked ? new(AnnotationCommand.Unlock, texts.Get("command.unlock"), SeparatorBefore: entries.Count > 0)
+                : new(AnnotationCommand.Lock, texts.Get("command.lock"), SeparatorBefore: entries.Count > 0));
+            entries.Add(new(AnnotationCommand.Copy, texts.Get("command.copy"), SeparatorBefore: true));
+            entries.Add(new(AnnotationCommand.Cut, texts.Get("command.cut"), unlocked));
+            entries.Add(new(AnnotationCommand.Paste, texts.Get("command.paste"), CanPaste));
+            entries.Add(new(AnnotationCommand.Delete, texts.Get("command.delete"), unlocked));
+            entries.Add(new(AnnotationCommand.Forward, texts.Get("order.forward"), unlocked, SeparatorBefore: true));
+            entries.Add(new(AnnotationCommand.Backward, texts.Get("order.backward"), unlocked));
+            entries.Add(new(AnnotationCommand.ToFront, texts.Get("order.toFront"), unlocked));
+            entries.Add(new(AnnotationCommand.ToBack, texts.Get("order.toBack"), unlocked));
             return new(entries, pageId, targets);
         }
-        entries.Add(new(AnnotationCommand.AddTextBox, Strings.Get("menu.addTextBox")));
+        entries.Add(new(AnnotationCommand.AddTextBox, texts.Get("menu.addTextBox")));
         bool first = true;
         foreach (var (command, key, tool) in QuickTools)
         {
-            entries.Add(new(command, Strings.Get(key), SeparatorBefore: first, Tool: tool, Checked: owner.Tools.Current == tool));
+            entries.Add(new(command, texts.Get(key), SeparatorBefore: first, Tool: tool, Checked: owner.Tools.Current == tool));
             first = false;
         }
-        entries.Add(new(AnnotationCommand.Paste, Strings.Get("command.paste"), CanPaste, SeparatorBefore: true));
-        if (owner.Foreign.Count > 0) entries.Add(new(AnnotationCommand.ConvertForeign, Strings.Get("foreign.convertTip"), owner.Foreign.CanConvert)); // spec 14.6, D14g
+        entries.Add(new(AnnotationCommand.Paste, texts.Get("command.paste"), CanPaste, SeparatorBefore: true));
+        if (owner.Foreign.Count > 0) entries.Add(new(AnnotationCommand.ConvertForeign, texts.Get("foreign.convertTip"), owner.Foreign.CanConvert)); // spec 14.6, D14g
         return new(entries, pageId, []);
     }
 

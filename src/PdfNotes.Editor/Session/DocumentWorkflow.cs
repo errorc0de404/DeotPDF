@@ -48,7 +48,7 @@ public interface IDocumentHost
 /// The document file flow of the editor (D14d, spec 4.2, 14, 18): new, open, save, save as, Flatten export and the
 /// unsaved-changes question. The shell supplies the dialogs and shows the document.
 /// </summary>
-public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
+public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs, Texts texts)
 {
     private bool confirming;
 
@@ -90,7 +90,7 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
         confirming = true;
         try
         {
-            return dialogs.Ask(Strings.Format("file.saveChangesConfirm", ("name", Document.DisplayName)), AskButtons.YesNoCancel, NoticeKind.Question) switch
+            return dialogs.Ask(texts.Format("file.saveChangesConfirm", ("name", Document.DisplayNameIn(texts))), AskButtons.YesNoCancel, NoticeKind.Question) switch
             {
                 Answer.Yes => await SaveAsync(saveAs: false),
                 Answer.No => true,
@@ -106,7 +106,7 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
         if (IsBusy || host.ShowOpenElsewhere(path)) return false; // that window is in front now; this document stays
         if (!await ConfirmDiscardChangesAsync()) return false;
         SetBusy(true);
-        host.SetStatus(Strings.Get("status.opening"));
+        host.SetStatus(texts.Get("status.opening"));
         host.Loading(Path.GetFileName(path));
         try
         {
@@ -121,13 +121,13 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
         catch (PdfOpenException e)
         {
             host.SetStatus("");
-            TellOpenFailure(path, OpenFailureMessages.For(e.Failure));
+            TellOpenFailure(path, OpenFailureMessages.For(e.Failure, texts));
         }
         catch (Exception)
         {
             // UI boundary: any other failure (invalid path, engine error, out of memory) is reported, never fatal.
             host.SetStatus("");
-            TellOpenFailure(path, Strings.Get("openError.generic"));
+            TellOpenFailure(path, texts.Get("openError.generic"));
         }
         finally
         {
@@ -138,20 +138,20 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
     }
 
     /// <summary>The status bar text after opening: page count and restriction (spec 24.6). Other apps' annotations follow once counted (14.6).</summary>
-    public static string OpenedStatus(OpenDocument opened) =>
-        Strings.Format("status.opened", ("pages", opened.Session.Current.Pages.Count)) + (opened.Source is { PermissionRestricted: true } ? Strings.Get("status.restricted") : "");
+    public string OpenedStatus(OpenDocument opened) =>
+        texts.Format("status.opened", ("pages", opened.Session.Current.Pages.Count)) + (opened.Source is { PermissionRestricted: true } ? texts.Get("status.restricted") : "");
 
     /// <summary>The one-time notice about view-only notes and missing fonts of an opened file, or null; both show when both apply (spec 6.2).</summary>
-    public static string? OpenedNotice(OpenDocument opened)
+    public string? OpenedNotice(OpenDocument opened)
     {
         if (opened.Source?.AppData is not { } data) return null;
         string? readOnly = data switch
         {
-            { ReadOnlyCount: > 0, HeaderStatus: HeaderStatus.Unsupported } => Strings.Get("notice.unsupportedVersion"),
-            { ReadOnlyCount: > 0 } => Strings.Format("notice.readOnlyNotes", ("count", data.ReadOnlyCount)),
+            { ReadOnlyCount: > 0, HeaderStatus: HeaderStatus.Unsupported } => texts.Get("notice.unsupportedVersion"),
+            { ReadOnlyCount: > 0 } => texts.Format("notice.readOnlyNotes", ("count", data.ReadOnlyCount)),
             _ => null,
         };
-        string? font = data.Warnings.Any(w => w.StartsWith("Missing font:", StringComparison.Ordinal)) ? Strings.Get("notice.missingFont") : null;
+        string? font = data.Warnings.Any(w => w.StartsWith("Missing font:", StringComparison.Ordinal)) ? texts.Get("notice.missingFont") : null;
         return readOnly is null ? font : font is null ? readOnly : readOnly + "\n\n" + font;
     }
 
@@ -182,7 +182,7 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
         string? path = doc.FilePath;
         if (saveAs || path is null)
         {
-            path = dialogs.ChooseSavePath(new(Strings.Get("file.saveAsTitle"), doc.FilePath is null ? Strings.Get("file.newNoteFileName") : Path.GetFileName(doc.FilePath), FolderOf(doc)));
+            path = dialogs.ChooseSavePath(new(texts.Get("file.saveAsTitle"), doc.FilePath is null ? texts.Get("file.newNoteFileName") : Path.GetFileName(doc.FilePath), FolderOf(doc)));
             if (path is null) return false;
         }
         return await SaveToAsync(doc, path);
@@ -195,23 +195,23 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
     {
         host.FinishTextEditing();
         if (IsOwnFile(doc, path) && doc.FileChangedExternally() &&
-            dialogs.Ask(Strings.Format("file.changedExternally", ("name", doc.DisplayName)), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes)
+            dialogs.Ask(texts.Format("file.changedExternally", ("name", doc.DisplayNameIn(texts))), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes)
             return false;
         TellRestrictionDropped(doc);
         SetBusy(true);
-        host.SetStatus(Strings.Get("status.saving"));
+        host.SetStatus(texts.Get("status.saving"));
         try
         {
             await doc.SaveAsync(path);
             host.Saved(path);
-            host.SetStatus(Strings.Get("status.saved"));
+            host.SetStatus(texts.Get("status.saved"));
             return true;
         }
         catch (Exception e)
         {
             // UI boundary: the document and the file on disk are unchanged; report and keep working.
             host.SetStatus("");
-            dialogs.Tell($"{Path.GetFileName(path)}\n\n{SaveFailureMessages.For(e)}", NoticeKind.Warning);
+            dialogs.Tell($"{Path.GetFileName(path)}\n\n{SaveFailureMessages.For(e, texts)}", NoticeKind.Warning);
             return false;
         }
         finally { SetBusy(false); }
@@ -222,7 +222,7 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
     {
         if (!doc.RestrictionNoticePending) return;
         doc.RestrictionNoticePending = false;
-        dialogs.Tell(Strings.Get("notice.restrictionDropped"), NoticeKind.Information);
+        dialogs.Tell(texts.Get("notice.restrictionDropped"), NoticeKind.Information);
     }
 
     /// <summary>
@@ -234,27 +234,27 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
     {
         if (IsBusy || Document is not { } doc) return false;
         host.FinishTextEditing();
-        string suggested = (doc.FilePath is null ? Strings.Get("file.newNoteName") : Path.GetFileNameWithoutExtension(doc.FilePath)) + "_flattened.pdf";
-        if (dialogs.ChooseSavePath(new(Strings.Get("file.exportFlattenedTitle"), suggested, FolderOf(doc))) is not { } path) return false;
+        string suggested = (doc.FilePath is null ? texts.Get("file.newNoteName") : Path.GetFileNameWithoutExtension(doc.FilePath)) + "_flattened.pdf";
+        if (dialogs.ChooseSavePath(new(texts.Get("file.exportFlattenedTitle"), suggested, FolderOf(doc))) is not { } path) return false;
         if (IsOwnFile(doc, path))
         {
-            dialogs.Tell(Strings.Get("export.ownFile"), NoticeKind.Information);
+            dialogs.Tell(texts.Get("export.ownFile"), NoticeKind.Information);
             return false;
         }
         TellRestrictionDropped(doc);
         SetBusy(true);
-        host.SetStatus(Strings.Get("status.exportingFlattened"));
+        host.SetStatus(texts.Get("status.exportingFlattened"));
         try
         {
             bool written = await doc.ExportFlattenedAsync(path, KeepForeign);
-            host.SetStatus(written ? Strings.Get("status.exportedFlattened") : "");
+            host.SetStatus(written ? texts.Get("status.exportedFlattened") : "");
             return written;
         }
         catch (Exception e)
         {
             // UI boundary: the document is unchanged and an existing target file was not replaced.
             host.SetStatus("");
-            dialogs.Tell($"{Path.GetFileName(path)}\n\n{SaveFailureMessages.For(e)}", NoticeKind.Warning);
+            dialogs.Tell($"{Path.GetFileName(path)}\n\n{SaveFailureMessages.For(e, texts)}", NoticeKind.Warning);
             return false;
         }
         finally { SetBusy(false); }
@@ -271,26 +271,26 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
         var model = doc.Session.Current;
         // Every page as one merged file is the whole-document export: its default name, and the outline stays (24.4).
         if (flatten && groups is [var all] && all.SequenceEqual(Enumerable.Range(0, model.Pages.Count))) return await ExportFlattenedAsync() ? 1 : 0;
-        string baseName = doc.FilePath is null ? Strings.Get("file.newNoteName") : Path.GetFileNameWithoutExtension(doc.FilePath);
+        string baseName = doc.FilePath is null ? texts.Get("file.newNoteName") : Path.GetFileNameWithoutExtension(doc.FilePath);
         string suggested = baseName + (groups.Count == 1 ? $" ({PageRanges.Format(groups[0], model.Pages.Count)}).pdf" : ".pdf");
         suggested = string.Concat(suggested.Split(Path.GetInvalidFileNameChars()));
-        string title = groups.Count == 1 ? Strings.Get("export.title") : Strings.Format("export.titleSplit", ("files", groups.Count));
+        string title = groups.Count == 1 ? texts.Get("export.title") : texts.Format("export.titleSplit", ("files", groups.Count));
         if (dialogs.ChooseSavePath(new(title, suggested, FolderOf(doc), OverwritePrompt: groups.Count == 1)) is not { } path) return 0;
         var targets = ExportTargets(path, groups.Count);
         if (doc.FilePath is { } current && targets.Any(t => FilePaths.Same(Path.GetFullPath(t), Path.GetFullPath(current))))
         {
-            dialogs.Tell(Strings.Get("export.ownFile"), NoticeKind.Information);
+            dialogs.Tell(texts.Get("export.ownFile"), NoticeKind.Information);
             return 0;
         }
         if (groups.Count > 1 && targets.Count(File.Exists) is > 0 and var existing &&
-            dialogs.Ask(Strings.Format("export.replaceExisting", ("count", existing)), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes)
+            dialogs.Ask(texts.Format("export.replaceExisting", ("count", existing)), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes)
             return 0;
 
         int written = 0;
         for (int g = 0; g < groups.Count; g++)
         {
             var ids = groups[g].Select(i => model.Pages[i].Id).ToArray();
-            host.SetStatus(groups.Count == 1 ? Strings.Get("status.exportingPages") : Strings.Format("status.exportingPagesOf", ("current", g + 1), ("total", groups.Count)));
+            host.SetStatus(groups.Count == 1 ? texts.Get("status.exportingPages") : texts.Format("status.exportingPagesOf", ("current", g + 1), ("total", groups.Count)));
             try
             {
                 if (!await doc.ExportPagesAsync(targets[g], ids, flatten, KeepForeign)) break;
@@ -299,12 +299,12 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
             catch (Exception e)
             {
                 host.SetStatus("");
-                string done = written > 0 ? Strings.Format("export.partlyDone", ("count", written)) : "";
-                dialogs.Tell($"{Path.GetFileName(targets[g])}\n\n{SaveFailureMessages.For(e)}{done}", NoticeKind.Warning);
+                string done = written > 0 ? texts.Format("export.partlyDone", ("count", written)) : "";
+                dialogs.Tell($"{Path.GetFileName(targets[g])}\n\n{SaveFailureMessages.For(e, texts)}{done}", NoticeKind.Warning);
                 return written;
             }
         }
-        host.SetStatus(written == 0 ? "" : written == 1 ? Strings.Format("status.exportedFile", ("name", Path.GetFileName(targets[0]))) : Strings.Format("status.exportedFiles", ("count", written)));
+        host.SetStatus(written == 0 ? "" : written == 1 ? texts.Format("status.exportedFile", ("name", Path.GetFileName(targets[0]))) : texts.Format("status.exportedFiles", ("count", written)));
         return written;
     }
 
@@ -319,7 +319,7 @@ public sealed class DocumentWorkflow(IDocumentHost host, IEditorDialogs dialogs)
 
     /// <summary>Foreign annotations that cannot be flattened stay annotations: continue? (spec 14.5)</summary>
     public bool KeepForeign(int kept) =>
-        dialogs.Ask(Strings.Format("file.keepForeignConfirm", ("count", kept)), AskButtons.YesNo, NoticeKind.Question) == Answer.Yes;
+        dialogs.Ask(texts.Format("file.keepForeignConfirm", ("count", kept)), AskButtons.YesNo, NoticeKind.Question) == Answer.Yes;
 
     /// <summary>True when <paramref name="path"/> is the document's own file.</summary>
     public static bool IsOwnFile(OpenDocument doc, string path) =>

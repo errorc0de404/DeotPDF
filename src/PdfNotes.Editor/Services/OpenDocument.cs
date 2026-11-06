@@ -148,7 +148,8 @@ public sealed class OpenDocument : IDisposable
     /// <summary>True while a write of this document is in progress or waiting.</summary>
     public bool IsWriting => writeGate.CurrentCount == 0;
 
-    public string DisplayName => Location?.Name ?? Strings.Get("file.newNoteName");
+    /// <summary>The file name, or the new-note name in <paramref name="texts"/> for a note not saved yet.</summary>
+    public string DisplayNameIn(Texts texts) => Location?.Name ?? texts.Get("file.newNoteName");
 
     /// <summary>A permission-restricted original (spec 24.6) whose first save has not yet told that the restriction is dropped.</summary>
     public bool RestrictionNoticePending { get; set; }
@@ -346,30 +347,30 @@ public readonly record struct FileBaseline(long Length, DateTime LastWriteTimeUt
 /// <summary>User-facing messages for save failures (spec 14.4, 18). Never includes document content.</summary>
 public static class SaveFailureMessages
 {
-    public static string For(Exception error) => error switch
+    public static string For(Exception error, Texts texts) => error switch
     {
-        SaveFailedException { Failure: SaveFailure.FolderMissing } => Strings.Get("saveError.folderMissing"),
-        SaveFailedException { Failure: SaveFailure.AccessDenied } => Strings.Get("saveError.accessDenied"),
-        SaveFailedException { Failure: SaveFailure.Locked } => Strings.Get("saveError.inUse"),
-        SaveFailedException { Failure: SaveFailure.DiskFull } => Strings.Get("saveError.diskFull"),
-        SaveFailedException { Failure: SaveFailure.VerificationFailed } => Strings.Get("saveError.verifyFailed"),
-        _ => Strings.Get("saveError.generic")
+        SaveFailedException { Failure: SaveFailure.FolderMissing } => texts.Get("saveError.folderMissing"),
+        SaveFailedException { Failure: SaveFailure.AccessDenied } => texts.Get("saveError.accessDenied"),
+        SaveFailedException { Failure: SaveFailure.Locked } => texts.Get("saveError.inUse"),
+        SaveFailedException { Failure: SaveFailure.DiskFull } => texts.Get("saveError.diskFull"),
+        SaveFailedException { Failure: SaveFailure.VerificationFailed } => texts.Get("saveError.verifyFailed"),
+        _ => texts.Get("saveError.generic")
     };
 }
 
 /// <summary>User-facing messages for open failures (spec 4.2). Never includes document content.</summary>
 public static class OpenFailureMessages
 {
-    public static string For(PdfOpenFailure failure) => failure switch
+    public static string For(PdfOpenFailure failure, Texts texts) => failure switch
     {
-        PdfOpenFailure.NotFound => Strings.Get("openError.notFound"),
-        PdfOpenFailure.AccessDenied => Strings.Get("openError.unreadable"),
-        PdfOpenFailure.NotPdf => Strings.Get("openError.notPdf"),
-        PdfOpenFailure.Corrupt => Strings.Get("openError.damaged"),
-        PdfOpenFailure.PasswordProtected => Strings.Get("openError.password"),
-        PdfOpenFailure.Encrypted => Strings.Get("openError.encrypted"),
-        PdfOpenFailure.Signed => Strings.Get("openError.signed"),
-        PdfOpenFailure.Unsupported => Strings.Get("openError.structure"),
-        _ => Strings.Get("openError.generic")
+        PdfOpenFailure.NotFound => texts.Get("openError.notFound"),
+        PdfOpenFailure.AccessDenied => texts.Get("openError.unreadable"),
+        PdfOpenFailure.NotPdf => texts.Get("openError.notPdf"),
+        PdfOpenFailure.Corrupt => texts.Get("openError.damaged"),
+        PdfOpenFailure.PasswordProtected => texts.Get("openError.password"),
+        PdfOpenFailure.Encrypted => texts.Get("openError.encrypted"),
+        PdfOpenFailure.Signed => texts.Get("openError.signed"),
+        PdfOpenFailure.Unsupported => texts.Get("openError.structure"),
+        _ => texts.Get("openError.generic")
     };
 }

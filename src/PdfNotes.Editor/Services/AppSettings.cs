@@ -182,7 +182,7 @@ public sealed class AppSettings
     public bool ShowFavorites { get; set; } = true;
 
     /// <summary>UI language pack (spec 18.1, D14e): the built-in Korean or a pack found in <see cref="LanguageFoldersIn"/>; read at start.</summary>
-    public string Language { get; set; } = PdfNotes.Editor.Localization.Strings.BuiltInLanguage;
+    public string Language { get; set; } = PdfNotes.Editor.Localization.Texts.BuiltInLanguage;
 
     /// <summary>
     /// Check for a new version at start (roadmap 1.1, <see cref="Services.UpdateCheck"/>): null until the user was asked

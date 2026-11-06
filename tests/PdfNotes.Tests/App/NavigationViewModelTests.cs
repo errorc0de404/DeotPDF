@@ -198,7 +198,7 @@ public sealed class NavigationViewModelTests : IDisposable
         favorites.PropertyChanged += (_, _) => rebuilt++;
         Assert.Equal(4, favorites.Slots.Count);
         Assert.Null(favorites.Slots[3]); // the defaults fill three of four
-        Assert.Equal(Strings.Get("favorites.emptyTip"), FavoritesViewModel.Tip(null, 0));
+        Assert.Equal(Strings.Get("favorites.emptyTip"), model.Favorites.Tip(null, 0));
 
         var pen = new AppSettings.FavoriteSettings { Tool = ToolKind.Pen, Style = new() { WidthPt = 2.04 } };
         favorites.Store(0, pen);
@@ -207,8 +207,8 @@ public sealed class NavigationViewModelTests : IDisposable
         Assert.Same(pen, favorites.Slots[0]);
         Assert.Equal(2, rebuilt);
         Assert.Equal(2, saves);
-        Assert.Equal(Strings.Format("favorites.tip", ("name", Strings.Get("ribbon.pen")), ("width", 2.0), ("key", 1)), FavoritesViewModel.Tip(pen, 0));
-        Assert.Equal(Strings.Format("favorites.tip", ("name", Strings.Get("markup.underline")), ("width", 1.5), ("key", 3)), FavoritesViewModel.Tip(underline, 2));
+        Assert.Equal(Strings.Format("favorites.tip", ("name", Strings.Get("ribbon.pen")), ("width", 2.0), ("key", 1)), model.Favorites.Tip(pen, 0));
+        Assert.Equal(Strings.Format("favorites.tip", ("name", Strings.Get("markup.underline")), ("width", 1.5), ("key", 3)), model.Favorites.Tip(underline, 2));
         Assert.Equal(AnnotationKind.Ink, FavoritesViewModel.Kind(pen));
         Assert.Equal(AnnotationKind.TextMarkup, FavoritesViewModel.Kind(underline));
         Assert.Equal(AnnotationKind.FreeHighlight, FavoritesViewModel.Kind(new() { Tool = ToolKind.FreeHighlight }));
