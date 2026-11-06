@@ -1,7 +1,13 @@
+using PdfNotes.Core.Commands;
+using PdfNotes.Core.Geometry;
+using PdfNotes.Core.Models;
+using PdfNotes.Desktop.Canvas;
 using PdfNotes.Editor.Localization;
 using PdfNotes.Editor.Platform;
 using PdfNotes.Editor.Services;
 using PdfNotes.ViewModels;
+
+using Page = PdfNotes.Core.Models.Page;
 
 namespace PdfNotes.Desktop.Views;
 
@@ -73,5 +79,21 @@ public sealed partial class MainWindow : IPageDialogs
     {
         var dialog = new PageExportDialog(pageCount, range) { Flatten = flatten };
         return dialogs.ShowWindow(dialog) && dialog.Result is { } groups ? new PageExportChoice(groups, dialog.Flatten) : null;
+    }
+
+    NewPageSpec? IPageDialogs.ChooseBlankPage(bool insert, PageSetup reference)
+    {
+        var (w, h) = PageEdits.DisplayedSize(reference);
+        var dialog = new NewNoteDialog(insert ? Strings.Get("page.insertBlank") : Strings.Get("page.addBlank"),
+            (Units.PointsToMillimeters(w), Units.PointsToMillimeters(h)), reference.Background?.Kind ?? PageBackgroundKind.Blank);
+        return dialogs.ShowWindow(dialog) ? dialog.Result : null;
+    }
+
+    PageTransformRequest? IPageDialogs.ChooseTransform(bool resize, DocumentModel model, Page active, Func<PageApplyScope, PageSetup[]> targets)
+    {
+        if (Document is not { } doc) return null;
+        double zoom = 700 / (Math.Max(active.Setup.Frame.DisplayWidthPt, active.Setup.Frame.DisplayHeightPt) * Units.DipsPerPoint);
+        var dialog = new PageTransformDialog(resize, active.Setup, targets, PageSnapshots.Render(doc, model, active, zoom, RenderScaling));
+        return dialogs.ShowWindow(dialog) ? dialog.Result : null;
     }
 }

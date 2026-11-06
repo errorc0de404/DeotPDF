@@ -79,6 +79,9 @@ public sealed class SelectionViewModel(MainViewModel owner, IMainView view, IEdi
         }
     }
 
+    /// <summary>Nothing selected (a command removed what was).</summary>
+    public void ClearSelection() => Tool.SetSelection([]);
+
     /// <summary>Selects every unlocked annotation of the current page with the selection tool (hidden notes come back, spec 24.10).</summary>
     public void SelectAll()
     {

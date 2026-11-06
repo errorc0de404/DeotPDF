@@ -1,4 +1,5 @@
 using PdfNotes.Core.Commands;
+using PdfNotes.Core.Models;
 using PdfNotes.Editor.Localization;
 using PdfNotes.Editor.Platform;
 using PdfNotes.Editor.Services;
@@ -43,6 +44,15 @@ public interface IPageDialogs
 
     /// <summary>The export window, starting at <paramref name="range"/>; <paramref name="flatten"/> preselects 필기 합친 PDF.</summary>
     PageExportChoice? ChooseExport(int pageCount, string range, bool flatten);
+
+    /// <summary>The blank page window (spec 11.5): size and background, starting at <paramref name="reference"/>'s; null when cancelled.</summary>
+    NewPageSpec? ChooseBlankPage(bool insert, PageSetup reference);
+
+    /// <summary>
+    /// The resize (<paramref name="resize"/>) or shrink window (spec 11.6–11.8) with a preview of <paramref name="active"/>;
+    /// <paramref name="targets"/> gives the pages of each scope. Null when cancelled.
+    /// </summary>
+    PageTransformRequest? ChooseTransform(bool resize, DocumentModel model, Page active, Func<PageApplyScope, PageSetup[]> targets);
 }
 
 /// <summary>

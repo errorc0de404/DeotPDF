@@ -59,8 +59,6 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
         InitializeNotes();
         InitializeSelectionCommands();
         InitializeDrop();
-        InitializeLoading();
-        InitializeForeign();
         InitializeBackup();
         Closing += WindowClosing;
         Closed += (_, _) => WindowClosed();
@@ -149,7 +147,6 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
         viewModel.Navigation.ResetPageInput();
         viewModel.Navigation.ResetZoomInput();
         styles.Refresh();
-        UpdatePageCommands();
     }
 
     void IMainView.DocumentChanged()
@@ -161,10 +158,7 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
         var thumbs = viewModel.Pages.Items;
         if (!thumbs.Select(t => t.PageId).SequenceEqual(doc.Session.Current.Pages.Select(p => p.Id)) ||
             thumbs.Any(t => t.Rendered is { } r && doc.Session.Current.GetPage(t.PageId).Setup != r.Setup)) selectTool.ClearTextSelection();
-        viewModel.Pages.Refresh();
-        RefreshOutline();
         styles.Refresh();
-        UpdatePageCommands();
     }
 
     void IMainView.FinishTextEditing() => FinishTextEditing();
@@ -183,7 +177,7 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
         (BringOverride ?? Platform.WindowActivation.Bring)(other);
         return true;
     }
-    void IMainView.CommandsChanged() => UpdatePageCommands();
+    void IMainView.CommandsChanged() => viewModel.Pages.CommandsChanged();
 
     void IMainView.OnUiThread(Action action)
     {
@@ -192,7 +186,7 @@ public sealed partial class MainWindow : Window, IMainView, IWindowCoordinator, 
     }
 
     IDocumentViewport IMainView.Viewport => Canvas;
-    IPageListView IMainView.Pages => this;
+    IPageThumbnailSource IMainView.Thumbnails => this;
     IWindowCoordinator IMainView.Window => this;
 
     // ----- commands -----

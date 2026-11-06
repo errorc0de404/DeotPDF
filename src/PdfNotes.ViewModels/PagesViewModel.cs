@@ -9,17 +9,24 @@ using PdfNotes.Pdf.Reading;
 
 namespace PdfNotes.ViewModels;
 
-/// <summary>One row of the page panel: number, thumbnail and whether it is the active page (spec 11.1, 11.5).</summary>
-public sealed class PageItemViewModel(Guid pageId) : ObservableObject
+/// <summary>One row of the page panel: number, thumbnail, whether it is selected and whether it is the active page (spec 11.1, 11.5).</summary>
+public sealed class PageItemViewModel(Guid pageId, Action<PageItemViewModel>? selectionChanged = null) : ObservableObject
 {
     private int number;
-    private bool active;
+    private bool active, selected;
     private object? image;
     private double width = PagesViewModel.ThumbnailWidth, height = PagesViewModel.ThumbnailWidth * 1.414;
 
     public Guid PageId { get; } = pageId;
     public int Number { get => number; set => SetProperty(ref number, value); }
     public bool IsActive { get => active; set => SetProperty(ref active, value); }
+
+    /// <summary>Selected in the list (the list's selection is this, R4e): a click, Ctrl/Shift, or a command that made pages.</summary>
+    public bool IsSelected
+    {
+        get => selected;
+        set { if (SetProperty(ref selected, value)) selectionChanged?.Invoke(this); }
+    }
 
     /// <summary>The thumbnail, a platform image made by <see cref="IPageThumbnailSource"/> (null until drawn).</summary>
     public object? Image { get => image; set => SetProperty(ref image, value); }
@@ -42,21 +49,6 @@ public interface IPageThumbnailSource
     /// <paramref name="notesHidden"/>; null when cancelled. An unrenderable PDF page gives a white thumbnail.
     /// </summary>
     Task<PageThumbnail?> RenderAsync(OpenDocument document, DocumentModel model, Page page, double width, bool notesHidden, CancellationToken cancel);
-}
-
-/// <summary>The page list as the view model uses it: which rows are selected, and showing a selection.</summary>
-public interface IPageListView
-{
-    /// <summary>The pages selected in the list (any order; may be empty).</summary>
-    IReadOnlyCollection<Guid> SelectedPageIds { get; }
-
-    /// <summary>Selects exactly these rows (without making one active: the view model does that).</summary>
-    void Select(IReadOnlyCollection<Guid> ids);
-
-    /// <summary>The view scrolled to another page: select that row when at most one row is selected, and bring it into view.</summary>
-    void FollowActive(PageItemViewModel item);
-
-    IPageThumbnailSource Thumbnails { get; }
 }
 
 /// <summary>What the resize and shrink dialog asks for (spec 11.6–11.8, D10d); the target IDs are fixed when it opens.</summary>
@@ -108,7 +100,36 @@ public sealed class PagesViewModel : ObservableObject
     }
 
     private OpenDocument? Document => owner.Document;
-    private IPageListView List => view.Pages;
+    private IPageThumbnailSource Thumbnails => view.Thumbnails;
+
+    /// <summary>The rows selected in the list.</summary>
+    private HashSet<Guid> ListSelection => [.. items.Where(t => t.IsSelected).Select(t => t.PageId)];
+
+    /// <summary>Selects exactly these rows (without making one active).</summary>
+    private void Select(IReadOnlyCollection<Guid> ids)
+    {
+        foreach (var t in items) t.IsSelected = ids.Contains(t.PageId);
+    }
+
+    /// <summary>A row was selected or deselected in the list: a single selected row becomes the active page (spec 11.1).</summary>
+    private void ItemSelectionChanged(PageItemViewModel item)
+    {
+        if (Syncing) return;
+        CommandsChanged();
+        if (items.Where(t => t.IsSelected).Take(2).ToArray() is [var only]) Activate(only.PageId, scroll: true);
+    }
+
+    /// <summary>A click on one row of a multi-selection without a drag: that row alone, and it becomes active.</summary>
+    public void SelectOnly(Guid pageId) => Select([pageId]);
+
+    /// <summary>Ctrl+A in the list.</summary>
+    public void SelectAll()
+    {
+        Syncing = true;
+        try { Select([.. items.Select(t => t.PageId)]); }
+        finally { Syncing = false; }
+        CommandsChanged();
+    }
 
     public ObservableCollection<PageItemViewModel> Items => items;
 
@@ -126,7 +147,26 @@ public sealed class PagesViewModel : ObservableObject
             if (!SetProperty(ref panelVisible, value)) return;
             owner.Settings.PagePanelVisible = value;
             owner.SaveSettings();
+            OnPropertyChanged(nameof(HandleGlyph));
+            OnPropertyChanged(nameof(HandleTip));
         }
+    }
+
+    /// <summary>The handle on the list's edge: ‹ hides the list, › shows it.</summary>
+    public string HandleGlyph => panelVisible ? "ChevronLeft" : "ChevronRight";
+
+    public string HandleTip => panelVisible ? texts.Get("page.hideList") : texts.Get("page.list");
+
+    /// <summary>The handle and the 페이지 tab's 페이지 목록.</summary>
+    public Command TogglePanelCommand => field ??= new(() => PanelVisible = !PanelVisible);
+
+    private bool multiSelect;
+
+    /// <summary>The panel's multi-select toggle: a click adds or removes a row (spec 11.1). Page work shows the 페이지 tab.</summary>
+    public bool MultiSelect
+    {
+        get => multiSelect;
+        set { if (SetProperty(ref multiSelect, value)) owner.Ribbon.Auto(RibbonTab.Page); }
     }
 
     /// <summary>The active page: insert target and paste position (spec 11.5). Follows the view when the panel is idle.</summary>
@@ -139,7 +179,7 @@ public sealed class PagesViewModel : ObservableObject
         get
         {
             if (Document is not { } doc) return [];
-            var selected = List.SelectedPageIds.ToHashSet();
+            var selected = ListSelection;
             var pages = doc.Session.Current.Pages;
             if (selected.Count == 0 && pages.Count > 0) selected.Add(pages[Math.Clamp(ActivePageIndex, 0, pages.Count - 1)].Id);
             return [.. pages.Where(p => selected.Contains(p.Id)).Select(p => p.Id)];
@@ -165,11 +205,9 @@ public sealed class PagesViewModel : ObservableObject
         {
             if (!items.Select(t => t.PageId).SequenceEqual(pages.Select(p => p.Id)))
             {
-                var selected = List.SelectedPageIds.ToHashSet();
                 var existing = items.ToDictionary(t => t.PageId);
                 items.Clear();
-                foreach (var page in pages) items.Add(existing.GetValueOrDefault(page.Id) ?? new PageItemViewModel(page.Id));
-                List.Select([.. items.Where(t => selected.Contains(t.PageId)).Select(t => t.PageId)]);
+                foreach (var page in pages) items.Add(existing.GetValueOrDefault(page.Id) ?? new PageItemViewModel(page.Id, ItemSelectionChanged));
             }
             if (activePageId is { } id && doc.Session.Current.IndexOfPage(id) < 0) activePageId = null;
             int active = ActivePageIndex;
@@ -205,7 +243,8 @@ public sealed class PagesViewModel : ObservableObject
         try
         {
             foreach (var t in items) t.IsActive = t.PageId == page.Id;
-            if (items.FirstOrDefault(t => t.PageId == page.Id) is { } item) List.FollowActive(item);
+            // The row of that page is selected when at most one row is (the list scrolls to it).
+            if (items.FirstOrDefault(t => t.PageId == page.Id) is { } item && items.Count(t => t.IsSelected) <= 1) Select([item.PageId]);
         }
         finally { Syncing = false; }
     }
@@ -215,7 +254,7 @@ public sealed class PagesViewModel : ObservableObject
     {
         var set = ids.ToHashSet();
         Syncing = true;
-        try { List.Select(set); }
+        try { Select(set); }
         finally { Syncing = false; }
         if (set.Count > 0 && Document is { } doc) Activate(doc.Session.Current.Pages.First(p => set.Contains(p.Id)).Id, scroll: true);
         CommandsChanged();
@@ -257,7 +296,7 @@ public sealed class PagesViewModel : ObservableObject
             // ScheduleThumbnails when a layout arrives), so each arriving layout does not draw it again.
             if (item.Image is not null && item.Rendered is null && !hidden && !TextReady(page)) continue;
             PageThumbnail? thumbnail;
-            try { thumbnail = await List.Thumbnails.RenderAsync(doc, model, page, ThumbnailWidth, hidden, cancel.Token); }
+            try { thumbnail = await Thumbnails.RenderAsync(doc, model, page, ThumbnailWidth, hidden, cancel.Token); }
             catch (OperationCanceledException) { return; }
             if (thumbnail is null || cancel.IsCancellationRequested || !ReferenceEquals(Document, doc)) return;
             item.Image = thumbnail.Image;
@@ -295,6 +334,78 @@ public sealed class PagesViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(CanPaste));
         OnPropertyChanged(nameof(CanDelete));
+        PasteCommand.Refresh();
+        DeleteCommand.Refresh();
+        ClearNotesCommand.Refresh();
+    }
+
+    // ----- the commands of the 페이지 tab and the context menu (R4e) -----
+
+    public Command InsertBlankCommand => field ??= new(() => AddBlankWithDialog(insertAfterActive: true));
+    public Command AddBlankCommand => field ??= new(() => AddBlankWithDialog(insertAfterActive: false));
+    public Command CopyCommand => field ??= new(() => Copy(PageCopyMode.WithAnnotations));
+    public Command CopyPageOnlyCommand => field ??= new(() => Copy(PageCopyMode.PageOnly));
+    public Command PasteCommand => field ??= new(() => Paste(), () => CanPaste);
+    public Command DeleteCommand => field ??= new(() => DeleteSelected(), () => CanDelete);
+    public Command ClearNotesCommand => field ??= new(() => ClearSelectedNotes());
+    public AsyncCommand ExportCommand => field ??= new(() => owner.ImportExport.ExportPagesAsync());
+    public Command RotateLeftCommand => field ??= new(() => RotateSelected(false));
+    public Command RotateRightCommand => field ??= new(() => RotateSelected(true));
+    public Command ShrinkCommand => field ??= new(() => TransformWithDialog(resize: false));
+    public Command ResizeCommand => field ??= new(() => TransformWithDialog(resize: true));
+
+    /// <summary>The command of a menu row.</summary>
+    public System.Windows.Input.ICommand CommandFor(PageCommand command) => command switch
+    {
+        PageCommand.InsertBlank => InsertBlankCommand,
+        PageCommand.CopyWithNotes => CopyCommand,
+        PageCommand.CopyPageOnly => CopyPageOnlyCommand,
+        PageCommand.Paste => PasteCommand,
+        PageCommand.Delete => DeleteCommand,
+        PageCommand.ClearNotes => ClearNotesCommand,
+        PageCommand.Export => ExportCommand,
+        PageCommand.RotateRight => RotateRightCommand,
+        PageCommand.RotateLeft => RotateLeftCommand,
+        PageCommand.Shrink => ShrinkCommand,
+        _ => ResizeCommand
+    };
+
+    /// <summary>Blank page (spec 11.5): the new page window, sized like the reference page; at the end (add) or after the active page (insert).</summary>
+    public bool AddBlankWithDialog(bool insertAfterActive)
+    {
+        if (BlankReference(insertAfterActive) is not { } reference || owner.PageDialogs.ChooseBlankPage(insertAfterActive, reference.Setup) is not { } spec) return false;
+        return AddBlank(insertAfterActive, spec);
+    }
+
+    /// <summary>페이지 크기·내용 축소 (spec 11.6–11.8): the window with a preview of the active page; the targets are fixed when it opens.</summary>
+    public bool TransformWithDialog(bool resize)
+    {
+        if (Document is not { } doc || owner.IsBusy) return false;
+        var model = doc.Session.Current;
+        var targets = Enum.GetValues<PageApplyScope>().ToDictionary(scope => scope, Targets);
+        var request = owner.PageDialogs.ChooseTransform(resize, model, model.Pages[ActivePageIndex], scope => [.. targets[scope].Select(id => model.GetPage(id).Setup)]);
+        return request is not null && ApplyTransform(resize, request with { TargetPageIds = targets[request.Scope] });
+    }
+
+    /// <summary>
+    /// 이 페이지의 필기 삭제 (spec 11.11): every annotation of the selected pages, locked ones too, after one confirmation, as
+    /// one Undo unit. True when something was deleted.
+    /// </summary>
+    public bool ClearSelectedNotes()
+    {
+        if (Document is not { } doc) return false;
+        view.FinishTextEditing();
+        var ids = SelectedPageIds;
+        var selected = ids.Select(doc.Session.Current.GetPage).ToList();
+        int count = selected.Sum(p => p.Annotations.Count), locked = selected.Sum(p => p.Annotations.Count(a => a.Locked));
+        if (count == 0) { owner.Status = texts.Get("clearNotes.nothing"); return false; }
+        string which = selected.Count == 1 ? texts.Get("clearNotes.thisPage") : texts.Format("clearNotes.selectedPages", ("count", selected.Count));
+        string lockedNote = locked > 0 ? texts.Format("clearNotes.lockedIncluded", ("count", locked)) : "";
+        if (dialogs.Ask(texts.Format("clearNotes.confirm", ("which", which), ("count", count), ("locked", lockedNote)), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes) return false;
+        owner.Selection.ClearSelection();
+        bool done = Run(m => DocumentEdits.ClearPages(m, ids));
+        if (done) owner.Status = texts.Format("clearNotes.done", ("count", count));
+        return done;
     }
 
     /// <summary>The page panel's context menu (spec 11), for the selected pages.</summary>

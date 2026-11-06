@@ -68,17 +68,17 @@ internal sealed class FakeViewport : IDocumentViewport
     public void RefreshOverlays() => Refreshes++;
 }
 
-/// <summary>A page list whose selection is a set; thumbnails are strings naming the page (P1 V5).</summary>
-internal sealed class FakePageList : IPageListView, IPageThumbnailSource
+/// <summary>
+/// Thumbnails are strings naming the page (P1 V5); the list's selection is the rows' IsSelected (R4e), which
+/// <see cref="Select"/> sets as clicks in the list would.
+/// </summary>
+internal sealed class FakePageList : IPageThumbnailSource
 {
-    public readonly HashSet<Guid> Selected = [];
-    public readonly List<Guid> Followed = [];
+    public PagesViewModel? Pages;
     public readonly List<Guid> Drawn = [];
 
-    public IReadOnlyCollection<Guid> SelectedPageIds => Selected;
-    public void Select(IReadOnlyCollection<Guid> ids) { Selected.Clear(); Selected.UnionWith(ids); }
-    public void FollowActive(PageItemViewModel item) => Followed.Add(item.PageId);
-    public IPageThumbnailSource Thumbnails => this;
+    public IReadOnlyCollection<Guid> Selected => [.. Pages!.Items.Where(t => t.IsSelected).Select(t => t.PageId)];
+    public void Select(IReadOnlyCollection<Guid> ids) { foreach (var t in Pages!.Items) t.IsSelected = ids.Contains(t.PageId); }
 
     public Task<PageThumbnail?> RenderAsync(OpenDocument document, DocumentModel model, Page page, double width, bool notesHidden, CancellationToken cancel)
     {

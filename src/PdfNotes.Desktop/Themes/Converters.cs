@@ -12,6 +12,10 @@ public static class Converters
     /// <summary>An annotation color (<see cref="RgbColor"/>) as a brush: a palette swatch.</summary>
     public static readonly IValueConverter ColorBrush = new FuncValueConverter<RgbColor, IBrush>(c => new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B)));
 
+    /// <summary>The page list's selection mode: the multi-select toggle makes a click add or remove a row (spec 11.1).</summary>
+    public static readonly IValueConverter PageSelectionMode = new FuncValueConverter<bool, Avalonia.Controls.SelectionMode>(toggle =>
+        toggle ? Avalonia.Controls.SelectionMode.Multiple | Avalonia.Controls.SelectionMode.Toggle : Avalonia.Controls.SelectionMode.Multiple);
+
     /// <summary>The shape button's drawn icon (<see cref="ShapeIcon"/>).</summary>
     public static readonly IValueConverter ShapeOutline = new FuncValueConverter<ShapeIcon?, string?>(i => i is null ? null : AppIcon.ShapeOutline(i.Tool, i.Shape));
 }

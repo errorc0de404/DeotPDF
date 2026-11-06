@@ -23,6 +23,7 @@ public sealed class PagesViewModelTests : IDisposable
     {
         model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => saves++, TestFolders.New(), time, clipboard: clipboard);
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
+        shell.List.Pages = model.Pages;
         Pages.DocumentReplaced();
         var spec = Session.Current.Pages[0].Setup;
         Session.Execute(DocumentEdits.InsertPage(Session.Current, 1, spec));
@@ -59,7 +60,7 @@ public sealed class PagesViewModelTests : IDisposable
         public void CommandsChanged() { }
         public void OnUiThread(Action action) => action();
         public IDocumentViewport Viewport => View;
-        public IPageListView Pages => List;
+        public IPageThumbnailSource Thumbnails => List;
         public IWindowCoordinator Window { get; } = new FakeWindow();
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) { Asked.Add(text); return Answer; }
         public void Tell(string text, NoticeKind kind) => Told.Add(text);
@@ -78,7 +79,7 @@ public sealed class PagesViewModelTests : IDisposable
         Pages.FollowView();
         Assert.Equal(2, Pages.ActivePageIndex);
         Assert.True(Pages.Items[2].IsActive && !Pages.Items[0].IsActive);
-        Assert.Equal([Id(2)], List.Followed);
+        Assert.Equal([Id(2)], List.Selected); // the list follows: that row alone is selected
 
         Pages.Activate(Id(1), scroll: true); // a click in the list
         Assert.Equal(1, shell.View.CurrentPageIndex);

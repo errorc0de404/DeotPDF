@@ -85,7 +85,7 @@ public sealed class SelectionTextViewModelTests : IDisposable
         public void CommandsChanged() { }
         public void OnUiThread(Action action) => action();
         public IDocumentViewport Viewport { get; } = new FakeViewport();
-        public IPageListView Pages { get; } = new FakePageList();
+        public IPageThumbnailSource Thumbnails { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) => Answer.No;
         public void Tell(string text, NoticeKind kind) => Told.Add(text);

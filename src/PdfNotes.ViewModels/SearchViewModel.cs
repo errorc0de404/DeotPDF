@@ -71,6 +71,13 @@ public sealed class SearchViewModel(MainViewModel owner, IMainView view) : Obser
     public void Next() => Step(+1);
     public void Previous() => Step(-1);
 
+    /// <summary>Ctrl+F or 보기 › 찾기: the text being edited is finished, then the bar opens (the view gives it the keyboard).</summary>
+    public Command OpenCommand => field ??= new(() => { view.FinishTextEditing(); Open(); });
+
+    public Command NextCommand => field ??= new(Next);
+    public Command PreviousCommand => field ??= new(Previous);
+    public Command CloseCommand => field ??= new(Close);
+
     /// <summary>Enter (Shift+Enter) in the search box: right after typing it searches at once, otherwise it steps.</summary>
     public void Enter(bool backwards)
     {

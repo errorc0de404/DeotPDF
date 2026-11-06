@@ -86,9 +86,9 @@ public sealed partial class MainWindow
         };
         if (e.Handled) return;
         if (IsEditingText && HandleTextKey(e)) return;
-        if (IsEditingText || IsFieldFocused || noteBox?.IsFocused == true) return; // their own keys
+        if (IsEditingText || IsFieldFocused || NoteText.IsFocused) return; // their own keys
         // The page list keeps its own keys (Delete, Ctrl+C/V/A, moving between rows); Undo, Esc and Space still work there.
-        if (pageScroller.IsKeyboardFocusWithin && (e.Key is Key.Delete or Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown ||
+        if (PageScroller.IsKeyboardFocusWithin && (e.Key is Key.Delete or Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown ||
             mods == EditorModifiers.Control && e.Key is Key.C or Key.V or Key.A or Key.X)) return;
         // Arrows move a selection (Shift: 10 times), before the page keys (spec 5.3, 17) — with the canvas having the keyboard.
         if (IsCanvasKeyboardFocus && e.Key is Key.Left or Key.Right or Key.Up or Key.Down && (mods & ~EditorModifiers.Shift) == 0 && selectTool.SelectedIds.Count > 0)

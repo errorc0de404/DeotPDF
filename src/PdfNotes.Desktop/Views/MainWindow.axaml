@@ -133,44 +133,45 @@
                         </Button>
                     </WrapPanel>
 
-                    <!-- 페이지: the page commands (the same as the page list's context menu) -->
+                    <!-- 페이지: the page commands (the same as the page list's context menu; R4e) -->
                     <WrapPanel x:Name="PageTab" IsVisible="{Binding Ribbon.IsPage}">
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.newPage}">
                             <StackPanel Orientation="Horizontal">
-                                <Button x:Name="InsertPageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T ribbon.insertPageTip}" Padding="6,5,2,5"><th:IconLabel Glyph="New" Text="{l:T import.insert}" /></Button>
-                                <Button x:Name="InsertPageMenuButton" Theme="{StaticResource ToolButton}" Padding="2,5" ToolTip.Tip="{l:T ribbon.insertMenuTip}"><th:AppIcon Glyph="ChevronDown" Size="10" /></Button>
+                                <Button x:Name="InsertPageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T ribbon.insertPageTip}" Padding="6,5,2,5" Command="{Binding Pages.InsertBlankCommand}"><th:IconLabel Glyph="New" Text="{l:T import.insert}" /></Button>
+                                <Button x:Name="InsertPageMenuButton" Theme="{StaticResource ToolButton}" Padding="2,5" ToolTip.Tip="{l:T ribbon.insertMenuTip}" Click="InsertMenuClick"><th:AppIcon Glyph="ChevronDown" Size="10" /></Button>
                             </StackPanel>
                         </HeaderedContentControl>
                         <Border Classes="sep" />
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.copy}">
                             <StackPanel Orientation="Horizontal">
-                                <Button x:Name="CopyPageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.copyWithNotes}"><th:IconLabel Glyph="Copy" Text="{l:T command.copy}" /></Button>
-                                <Button x:Name="CopyPageOnlyButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.copyPageOnly}"><TextBlock Text="{l:T page.copyPageOnly}" /></Button>
-                                <Button x:Name="PastePageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T ribbon.pastePagesTip}"><th:IconLabel Glyph="Paste" Text="{l:T command.paste}" /></Button>
+                                <Button x:Name="CopyPageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.copyWithNotes}" Command="{Binding Pages.CopyCommand}"><th:IconLabel Glyph="Copy" Text="{l:T command.copy}" /></Button>
+                                <Button x:Name="CopyPageOnlyButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.copyPageOnly}" Command="{Binding Pages.CopyPageOnlyCommand}"><TextBlock Text="{l:T page.copyPageOnly}" /></Button>
+                                <Button x:Name="PastePageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T ribbon.pastePagesTip}" Command="{Binding Pages.PasteCommand}"><th:IconLabel Glyph="Paste" Text="{l:T command.paste}" /></Button>
                                 <!-- Export pages (spec 11.10, D13j) -->
-                                <Button x:Name="ExportPagesButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T ribbon.exportPagesTip}"><th:IconLabel Glyph="ExportFlattened" Text="{l:T export.ok}" /></Button>
+                                <Button x:Name="ExportPagesButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T ribbon.exportPagesTip}" Command="{Binding Pages.ExportCommand}"><th:IconLabel Glyph="ExportFlattened" Text="{l:T export.ok}" /></Button>
                             </StackPanel>
                         </HeaderedContentControl>
                         <Border Classes="sep" />
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.organize}">
                             <StackPanel Orientation="Horizontal">
-                                <Button x:Name="DeletePageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T command.delete}"><th:IconLabel Glyph="Delete" Text="{l:T command.delete}" /></Button>
+                                <Button x:Name="DeletePageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T command.delete}" Command="{Binding Pages.DeleteCommand}"><th:IconLabel Glyph="Delete" Text="{l:T command.delete}" /></Button>
                                 <!-- Delete this page's notes (spec 11.11, D13j) -->
-                                <Button x:Name="ClearPageNotesButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.clearNotes}"><th:IconLabel Glyph="ClearNotes" Text="{l:T ribbon.clearNotes}" /></Button>
-                                <Button x:Name="RotateLeftButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.rotateLeft}"><th:AppIcon Glyph="RotateLeft" /></Button>
-                                <Button x:Name="RotateRightButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.rotateRight}"><th:AppIcon Glyph="RotateRight" /></Button>
+                                <Button x:Name="ClearPageNotesButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.clearNotes}" Command="{Binding Pages.ClearNotesCommand}"><th:IconLabel Glyph="ClearNotes" Text="{l:T ribbon.clearNotes}" /></Button>
+                                <Button x:Name="RotateLeftButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.rotateLeft}" Command="{Binding Pages.RotateLeftCommand}"><th:AppIcon Glyph="RotateLeft" /></Button>
+                                <Button x:Name="RotateRightButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.rotateRight}" Command="{Binding Pages.RotateRightCommand}"><th:AppIcon Glyph="RotateRight" /></Button>
                             </StackPanel>
                         </HeaderedContentControl>
                         <Border Classes="sep" />
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.size}">
                             <StackPanel Orientation="Horizontal">
-                                <Button x:Name="ShrinkPageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.shrinkContent}"><th:IconLabel Glyph="Shrink" Text="{l:T page.shrinkContent}" /></Button>
-                                <Button x:Name="ResizePageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.resize}"><th:IconLabel Glyph="Resize" Text="{l:T page.resize}" /></Button>
+                                <Button x:Name="ShrinkPageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.shrinkContent}" Command="{Binding Pages.ShrinkCommand}"><th:IconLabel Glyph="Shrink" Text="{l:T page.shrinkContent}" /></Button>
+                                <Button x:Name="ResizePageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.resize}" Command="{Binding Pages.ResizeCommand}"><th:IconLabel Glyph="Resize" Text="{l:T page.resize}" /></Button>
                             </StackPanel>
                         </HeaderedContentControl>
                         <Border Classes="sep" />
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.show}">
-                            <ToggleButton x:Name="PagePanelButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.list}"><th:IconLabel Glyph="PageList" Text="{l:T page.list}" /></ToggleButton>
+                            <ToggleButton x:Name="PagePanelButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.list}"
+                                          IsChecked="{Binding Pages.PanelVisible, Mode=OneWay}" Command="{Binding Pages.TogglePanelCommand}"><th:IconLabel Glyph="PageList" Text="{l:T page.list}" /></ToggleButton>
                         </HeaderedContentControl>
                     </WrapPanel>
 
@@ -408,24 +409,84 @@
             </DockPanel>
         </Border>
 
-        <!-- Page panel (spec 3.2-5, 11): shown by default; thumbnails, several selected, dragging reorders -->
-        <Border x:Name="PagePanel" DockPanel.Dock="Left" Width="176" Background="{DynamicResource Panel.Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
+        <!-- Page panel (spec 3.2-5, 11): shown by default; thumbnails, several selected, dragging reorders. Bound to the pages view model (R4e). -->
+        <Border x:Name="PagePanel" DockPanel.Dock="Left" Width="176" Background="{DynamicResource Panel.Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0"
+                IsVisible="{Binding Pages.PanelVisible}">
             <DockPanel>
                 <DockPanel DockPanel.Dock="Top" Margin="8,4,4,2">
-                    <ToggleButton x:Name="MultiSelectButton" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Padding="5,2" ToolTip.Tip="{l:T panel.multiSelect}">
+                    <ToggleButton x:Name="MultiSelectButton" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Padding="5,2" ToolTip.Tip="{l:T panel.multiSelect}"
+                                  IsChecked="{Binding Pages.MultiSelect, Mode=TwoWay}">
                         <th:AppIcon Glyph="MultiSelect" Size="14" />
                     </ToggleButton>
                     <!-- Outline (spec 24.4): off by default, disabled for a PDF without one -->
-                    <ToggleButton x:Name="OutlineButton" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Padding="5,2" ToolTip.Tip="{l:T panel.outline}">
+                    <ToggleButton x:Name="OutlineButton" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Padding="5,2" ToolTip.Tip="{l:T panel.outline}"
+                                  IsChecked="{Binding Outline.IsVisible, Mode=OneWay}" Command="{Binding Outline.ToggleCommand}">
                         <th:AppIcon Glyph="Outline" Size="14" />
                     </ToggleButton>
                     <TextBlock Text="{l:T export.pages}" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" />
                 </DockPanel>
                 <Grid x:Name="PagePanelBody" RowDefinitions="0,Auto,*">
-                    <TreeView x:Name="OutlineTree" Grid.Row="0" Background="Transparent" IsVisible="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
-                    <GridSplitter x:Name="OutlineSplitter" Grid.Row="1" Height="5" HorizontalAlignment="Stretch" ResizeDirection="Rows" Background="{DynamicResource Divider}" IsVisible="False" />
+                    <TreeView x:Name="OutlineTree" Grid.Row="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              IsVisible="{Binding Outline.IsVisible}" ItemsSource="{Binding Outline.Nodes}" SelectedItem="{Binding Outline.Highlighted, Mode=TwoWay}">
+                        <TreeView.Styles>
+                            <Style Selector="TreeViewItem" x:DataType="vm:OutlineNodeViewModel">
+                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                <Setter Property="ToolTip.Tip" Value="{Binding Title}" />
+                            </Style>
+                        </TreeView.Styles>
+                        <TreeView.ItemTemplate>
+                            <TreeDataTemplate x:DataType="vm:OutlineNodeViewModel" ItemsSource="{Binding Children}">
+                                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" Opacity="{Binding Opacity}" />
+                            </TreeDataTemplate>
+                        </TreeView.ItemTemplate>
+                    </TreeView>
+                    <GridSplitter x:Name="OutlineSplitter" Grid.Row="1" Height="5" HorizontalAlignment="Stretch" ResizeDirection="Rows" Background="{DynamicResource Divider}"
+                                  IsVisible="{Binding Outline.IsVisible}" />
                     <Panel Grid.Row="2" MinHeight="80">
-                        <ListBox x:Name="PageList" SelectionMode="Multiple" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                        <!-- The list and the 빈 페이지 추가 button below it scroll together (the WPF list held the button as its last row) -->
+                        <ScrollViewer x:Name="PageScroller" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel>
+                                <ListBox x:Name="PageList" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                         ItemsSource="{Binding Pages.Items}" SelectionMode="{Binding Pages.MultiSelect, Converter={x:Static th:Converters.PageSelectionMode}}">
+                                    <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                    <ListBox.Styles>
+                                        <!-- The list's selection is the view model's (R4e) -->
+                                        <Style Selector="ListBoxItem" x:DataType="vm:PageItemViewModel">
+                                            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                        </Style>
+                                        <!-- The active page: the accent frame and a bold number -->
+                                        <Style Selector="Border.thumb">
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource Page.Border}" />
+                                        </Style>
+                                        <Style Selector="Border.thumb.active">
+                                            <Setter Property="BorderThickness" Value="2" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                        </Style>
+                                        <Style Selector="TextBlock.thumb">
+                                            <Setter Property="Foreground" Value="{DynamicResource Text.Muted}" />
+                                        </Style>
+                                        <Style Selector="TextBlock.thumb.active">
+                                            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+                                            <Setter Property="FontWeight" Value="Bold" />
+                                        </Style>
+                                    </ListBox.Styles>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PageItemViewModel">
+                                            <StackPanel Margin="2,6,2,2">
+                                                <Border Name="Frame" Classes="thumb" Classes.active="{Binding IsActive}" HorizontalAlignment="Center" Background="{DynamicResource Paper}">
+                                                    <Image Stretch="Fill" Source="{Binding Image}" Width="{Binding ImageWidth}" Height="{Binding ImageHeight}" />
+                                                </Border>
+                                                <TextBlock Name="Number" Classes="thumb" Classes.active="{Binding IsActive}" HorizontalAlignment="Center" Margin="0,3,0,0"
+                                                           FontSize="{DynamicResource FontSize.Caption}" Text="{Binding Number}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <Button x:Name="AddPageButton" Content="{l:T page.addBlank}" Margin="6,12,6,16" Padding="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Command="{Binding Pages.AddBlankCommand}" />
+                            </StackPanel>
+                        </ScrollViewer>
                         <Canvas IsHitTestVisible="False">
                             <Border x:Name="PageDropLine" Height="3" Background="{DynamicResource Accent}" Canvas.Left="8" IsVisible="False" CornerRadius="1.5" />
                         </Canvas>
@@ -441,37 +502,45 @@
                     <canvas:DocumentCanvas x:Name="Canvas" />
                     <!-- Controls over the pages: the text box editor (A4); it never covers the scroll bars. -->
                     <Canvas x:Name="TextLayer" Margin="0,0,12,12" ClipToBounds="True" />
-                    <!-- The open sticky note card (spec 24.9) -->
-                    <Canvas x:Name="NoteLayer" Margin="0,0,12,12" ClipToBounds="True" />
+                    <!-- The open sticky note card (spec 24.9): kept beside its icon by the window -->
+                    <Canvas x:Name="NoteLayer" Margin="0,0,12,12" ClipToBounds="True">
+                        <Border x:Name="NoteCard" Width="220" BorderThickness="1,4,1,1" CornerRadius="3" BoxShadow="0 1 8 0 #33000000" Background="{DynamicResource Surface.Background}"
+                                IsVisible="{Binding NoteCard.IsOpen}" BorderBrush="{Binding NoteCard.Color, Converter={x:Static th:Converters.ColorBrush}}">
+                            <TextBox x:Name="NoteText" AcceptsReturn="True" AcceptsTab="False" TextWrapping="Wrap" MinHeight="80" MaxHeight="240" BorderThickness="0"
+                                     Background="Transparent" Padding="6,4,6,4" Text="{Binding NoteCard.Text, Mode=TwoWay}" />
+                        </Border>
+                    </Canvas>
                 </Panel>
             </Border>
             <!-- The page list handle (2026-10-14): on the list's right edge; with the list hidden only this shows at the left -->
-            <Button x:Name="PagePanelHandle" Theme="{StaticResource PanelHandle}" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip.Tip="{l:T page.hideList}">
-                <th:AppIcon x:Name="PagePanelHandleIcon" Glyph="ChevronLeft" Size="10" />
+            <Button x:Name="PagePanelHandle" Theme="{StaticResource PanelHandle}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                    ToolTip.Tip="{Binding Pages.HandleTip}" Classes.closed="{Binding !Pages.PanelVisible}" Command="{Binding Pages.TogglePanelCommand}">
+                <th:AppIcon x:Name="PagePanelHandleIcon" Glyph="{Binding Pages.HandleGlyph}" Size="10" />
             </Button>
             <!-- Search (spec 12): Ctrl+F, count, previous/next, close -->
             <Border x:Name="SearchBar" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,28,0" Background="{DynamicResource Surface.Background}"
-                    BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="{DynamicResource Radius.Control}" Padding="6,3" IsVisible="False"
-                    BoxShadow="0 1 10 0 #2E000000">
+                    BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="{DynamicResource Radius.Control}" Padding="6,3"
+                    BoxShadow="0 1 10 0 #2E000000" IsVisible="{Binding Search.IsOpen}">
                 <StackPanel Orientation="Horizontal">
                     <th:AppIcon Glyph="Search" Size="14" TextElement.Foreground="{DynamicResource Text.Muted}" Margin="0,0,4,0" />
-                    <TextBox x:Name="SearchBox" Classes="bar" Width="210" BorderThickness="0" Background="Transparent" />
-                    <ToggleButton x:Name="SearchCaseButton" Theme="{StaticResource ToolButton}" Padding="5,1" ToolTip.Tip="{l:T search.matchCase}">
+                    <TextBox x:Name="SearchBox" Classes="bar" Width="210" BorderThickness="0" Background="Transparent" Text="{Binding Search.Query, Mode=TwoWay}" />
+                    <ToggleButton x:Name="SearchCaseButton" Theme="{StaticResource ToolButton}" Padding="5,1" ToolTip.Tip="{l:T search.matchCase}" IsChecked="{Binding Search.MatchCase, Mode=TwoWay}">
                         <TextBlock Text="Aa" FontSize="{DynamicResource FontSize.Caption}" />
                     </ToggleButton>
-                    <TextBlock x:Name="SearchCount" MinWidth="52" TextAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" Margin="6,0,4,0" />
-                    <Button x:Name="SearchPreviousButton" Theme="{StaticResource ToolButton}" Padding="5,3" ToolTip.Tip="{l:T search.previous}"><th:AppIcon Glyph="ChevronUp" Size="12" /></Button>
-                    <Button x:Name="SearchNextButton" Theme="{StaticResource ToolButton}" Padding="5,3" ToolTip.Tip="{l:T search.next}"><th:AppIcon Glyph="ChevronDown" Size="12" /></Button>
-                    <Button x:Name="SearchCloseButton" Theme="{StaticResource ToolButton}" Padding="5,3" ToolTip.Tip="{l:T search.close}"><th:AppIcon Glyph="Close" Size="12" /></Button>
+                    <TextBlock x:Name="SearchCount" MinWidth="52" TextAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" Margin="6,0,4,0" Text="{Binding Search.CountText}" />
+                    <Button x:Name="SearchPreviousButton" Theme="{StaticResource ToolButton}" Padding="5,3" ToolTip.Tip="{l:T search.previous}" Command="{Binding Search.PreviousCommand}"><th:AppIcon Glyph="ChevronUp" Size="12" /></Button>
+                    <Button x:Name="SearchNextButton" Theme="{StaticResource ToolButton}" Padding="5,3" ToolTip.Tip="{l:T search.next}" Command="{Binding Search.NextCommand}"><th:AppIcon Glyph="ChevronDown" Size="12" /></Button>
+                    <Button x:Name="SearchCloseButton" Theme="{StaticResource ToolButton}" Padding="5,3" ToolTip.Tip="{l:T search.close}" Command="{Binding Search.CloseCommand}"><th:AppIcon Glyph="Close" Size="12" /></Button>
                 </StackPanel>
             </Border>
             <!-- Opening a file: a card that does not show for a short open -->
-            <Panel x:Name="LoadingOverlay" Background="Transparent" IsVisible="False">
+            <Panel x:Name="LoadingOverlay" Background="Transparent" IsVisible="{Binding Loading.IsShown}" IsHitTestVisible="{Binding Loading.BlocksInput}">
                 <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource Surface.Background}"
                         BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="{DynamicResource Radius.Popup}" Padding="18,14" BoxShadow="0 1 14 0 #38000000">
                     <StackPanel Orientation="Horizontal">
                         <ProgressBar IsIndeterminate="True" Width="60" VerticalAlignment="Center" />
-                        <TextBlock x:Name="LoadingText" Margin="12,0,0,0" VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Text.Primary}" />
+                        <TextBlock x:Name="LoadingText" Margin="12,0,0,0" VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Text.Primary}"
+                                   Text="{Binding Loading.Text}" />
                     </StackPanel>
                 </Border>
             </Panel>

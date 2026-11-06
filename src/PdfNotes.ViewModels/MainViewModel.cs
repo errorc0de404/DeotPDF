@@ -47,8 +47,8 @@ public interface IMainView
     /// <summary>The document canvas (V3).</summary>
     IDocumentViewport Viewport { get; }
 
-    /// <summary>The page panel's list (V5).</summary>
-    IPageListView Pages { get; }
+    /// <summary>Draws page thumbnails (V5).</summary>
+    IPageThumbnailSource Thumbnails { get; }
 
     /// <summary>Whether the user is in the middle of something a backup must not interrupt (V6).</summary>
     IWindowCoordinator Window { get; }
@@ -123,7 +123,8 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         Selection = new SelectionViewModel(this, view, dialogs, clipboard ?? NoClipboard.Instance);
         TextStyle = new TextStyleViewModel(this, dialogs);
         NoteCard = new NoteCardViewModel(this);
-        ImportExport = new ImportExportViewModel(this, view, dialogs, pageDialogs ?? NoPageDialogs.Instance);
+        PageDialogs = pageDialogs ?? NoPageDialogs.Instance;
+        ImportExport = new ImportExportViewModel(this, view, dialogs, PageDialogs);
         ToolStyles = new ToolStylesViewModel(this);
         ToolBar = new ToolBarViewModel(this, view);
         Backup = new BackupViewModel(this, view, dialogs, this.time, settingsFolder);
@@ -137,6 +138,8 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
         public Task<int[]?> ChooseImportPagesAsync(MergeFile file) => Task.FromResult<int[]?>(null);
         public Task<MergeChoice?> ChooseMergeAsync(IReadOnlyList<MergeFile> files, bool insert, Func<Task<IReadOnlyList<MergeFile>>> addFiles) => Task.FromResult<MergeChoice?>(null);
         public PageExportChoice? ChooseExport(int pageCount, string range, bool flatten) => null;
+        public PdfNotes.Core.Models.NewPageSpec? ChooseBlankPage(bool insert, PdfNotes.Core.Models.PageSetup reference) => null;
+        public PageTransformRequest? ChooseTransform(bool resize, PdfNotes.Core.Models.DocumentModel model, PdfNotes.Core.Models.Page active, Func<PdfNotes.Core.Commands.PageApplyScope, PdfNotes.Core.Models.PageSetup[]> targets) => null;
     }
 
     /// <summary>A clipboard that holds nothing (a view model made without one).</summary>
@@ -154,6 +157,9 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     }
 
     public AppSettings Settings { get; }
+
+    /// <summary>The shell's page windows (import, merge, export, blank page, resize).</summary>
+    public IPageDialogs PageDialogs { get; }
 
     public RibbonViewModel Ribbon { get; }
     public RecentViewModel Recent { get; }
@@ -261,7 +267,7 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     // ----- commands of the 보기 tab (R4c) -----
 
     public Command HideNotesCommand => hideNotes ??= new(() => Shell.SetNotesHidden(!Display.NotesHidden));
-    public Command SearchCommand => search ??= new(Shell.OpenSearch);
+    public Command SearchCommand => search ??= new(() => Search.OpenCommand.Execute());
     public Command OpenUpdatePageCommand => openUpdatePage ??= new(() => Shell.OpenWebPage(Update.Url));
 
     /// <summary>필기 › 이미지 (R4d).</summary>
@@ -298,9 +304,11 @@ public sealed class MainViewModel : ObservableObject, IDocumentHost
     {
         if (!ReferenceEquals(sender, Document?.Session)) return;
         view.DocumentChanged();
+        Pages.Refresh(); // the rows follow the pages (after the view compared them with the model)
         Refresh();
         RefreshCommands();
         view.CommandsChanged();
+        Outline.Refresh(); // items of deleted pages are dimmed
         _ = Foreign.RecountAsync(); // imported pages may bring other apps' annotations
         Search.Schedule(keep: true); // text edits, deleted or moved pages: results follow the document
     }

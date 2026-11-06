@@ -21,26 +21,8 @@ public sealed partial class MainWindow
 
     private void InitializeRibbon()
     {
-        // The tab heads, the quick commands, 파일 and 보기 are bound to the view model (R4b–R4c).
-        viewModel.Ribbon.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(RibbonViewModel.Current) && viewModel.Ribbon.IsPage) UpdatePageCommands(); };
-
-        // 페이지: the page list's context menu commands
-        InsertPageButton.Click += (_, _) => AddBlankPage(true);
-        InsertPageMenuButton.Click += (_, _) => OpenInsertMenu();
-        CopyPageButton.Click += (_, _) => viewModel.Pages.Copy(PageCopyMode.WithAnnotations);
-        CopyPageOnlyButton.Click += (_, _) => viewModel.Pages.Copy(PageCopyMode.PageOnly);
-        PastePageButton.Click += (_, _) => viewModel.Pages.Paste();
-        ExportPagesButton.Click += (_, _) => _ = ExportPagesAsync();
-        DeletePageButton.Click += (_, _) => viewModel.Pages.DeleteSelected();
-        ClearPageNotesButton.Click += (_, _) => ClearSelectedPageNotes();
-        RotateLeftButton.Click += (_, _) => viewModel.Pages.RotateSelected(false);
-        RotateRightButton.Click += (_, _) => viewModel.Pages.RotateSelected(true);
-        ShrinkPageButton.Click += (_, _) => ShowPageTransform(false);
-        ResizePageButton.Click += (_, _) => ShowPageTransform(true);
-        PagePanelButton.Click += (_, _) => SetPagePanelVisible(PagePanelButton.IsChecked == true);
-        viewModel.Pages.PropertyChanged += (_, e) => { if (e.PropertyName is nameof(PagesViewModel.CanPaste) or nameof(PagesViewModel.CanDelete)) UpdatePageCommands(); };
-
-        // 보기: the zoom box is bound; a preset from its list or Enter applies it, Esc or leaving shows the zoom again
+        // The tab heads and every tab's commands are bound to the view model (R4b–R4e); the zoom box takes a preset
+        // from its list or Enter, Esc or leaving shows the zoom again.
         ZoomBox.SelectionChanged += (_, _) =>
         {
             if (ZoomBox.SelectedItem is string text) { viewModel.Navigation.CommitZoomInput(text); ZoomBox.SelectedIndex = -1; }
@@ -56,13 +38,7 @@ public sealed partial class MainWindow
         ZoomBox.LostFocus += (_, _) => viewModel.Navigation.ResetZoomInput();
     }
 
-    /// <summary>Paste needs copied pages that fit this document; delete needs at least one page left.</summary>
-    private void UpdatePageCommands()
-    {
-        if (Document is null || PastePageButton is null) return;
-        PastePageButton.IsEnabled = viewModel.Pages.CanPaste;
-        DeletePageButton.IsEnabled = viewModel.Pages.CanDelete;
-    }
+    private void InsertMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => OpenInsertMenu();
 
     /// <summary>The insert menu opened last (tests).</summary>
     public ContextMenu? LastInsertMenu { get; private set; }
@@ -71,7 +47,7 @@ public sealed partial class MainWindow
     public ContextMenu OpenInsertMenu()
     {
         var menu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedLeft };
-        menu.Items.Add(Menus.Item(Strings.Get("page.blankMenu"), () => AddBlankPage(true)));
+        menu.Items.Add(Menus.Item(Strings.Get("page.blankMenu"), () => pages.InsertBlankCommand.Execute()));
         menu.Items.Add(Menus.Item(Strings.Get("page.importMenu"), () => _ = ImportPdfPagesAsync()));
         menu.Open(InsertPageButton);
         return LastInsertMenu = menu;

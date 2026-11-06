@@ -26,13 +26,10 @@ namespace PdfNotes.Desktop.Views;
 /// </summary>
 public sealed partial class MainWindow
 {
-    private Border? noteCard;
-    private TextBox? noteBox;
-    private bool closingNote;
     private NoteCardViewModel noteState => viewModel.NoteCard;
 
     public StickyNote? OpenNoteAnnotation => noteState.Note;
-    public TextBox? NoteTextBox => noteBox;
+    public TextBox? NoteTextBox => noteState.IsOpen ? NoteText : null;
 
     private void InitializeNotes()
     {
@@ -43,6 +40,9 @@ public sealed partial class MainWindow
             if (!changed && selectTool.SelectedAnnotations is [StickyNote note] && selectTool.PageId is { } notePage)
                 Dispatcher.UIThread.Post(() => OpenNote(note, notePage, isNew: false));
         };
+        // The card (bound to NoteCardViewModel, R4e) closes with Esc or when the keyboard leaves it.
+        NoteText.KeyDown += (_, e) => { if (e.Key == Key.Escape) { CloseNote(); Canvas.Focus(); e.Handled = true; } };
+        NoteText.LostFocus += (_, _) => Dispatcher.UIThread.Post(() => { if (noteState.IsOpen && !NoteCard.IsKeyboardFocusWithin) CloseNote(); });
     }
 
     // ----- sticky note cards -----
@@ -57,53 +57,26 @@ public sealed partial class MainWindow
     {
         CloseNote();
         if (!noteState.Open(note, pageId, isNew)) return;
-        noteBox = new TextBox
-        {
-            Name = "NoteTextBox", Text = note.Text, AcceptsReturn = true, AcceptsTab = false, TextWrapping = TextWrapping.Wrap,
-            MinHeight = 80, MaxHeight = 240, BorderThickness = new Thickness(0), Background = Brushes.Transparent, Padding = new Thickness(6, 4, 6, 4)
-        };
-        noteBox.KeyDown += (_, e) => { if (e.Key == Key.Escape) { CloseNote(); Canvas.Focus(); e.Handled = true; } };
-        noteBox.LostFocus += (_, _) => Dispatcher.UIThread.Post(() => { if (noteCard is not null && !noteCard.IsKeyboardFocusWithin) CloseNote(); });
-        noteCard = new Border
-        {
-            Name = "NoteCard", Width = 220, BorderBrush = new SolidColorBrush(Color.FromRgb(note.Color.R, note.Color.G, note.Color.B)), BorderThickness = new Thickness(1, 4, 1, 1),
-            Child = noteBox, CornerRadius = new CornerRadius(3), BoxShadow = BoxShadows.Parse("0 1 8 0 #33000000")
-        };
-        noteCard.Bind(Border.BackgroundProperty, noteCard.GetResourceObservable("Surface.Background"));
-        NoteLayer.Children.Add(noteCard);
+        NoteCard.UpdateLayout();
         PositionNoteCard();
         Canvas.RefreshOverlays(); // a new note's icon is drawn while it is open
-        noteBox.Focus();
-        noteBox.CaretIndex = noteBox.Text?.Length ?? 0;
+        NoteText.Focus();
+        NoteText.CaretIndex = NoteText.Text?.Length ?? 0;
     }
 
     /// <summary>Keeps the card beside its icon (right of it, inside the document area) while the view scrolls or zooms.</summary>
     private void PositionNoteCard()
     {
-        if (noteCard is null || noteState.Note is not { } open || noteState.PageIndex is not (>= 0 and var index)) return;
+        if (noteState.Note is not { } open || noteState.PageIndex is not (>= 0 and var index)) return;
         var corner = Canvas.PageTransform(index).PageToDip.Transform(new Point2(open.Transform.OffsetX + StickyNote.IconPt, open.Transform.OffsetY));
-        double x = Math.Clamp(corner.X + 6, 0, Math.Max(0, NoteLayer.Bounds.Width - noteCard.Width));
+        double x = Math.Clamp(corner.X + 6, 0, Math.Max(0, NoteLayer.Bounds.Width - NoteCard.Width));
         double y = Math.Clamp(corner.Y, 0, Math.Max(0, NoteLayer.Bounds.Height - 100));
-        Avalonia.Controls.Canvas.SetLeft(noteCard, x);
-        Avalonia.Controls.Canvas.SetTop(noteCard, y);
+        Avalonia.Controls.Canvas.SetLeft(NoteCard, x);
+        Avalonia.Controls.Canvas.SetTop(NoteCard, y);
     }
 
     /// <summary>Commits the open note: a new one with text is added, an existing one updated or deleted when empty.</summary>
-    public void CloseNote()
-    {
-        if (closingNote || noteCard is null || noteState.Note is null) return;
-        closingNote = true;
-        try
-        {
-            string text = noteBox!.Text ?? "";
-            NoteLayer.Children.Remove(noteCard);
-            noteCard = null;
-            noteBox = null;
-            if (noteState.Close(text) is { } added) selectTool.Select(added);
-            Canvas.RefreshOverlays();
-        }
-        finally { closingNote = false; }
-    }
+    public void CloseNote() => noteState.Commit();
 
     // ----- hide the notes (spec 24.10) -----
 
@@ -217,8 +190,8 @@ public sealed partial class MainWindow
         DroppedFiles(e) is { Length: > 0 } f && f.All(p => string.Equals(System.IO.Path.GetExtension(p), ".pdf", StringComparison.OrdinalIgnoreCase)) ? f : null;
 
     /// <summary>Over the visible part of the page list (the scroller's view, not the scrolled list's own coordinates).</summary>
-    private bool OverPageList(DragEventArgs e) => Document is not null && PagePanel.IsVisible && e.GetPosition(pageScroller) is var at &&
-        at.X >= 0 && at.Y >= 0 && at.X <= pageScroller.Bounds.Width && at.Y <= pageScroller.Bounds.Height;
+    private bool OverPageList(DragEventArgs e) => Document is not null && PagePanel.IsVisible && e.GetPosition(PageScroller) is var at &&
+        at.X >= 0 && at.Y >= 0 && at.X <= PageScroller.Bounds.Width && at.Y <= PageScroller.Bounds.Height;
 
     private void WindowDragOver(object? sender, DragEventArgs e)
     {

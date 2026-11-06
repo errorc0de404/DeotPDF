@@ -32,12 +32,20 @@ public sealed class NavigationViewModel(MainViewModel owner, IMainView view) : O
 
     public ViewMode Mode => Viewport.Mode;
 
+    /// <summary>The marks over the pages (search results, selection, an open note's icon) are drawn again.</summary>
+    public void RefreshOverlays() => Viewport.RefreshOverlays();
+
+    /// <summary>The page in view.</summary>
+    public int CurrentPageIndex => Viewport.CurrentPageIndex;
+
     public bool IsContinuous => Mode == ViewMode.Continuous;
     public bool IsSinglePage => Mode == ViewMode.SinglePage;
 
-    /// <summary>The view scrolled, zoomed or changed its pages: the status bar follows.</summary>
+    /// <summary>The view scrolled, zoomed or changed its pages: the status bar, the active page and the outline follow.</summary>
     public void ViewChanged()
     {
+        owner.Pages.FollowView();
+        owner.Outline.Highlight();
         OnPropertyChanged(nameof(PageNumberText));
         OnPropertyChanged(nameof(PageCountText));
         OnPropertyChanged(nameof(ZoomText));

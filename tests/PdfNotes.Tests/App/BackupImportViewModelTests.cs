@@ -24,6 +24,7 @@ public sealed class BackupImportViewModelTests : IDisposable
         settings.BackupFolder = Path.Combine(folder, "Backups");
         model = new MainViewModel(shell, shell, settings, "DeotPDF", _ => { }, folder, time, pageDialogs: shell);
         model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
+        shell.List.Pages = model.Pages;
         model.Pages.DocumentReplaced();
     }
 
@@ -62,7 +63,7 @@ public sealed class BackupImportViewModelTests : IDisposable
         public void CommandsChanged() { }
         public void OnUiThread(Action action) => action();
         public IDocumentViewport Viewport => View;
-        public IPageListView Pages => List;
+        public IPageThumbnailSource Thumbnails => List;
         public IWindowCoordinator Window => Coordinator;
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) { Asked.Add(text); return Answer; }
         public void Tell(string text, NoticeKind kind) => Told.Add(text);
@@ -72,6 +73,8 @@ public sealed class BackupImportViewModelTests : IDisposable
         public Task<MergeChoice?> ChooseMergeAsync(IReadOnlyList<MergeFile> files, bool insert, Func<Task<IReadOnlyList<MergeFile>>> addFiles) =>
             Task.FromResult<MergeChoice?>(new([.. files.Select(f => (f, new[] { 0 }))], MergePosition.Start));
         public PageExportChoice? ChooseExport(int pageCount, string range, bool flatten) { ExportAsked = (pageCount, range, flatten); return Export; }
+        public NewPageSpec? ChooseBlankPage(bool insert, PageSetup reference) => null;
+        public PageTransformRequest? ChooseTransform(bool resize, DocumentModel model, Page active, Func<PageApplyScope, PageSetup[]> targets) => null;
     }
 
     [Fact]

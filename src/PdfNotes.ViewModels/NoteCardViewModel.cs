@@ -15,6 +15,23 @@ public sealed class NoteCardViewModel(MainViewModel owner) : ObservableObject
     private StickyNote? note;
     private Guid pageId;
     private bool isNew;
+    private string text = "";
+
+    /// <summary>A note is open in its card.</summary>
+    public bool IsOpen => note is not null;
+
+    /// <summary>The card's text while it is open.</summary>
+    public string Text { get => text; set => SetProperty(ref text, value ?? ""); }
+
+    /// <summary>The note's color: the card's top edge.</summary>
+    public RgbColor Color => note?.Color ?? RgbColor.Black;
+
+    private void Changed()
+    {
+        OnPropertyChanged(nameof(Note));
+        OnPropertyChanged(nameof(IsOpen));
+        OnPropertyChanged(nameof(Color));
+    }
 
     /// <summary>The open note (null when none is open).</summary>
     public StickyNote? Note => note;
@@ -40,8 +57,20 @@ public sealed class NoteCardViewModel(MainViewModel owner) : ObservableObject
     {
         if (owner.Document is not { } doc || owner.Display.NotesHidden || doc.Session.Current.IndexOfPage(page) < 0) return false;
         note = value; pageId = page; isNew = asNew;
-        OnPropertyChanged(nameof(Note));
+        Text = value.Text;
+        Changed();
         return true;
+    }
+
+    /// <summary>
+    /// Closes the card: a new note with text is added and selected, an existing one updated, or deleted when empty. The
+    /// pages draw again (a new note's icon was drawn while it was open).
+    /// </summary>
+    public void Commit()
+    {
+        if (note is null) return;
+        if (Close(Text) is { } added) owner.Selection.Tool.Select(added);
+        owner.Navigation.RefreshOverlays();
     }
 
     /// <summary>Commits the open note with its typed <paramref name="text"/>; returns the id of a note just added (the view selects it).</summary>
@@ -49,7 +78,7 @@ public sealed class NoteCardViewModel(MainViewModel owner) : ObservableObject
     {
         if (note is not { } closing) return null;
         note = null;
-        OnPropertyChanged(nameof(Note));
+        Changed();
         text = text.Replace("\r\n", "\n", StringComparison.Ordinal);
         if (text.Length > ModelLimits.MaxTextLength) text = text[..ModelLimits.MaxTextLength];
         if (owner.Document is not { } doc || doc.Session.Current.IndexOfPage(pageId) < 0) return null;

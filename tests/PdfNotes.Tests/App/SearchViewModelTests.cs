@@ -26,6 +26,7 @@ public sealed class SearchViewModelTests : IDisposable
         Add(0, "Alpha beta", 60);
         Add(1, "beta gamma", 60);
         Add(2, "BETA delta", 60);
+        time.Advance(TimeSpan.FromSeconds(1)); // the page list's thumbnails, scheduled by the edits
     }
 
     public void Dispose()
@@ -50,7 +51,7 @@ public sealed class SearchViewModelTests : IDisposable
         public void CommandsChanged() { }
         public void OnUiThread(Action action) => action();
         public IDocumentViewport Viewport => View;
-        public IPageListView Pages { get; } = new FakePageList();
+        public IPageThumbnailSource Thumbnails { get; } = new FakePageList();
         public IWindowCoordinator Window { get; } = new FakeWindow();
         public Answer Ask(string text, AskButtons buttons, NoticeKind kind) => Answer.No;
         public void Tell(string text, NoticeKind kind) { }
@@ -164,6 +165,7 @@ public sealed class SearchViewModelTests : IDisposable
         var session = model.Document!.Session;
         session.Execute(DocumentEdits.DeletePages(session.Current, [current.PageId]));
         await Settle();
+        time.Advance(TimeSpan.FromSeconds(1)); // the page list's thumbnails
         Assert.Equal(3, Search.Hits.Count);
         Assert.Equal(0, Search.Index); // its page is gone: back to the first result
 

@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
 using PdfNotes.Desktop.Views;
@@ -179,8 +180,7 @@ public sealed class ReviewFixTests
         w.SetOutlineVisible(true);
         Dispatcher.UIThread.RunJobs();
         w.UpdateLayout();
-        var node = w.OutlineView.GetLogicalDescendants().OfType<TreeViewItem>().First(n => n.Tag is PdfNotes.Pdf.Reading.PdfOutlineItem { Title: "2장" });
-        var header = (Control)node.Header!;
+        var header = w.OutlineView.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "2장"); // the item's title
         var center = header.TranslatePoint(new Point(header.Bounds.Width / 2, header.Bounds.Height / 2), w)!.Value;
         w.MouseDown(center, MouseButton.Left);
         w.MouseUp(center, MouseButton.Left);
