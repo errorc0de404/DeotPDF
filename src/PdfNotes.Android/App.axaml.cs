@@ -13,11 +13,14 @@ using PdfNotes.ViewModels;
 namespace PdfNotes.Android;
 
 /// <summary>
-/// DeotPDF on Android (roadmap P5a): the app's view in the one screen of the activity. Settings, backups and language
-/// packs live in the app's own folder.
+/// DeotPDF on Android (roadmap P5a–P5b): the app's view in the one screen of the activity. Settings, backups and language
+/// packs live in the app's own folder; documents come from the system's picker or from other apps as content URIs.
 /// </summary>
 public sealed class App : Avalonia.Application
 {
+    private static MainView? view;
+    private static DocumentLocation? pending;
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
@@ -25,32 +28,33 @@ public sealed class App : Avalonia.Application
         if (ApplicationLifetime is ISingleViewApplicationLifetime single)
         {
             SkiaText.Register(); // one text engine for the screen and the PDF appearances (P2)
-            string folder = Path.Combine(global::Android.App.Application.Context.FilesDir!.AbsolutePath, "settings");
+            var context = global::Android.App.Application.Context;
+            string folder = Path.Combine(context.FilesDir!.AbsolutePath, "settings");
             Directory.CreateDirectory(folder);
             string file = AppSettings.FileIn(folder);
             var settings = AppSettings.Load(file);
             Strings.Apply(settings.Language, AppSettings.LanguageFoldersIn(folder));
             DesktopTheme.Use(this, settings.Theme, settings.Accent);
             var app = new AppServices(settings, AppInfo.DisplayName, s => s.Save(file), folder) { Texts = Strings.Current };
-            var view = new MainView(app, new AndroidDialogs(), compose: MainViewModels.Create);
-            single.MainView = view;
-            view.AttachedToVisualTree += (_, _) => view.Shown();
-            OpenSample(view);
+            MainView? shown = null;
+            shown = new MainView(app, new AndroidDialogs(() => shown is null ? null : Avalonia.Controls.TopLevel.GetTopLevel(shown)), compose: MainViewModels.Create,
+                locations: new AndroidLocations(context));
+            view = shown;
+            single.MainView = shown;
+            shown.AttachedToVisualTree += (_, _) =>
+            {
+                shown.Shown();
+                if (pending is { } location) { pending = null; Open(location); }
+                else Avalonia.Threading.Dispatcher.UIThread.Post(async () => await shown.OfferRecoveryAsync()); // after an abnormal end (spec 18.2)
+            };
         }
         base.OnFrameworkInitializationCompleted();
     }
 
-    /// <summary>P5a: a sample PDF until files can be opened (P5b).</summary>
-    private static void OpenSample(MainView view)
+    /// <summary>Opens a document another app sent; one that arrives before the view is shown opens when it is.</summary>
+    public static void Open(DocumentLocation location)
     {
-        string path = Path.Combine(global::Android.App.Application.Context.CacheDir!.AbsolutePath, "sample.pdf");
-        if (!File.Exists(path))
-        {
-            if (global::Android.App.Application.Context.Assets!.List("")?.Contains("sample.pdf") != true) return;
-            using var asset = global::Android.App.Application.Context.Assets!.Open("sample.pdf");
-            using var file = File.Create(path);
-            asset.CopyTo(file);
-        }
-        Avalonia.Threading.Dispatcher.UIThread.Post(async () => await view.OpenFileAsync(path));
+        if (view is not { } shown || Avalonia.Controls.TopLevel.GetTopLevel(shown) is null) { pending = location; return; }
+        Avalonia.Threading.Dispatcher.UIThread.Post(async () => await shown.ViewModel.Workflow.OpenAsync(location));
     }
 }

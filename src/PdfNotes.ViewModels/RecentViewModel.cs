@@ -4,7 +4,7 @@ using PdfNotes.Editor.Services;
 namespace PdfNotes.ViewModels;
 
 /// <summary>
-/// Recent documents and the last position in each document (spec 24.1, D13h; P1 V2). All of it is app settings: never
+/// Recent documents and the last position in each document (spec 24.1, D13h; P1 V2), by file path or content URI (P5b). All of it is app settings: never
 /// written into a document, never Undo or the unsaved mark. The window placement stays with the view.
 /// </summary>
 public sealed class RecentViewModel(AppSettings settings, Action save) : ObservableObject
@@ -16,7 +16,7 @@ public sealed class RecentViewModel(AppSettings settings, Action save) : Observa
 
     public void Add(string path)
     {
-        path = Path.GetFullPath(path);
+        path = Normalize(path);
         settings.RecentFiles.RemoveAll(p => Same(p, path));
         settings.RecentFiles.Insert(0, path);
         if (settings.RecentFiles.Count > AppSettings.MaxRecentFiles) settings.RecentFiles.RemoveRange(AppSettings.MaxRecentFiles, settings.RecentFiles.Count - AppSettings.MaxRecentFiles);
@@ -39,14 +39,19 @@ public sealed class RecentViewModel(AppSettings settings, Action save) : Observa
     /// <summary>Remembers where a document was shown (page, point at the view center, zoom). Saved with the other settings.</summary>
     public void RememberPosition(string path, int page, Point2 point, double zoom)
     {
-        path = Path.GetFullPath(path);
+        path = Normalize(path);
         settings.Positions.RemoveAll(p => Same(p.Path, path));
         settings.Positions.Insert(0, new() { Path = path, Page = page, X = point.X, Y = point.Y, Zoom = zoom });
         if (settings.Positions.Count > AppSettings.MaxPositions) settings.Positions.RemoveRange(AppSettings.MaxPositions, settings.Positions.Count - AppSettings.MaxPositions);
     }
 
     /// <summary>Where <paramref name="path"/> was left, or null for a document seen for the first time.</summary>
-    public AppSettings.DocumentPosition? PositionOf(string path) => settings.Positions.FirstOrDefault(p => Same(p.Path, Path.GetFullPath(path)));
+    public AppSettings.DocumentPosition? PositionOf(string path) => settings.Positions.FirstOrDefault(p => Same(p.Path, Normalize(path)));
 
-    private static bool Same(string a, string b) => FilePaths.Same(a, b);
+    /// <summary>A file path in its full form; an address that is a URI (an Android content URI, P5b) as it is.</summary>
+    private static string Normalize(string address) => IsUri(address) ? address : Path.GetFullPath(address);
+
+    private static bool IsUri(string address) => address.Contains("://", StringComparison.Ordinal);
+
+    private static bool Same(string a, string b) => IsUri(a) || IsUri(b) ? string.Equals(a, b, StringComparison.Ordinal) : FilePaths.Same(a, b);
 }

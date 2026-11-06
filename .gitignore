@@ -24,5 +24,3 @@ tools/pdfjs-render.mjs
 tools/run-real-probes.ps1
 scripts/
 
-# A local sample PDF the Android app opens while developing (P5a)
-src/PdfNotes.Android/Assets/sample.pdf

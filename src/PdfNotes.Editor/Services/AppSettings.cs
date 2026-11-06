@@ -61,9 +61,13 @@ public sealed class AppSettings
 
     public ViewMode ViewMode { get; set; } = ViewMode.Continuous;
 
-    /// <summary>Recent documents, most recent first (spec 24.1): full paths, at most <see cref="MaxRecentFiles"/>.</summary>
+    /// <summary>Recent documents, most recent first (spec 24.1): full paths or Android content URIs (P5b), at most <see cref="MaxRecentFiles"/>.</summary>
     public List<string> RecentFiles { get; set; } = [];
     public const int MaxRecentFiles = 10;
+
+    /// <summary>A document address the settings keep: a full file path, or a content URI on Android (roadmap P5b).</summary>
+    public static bool IsAddress(string address) =>
+        Path.IsPathFullyQualified(address) || address.StartsWith("content://", StringComparison.Ordinal);
 
     /// <summary>Where each document was left (spec 24.1): most recent first, at most <see cref="MaxPositions"/> documents.</summary>
     public List<DocumentPosition> Positions { get; set; } = [];
@@ -314,10 +318,10 @@ public sealed class AppSettings
             foreach (var slot in settings.Favorites.OfType<FavoriteSettings>())
                 if (slot.Tool == ToolKind.Pen || slot.MarkKind is { } fk && !Enum.IsDefined(fk)) slot.MarkKind = null;
             if (!double.IsFinite(settings.OutlineHeight) || settings.OutlineHeight < 60 || settings.OutlineHeight > 4000) settings.OutlineHeight = 220;
-            settings.RecentFiles = (settings.RecentFiles ?? []).Where(p => p is { Length: > 0 and < 1024 } && Path.IsPathFullyQualified(p))
+            settings.RecentFiles = (settings.RecentFiles ?? []).Where(p => p is { Length: > 0 and < 1024 } && IsAddress(p))
                 .Distinct(StringComparer.OrdinalIgnoreCase).Take(MaxRecentFiles).ToList();
             settings.Positions = (settings.Positions ?? []).Where(p => p is { Path.Length: > 0 and < 1024, Page: >= 0 } && double.IsFinite(p.X) && double.IsFinite(p.Y) &&
-                double.IsFinite(p.Zoom) && p.Zoom > 0 && Path.IsPathFullyQualified(p.Path)).Take(MaxPositions).ToList();
+                double.IsFinite(p.Zoom) && p.Zoom > 0 && IsAddress(p.Path)).Take(MaxPositions).ToList();
             settings.Line ??= StyleSettings.From(StrokeStyle.DefaultPen);
             settings.LineOptions = settings.LineOptions?.Validated() ?? LineOptions.Default;
             settings.Shape ??= ShapeSettings.From(ShapeStyle.Default);

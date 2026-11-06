@@ -153,4 +153,41 @@ public sealed class ContentLocationTests : IDisposable
         Assert.True(await workflow.CreateNoteAsync(NewPageSpec.Default));
         Assert.Equal(["ask:YesNoCancel", "ask:YesNoCancel"], host.Log.Where(l => l.StartsWith("ask:", StringComparison.Ordinal)));
     }
+
+    [Fact]
+    public void TheRecentListKeepsAContentUriAsItIs()
+    {
+        var recent = new PdfNotes.ViewModels.RecentViewModel(new AppSettings(), () => { });
+        const string uri = "content://com.android.providers.media.documents/document/document%3A19";
+        recent.Add(uri);
+        recent.Add(uri); // once, not twice
+        Assert.Equal([uri], recent.Files);
+        recent.RememberPosition(uri, 2, new(10, 20), 1.5);
+        Assert.Equal(2, recent.PositionOf(uri)!.Page);
+        Assert.Null(recent.PositionOf(uri.ToUpperInvariant())); // a URI is not a Windows path: case matters
+    }
+
+    [Fact]
+    public void SettingsKeepContentUrisInTheRecentListAndPositions()
+    {
+        string file = Path.Combine(Path.GetTempPath(), $"PdfNotes-settings-{Guid.NewGuid():N}.json");
+        try
+        {
+            const string uri = "content://com.android.externalstorage.documents/document/primary%3ADownload%2Fa.pdf";
+            var settings = new AppSettings { RecentFiles = [uri, "relative.pdf"], Positions = [new() { Path = uri, Page = 1, X = 1, Y = 2, Zoom = 1 }] };
+            settings.Save(file);
+            var again = AppSettings.Load(file);
+            Assert.Equal([uri], again.RecentFiles); // a relative path is still dropped
+            Assert.Equal(uri, Assert.Single(again.Positions).Path);
+        }
+        finally { File.Delete(file); }
+    }
+
+    /// <summary>Backups group by the document's location key: a file's is the key backups had before P5b.</summary>
+    [Fact]
+    public void AFilesLocationKeyIsItsBackupGroup()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "Lecture Notes.pdf");
+        Assert.Equal(BackupStore.DocumentKey(path), DocumentLocation.File(path).Key);
+    }
 }

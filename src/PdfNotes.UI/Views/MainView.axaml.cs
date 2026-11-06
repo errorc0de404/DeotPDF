@@ -62,7 +62,9 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
     /// <param name="dialogs">The modal UI (questions, messages, file pickers, app windows; tests pass a scripted one).</param>
     /// <param name="host">The window or screen around the view (default: none).</param>
     /// <param name="compose">Puts the view models together from the app's and this view's services (R4g; default <see cref="MainViewModels.Create"/>).</param>
-    public MainView(AppServices app, IDesktopDialogs dialogs, IViewHost? host = null, Func<AppServices, ScreenServices, MainViewModel>? compose = null)
+    /// <param name="locations">Finds recent documents again (default: files; Android: content URIs too).</param>
+    public MainView(AppServices app, IDesktopDialogs dialogs, IViewHost? host = null, Func<AppServices, ScreenServices, MainViewModel>? compose = null,
+        IDocumentLocations? locations = null)
     {
         appFolder = app.SettingsFolder;
         var settings = app.Settings;
@@ -71,7 +73,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
         this.dialogs = dialogs;
         clipboard = new DesktopClipboard(this);
         viewModel = (compose ?? MainViewModels.Create)(app,
-            new ScreenServices(this.dialogs, Canvas, this) { Thumbnails = this, Window = this, Ui = this, Shell = this, Clipboard = clipboard, PageDialogs = this });
+            new ScreenServices(this.dialogs, Canvas, this) { Thumbnails = this, Window = this, Ui = this, Shell = this, Clipboard = clipboard, PageDialogs = this, Locations = locations ?? FileLocations.Instance });
         DataContext = viewModel; // the window's controls are bound (R4)
         viewModel.DocumentLeaving += RememberPosition;
         viewModel.DocumentShown += DocumentShown;

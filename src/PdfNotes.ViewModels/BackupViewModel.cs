@@ -133,9 +133,9 @@ public sealed class BackupViewModel : ObservableObject
             }
             string folder = Settings.BackupFolderIn(settingsFolder);
             Directory.CreateDirectory(folder);
-            string file = Store.NewFile(folder, doc.FilePath);
+            string file = Store.NewFile(folder, doc.Location?.Name); // a content URI's document is named too (P5b)
             long revision = await doc.WriteCopyAsync(file);
-            Store.Added(BackupStore.DocumentKey(doc.FilePath), file, Settings.BackupKeep);
+            Store.Added(doc.Location?.Key ?? BackupStore.NewNotesKey, file, Settings.BackupKeep); // a file's key is BackupStore.DocumentKey's
             schedule.Done(revision);
             if (ReferenceEquals(doc, owner.Document) && doc.Session.SavedRevision != revision)
                 Store.SetRecoverable(new(doc.DisplayNameIn(texts), file, Now));
@@ -231,7 +231,7 @@ public sealed class BackupViewModel : ObservableObject
         string when = string.Format(CultureInfo.CurrentCulture, "{0:yyyy-MM-dd HH:mm}", newest.Created);
         string text = crash ? texts.Format("backup.recoverCrash", ("name", newest.DocumentName), ("time", when))
             : texts.Format("backup.recoverUnclean", ("name", newest.DocumentName), ("time", when));
-        if (dialogs.Ask(text, AskButtons.YesNo, NoticeKind.Question) != Answer.Yes) return false;
+        if (await dialogs.AskAsync(text, AskButtons.YesNo, NoticeKind.Question) != Answer.Yes) return false; // Android answers later (P5b)
         return await owner.Workflow.OpenFileAsync(newest.File);
     }
 }

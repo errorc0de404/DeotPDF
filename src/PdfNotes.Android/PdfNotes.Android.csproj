@@ -23,10 +23,6 @@
     <PackageReference Include="bblanchon.PDFium.Android" />
   </ItemGroup>
   <ItemGroup>
-    <!-- P5a: a local sample to open at start while developing (not in the repository) -->
-    <AndroidAsset Include="Assets\sample.pdf" Condition="Exists('Assets\sample.pdf')" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\PdfNotes.UI\PdfNotes.UI.csproj" />
   </ItemGroup>
 </Project>
