@@ -62,6 +62,21 @@ public sealed partial class DocumentCanvas
     public Func<Point2, string?>? LinkTip { get; set; }
     public Func<bool>? LinkFollowsClick { get; set; }
     public event EventHandler<Point2>? LinkClicked;
+
+    /// <summary>A finger was held still on the page (viewport DIPs): the window opens the menu a right click would.</summary>
+    public event EventHandler<Point2>? Held;
+
+    private Avalonia.Threading.DispatcherTimer? holdTimer;
+
+    private void WatchHold(IPointer pointer)
+    {
+        holdTimer?.Stop();
+        if (pointer.Type != PointerType.Touch) return;
+        int id = (int)pointer.Id;
+        holdTimer = new Avalonia.Threading.DispatcherTimer { Interval = (TouchOptions?.Invoke() ?? new PointerRouterOptions()).HoldTime };
+        holdTimer.Tick += (_, _) => { holdTimer?.Stop(); Run(Router.HoldElapsed(id), null); };
+        holdTimer.Start();
+    }
     private Point? linkPress;
     private const double LinkClickDip = 4;
     private string? shownTip;
@@ -104,6 +119,7 @@ public sealed partial class DocumentCanvas
         if (e.Pointer.Type != PointerType.Mouse)
         {
             Run(Router.Down(Pointer(e)), e.Pointer);
+            WatchHold(e.Pointer);
             e.Handled = true;
             return;
         }
@@ -331,6 +347,9 @@ public sealed partial class DocumentCanvas
                 case PointerAction.Fling fling:
                     StartFling(fling.Velocity);
                     break;
+                case PointerAction.Hold hold:
+                    Held?.Invoke(this, hold.Pointer.Position);
+                    break;
             }
     }
 
@@ -403,6 +422,8 @@ public sealed partial class DocumentCanvas
     private void EndTouchTool()
     {
         bool eraser = touchTool is not null && !ReferenceEquals(touchTool, tool);
+        // A pen has no hover after it lifts here: the eraser circle (or another hover mark) goes with the stroke.
+        (touchTool as IHoverTool)?.PointerHover(null, InputModifiers.None);
         touchTool = null;
         var device = touchPointer;
         touchPointer = null;

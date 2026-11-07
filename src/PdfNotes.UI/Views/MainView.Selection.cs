@@ -35,6 +35,7 @@ public sealed partial class MainView
             suppressContext = false;
             e.Handled = true;
         }, RoutingStrategies.Tunnel);
+        Canvas.Held += (_, at) => OpenAnnotationMenu(at); // a long press on Android, where there is no right button
         Canvas.PointerMoved += (_, e) => { var p = e.GetPosition(Canvas); lastCanvasPointer = new(p.X, p.Y); };
         Canvas.PointerExited += (_, _) => lastCanvasPointer = null;
     }

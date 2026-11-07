@@ -101,6 +101,26 @@ public sealed class PointerRouterTests
     }
 
     [Fact]
+    public void AFingerHeldStillIsALongPressAndThenNotATap()
+    {
+        router.Down(Finger(50, 50));
+        clock.Advance(200);
+        Assert.Empty(router.HoldElapsed(10)); // too soon
+        router.Move(Finger(53, 52)); // inside the slop
+        clock.Advance(400);
+        var hold = Assert.IsType<A.Hold>(Assert.Single(router.HoldElapsed(10)));
+        Assert.Equal(new Point2(53, 52), hold.Pointer.Position);
+        Assert.Empty(router.Move(Finger(90, 90))); // the touch is used up: no pan
+        Assert.Empty(router.Up(Finger(90, 90)));   // and no tap
+
+        // A finger that moved the page, or a second finger, is not a long press.
+        router.Down(Finger(50, 50, id: 11));
+        router.Move(Finger(50, 120, id: 11));
+        clock.Advance(700);
+        Assert.Empty(router.HoldElapsed(11));
+    }
+
+    [Fact]
     public void AShortStillTouchIsATapAndTwoAreADoubleTap()
     {
         router.Down(Finger(50, 50));

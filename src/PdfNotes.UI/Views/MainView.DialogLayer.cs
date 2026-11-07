@@ -66,9 +66,39 @@ public sealed partial class MainView
 
     private void InitializeDialogLayer() => DialogLayer.SizeChanged += (_, _) => { foreach (var card in DialogLayer.Children) FitCard(card); };
 
-    /// <summary>The system's back gesture (Android) cancels the card on top.</summary>
+    /// <summary>Context menus open now, in the order they opened (any menu of the app, whoever made it).</summary>
+    private static readonly List<ContextMenu> OpenMenus = Track();
+
+    /// <summary>The last menu still open over this view (menus of other windows are theirs).</summary>
+    private ContextMenu? MyOpenMenu()
+    {
+        var mine = TopLevel.GetTopLevel(this);
+        for (int i = OpenMenus.Count - 1; i >= 0; i--)
+            if (OpenMenus[i] is { IsOpen: true, PlacementTarget: { } target } menu && ReferenceEquals(TopLevel.GetTopLevel(target), mine)) return menu;
+        return null;
+    }
+
+    private static List<ContextMenu> Track()
+    {
+        var open = new List<ContextMenu>();
+        ContextMenu.IsOpenProperty.Changed.AddClassHandler<ContextMenu>((menu, _) =>
+        {
+            open.Remove(menu);
+            if (menu.IsOpen) open.Add(menu);
+        });
+        return open;
+    }
+
+    /// <summary>The system's back gesture (Android) closes an open menu, else cancels the card on top.</summary>
     private void BackRequested(object? sender, RoutedEventArgs e)
     {
+        // A menu open from a long press or a button: back closes it instead of leaving the app (P5d).
+        if (MyOpenMenu() is { } menu)
+        {
+            menu.Close();
+            e.Handled = true;
+            return;
+        }
         if (openCards.Count == 0) return;
         openCards[^1]();
         e.Handled = true;

@@ -27,6 +27,9 @@ public abstract record PointerAction
     /// <summary>A finger let go of the page while moving it: the page goes on at <see cref="Velocity"/> (DIP/s, the
     /// direction the content moves) and slows down by itself.</summary>
     public sealed record Fling(Point2 Velocity) : PointerAction;
+
+    /// <summary>A finger held still on the page: the right-click menu at <see cref="Pointer"/> (Android has no right button).</summary>
+    public sealed record Hold(CanvasPointer Pointer) : PointerAction;
 }
 
 /// <summary>Settings of <see cref="PointerRouter"/> (spec 7.6, app settings).</summary>
@@ -50,6 +53,9 @@ public sealed record PointerRouterOptions
 
     /// <summary>Palm rejection: a contact this large (longer side, DIP) is a palm.</summary>
     public double PalmContactDip { get; init; } = 30;
+
+    /// <summary>A finger held still this long is a long press (the context menu); a tap must be shorter.</summary>
+    public TimeSpan HoldTime { get; init; } = TimeSpan.FromMilliseconds(550);
 
     /// <summary>A finger that lets go of the page faster than this (DIP/s) flings it.</summary>
     public double FlingMinDipPerSecond { get; init; } = 250;
@@ -214,6 +220,19 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
         }
         if (touches.Count == 0) state = TouchState.None;
         return result;
+    }
+
+    /// <summary>
+    /// The view's timer after a finger went down: a single finger still within the tap slop for <see cref="PointerRouterOptions.HoldTime"/>
+    /// is a long press, and the touch is then finished (lifting it is not a tap, moving it does not move the page).
+    /// </summary>
+    public IReadOnlyList<PointerAction> HoldElapsed(int pointerId)
+    {
+        if (state != TouchState.Pending || touches.Count != 1 || !touches.TryGetValue(pointerId, out var contact)) return [];
+        if (clock.GetElapsedTime(contact.DownTicks) < options().HoldTime - TimeSpan.FromMilliseconds(30)) return []; // a timer may fire a little early
+        state = TouchState.Finished;
+        lastTap = null;
+        return [new PointerAction.Hold(contact.Down with { Position = contact.Last })];
     }
 
     /// <summary>How far back the finger's last moves count for its speed when it lets go.</summary>
