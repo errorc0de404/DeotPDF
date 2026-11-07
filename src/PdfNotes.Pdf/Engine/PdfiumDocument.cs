@@ -234,23 +234,25 @@ public sealed class PdfiumDocument : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             var page = LoadPage(index);
             nint bitmap = 0;
+            // PDFium draws straight into the array the caller gets (roadmap P5d A5: no copy of the whole picture).
+            int stride = checked(region.Width * 4);
+            var pixels = new byte[checked(stride * region.Height)];
+            var pin = GCHandle.Alloc(pixels, GCHandleType.Pinned);
             try
             {
-                bitmap = Native.FPDFBitmap_Create(region.Width, region.Height, 1);
+                bitmap = Native.FPDFBitmap_CreateEx(region.Width, region.Height, Native.BitmapBgra, pin.AddrOfPinnedObject(), stride);
                 if (bitmap == 0) throw new InvalidOperationException("PDFium bitmap allocation failed.");
                 Native.FPDFBitmap_FillRect(bitmap, 0, 0, region.Width, region.Height, 0xffffffff);
                 // FPDF_ANNOT = 1. Page's intrinsic /Rotate is honored by PDFium; `rotate` adds to it.
                 // The display rectangle may exceed the bitmap; PDFium clips to the bitmap.
                 Native.FPDF_RenderPageBitmap(bitmap, page, -region.X, -region.Y, fullWidth, fullHeight, extraQuarterTurns, annotations ? 1 : 0);
                 cancellationToken.ThrowIfCancellationRequested(); // synchronous native render cannot be interrupted mid-call
-                int stride = Native.FPDFBitmap_GetStride(bitmap);
-                var pixels = new byte[checked(stride * region.Height)];
-                Marshal.Copy(Native.FPDFBitmap_GetBuffer(bitmap), pixels, 0, pixels.Length);
                 return new(region.Width, region.Height, stride, pixels);
             }
             finally
             {
                 if (bitmap != 0) Native.FPDFBitmap_Destroy(bitmap);
+                pin.Free();
                 Native.FPDF_ClosePage(page);
             }
         }
@@ -410,6 +412,9 @@ public sealed class PdfiumDocument : IDisposable
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern float FPDF_GetPageWidthF(nint page);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern float FPDF_GetPageHeightF(nint page);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDFBitmap_Create(int width, int height, int alpha);
+        /// <summary>FPDFBitmap_BGRA: four bytes per pixel, blue first.</summary>
+        internal const int BitmapBgra = 4;
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDFBitmap_CreateEx(int width, int height, int format, nint firstScan, int stride);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDFBitmap_Destroy(nint bitmap);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFBitmap_FillRect(nint bitmap, int x, int y, int width, int height, uint color);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_RenderPageBitmap(nint bitmap, nint page, int x, int y, int width, int height, int rotate, int flags);

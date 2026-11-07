@@ -147,6 +147,7 @@ public sealed class PagesViewModel : ObservableObject
             owner.SaveSettings();
             OnPropertyChanged(nameof(HandleGlyph));
             OnPropertyChanged(nameof(HandleTip));
+            if (value) ScheduleThumbnails();
         }
     }
 
@@ -207,6 +208,13 @@ public sealed class PagesViewModel : ObservableObject
                 items.Clear();
                 foreach (var page in pages) items.Add(existing.GetValueOrDefault(page.Id) ?? new PageItemViewModel(page.Id, ItemSelectionChanged));
             }
+            // Rows without a thumbnail yet already have its size, so the list does not jump as thumbnails arrive.
+            for (int i = 0; i < items.Count; i++)
+                if (items[i].Image is null && pages[i].Setup.Frame is { DisplayWidthPt: > 0 } frame)
+                {
+                    items[i].ImageWidth = ThumbnailWidth;
+                    items[i].ImageHeight = ThumbnailWidth * frame.DisplayHeightPt / frame.DisplayWidthPt;
+                }
             if (activePageId is { } id && doc.Session.Current.IndexOfPage(id) < 0) activePageId = null;
             int active = ActivePageIndex;
             for (int i = 0; i < items.Count; i++)
@@ -277,19 +285,47 @@ public sealed class PagesViewModel : ObservableObject
         return RenderThumbnailsAsync();
     }
 
-    /// <summary>Draws the thumbnails of pages whose model changed, one after another; a newer call cancels this one.</summary>
+    /// <summary>Rows drawn around the ones on screen, and rows kept beyond that before their pictures are dropped.</summary>
+    public const int ThumbnailMargin = 6, ThumbnailKeep = 30;
+
+    private (int First, int Last)? rowsShown;
+
+    /// <summary>
+    /// The list shows rows <paramref name="first"/>..<paramref name="last"/> (roadmap P5d A3): thumbnails are drawn for
+    /// those and a few around them; far ones let their pictures go, so a long document does not hold one per page.
+    /// </summary>
+    public void RowsShown(int first, int last)
+    {
+        if (rowsShown == (first, last)) return;
+        rowsShown = (first, last);
+        ScheduleThumbnails();
+    }
+
+    /// <summary>
+    /// Draws the thumbnails of changed pages near the rows on screen, one after another; a newer call cancels this one.
+    /// Nothing is drawn while the panel is hidden (roadmap P5d A3: opening a long document drew every page).
+    /// </summary>
     public async Task RenderThumbnailsAsync()
     {
-        if (Document is not { } doc) return;
+        if (Document is not { } doc || !panelVisible) return;
         thumbCancel?.Cancel();
         var cancel = thumbCancel = new CancellationTokenSource();
         var model = doc.Session.Current;
         bool hidden = owner.Display.NotesHidden;
-        foreach (var page in model.Pages.ToArray())
+        var (first, last) = rowsShown ?? (0, 10);
+        var rows = items.ToDictionary(t => t.PageId);
+        var pages = model.Pages.ToArray();
+        for (int i = 0; i < pages.Length; i++)
+            if ((i < first - ThumbnailKeep || i > last + ThumbnailKeep) && rows.TryGetValue(pages[i].Id, out var far) && far.Image is not null)
+            {
+                far.Image = null;
+                far.Rendered = null;
+            }
+        for (int i = Math.Max(0, first - ThumbnailMargin); i <= Math.Min(pages.Length - 1, last + ThumbnailMargin); i++)
         {
+            var page = pages[i];
             if (cancel.IsCancellationRequested || !ReferenceEquals(Document, doc)) return;
-            var item = items.FirstOrDefault(t => t.PageId == page.Id);
-            if (item is null || ReferenceEquals(item.Rendered, page)) continue;
+            if (!rows.TryGetValue(page.Id, out var item) || ReferenceEquals(item.Rendered, page)) continue;
             // A thumbnail drawn while its text boxes were laid out waits until all of them are ready (the view calls
             // ScheduleThumbnails when a layout arrives), so each arriving layout does not draw it again.
             if (item.Image is not null && item.Rendered is null && !hidden && !TextReady(page)) continue;
@@ -409,6 +445,7 @@ public sealed class PagesViewModel : ObservableObject
     /// <summary>The page panel's context menu (spec 11), for the selected pages.</summary>
     public IReadOnlyList<PageMenuEntry> Menu()
     {
+        clipboardHasPages = null;
         bool many = SelectedPageIds.Length > 1;
         return
         [
@@ -504,14 +541,28 @@ public sealed class PagesViewModel : ObservableObject
 
     // ----- page clipboard (spec 11.4, D14g) -----
 
-    /// <summary>Some window's pages are on the clipboard (a cheap check: the packet is read only when pasting).</summary>
+    private bool? clipboardHasPages;
+
+    /// <summary>
+    /// Some window's pages are on the clipboard (the packet is read only when pasting). Asked once and remembered until
+    /// the window comes forward or a menu opens (P5d B2: every edit asked the system clipboard and waited for it).
+    /// </summary>
     private bool ClipboardHasPages
     {
         get
         {
-            try { return clipboard.ContainsData(PageTransfer.Format); }
-            catch (ClipboardUnavailableException) { return false; }
+            if (clipboardHasPages is { } known) return known;
+            try { clipboardHasPages = clipboard.ContainsData(PageTransfer.Format); }
+            catch (ClipboardUnavailableException) { clipboardHasPages = false; }
+            return clipboardHasPages.Value;
         }
+    }
+
+    /// <summary>Another program or window may have changed the clipboard: ask it again (window activation, menus).</summary>
+    public void ClipboardMayHaveChanged()
+    {
+        clipboardHasPages = null;
+        CommandsChanged();
     }
 
     /// <summary>The page packet on the clipboard, or null. Its PDF is empty while the copying window still writes it.</summary>
@@ -550,6 +601,7 @@ public sealed class PagesViewModel : ObservableObject
         owner.Status = pageClipboard.Pages.Length == 1 ? texts.Get("page.copiedOne") : texts.Format("page.copied", ("count", pageClipboard.Pages.Length));
         CommandsChanged();
         // This copy is the newest at once: another window's older pages on the clipboard must not be pasted instead.
+        clipboardHasPages = null;
         try { clipboard.SetData(PageTransfer.Format, PageTransfer.Encode(doc.Session.SessionId, [])); }
         catch (ClipboardUnavailableException) { }
         _ = PutOnClipboardAsync(doc, ids, mode == PageCopyMode.WithAnnotations);

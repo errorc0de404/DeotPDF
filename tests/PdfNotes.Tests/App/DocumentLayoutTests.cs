@@ -148,16 +148,19 @@ public class RenderPlanningTests
         var baseKey = plan.First(k => k.PageId == pages[1].Id && k.Region is null);
         var setup = pages[1].Setup;
         Assert.InRange(setup.WidthPt * setup.HeightPt * baseKey.PixelsPerPoint * baseKey.PixelsPerPoint, 0, RenderPlanner.MaxBasePixels * 1.0001);
-        var detail = Assert.Single(plan, k => k.Region is not null);
+        var tiles = plan.Where(k => k.Region is not null).ToArray();
         double target = RenderPlanner.TargetPixelsPerPoint(8, 2);
-        Assert.Equal(target, detail.PixelsPerPoint, 12);
-        var region = detail.Region!.Value;
-        Assert.Equal(0, region.X % RenderPlanner.DetailGridPixels);
-        Assert.Equal(0, region.Y % RenderPlanner.DetailGridPixels);
-        // The tile covers the visible part of the page (in device pixels) and is bounded by the viewport size.
-        Assert.True(region.X <= 2000 * 2 && region.X + region.Width >= (2000 + 1600) * 2);
-        Assert.True(region.Y <= 3000 * 2 && region.Y + region.Height >= (3000 + 1000) * 2);
-        Assert.InRange(region.Area, 1, (1600 * 2 + 1024L) * (1000 * 2 + 1024L));
+        Assert.All(tiles, k => Assert.Equal(target, k.PixelsPerPoint, 12));
+        // Fixed grid tiles (P5d A4) covering the visible part of the page in device pixels, and no more than that.
+        const int T = RenderPlanner.DetailGridPixels;
+        Assert.All(tiles, k => { Assert.Equal(0, k.Region!.Value.X % T); Assert.Equal(0, k.Region!.Value.Y % T); Assert.True(k.Region!.Value.Width <= T && k.Region!.Value.Height <= T); });
+        Assert.Equal(tiles.Length, tiles.Select(k => k.Region).Distinct().Count());
+        Assert.True(tiles.Min(k => k.Region!.Value.X) <= 2000 * 2 && tiles.Max(k => k.Region!.Value.X + k.Region!.Value.Width) >= (2000 + 1600) * 2);
+        Assert.True(tiles.Min(k => k.Region!.Value.Y) <= 3000 * 2 && tiles.Max(k => k.Region!.Value.Y + k.Region!.Value.Height) >= (3000 + 1000) * 2);
+        Assert.InRange(tiles.Length, 1, (1600 * 2 / T + 2) * (1000 * 2 / T + 2));
+        // A small scroll keeps most tiles: only a new row or column comes in.
+        var moved = RenderPlanner.Plan(layout, pages, new(offset.X, offset.Y + 300), 1600, 1000, 2).Where(k => k.Region is not null).ToArray();
+        Assert.True(moved.Intersect(tiles).Count() >= tiles.Length - (1600 * 2 / T + 2));
     }
 
     [Fact]

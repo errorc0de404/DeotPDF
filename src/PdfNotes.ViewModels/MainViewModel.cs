@@ -121,11 +121,20 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
     public int? PageShowing(int? sourceIndex)
     {
         if (sourceIndex is not { } wanted || Document is null) return null;
-        var pages = Document.Session.Current.Pages;
-        for (int i = 0; i < pages.Count; i++)
-            if (pages[i].Setup.Source is { Kind: PdfNotes.Core.Models.PageSourceKind.Pdf, PdfPageIndex: { } index } && index == wanted) return i;
-        return null;
+        var model = Document.Session.Current;
+        // One table per model (P5d C2: the outline asked for every item on every scroll step, each a scan of all pages).
+        if (!ReferenceEquals(pageShowingModel, model))
+        {
+            pageShowing.Clear();
+            for (int i = 0; i < model.Pages.Count; i++)
+                if (model.Pages[i].Setup.Source is { Kind: PdfNotes.Core.Models.PageSourceKind.Pdf, PdfPageIndex: { } index }) pageShowing.TryAdd(index, i);
+            pageShowingModel = model;
+        }
+        return pageShowing.TryGetValue(wanted, out int page) ? page : null;
     }
+
+    private PdfNotes.Core.Models.DocumentModel? pageShowingModel;
+    private readonly Dictionary<int, int> pageShowing = [];
 
     /// <summary>Opens a recent document like 열기; one that is gone (or no longer allowed) is reported briefly and leaves the list.</summary>
     public async Task<bool> OpenRecentAsync(string address)

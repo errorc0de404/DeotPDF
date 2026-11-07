@@ -92,7 +92,7 @@ public sealed class EraserTool(ICanvasView view, Func<DocumentSession?> session,
     private void Extend(Point2 pagePoint)
     {
         ShowCircle(pageIndex, pagePoint);
-        if (gesture!.AddPoint(pagePoint)) view.RefreshOverlay(pageIndex);
+        if (gesture!.AddPoint(pagePoint)) view.RefreshLive();
     }
 
     private void ShowCircle(int index, Point2 center)

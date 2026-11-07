@@ -20,8 +20,12 @@ public static class RenderPlanner
     /// <summary>Whole-page bitmaps are capped at this many pixels (32 MiB BGRA); higher zoom uses viewport tiles.</summary>
     public const long MaxBasePixels = 8_000_000;
 
-    /// <summary>Detail regions are aligned to this grid so small scrolls reuse the same tile request.</summary>
-    public const int DetailGridPixels = 512;
+    /// <summary>
+    /// Above the whole-page cap the page is drawn in fixed square tiles of this many device pixels (roadmap P5d A4): a
+    /// scroll renders only the tiles that came into view and the others are reused from the cache. One region the size
+    /// of the viewport was rendered again whole every half tile of scrolling.
+    /// </summary>
+    public const int DetailGridPixels = 1024;
 
     /// <summary>Device pixels per page point at a zoom and DPI scale.</summary>
     public static double TargetPixelsPerPoint(double zoom, double dpiScale) => zoom * Units.DipsPerPoint * dpiScale;
@@ -48,34 +52,38 @@ public static class RenderPlanner
         var visible = layout.VisiblePages(viewport);
         var result = new List<RenderKey>();
         foreach (int i in visible) result.Add(BaseKey(pages[i], target));
-        foreach (int i in visible)
-            if (DetailKey(layout, pages[i], i, viewport, dpiScale) is { } detail) result.Add(detail);
+        foreach (int i in visible) result.AddRange(DetailKeys(layout, pages[i], i, viewport, dpiScale));
         foreach (int i in Adjacent(layout, visible))
             result.Add(BaseKey(pages[i], target));
         return result;
     }
 
-    /// <summary>Tile covering the visible part of a page at full target resolution, or null when the base suffices.</summary>
-    public static RenderKey? DetailKey(DocumentLayout layout, Page page, int index, Rect2 viewport, double dpiScale)
+    /// <summary>
+    /// The grid tiles covering the visible part of a page at full target resolution, row by row; none when the
+    /// whole-page bitmap is sharp enough.
+    /// </summary>
+    public static IReadOnlyList<RenderKey> DetailKeys(DocumentLayout layout, Page page, int index, Rect2 viewport, double dpiScale)
     {
         double target = TargetPixelsPerPoint(layout.Zoom, dpiScale);
-        if (target <= BasePixelsPerPoint(page.Setup, target) * 1.0001) return null;
+        if (target <= BasePixelsPerPoint(page.Setup, target) * 1.0001) return [];
         var rect = layout.PageRect(index);
         double left = Math.Max(viewport.X, rect.X) - rect.X, top = Math.Max(viewport.Y, rect.Y) - rect.Y;
         double right = Math.Min(viewport.X + viewport.Width, rect.X + rect.Width) - rect.X;
         double bottom = Math.Min(viewport.Y + viewport.Height, rect.Y + rect.Height) - rect.Y;
-        if (right <= left || bottom <= top) return null;
+        if (right <= left || bottom <= top) return [];
         var (fullWidth, fullHeight) = PageRenderer.PixelSize(page.Setup, target);
-        int x0 = Snap(left * dpiScale, false), y0 = Snap(top * dpiScale, false);
-        int x1 = Math.Min(fullWidth, Snap(right * dpiScale, true)), y1 = Math.Min(fullHeight, Snap(bottom * dpiScale, true));
-        if (x1 <= x0 || y1 <= y0) return null;
-        return new(page.Id, page.Setup, target, new PixelRect(x0, y0, x1 - x0, y1 - y0));
-    }
-
-    private static int Snap(double pixels, bool up)
-    {
-        double cells = pixels / DetailGridPixels;
-        return (int)(up ? Math.Ceiling(cells) : Math.Floor(cells)) * DetailGridPixels;
+        const int T = DetailGridPixels;
+        int tx0 = (int)Math.Floor(left * dpiScale / T), ty0 = (int)Math.Floor(top * dpiScale / T);
+        int tx1 = Math.Min((fullWidth - 1) / T, (int)Math.Ceiling(right * dpiScale / T) - 1);
+        int ty1 = Math.Min((fullHeight - 1) / T, (int)Math.Ceiling(bottom * dpiScale / T) - 1);
+        var tiles = new List<RenderKey>();
+        for (int ty = Math.Max(0, ty0); ty <= ty1; ty++)
+            for (int tx = Math.Max(0, tx0); tx <= tx1; tx++)
+            {
+                int x = tx * T, y = ty * T;
+                tiles.Add(new(page.Id, page.Setup, target, new PixelRect(x, y, Math.Min(T, fullWidth - x), Math.Min(T, fullHeight - y))));
+            }
+        return tiles;
     }
 
     private static IEnumerable<int> Adjacent(DocumentLayout layout, IReadOnlyList<int> visible)

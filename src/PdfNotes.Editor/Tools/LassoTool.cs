@@ -36,6 +36,9 @@ public sealed class LassoTool(ICanvasView view, Func<DocumentSession?> session, 
     /// <summary>Raised after a lasso or click selected at least one annotation.</summary>
     public event EventHandler? Selected;
 
+    /// <summary>A press here moves or reshapes the current selection instead of drawing a lasso.</summary>
+    public bool Grabs(Point2 viewportPoint) => selection.HitSelection(viewportPoint) != SelectionHit.None;
+
     public bool PointerDown(CanvasPointer pointer)
     {
         switch (selection.HitSelection(pointer.Position))

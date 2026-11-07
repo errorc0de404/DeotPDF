@@ -18,8 +18,15 @@ public sealed class PageGlyphSource(DocumentSources? pdf)
     public PageGlyphSource(PdfSourceDocument? pdf) : this(pdf is null ? null : new DocumentSources(pdf, ownsMain: false)) { }
 
     private readonly ConcurrentDictionary<int, TextGlyph[]> extracted = new();
+    private readonly ConcurrentDictionary<PageSetup, TextGlyph[]> placed = new();
 
-    public IReadOnlyList<TextGlyph> Glyphs(PageSetup setup)
+    /// <summary>
+    /// The glyphs of a page as placed on its paper, kept per page setup (P5d C3: hover and drag over text asked for them
+    /// at every pointer move, and each time every glyph was tested and moved again).
+    /// </summary>
+    public IReadOnlyList<TextGlyph> Glyphs(PageSetup setup) => placed.GetOrAdd(setup, Place);
+
+    private TextGlyph[] Place(PageSetup setup)
     {
         var source = setup.Source;
         if (source.Kind != PageSourceKind.Pdf || pdf is null || source.PdfPageIndex is not { } index || index >= pdf.Pages.Count) return [];

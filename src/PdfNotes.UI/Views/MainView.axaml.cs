@@ -139,7 +139,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
     private IFocusManager? FocusManager => (topLevel ?? TopLevel.GetTopLevel(this))?.FocusManager;
 
     /// <summary>The window came to the front: another window may have copied pages meanwhile (spec 11.4, D14g).</summary>
-    public void HostActivated() => viewModel.Pages.CommandsChanged();
+    public void HostActivated() => viewModel.Pages.ClipboardMayHaveChanged();
 
     /// <summary>The window went to the back: a held Space hand and the eyedropper end.</summary>
     public void HostDeactivated()
@@ -227,9 +227,13 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
         Canvas.UpdatePages(doc.Session.Current.Pages);
         selectTool.Revalidate();
         // A page structure change makes glyph carets of the text selection refer to another page.
+        // One pass in page order (P5d B1: a page search per row made every edit cost pages squared).
         var thumbs = viewModel.Pages.Items;
-        if (!thumbs.Select(t => t.PageId).SequenceEqual(doc.Session.Current.Pages.Select(p => p.Id)) ||
-            thumbs.Any(t => t.Rendered is { } r && doc.Session.Current.GetPage(t.PageId).Setup != r.Setup)) selectTool.ClearTextSelection();
+        var current = doc.Session.Current.Pages;
+        bool changed = thumbs.Count != current.Count;
+        for (int i = 0; !changed && i < thumbs.Count; i++)
+            changed = thumbs[i].PageId != current[i].Id || thumbs[i].Rendered is { } r && current[i].Setup != r.Setup;
+        if (changed) selectTool.ClearTextSelection();
         styles.Refresh();
     }
 

@@ -52,7 +52,27 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
     public Guid? PageId { get; private set; }
     public Guid? SelectedId => ids.Count == 1 ? ids.First() : null;
     public IReadOnlyCollection<Guid> SelectedIds => ids;
-    public Annotation[] SelectedAnnotations => session()?.Current.AllAnnotations.Where(a => ids.Contains(a.Id) && !a.Locked).ToArray() ?? [];
+    /// <summary>
+    /// The selected annotations as they are in the document now. Worked out once per model and selection (P5d C4: frames,
+    /// handles and the overlay asked for this many times per frame, each a scan of every annotation of the document).
+    /// </summary>
+    public Annotation[] SelectedAnnotations
+    {
+        get
+        {
+            var model = session()?.Current;
+            if (model is null) return [];
+            if (ReferenceEquals(selectedModel, model) && selectedVersion == idsVersion) return selected;
+            var page = PageId is { } id && model.IndexOfPage(id) is >= 0 and var index ? model.Pages[index] : null;
+            selected = ids.Count == 0 ? [] : page is not null ? [.. page.Annotations.Where(a => ids.Contains(a.Id) && !a.Locked)] : [.. model.AllAnnotations.Where(a => ids.Contains(a.Id) && !a.Locked)];
+            (selectedModel, selectedVersion) = (model, idsVersion);
+            return selected;
+        }
+    }
+
+    private Annotation[] selected = [];
+    private DocumentModel? selectedModel;
+    private int selectedVersion = -1, idsVersion;
     public StrokeAnnotation? Selected => SelectedAnnotations is [StrokeAnnotation s] ? s : null;
     public IReadOnlyList<Annotation> DisplayAnnotations => preview.Length > 0 ? preview : SelectedAnnotations;
 
@@ -167,6 +187,7 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         PageId = locations.FirstOrDefault()?.Page.Id;
         ids.Clear();
         foreach (var l in locations.Where(l => l!.Page.Id == PageId)) ids.Add(l!.Annotation.Id);
+        idsVersion++;
         textPage = -1; // annotation and text selections are exclusive
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -197,6 +218,19 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
     public (Rect2 Bounds, Affine Frame)? SelectionFrame()
     {
         var items = DisplayAnnotations;
+        // The same list as last time (nothing moved, no edit): the same frame (P5d C4). Text boxes are measured in the
+        // background, so a frame with one is worked out each time.
+        if (ReferenceEquals(items, frameOf)) return frameCached;
+        var frame = ComputeFrame(items);
+        (frameOf, frameCached) = items.Any(a => a is TextBoxAnnotation) ? (null, null) : (items, frame);
+        return frame;
+    }
+
+    private IReadOnlyList<Annotation>? frameOf;
+    private (Rect2 Bounds, Affine Frame)? frameCached;
+
+    private static (Rect2 Bounds, Affine Frame)? ComputeFrame(IReadOnlyList<Annotation> items)
+    {
         if (items.Count == 0) return null;
         if (items.Count == 1) return (AnnotationGeometry.LocalBounds(items[0], PdfNotes.Text.TextLayout.Bounds), items[0].Transform);
         // Keep the group box in the first selected annotation's frame so the box and handles turn with the group.
@@ -264,6 +298,9 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         return [.. corners, new(top.X + direction.X / length * 24, top.Y + direction.Y / length * 24)];
     }
     /// <summary>What of the current selection is under <paramref name="viewportPoint"/>: a handle, a selected annotation or the inside of its frame.</summary>
+    /// <summary>A press here takes something to drag: the selection, its handles or an unlocked annotation.</summary>
+    public bool Grabs(Point2 viewportPoint) => HitSelection(viewportPoint) != SelectionHit.None || Pick(viewportPoint) is not null;
+
     public SelectionHit HitSelection(Point2 viewportPoint)
     {
         if (ids.Count == 0 || PageId is not { } pageId || session() is not { } s || s.Current.IndexOfPage(pageId) is not (>= 0 and var index)) return SelectionHit.None;
@@ -371,7 +408,7 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         var toPage = view.PageTransform(index).DipToPage;
         var a = toPage.Transform(new(start.X, start.Y));
         var b = toPage.Transform(new(pointer.Position.X, pointer.Position.Y));
-        if (new Point2(start.X, start.Y).DistanceTo(new(pointer.Position.X, pointer.Position.Y)) < 2) { preview = []; CrossPage = null; view.RefreshOverlays(); return; }
+        if (new Point2(start.X, start.Y).DistanceTo(new(pointer.Position.X, pointer.Position.Y)) < 2) { preview = []; CrossPage = null; view.RefreshLive(); return; }
         if (drag >= 8 && originals is [LineAnnotation line])
         {
             var grabbed = line.Transform.Transform(LineGeometry.ControlPolygon(line)[drag == 8 ? 0 : drag == 9 ? line.Controls.Length + 1 : drag - 9]);
@@ -399,7 +436,7 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
                 bool left = drag == 4;
                 double width = Math.Clamp(left ? text.WidthPt - localPoint.X : localPoint.X, 16, 100000);
                 preview = [text with { WidthPt = width, Transform = left ? Affine.Translation(text.WidthPt - width, 0).Then(text.Transform) : text.Transform }];
-                view.RefreshOverlays(); return;
+                view.RefreshLive(); return;
             }
             var corners = AnnotationGeometry.Corners(bounds, Affine.Identity);
             var anchor = corners[(drag - 4 + 2) % 4];
@@ -419,8 +456,11 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
             }
         }
         if (preview.Any(x => ModelValidator.ValidateAnnotation(x, session()!.Current.Resources.ContainsKey) is not null)) preview = [];
-        view.RefreshOverlays();
+        view.RefreshLive();
     }
+
+    /// <summary>A drag is changing the selection on screen (moved, turned, resized, or carried to another page).</summary>
+    public bool IsDragging => preview.Length > 0 || CrossPage is not null;
     private static double NonZero(double v) => Math.Abs(v) < 1e-6 ? 1e-6 : v;
 
     /// <summary>

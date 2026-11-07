@@ -10,4 +10,15 @@ public static class TouchRules
     /// tools ignore it unless finger drawing is on: a tap there is usually a hand resting on the screen.
     /// </summary>
     public static bool TapReachesTool(ICanvasTool? tool) => tool is SelectTool or TextTool or NoteTool;
+
+    /// <summary>
+    /// A finger dragging from here moves annotations instead of the page (roadmap P5d, as in other note apps): on the
+    /// selection or an unlocked annotation with the selection tool, on the selection with the lasso.
+    /// </summary>
+    public static bool FingerGrabs(ICanvasTool? tool, PdfNotes.Core.Geometry.Point2 at) => tool switch
+    {
+        SelectTool select => select.Grabs(at),
+        LassoTool lasso => lasso.Grabs(at),
+        _ => false,
+    };
 }

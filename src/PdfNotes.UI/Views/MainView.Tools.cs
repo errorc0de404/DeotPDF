@@ -83,6 +83,8 @@ public sealed partial class MainView
         Canvas.PenEraser = () => settings.Eraser == ToolKind.StrokeEraser ? strokeEraserTool : areaEraserTool;
         Canvas.TouchOptions = () => new PointerRouterOptions { FingerDrawing = settings.FingerDrawing };
         Canvas.OverlayFor = OverlayFor;
+        Canvas.LiveIds = LiveIds;
+        Canvas.LiveFor = LiveFor;
         Canvas.MarksFor = MarksFor;
         viewModel.ToolBar.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ToolBarViewModel.Current)) UseTool(viewModel.ToolBar.Current); };
         selectTool.SelectionChanged += (_, _) =>
@@ -174,24 +176,17 @@ public sealed partial class MainView
     // ----- what the canvas draws: taken on the UI thread for each frame -----
 
     /// <summary>
-    /// The annotation layer of a page as the WPF overlay shows it: the selection while it is moved or resized, an erase in
-    /// progress, nothing while the notes are hidden, and not the text box being edited (its editor draws it).
+    /// The annotation layer of a page as the WPF overlay shows it: nothing while the notes are hidden, and not the text
+    /// box being edited (its editor draws it). Annotations a drag is changing are left out here and drawn by
+    /// <see cref="LiveFor"/>, so the canvas keeps the rest of the frame while they move (roadmap P5d A2).
     /// </summary>
     private PagePainter? OverlayFor(int index, Page page, ViewTransform transform)
     {
         if (viewModel.Display.NotesHidden || Document is not { } doc) return null;
-        var replacements = selectTool.DisplayAnnotations.ToDictionary(a => a.Id);
-        var erased = (Canvas.ActiveTool as EraserTool)?.Preview(page.Id);
-        var across = selectTool.CrossPage;
-        var leaving = across is not null && selectTool.PageId == page.Id ? selectTool.SelectedIds : null;
+        var live = LiveIds();
         var shown = new List<Annotation>(page.Annotations.Count);
         foreach (var original in page.Annotations)
-        {
-            if (original.Id == EditingTextId || leaving?.Contains(original.Id) == true) continue;
-            if (erased is not null && erased.TryGetValue(original.Id, out var rest)) { shown.AddRange(rest); continue; }
-            shown.Add(replacements.GetValueOrDefault(original.Id, original));
-        }
-        if (across is { } landing && landing.PageIndex == index) shown.AddRange(landing.Annotations);
+            if (original.Id != EditingTextId && !live.Contains(original.Id)) shown.Add(original);
         // A new sticky note is drawn while its card is open (it joins the document when closed with text).
         if (viewModel.NoteCard is { IsNew: true, Note: { } open } card && card.PageId == page.Id) shown.Add(open);
         var resources = doc.Session.Current.Resources;
@@ -217,6 +212,38 @@ public sealed partial class MainView
                 canvas.DrawPath(path, line);
             }
         };
+    }
+
+    /// <summary>The annotations a drag is changing now: the selection being moved or resized, those an eraser is cutting.</summary>
+    private IReadOnlyCollection<Guid> LiveIds()
+    {
+        if (selectTool.IsDragging) return selectTool.SelectedIds;
+        if (Canvas.ActiveTool is EraserTool eraser && Document is { } doc)
+            foreach (var page in doc.Session.Current.Pages)
+                if (eraser.Preview(page.Id) is { Count: > 0 } erased) return [.. erased.Keys];
+        return [];
+    }
+
+    /// <summary>The live annotations of a page as the drag shows them (moved copies, the pieces an eraser leaves).</summary>
+    private PagePainter? LiveFor(int index, Page page, ViewTransform transform)
+    {
+        if (viewModel.Display.NotesHidden || Document is not { } doc) return null;
+        var live = LiveIds();
+        var replacements = selectTool.IsDragging ? selectTool.DisplayAnnotations.ToDictionary(a => a.Id) : [];
+        var erased = (Canvas.ActiveTool as EraserTool)?.Preview(page.Id);
+        var across = selectTool.CrossPage;
+        bool leaving = across is not null && selectTool.PageId == page.Id;
+        var shown = new List<Annotation>();
+        foreach (var original in page.Annotations)
+        {
+            if (!live.Contains(original.Id) || original.Id == EditingTextId || leaving) continue;
+            if (erased is not null && erased.TryGetValue(original.Id, out var rest)) shown.AddRange(rest);
+            else shown.Add(replacements.GetValueOrDefault(original.Id, original));
+        }
+        if (across is { } landing && landing.PageIndex == index) shown.AddRange(landing.Annotations);
+        if (shown.Count == 0) return null;
+        var resources = doc.Session.Current.Resources;
+        return (canvas, _, _, t) => { foreach (var a in shown) SkiaAnnotationPainter.Paint(canvas, a, t, id => resources.GetValueOrDefault(id)); };
     }
 
     /// <summary>Selection marks of a page (the WPF PaintMarks): text selection, then the frame, handles or line handles.</summary>

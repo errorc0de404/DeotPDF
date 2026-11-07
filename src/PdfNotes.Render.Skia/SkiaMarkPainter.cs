@@ -32,7 +32,8 @@ public sealed record MarkColors
 /// </summary>
 public static class SkiaMarkPainter
 {
-    public static void Paint(SKCanvas canvas, IEnumerable<CanvasMark> marks, ViewTransform transform, MarkColors? colors = null)
+    /// <param name="strokes">Keeps the settled part of a stroke being drawn between frames (see <see cref="StrokeLayer"/>); null draws it all each time.</param>
+    public static void Paint(SKCanvas canvas, IEnumerable<CanvasMark> marks, ViewTransform transform, MarkColors? colors = null, StrokeLayer? strokes = null)
     {
         colors ??= MarkColors.Default;
         foreach (var mark in marks)
@@ -40,6 +41,7 @@ public static class SkiaMarkPainter
             switch (mark)
             {
                 case AnnotationMark { Annotation: var annotation }: SkiaAnnotationPainter.Paint(canvas, annotation, transform, preview: true); break;
+                case StrokeProgressMark stroke: if (strokes?.Draw(canvas, stroke, transform) != true) StrokeLayer.DrawAll(canvas, stroke, transform); break;
                 case EraserCircleMark circle: PaintCircle(canvas, circle, transform, colors); break;
                 case LassoMark lasso: PaintLasso(canvas, lasso, transform, colors); break;
                 case RubberBandMark band: PaintRubberBand(canvas, band, transform, colors); break;

@@ -23,15 +23,24 @@ public static class PageSnapshots
     /// </summary>
     public static async Task<WriteableBitmap?> RenderAsync(OpenDocument doc, DocumentModel model, Page page, double zoom, double scale, bool notesHidden, bool darkPage, CancellationToken cancel)
     {
-        var frame = page.Setup.Frame;
+        var (done, background) = await BackgroundAsync(doc, page, zoom, scale, cancel);
+        return done ? Compose(background, model, page, zoom, scale, notesHidden, darkPage) : null;
+    }
+
+    /// <summary>The PDF background alone (null: the page cannot be drawn, white). Done false when cancelled.</summary>
+    public static async Task<(bool Done, Pdf.Engine.RenderedPage? Background)> BackgroundAsync(OpenDocument doc, Page page, double zoom, double scale, CancellationToken cancel)
+    {
         double ppp = zoom * Units.DipsPerPoint * scale;
         Pdf.Engine.RenderedPage? rendered = null;
         try { rendered = await Task.Run(() => doc.Renderer.Render(page.Setup, ppp, null, cancel), cancel); }
-        catch (OperationCanceledException) { return null; }
+        catch (OperationCanceledException) { return (false, null); }
         catch (Exception) when (!cancel.IsCancellationRequested) { } // a page that cannot be drawn keeps a white picture
-        if (cancel.IsCancellationRequested) return null;
-        return Compose(rendered, model, page, new ViewTransform(frame, zoom, scale, new(0, 0)), notesHidden, darkPage);
+        return cancel.IsCancellationRequested ? (false, null) : (true, rendered);
     }
+
+    /// <summary>A background with the notes on top (UI thread).</summary>
+    public static WriteableBitmap Compose(Pdf.Engine.RenderedPage? background, DocumentModel model, Page page, double zoom, double scale, bool notesHidden, bool darkPage) =>
+        Compose(background, model, page, new ViewTransform(page.Setup.Frame, zoom, scale, new(0, 0)), notesHidden, darkPage);
 
     /// <summary>The same, now (the page size window opens with its preview).</summary>
     public static WriteableBitmap Render(OpenDocument doc, DocumentModel model, Page page, double zoom, double scale)

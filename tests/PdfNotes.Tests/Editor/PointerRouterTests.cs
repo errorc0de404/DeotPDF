@@ -62,6 +62,45 @@ public sealed class PointerRouterTests
     }
 
     [Fact]
+    public void AQuickSwipeFlingsThePageAndAStopBeforeLettingGoDoesNot()
+    {
+        router.Down(Finger(100, 400));
+        clock.Advance(16);
+        router.Move(Finger(100, 360));
+        clock.Advance(16);
+        router.Move(Finger(100, 300));
+        clock.Advance(16);
+        var fling = Assert.IsType<A.Fling>(Assert.Single(router.Up(Finger(100, 240))));
+        Assert.True(fling.Velocity.Y < -2000 && fling.Velocity.X == 0); // up, as the finger went
+
+        router.Down(Finger(100, 400, id: 11));
+        clock.Advance(16);
+        router.Move(Finger(100, 300, id: 11));
+        clock.Advance(300); // held still, then lifted
+        Assert.Empty(router.Up(Finger(100, 300, id: 11)));
+    }
+
+    [Fact]
+    public void AFingerOnWhatTheToolTakesDragsItButStillTaps()
+    {
+        router.FingerGrabs = p => p.Position.X < 50;
+        Assert.Empty(router.Down(Finger(20, 20)));
+        Assert.Empty(router.Move(Finger(22, 21))); // inside the slop: maybe a tap
+        var moved = router.Move(Finger(20, 60));
+        Assert.Equal(new Point2(20, 20), Assert.IsType<A.ToolDown>(moved[0]).Pointer.Position); // from where it touched
+        Assert.IsType<A.ToolMove>(moved[1]);
+        Assert.True(router.IsDrawing);
+        Assert.IsType<A.ToolUp>(Assert.Single(router.Up(Finger(20, 60))));
+
+        clock.Advance(1000);
+        router.Down(Finger(20, 20, id: 11));
+        Assert.IsType<A.Tap>(Assert.Single(router.Up(Finger(20, 20, id: 11)))); // a tap stays a tap (double taps edit)
+
+        router.Down(Finger(200, 20, id: 12)); // elsewhere the page moves
+        Assert.IsType<A.Pan>(Assert.Single(router.Move(Finger(200, 80, id: 12))));
+    }
+
+    [Fact]
     public void AShortStillTouchIsATapAndTwoAreADoubleTap()
     {
         router.Down(Finger(50, 50));

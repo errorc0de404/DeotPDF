@@ -15,6 +15,7 @@ public sealed partial class DocumentCanvas : ICanvasView
     private int previewPage = -1;
     private ICanvasPreview? preview;
     private bool previewIsMark;
+    private readonly StrokeLayer strokeLayer = new();
 
     /// <summary>Colors of the marks on the paper (the window passes its theme resources).</summary>
     public MarkColors MarkColors { get; set; } = MarkColors.Default;
@@ -33,13 +34,45 @@ public sealed partial class DocumentCanvas : ICanvasView
 
     public void SetPreview(int pageIndex, ICanvasPreview? newPreview, bool mark = false)
     {
+        // The same preview again (the eraser circle on every move): only the preview is drawn again, the rest of the
+        // frame is kept (roadmap P5d A1).
+        if (ReferenceEquals(newPreview, preview) && previewIsMark == mark && previewPage == (newPreview is null ? -1 : pageIndex))
+        {
+            RedrawPreview();
+            return;
+        }
         previewIsMark = mark;
         previewPage = newPreview is null ? -1 : pageIndex;
         preview = newPreview;
         Redraw();
     }
 
-    public void RefreshPreview() => Redraw();
+    public void RefreshPreview() => RedrawPreview();
+    public void RefreshLive() => RedrawPreview();
+
+    /// <summary>
+    /// The annotations a drag is changing (roadmap P5d A2): the overlay leaves them out and <see cref="LiveFor"/> paints
+    /// them, so the frame cache keeps everything else while they move. A change of this set makes the cache again.
+    /// </summary>
+    public Func<IReadOnlyCollection<Guid>>? LiveIds { get; set; }
+
+    /// <summary>The live annotations of a page as they look now (drawn inside the page, above the overlay).</summary>
+    public Func<int, Page, ViewTransform, PagePainter?>? LiveFor { get; set; }
+
+    private readonly HashSet<Guid> lastLive = [];
+
+    /// <summary>Whether a drag changes annotations now; the set changing means the kept frame is out of date.</summary>
+    private bool UpdateLive()
+    {
+        var live = LiveIds?.Invoke() ?? [];
+        if (!lastLive.SetEquals(live))
+        {
+            lastLive.Clear();
+            lastLive.UnionWith(live);
+            baseVersion++;
+        }
+        return lastLive.Count > 0;
+    }
     public void RefreshOverlays() => Redraw();
     public void RefreshOverlay(int pageIndex) => Redraw();
 
@@ -49,6 +82,7 @@ public sealed partial class DocumentCanvas : ICanvasView
         if (preview is null || index != previewPage) return null;
         var marks = preview.Marks(index, page, transform).ToArray();
         var colors = MarkColors;
-        return (canvas, _, _, t) => SkiaMarkPainter.Paint(canvas, marks, t, colors);
+        var strokes = strokeLayer; // drawn on the render thread only
+        return (canvas, _, _, t) => SkiaMarkPainter.Paint(canvas, marks, t, colors, strokes);
     }
 }

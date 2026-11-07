@@ -12,6 +12,13 @@ public abstract record CanvasMark;
 /// <summary>An annotation drawn with its preview look (an unfinished stroke, line, shape or glyph mark).</summary>
 public sealed record AnnotationMark(Annotation Annotation) : CanvasMark;
 
+/// <summary>
+/// A pen or highlighter stroke being drawn (roadmap P5d). <see cref="Settled"/> pieces never change once given, so a
+/// painter may keep what it drew of them and add only new ones; <see cref="Tail"/> is the end that still moves. The pieces
+/// are opaque and overlap by one point; the whole is shown at <see cref="Opacity"/>. <see cref="Key"/> names the stroke.
+/// </summary>
+public sealed record StrokeProgressMark(Guid Key, IReadOnlyList<StrokeAnnotation> Settled, StrokeAnnotation? Tail, double Opacity) : CanvasMark;
+
 /// <summary>The eraser circle: center in page points and diameter in page points.</summary>
 public sealed record EraserCircleMark(Point2 Center, double DiameterPt) : CanvasMark;
 

@@ -20,7 +20,13 @@ public sealed partial class DocumentCanvas
     /// <summary>Where the IME's candidate window goes (canvas DIPs), while a box takes the typing.</summary>
     public Func<Rect>? TypingCaret { get; set; }
 
-    private void InitializeIme() => AddHandler(TextInputMethodClientRequestedEvent, (_, e) => e.Client = ime ??= new CanvasIme(this));
+    /// <summary>
+    /// The canvas takes typing through the IME (the first key on a selected box). Off on touch-first systems: there an
+    /// IME client on the focused canvas opens the on-screen keyboard at every touch (roadmap P5d).
+    /// </summary>
+    public bool TakesTyping { get; set; } = !OperatingSystem.IsAndroid();
+
+    private void InitializeIme() => AddHandler(TextInputMethodClientRequestedEvent, (_, e) => { if (TakesTyping) e.Client = ime ??= new CanvasIme(this); });
 
     /// <summary>The candidate window should follow the caret again (the box was opened for editing).</summary>
     public void TypingCaretMoved() => ime?.Moved();

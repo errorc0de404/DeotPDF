@@ -52,6 +52,25 @@ public sealed partial class MainView : IPageThumbnailSource
             e.Handled = true;
         };
         PageList.KeyDown += PageListKeyDown;
+        PageScroller.ScrollChanged += (_, _) => ReportShownRows();
+        PageScroller.SizeChanged += (_, _) => ReportShownRows();
+    }
+
+    /// <summary>Tells the panel which rows are on screen (thumbnails are drawn for those, roadmap P5d A3).</summary>
+    private void ReportShownRows()
+    {
+        int count = pages.Items.Count;
+        if (count == 0 || !PagePanel.IsVisible) return;
+        double top = PageScroller.Offset.Y, bottom = top + PageScroller.Viewport.Height;
+        double Bottom(int i) => PageList.ContainerFromIndex(i) is { } row ? row.Bounds.Bottom : double.MaxValue;
+        double Top(int i) => PageList.ContainerFromIndex(i) is { } row ? row.Bounds.Top : double.MaxValue;
+        // Rows are stacked in order: the first whose bottom is below the top edge, the last whose top is above the bottom.
+        int lo = 0, hi = count - 1;
+        while (lo < hi) { int mid = (lo + hi) / 2; if (Bottom(mid) < top) lo = mid + 1; else hi = mid; }
+        int first = lo;
+        lo = first; hi = count - 1;
+        while (lo < hi) { int mid = (lo + hi + 1) / 2; if (Top(mid) <= bottom) lo = mid; else hi = mid - 1; }
+        pages.RowsShown(first, lo);
     }
 
     public bool PagePanelVisible => PagePanel.IsVisible;
@@ -59,12 +78,24 @@ public sealed partial class MainView : IPageThumbnailSource
     /// <summary>Shows or hides the page list (the handle and the 페이지 tab button agree) and remembers it (spec 3.2-5).</summary>
     public void SetPagePanelVisible(bool visible) => pages.PanelVisible = visible;
 
+    private OpenDocument? thumbnailDocument;
+    private readonly PdfNotes.Editor.Layout.LruByteCache<(Guid, PageSetup, double, double), PdfNotes.Pdf.Engine.RenderedPage?> thumbnailBackgrounds = new(32L * 1024 * 1024);
+
     /// <summary>A thumbnail: the PDF background rendered in the background, the notes drawn on top.</summary>
     async Task<PageThumbnail?> IPageThumbnailSource.RenderAsync(OpenDocument doc, DocumentModel model, Page page, double width, bool notesHidden, CancellationToken cancel)
     {
         double zoom = width / (page.Setup.Frame.DisplayWidthPt * Units.DipsPerPoint);
-        var bitmap = await PageSnapshots.RenderAsync(doc, model, page, zoom, RenderScaling, notesHidden, viewModel.Display.DarkPages, cancel);
-        if (bitmap is null) return null;
+        // The PDF background is kept per page (P5d B4): after an edit only the notes are painted again.
+        if (!ReferenceEquals(thumbnailDocument, doc)) { thumbnailDocument = doc; thumbnailBackgrounds.Clear(); }
+        var key = (page.Id, page.Setup, zoom, RenderScaling);
+        if (!thumbnailBackgrounds.TryGet(key, out var background))
+        {
+            var (done, rendered) = await PageSnapshots.BackgroundAsync(doc, page, zoom, RenderScaling, cancel);
+            if (!done) return null;
+            background = rendered;
+            if (rendered is not null) thumbnailBackgrounds.Add(key, rendered, (long)rendered.Stride * rendered.Height);
+        }
+        var bitmap = PageSnapshots.Compose(background, model, page, zoom, RenderScaling, notesHidden, viewModel.Display.DarkPages);
         var t = new ViewTransform(page.Setup.Frame, zoom, RenderScaling, new(0, 0));
         return new PageThumbnail(bitmap, t.PageWidthDip, t.PageHeightDip, Complete: true); // Skia lays text out at once
     }

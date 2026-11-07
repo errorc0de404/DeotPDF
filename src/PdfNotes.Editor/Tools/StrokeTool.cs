@@ -26,6 +26,13 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
 
     private readonly List<Point2> raw = [];
     private readonly List<double> pressures = []; // one per raw point while the stroke has pressure
+
+    /// <summary>Settled points go into a preview piece this many at a time (the preview then costs the same at any length).</summary>
+    public const int PreviewPiecePoints = 24;
+
+    private ImmutableArray<StrokeAnnotation> settled = [];
+    private int settledEnd; // the raw index the last settled piece ends at (the next one starts there)
+    private Guid previewKey;
     private bool pressured;
     private int pageIndex = -1;
     private Guid pageId;
@@ -48,6 +55,9 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
         current = style().ClampFor(Kind);
         raw.Clear();
         pressures.Clear();
+        settled = [];
+        settledEnd = 0;
+        previewKey = Guid.NewGuid();
         raw.Add(anchor.PagePoint);
         pressured = Kind == AnnotationKind.Ink && pointer is { Device: PointerDevice.Pen, Pressure: { } pressure } && double.IsFinite(pressure) &&
                     usePressure?.Invoke() == true;
@@ -64,7 +74,27 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
         if (p.DistanceTo(raw[^1]) < transform.DevicePixelLengthToPoints(MinStepPixels)) return;
         raw.Add(p);
         AddPressure(pointer);
+        // Smoothing looks one point to each side, so every point but the last is final: full pieces of them settle.
+        int final = raw.Count - 2;
+        if (final - settledEnd >= PreviewPiecePoints)
+        {
+            settled = settled.Add(Piece(settledEnd, final));
+            settledEnd = final;
+        }
         view.RefreshPreview();
+    }
+
+    /// <summary>The preview piece of raw points <paramref name="from"/>..<paramref name="to"/>, smoothed as the whole stroke will be, opaque.</summary>
+    private StrokeAnnotation Piece(int from, int to)
+    {
+        int lo = Math.Max(0, from - 1), hi = Math.Min(raw.Count - 1, to + 1);
+        var window = raw.GetRange(lo, hi - lo + 1);
+        if (pressured)
+        {
+            var (points, smoothed) = StrokeGeometry.Smooth(window, pressures.GetRange(lo, hi - lo + 1));
+            return Create(points[(from - lo)..(to - lo + 1)], smoothed[(from - lo)..(to - lo + 1)], opaque: true);
+        }
+        return Create(StrokeGeometry.Smooth(window)[(from - lo)..(to - lo + 1)], opaque: true);
     }
 
     public void PointerUp(CanvasPointer pointer)
@@ -99,6 +129,8 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
         pageIndex = -1;
         raw.Clear();
         pressures.Clear();
+        settled = [];
+        settledEnd = 0;
         pressured = false;
         view.SetPreview(-1, null);
     }
@@ -113,22 +145,25 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
         pressures.Add(pointer.Pressure is { } value && double.IsFinite(value) ? Math.Clamp(value, 0, 1) : pressures[^1]);
     }
 
-    private StrokeAnnotation Create(ImmutableArray<Point2> points, ImmutableArray<double> pressure = default) => Kind == AnnotationKind.Ink
-        ? new InkStroke(Guid.NewGuid(), false, Affine.Identity, points, current.WidthPt, current.Color, current.Opacity)
-        {
-            // Stored with four decimals (schema v8), so the saved file reads back as the same stroke.
-            Pressures = pressure.IsDefaultOrEmpty ? default : [.. pressure.Select(p => Math.Round(p, 4))]
-        }
-        : new FreeHighlightStroke(Guid.NewGuid(), false, Affine.Identity, points, current.WidthPt, current.Color, current.Opacity);
+    private StrokeAnnotation Create(ImmutableArray<Point2> points, ImmutableArray<double> pressure = default, bool opaque = false)
+    {
+        double opacity = opaque ? 1 : current.Opacity;
+        return Kind == AnnotationKind.Ink
+            ? new InkStroke(Guid.NewGuid(), false, Affine.Identity, points, current.WidthPt, current.Color, opacity)
+            {
+                // Stored with four decimals (schema v8), so the saved file reads back as the same stroke.
+                Pressures = pressure.IsDefaultOrEmpty ? default : [.. pressure.Select(p => Math.Round(p, 4))]
+            }
+            : new FreeHighlightStroke(Guid.NewGuid(), false, Affine.Identity, points, current.WidthPt, current.Color, opacity);
+    }
 
+    /// <summary>
+    /// The settled pieces as they are and the end from the last of them (roadmap P5d): drawing a long stroke costs the
+    /// same per frame as a short one. Together they look like the stroke smoothed whole, which is what it commits as.
+    /// </summary>
     IEnumerable<CanvasMark> ICanvasPreview.Marks(int index, Page page, ViewTransform transform)
     {
         if (index != pageIndex || raw.Count == 0) yield break;
-        if (pressured)
-        {
-            var (points, smoothed) = StrokeGeometry.Smooth(raw, pressures);
-            yield return new AnnotationMark(Create(points, smoothed));
-        }
-        else yield return new AnnotationMark(Create(StrokeGeometry.Smooth(raw)));
+        yield return new StrokeProgressMark(previewKey, settled, Piece(settledEnd, raw.Count - 1), current.Opacity);
     }
 }

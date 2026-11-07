@@ -43,7 +43,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     private bool fitWidthPending;
     private bool syncingBars;
     private readonly Dictionary<Guid, (RenderKey Key, SKImage Image)> bases = [];
-    private readonly Dictionary<Guid, (RenderKey Key, SKImage Image)> details = [];
+    private readonly Dictionary<Guid, List<(RenderKey Key, SKImage Image)>> details = []; // the grid tiles at the current zoom (P5d A4)
 
     public DocumentCanvas()
     {
@@ -373,9 +373,14 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
         SyncScrollBars();
         if (NeedBars(Bounds.Size) != (vertical.IsVisible, horizontal.IsVisible)) InvalidateArrange(); // a zoom or mode change needs or frees a bar
         Redraw();
-        planTimer.Stop();
-        planTimer.Interval = planDelay;
-        planTimer.Start();
+        // A scroll plans at most every ScrollPlanDelay while it goes on (a fling or a drag moves the page every frame and
+        // would otherwise push the plan back until it stops: blank pages, roadmap P5d); a zoom waits until it settles.
+        if (!(planTimer.IsEnabled && planDelay == ScrollPlanDelay && planTimer.Interval == ScrollPlanDelay))
+        {
+            planTimer.Stop();
+            planTimer.Interval = planDelay;
+            planTimer.Start();
+        }
         ViewChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -492,6 +497,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         base.OnPointerWheelChanged(e);
+        StopFling();
         if (pages.Count == 0) return;
         var at = e.GetPosition(this);
         if (IsControl(e.KeyModifiers))
@@ -535,9 +541,11 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
             var wantedBase = RenderPlanner.BaseKey(page, target);
             if (queue.TryGet(wantedBase, out var image)) bases[page.Id] = (wantedBase, image);
             else if (!bases.ContainsKey(page.Id) && queue.BestBase(wantedBase) is { } best) bases[page.Id] = best;
-            var wantedDetail = RenderPlanner.DetailKey(l, page, index, viewport, scale);
-            if (wantedDetail is null) details.Remove(page.Id);
-            else if (queue.TryGet(wantedDetail, out var detail)) details[page.Id] = (wantedDetail, detail);
+            var tiles = new List<(RenderKey, SKImage)>();
+            foreach (var wantedTile in RenderPlanner.DetailKeys(l, page, index, viewport, scale))
+                if (queue.TryGet(wantedTile, out var tile)) tiles.Add((wantedTile, tile));
+            if (tiles.Count == 0) details.Remove(page.Id);
+            else details[page.Id] = tiles;
         }
         queue.Request(plan);
         // Pictures of pages neither visible nor planned are dropped (the queue's cache keeps what it can afford).
@@ -559,7 +567,12 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
             var wanted = RenderPlanner.BaseKey(page, target);
             if (!bases.TryGetValue(page.Id, out var shown) || Distance(key, wanted) < Distance(shown.Key, wanted)) bases[page.Id] = (key, image);
         }
-        else if (Math.Abs(key.PixelsPerPoint - target) < 1e-9) details[page.Id] = (key, image);
+        else if (Math.Abs(key.PixelsPerPoint - target) < 1e-9)
+        {
+            if (!details.TryGetValue(page.Id, out var tiles)) details[page.Id] = tiles = [];
+            tiles.RemoveAll(t => t.Key.PixelsPerPoint != key.PixelsPerPoint || !t.Key.Setup.Equals(key.Setup) || t.Key.Region == key.Region);
+            tiles.Add((key, image));
+        }
         Redraw();
     }
 
@@ -571,7 +584,18 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
         public override void Render(DrawingContext context) => owner.RenderPages(context);
     }
 
-    private void Redraw() => surface.InvalidateVisual();
+    /// <summary>Something besides a tool preview changed: the cached frame is made again (<see cref="CanvasDrawOperation"/>).</summary>
+    private void Redraw()
+    {
+        baseVersion++;
+        surface.InvalidateVisual();
+    }
+
+    /// <summary>Only the tool preview changed (a pointer move while drawing): the rest of the frame is reused.</summary>
+    private void RedrawPreview() => surface.InvalidateVisual();
+
+    private int baseVersion;
+    private readonly FrameCache frameCache = new();
 
     private void RenderPages(DrawingContext context)
     {
@@ -579,6 +603,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
         var viewport = new Rect2(offset.X, offset.Y, viewportWidth, viewportHeight);
         var visible = layout.VisiblePages(viewport);
         var shots = new List<PageShot>(visible.Count);
+        bool anyLive = UpdateLive();
         foreach (int index in visible)
         {
             var page = pages[index];
@@ -591,16 +616,20 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
                 else if (queue.BestBase(wanted) is { } best) b = bases[page.Id] = best;
             }
             bool failed = b.Image is null && queue is not null && queue.HasFailed(RenderPlanner.BaseKey(page, RenderPlanner.TargetPixelsPerPoint(zoom, DpiScale)), out _);
-            var d = details.TryGetValue(page.Id, out var dd) && dd.Key.Setup.Equals(page.Setup) ? dd : default;
+            var tiles = details.TryGetValue(page.Id, out var dd) ? dd.Where(t => t.Key.Setup.Equals(page.Setup)).ToArray() : [];
             var live = PreviewPainter(index, page, transform);
-            shots.Add(new(index, page, transform, b.Image, d.Key, d.Image, previewIsMark ? null : live, previewIsMark ? live : null,
-                MarksFor?.Invoke(index, page, transform), OverlayFor?.Invoke(index, page, transform)) { BaseKey = b.Image is null ? null : b.Key, Failed = failed });
+            shots.Add(new(index, page, transform, b.Image, tiles, previewIsMark ? null : live, previewIsMark ? live : null,
+                MarksFor?.Invoke(index, page, transform), OverlayFor?.Invoke(index, page, transform))
+            {
+                BaseKey = b.Image is null ? null : b.Key, Failed = failed,
+                Live = anyLive ? LiveFor?.Invoke(index, page, transform) : null,
+            });
         }
-        context.Custom(new CanvasDrawOperation(new Rect(0, 0, viewportWidth, viewportHeight), shots, Snapshot()));
+        context.Custom(new CanvasDrawOperation(new Rect(0, 0, viewportWidth, viewportHeight), shots, Snapshot(), frameCache, baseVersion));
     }
 
     /// <summary>One visible page as it is drawn this frame (immutable: the draw runs on the render thread).</summary>
-    internal sealed record PageShot(int Index, Page Page, ViewTransform Transform, SKImage? Base, RenderKey? DetailKey, SKImage? Detail,
+    internal sealed record PageShot(int Index, Page Page, ViewTransform Transform, SKImage? Base, IReadOnlyList<(RenderKey Key, SKImage Image)> Tiles,
         PagePainter? Preview = null, PagePainter? MarkPreview = null, PagePainter? Marks = null, PagePainter? Overlay = null)
     {
         /// <summary>The key the base picture was made for (its pixels per point place it 1:1).</summary>
@@ -608,6 +637,9 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
 
         /// <summary>The page could not be rendered: its paper says so (the WPF page.renderFailed).</summary>
         public bool Failed { get; init; }
+
+        /// <summary>Annotations a drag is changing, painted over the overlay (not part of the kept frame).</summary>
+        public PagePainter? Live { get; init; }
     }
 
     /// <summary>What the render thread needs from the control for one frame.</summary>

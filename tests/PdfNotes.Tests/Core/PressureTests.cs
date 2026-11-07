@@ -261,6 +261,42 @@ public sealed class PressureTests
         Assert.IsType<FreeHighlightStroke>(session.Current.Pages[0].Annotations[^1]);
     }
 
+    /// <summary>Roadmap P5d: a long stroke's preview is settled pieces plus a moving end, together the stroke smoothed whole.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void TheStrokePreviewIsSettledPiecesThatStayAndAnEnd(bool pressure)
+    {
+        var session = new DocumentSession(TestModels.Empty());
+        var view = new FlatView(session.Current.Pages[0]);
+        var tool = new StrokeTool(view, () => session, () => StrokeStyle.DefaultPen with { TransparencyPercent = 50 }, AnnotationKind.Ink, () => pressure);
+        var raw = Enumerable.Range(0, 80).Select(i => new Point2(50 + i * 3, 100 + Math.Sin(i / 4.0) * 20)).ToArray();
+        var pressures = raw.Select((_, i) => 0.3 + 0.6 * ((i * 7) % 10) / 10.0).ToArray();
+        CanvasPointer At(int i) => new(raw[i], InputModifiers.None, Device: PointerDevice.Pen, Pressure: pressures[i]);
+        ICanvasPreview preview = tool;
+        var onPage = raw.Select(p => view.PageTransform(0).DipToPage.Transform(p)).ToArray();
+        tool.PointerDown(At(0));
+        StrokeAnnotation? firstPiece = null;
+        for (int i = 1; i < raw.Length; i++)
+        {
+            tool.PointerMove(At(i));
+            var mark = Assert.IsType<PdfNotes.Core.Marks.StrokeProgressMark>(Assert.Single(preview.Marks(0, session.Current.Pages[0], view.PageTransform(0))));
+            Assert.Equal(0.5, mark.Opacity);
+            Assert.All(mark.Settled.Append(mark.Tail!), p => Assert.Equal(1, p.Opacity)); // opaque pieces, shown at the opacity as one
+            if (mark.Settled.Count > 0) Assert.Same(firstPiece ??= mark.Settled[0], mark.Settled[0]); // a settled piece never changes
+            // Joined at their shared points, the pieces are the stroke so far smoothed whole.
+            var joined = mark.Settled.Append(mark.Tail!).SelectMany((p, k) => k == 0 ? p.Points : p.Points.Skip(1)).ToArray();
+            Assert.Equal(StrokeGeometry.Smooth(onPage[..(i + 1)]).ToArray(), joined);
+            if (pressure)
+            {
+                var joinedPressures = mark.Settled.Append(mark.Tail!).Cast<InkStroke>().SelectMany((p, k) => k == 0 ? p.Pressures : p.Pressures.Skip(1)).ToArray();
+                var whole = StrokeGeometry.Smooth(onPage[..(i + 1)], pressures[..(i + 1)]).Pressures.Select(p => Math.Round(p, 4)).ToArray();
+                Assert.Equal(whole, joinedPressures);
+            }
+        }
+        Assert.NotNull(firstPiece); // long enough to settle pieces
+    }
+
     private static int Version(byte[] json) => System.Text.Json.Nodes.JsonNode.Parse(json)!["schemaVersion"]!.GetValue<int>();
 
     /// <summary>One page at 100% with its top-left corner at the viewport origin.</summary>

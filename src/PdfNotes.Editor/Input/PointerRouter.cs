@@ -23,6 +23,10 @@ public abstract record PointerAction
 
     /// <summary>A finger tap: a click for tools that take one (<see cref="TouchRules.TapReachesTool"/>). ClickCount 2 on a double tap.</summary>
     public sealed record Tap(CanvasPointer Pointer) : PointerAction;
+
+    /// <summary>A finger let go of the page while moving it: the page goes on at <see cref="Velocity"/> (DIP/s, the
+    /// direction the content moves) and slows down by itself.</summary>
+    public sealed record Fling(Point2 Velocity) : PointerAction;
 }
 
 /// <summary>Settings of <see cref="PointerRouter"/> (spec 7.6, app settings).</summary>
@@ -46,6 +50,9 @@ public sealed record PointerRouterOptions
 
     /// <summary>Palm rejection: a contact this large (longer side, DIP) is a palm.</summary>
     public double PalmContactDip { get; init; } = 30;
+
+    /// <summary>A finger that lets go of the page faster than this (DIP/s) flings it.</summary>
+    public double FlingMinDipPerSecond { get; init; } = 250;
 }
 
 /// <summary>
@@ -77,6 +84,14 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
     private (long Ticks, Point2 At)? lastTap;
     private double pinchDistance;
     private Point2 pinchCenter;
+    private bool grabbing;
+    private readonly Queue<(long Ticks, Point2 At)> panSamples = new();
+
+    /// <summary>
+    /// A finger that touches what the tool can take (a selected or pickable annotation, roadmap P5d) moves it instead of
+    /// the page once it drags; a tap there stays a tap. Null: a finger always moves the page.
+    /// </summary>
+    public Func<CanvasPointer, bool>? FingerGrabs { get; set; }
 
     /// <summary>True while a pen or finger owns the tool (a stroke is in progress).</summary>
     public bool IsDrawing => penId is not null || state == TouchState.Drawing;
@@ -139,9 +154,18 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
                 return [new PointerAction.ToolMove(pointer)];
             case TouchState.Pending:
                 if (pointer.Position.DistanceTo(contact.Down.Position) <= options().TapSlopDip) return [];
+                if (grabbing)
+                {
+                    state = TouchState.Drawing;
+                    return [new PointerAction.ToolDown(contact.Down, false), new PointerAction.ToolMove(pointer)];
+                }
                 state = TouchState.Panning;
+                panSamples.Clear();
+                Sample(contact.Down.Position, contact.DownTicks);
+                Sample(pointer.Position, clock.GetTimestamp());
                 return [new PointerAction.Pan(Minus(pointer.Position, contact.Down.Position))];
             case TouchState.Panning:
+                Sample(pointer.Position, clock.GetTimestamp());
                 return [new PointerAction.Pan(Minus(pointer.Position, previous))];
             case TouchState.Pinching:
                 return Pinch();
@@ -177,6 +201,11 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
                 if (clock.GetElapsedTime(contact.DownTicks, now) <= options().TapTime) result = [Tap(pointer, now)];
                 state = TouchState.Finished;
                 break;
+            case TouchState.Panning:
+                Sample(pointer.Position, clock.GetTimestamp());
+                if (FlingVelocity() is { } velocity) result = [new PointerAction.Fling(velocity)];
+                state = TouchState.Finished;
+                break;
             case TouchState.Pinching:
                 // The other finger stays down but does not start moving the page: lifting one finger of a pinch
                 // would otherwise make the page jump to it.
@@ -185,6 +214,27 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
         }
         if (touches.Count == 0) state = TouchState.None;
         return result;
+    }
+
+    /// <summary>How far back the finger's last moves count for its speed when it lets go.</summary>
+    private static readonly TimeSpan FlingWindow = TimeSpan.FromMilliseconds(100);
+
+    private void Sample(Point2 at, long ticks)
+    {
+        panSamples.Enqueue((ticks, at));
+        while (panSamples.Count > 2 && clock.GetElapsedTime(panSamples.Peek().Ticks, ticks) > FlingWindow) panSamples.Dequeue();
+    }
+
+    private Point2? FlingVelocity()
+    {
+        if (panSamples.Count < 2) return null;
+        var (firstTicks, first) = panSamples.Peek();
+        var (lastTicks, last) = panSamples.Last();
+        panSamples.Clear();
+        double seconds = clock.GetElapsedTime(firstTicks, lastTicks).TotalSeconds;
+        if (seconds <= 0) return null;
+        var velocity = new Point2((last.X - first.X) / seconds, (last.Y - first.Y) / seconds);
+        return Math.Sqrt(velocity.X * velocity.X + velocity.Y * velocity.Y) >= options().FlingMinDipPerSecond ? velocity : null;
     }
 
     /// <summary>A contact was lost (capture taken away, device removed). Its stroke is dropped.</summary>
@@ -234,6 +284,7 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
                 return [new PointerAction.ToolDown(pointer, false)];
             }
             state = TouchState.Pending;
+            grabbing = FingerGrabs?.Invoke(pointer) == true;
             return [];
         }
         // A second finger: a pinch. A finger stroke that had just begun is dropped.

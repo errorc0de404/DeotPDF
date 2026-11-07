@@ -40,7 +40,10 @@ public sealed partial class DocumentCanvas
     /// <summary>The device of the last press: the touch keyboard comes up only after a finger tap.</summary>
     public PointerDevice LastPressDevice { get; private set; } = PointerDevice.Mouse;
 
-    public PointerRouter Router => router ??= new(() => TouchOptions?.Invoke() ?? new PointerRouterOptions());
+    public PointerRouter Router => router ??= new(() => TouchOptions?.Invoke() ?? new PointerRouterOptions())
+    {
+        FingerGrabs = p => !IsToolActive && TouchRules.FingerGrabs(tool, p.Position),
+    };
 
     /// <summary>The tool whose operation is in progress (a temporary one first).</summary>
     public ICanvasTool? ActiveTool => middleTool ?? touchTool ?? tool;
@@ -95,6 +98,7 @@ public sealed partial class DocumentCanvas
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+        StopFling();
         if (FromScrollBar(e)) return;
         Focus();
         if (e.Pointer.Type != PointerType.Mouse)
@@ -324,7 +328,60 @@ public sealed partial class DocumentCanvas
                 case PointerAction.Tap tap:
                     FingerTap(tap.Pointer);
                     break;
+                case PointerAction.Fling fling:
+                    StartFling(fling.Velocity);
+                    break;
             }
+    }
+
+    // ----- fling: the page goes on after a quick swipe and slows down (roadmap P5d) -----
+
+    /// <summary>How fast a flung page slows down: its speed falls to 1/e in this time.</summary>
+    private const double FlingTimeConstantSeconds = 0.45;
+    private const double FlingStopDipPerSecond = 20;
+    private Point2 flingVelocity;
+    private TimeSpan? flingLast;
+    private bool flinging;
+
+    /// <summary>The page is still moving after a fling (tests).</summary>
+    public bool IsFlinging => flinging;
+
+    private void StartFling(Point2 velocity)
+    {
+        flingVelocity = velocity;
+        flingLast = null;
+        if (flinging) return;
+        flinging = true;
+        NextFlingFrame();
+    }
+
+    private void StopFling() => flinging = false;
+
+    private void NextFlingFrame()
+    {
+        if (Avalonia.Controls.TopLevel.GetTopLevel(this) is { } top) top.RequestAnimationFrame(FlingFrame);
+        else flinging = false;
+    }
+
+    private void FlingFrame(TimeSpan now)
+    {
+        if (!flinging) return;
+        if (flingLast is { } last)
+        {
+            double dt = (now - last).TotalSeconds;
+            if (dt <= 0 || dt > 0.1) dt = 1.0 / 60; // the first frame after a pause
+            var before = offset;
+            SetOffset(new(offset.X - flingVelocity.X * dt, offset.Y - flingVelocity.Y * dt));
+            double keep = Math.Exp(-dt / FlingTimeConstantSeconds);
+            flingVelocity = new(flingVelocity.X * keep, flingVelocity.Y * keep);
+            if (offset == before || Math.Sqrt(flingVelocity.X * flingVelocity.X + flingVelocity.Y * flingVelocity.Y) < FlingStopDipPerSecond)
+            {
+                flinging = false;
+                return;
+            }
+        }
+        flingLast = now;
+        NextFlingFrame();
     }
 
     private void PenOrFingerDown(CanvasPointer pointer, bool erase, IPointer? device)

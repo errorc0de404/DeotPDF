@@ -62,6 +62,12 @@ public interface ICanvasView
     void RefreshPreview();
     void RefreshOverlays();
     void RefreshOverlay(int pageIndex);
+
+    /// <summary>
+    /// Only the annotations being changed by a drag (a moved selection, the pieces an eraser leaves) look different:
+    /// the view may keep the rest of the frame (roadmap P5d A2). Which annotations those are, the view asks the window.
+    /// </summary>
+    void RefreshLive() => RefreshOverlays();
 }
 
 /// <summary>A tool's live preview on one page, as marks the platform paints in order.</summary>

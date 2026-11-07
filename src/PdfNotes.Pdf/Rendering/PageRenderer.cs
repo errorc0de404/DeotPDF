@@ -15,6 +15,7 @@ public sealed class PageRenderer : IDisposable
     private readonly DocumentSources? source;
     private readonly object gate = new();
     private readonly LinkedList<(PageSetup Setup, PdfiumDocument Document)> generated = new();
+    private readonly Dictionary<byte[], PdfSharp.Pdf.PdfDocument> backgrounds = new(ReferenceEqualityComparer.Instance);
     private bool disposed;
 
     public PageRenderer(DocumentSources source) => this.source = source;
@@ -70,7 +71,7 @@ public sealed class PageRenderer : IDisposable
         if (setup.Source.Kind == PageSourceKind.Pdf)
         {
             // The same vector writer is used for screen, thumbnails and saved pages; no background rasterization.
-            bytes = PageContentWriter.SingleBackground(source!, setup);
+            bytes = PageContentWriter.SingleBackground(source!, setup, backgrounds);
         }
         else bytes = GeneratedPageWriter.CreateSinglePagePdf(setup);
         var document = new PdfiumDocument(bytes);
@@ -91,6 +92,8 @@ public sealed class PageRenderer : IDisposable
             disposed = true;
             foreach (var (_, document) in generated) document.Dispose();
             generated.Clear();
+            foreach (var kept in backgrounds.Values) kept.Dispose();
+            backgrounds.Clear();
         }
     }
 }

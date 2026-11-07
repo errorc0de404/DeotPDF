@@ -23,7 +23,23 @@ public sealed class ForeignViewModel(MainViewModel owner) : ObservableObject
     public bool IsShown => Count > 0;
 
     /// <summary>True when some page still shows other apps' annotations that the command would convert.</summary>
-    public bool CanConvert => owner.Document is { } doc && Count > 0 && !owner.IsBusy && doc.Sources.ForeignConversion(doc.Session.Current) is not null;
+    public bool CanConvert => owner.Document is { } doc && Count > 0 && !owner.IsBusy && Convertible(doc);
+
+    private (OpenDocument Document, Core.Models.DocumentModel Model, int Parts, bool Answer)? convertible;
+
+    /// <summary>
+    /// The conversion would change something, worked out once per model (P5d B3: every edit built the whole conversion
+    /// to answer this; the command builds it again when used).
+    /// </summary>
+    private bool Convertible(OpenDocument doc)
+    {
+        var model = doc.Session.Current;
+        int parts = doc.Sources.Imported.Count;
+        if (convertible is { } known && ReferenceEquals(known.Document, doc) && ReferenceEquals(known.Model, model) && known.Parts == parts) return known.Answer;
+        bool answer = doc.Sources.ForeignConversion(model) is not null;
+        convertible = (doc, model, parts, answer);
+        return answer;
+    }
 
     /// <summary>The document, its model or the busy state changed: the command may be enabled differently.</summary>
     public void Refresh()

@@ -7,8 +7,15 @@ using SkiaSharp;
 
 namespace PdfNotes.UI.Canvas;
 
-/// <summary>Draws one frame of the document canvas through Avalonia's Skia lease (render thread).</summary>
-internal sealed class CanvasDrawOperation(Rect bounds, IReadOnlyList<DocumentCanvas.PageShot> shots, DocumentCanvas.CanvasLook look) : ICustomDrawOperation
+/// <summary>
+/// Draws one frame of the document canvas through Avalonia's Skia lease (render thread). While a tool shows a preview
+/// (a stroke being drawn, a shape being dragged) the rest of the frame does not change from one pointer move to the next:
+/// it is drawn once into <see cref="FrameCache"/> and each frame puts that picture down and draws the preview over it,
+/// instead of the page pictures and all notes again (roadmap P5d: writing stuttered on the tablet).
+/// <paramref name="baseVersion"/> changes whenever anything but the preview changed.
+/// </summary>
+internal sealed class CanvasDrawOperation(Rect bounds, IReadOnlyList<DocumentCanvas.PageShot> shots, DocumentCanvas.CanvasLook look,
+    FrameCache? cache = null, int baseVersion = 0) : ICustomDrawOperation
 {
     public Rect Bounds => bounds;
     public bool HitTest(Point p) => false;
@@ -22,9 +29,54 @@ internal sealed class CanvasDrawOperation(Rect bounds, IReadOnlyList<DocumentCan
         var canvas = lease.SkCanvas;
         canvas.Save();
         canvas.ClipRect(SKRect.Create(0, 0, (float)bounds.Width, (float)bounds.Height));
-        PageDrawing.Draw(canvas, shots, look);
+        if (cache is null || !shots.Any(s => s.Preview is not null || s.MarkPreview is not null || s.Live is not null) || !DrawCached(canvas, cache, lease.GrContext))
+        {
+            if (cache is not null) cache.Version = -1;
+            PageDrawing.Draw(canvas, shots, look);
+        }
         canvas.Restore();
     }
+
+    /// <summary>The frame from the cached picture of everything but the previews; false where none can be made.</summary>
+    private bool DrawCached(SKCanvas canvas, FrameCache cache, GRContext? gpu)
+    {
+        var matrix = canvas.TotalMatrix;
+        float scale = matrix.ScaleX;
+        if (matrix.SkewX != 0 || matrix.SkewY != 0 || scale <= 0 || Math.Abs(matrix.ScaleY - scale) > 1e-4) return false;
+        int width = (int)Math.Ceiling(bounds.Width * scale), height = (int)Math.Ceiling(bounds.Height * scale);
+        if (width <= 0 || height <= 0) return false;
+        if (cache.Surface is null || cache.Width != width || cache.Height != height || cache.Scale != scale || !ReferenceEquals(cache.Gpu, gpu))
+        {
+            cache.Surface?.Dispose();
+            var info = new SKImageInfo(width, height);
+            cache.Surface = gpu is not null ? SKSurface.Create(gpu, false, info) : SKSurface.Create(info);
+            (cache.Width, cache.Height, cache.Scale, cache.Gpu, cache.Version) = (width, height, scale, gpu, -1);
+            if (cache.Surface is null) return false;
+        }
+        if (cache.Version != baseVersion)
+        {
+            var target = cache.Surface.Canvas;
+            target.ResetMatrix();
+            target.Clear(SKColors.Transparent);
+            target.Scale(scale);
+            PageDrawing.Draw(target, shots, look, previews: false);
+            target.Flush();
+            cache.Version = baseVersion;
+        }
+        using (var picture = cache.Surface.Snapshot())
+            canvas.DrawImage(picture, SKRect.Create(0, 0, width / scale, height / scale), new SKSamplingOptions(SKFilterMode.Nearest), null);
+        PageDrawing.DrawPreviews(canvas, shots, look);
+        return true;
+    }
+}
+
+/// <summary>The canvas's picture of everything but the tool previews (render thread only; see <see cref="CanvasDrawOperation"/>).</summary>
+internal sealed class FrameCache
+{
+    public SKSurface? Surface;
+    public int Width, Height, Version = -1;
+    public float Scale;
+    public GRContext? Gpu;
 }
 
 /// <summary>
@@ -42,7 +94,7 @@ public static class PageDrawing
         0, 0, 0, 1, 0
     ]);
 
-    internal static void Draw(SKCanvas canvas, IReadOnlyList<DocumentCanvas.PageShot> shots, DocumentCanvas.CanvasLook look)
+    internal static void Draw(SKCanvas canvas, IReadOnlyList<DocumentCanvas.PageShot> shots, DocumentCanvas.CanvasLook look, bool previews = true)
     {
         using var fill = new SKPaint { IsAntialias = false, Style = SKPaintStyle.Fill };
         using var image = new SKPaint();
@@ -73,10 +125,12 @@ public static class PageDrawing
                 double perPixel = shot.BaseKey is { } bk ? t.DipsPerPagePoint / bk.PixelsPerPoint : 1 / dpi;
                 canvas.DrawImage(b, SKRect.Create(rect.Left, rect.Top, (float)(b.Width * perPixel), (float)(b.Height * perPixel)), sampling, image);
             }
-            if (shot.Detail is { } d && shot.DetailKey is { Region: { } region } dk)
+            // Grid tiles are made at the screen's pixels and drawn 1:1, so neighbors meet without a seam.
+            foreach (var (tileKey, tile) in shot.Tiles)
             {
-                double perPixel = t.DipsPerPagePoint / dk.PixelsPerPoint;
-                canvas.DrawImage(d, SKRect.Create((float)(o.X + region.X * perPixel), (float)(o.Y + region.Y * perPixel), (float)(region.Width * perPixel), (float)(region.Height * perPixel)), sampling, image);
+                if (tileKey.Region is not { } region) continue;
+                double perPixel = t.DipsPerPagePoint / tileKey.PixelsPerPoint;
+                canvas.DrawImage(tile, SKRect.Create((float)(o.X + region.X * perPixel), (float)(o.Y + region.Y * perPixel), (float)(region.Width * perPixel), (float)(region.Height * perPixel)), new SKSamplingOptions(SKFilterMode.Nearest), image);
             }
             if (shot.Failed && look.FailedText.Length > 0)
             {
@@ -87,19 +141,56 @@ public static class PageDrawing
             }
             if (look.PageNumberSize > 0) DrawPageNumber(canvas, shot.Index + 1, rect, look);
             shot.Overlay?.Invoke(canvas, shot.Index, shot.Page, t);
-            shot.Preview?.Invoke(canvas, shot.Index, shot.Page, t);
+            if (previews)
+            {
+                shot.Live?.Invoke(canvas, shot.Index, shot.Page, t);
+                shot.Preview?.Invoke(canvas, shot.Index, shot.Page, t);
+            }
             canvas.Restore();
 
             using (var edge = new SKPaint { Color = look.Edge, Style = SKPaintStyle.Stroke, StrokeWidth = (float)(1 / dpi), IsAntialias = false })
                 canvas.DrawRect(rect, edge);
-            // Screen marks are never inverted and not clipped to the page (handles may stick out).
-            shot.Marks?.Invoke(canvas, shot.Index, shot.Page, t);
-            if (shot.MarkPreview is { } preview)
+            // Screen marks are never inverted and not clipped to the page (handles may stick out). Over a kept frame they
+            // are drawn each time (a moved selection's handles move with it).
+            if (previews) shot.Marks?.Invoke(canvas, shot.Index, shot.Page, t);
+            if (previews && shot.MarkPreview is { } preview)
             {
                 // Tool marks (eraser circle, lasso) stay inside the page like the WPF view's.
                 canvas.Save();
                 canvas.ClipRect(rect);
                 preview(canvas, shot.Index, shot.Page, t);
+                canvas.Restore();
+            }
+        }
+    }
+
+    /// <summary>Only the tool previews of a frame, placed and clipped as <see cref="Draw"/> places them (over a cached frame).</summary>
+    internal static void DrawPreviews(SKCanvas canvas, IReadOnlyList<DocumentCanvas.PageShot> shots, DocumentCanvas.CanvasLook look)
+    {
+        foreach (var shot in shots)
+        {
+            var t = shot.Transform;
+            var o = t.PageOriginDip;
+            var rect = SKRect.Create((float)o.X, (float)o.Y, (float)t.PageWidthDip, (float)t.PageHeightDip);
+            if (shot.Live is not null || shot.Preview is not null)
+            {
+                int saved = canvas.Save();
+                canvas.ClipRect(rect);
+                if (look.DarkPages)
+                {
+                    using var layer = new SKPaint { ColorFilter = Invert };
+                    canvas.SaveLayer(rect, layer);
+                }
+                shot.Live?.Invoke(canvas, shot.Index, shot.Page, t);
+                shot.Preview?.Invoke(canvas, shot.Index, shot.Page, t);
+                canvas.RestoreToCount(saved);
+            }
+            shot.Marks?.Invoke(canvas, shot.Index, shot.Page, t);
+            if (shot.MarkPreview is { } mark)
+            {
+                canvas.Save();
+                canvas.ClipRect(rect);
+                mark(canvas, shot.Index, shot.Page, t);
                 canvas.Restore();
             }
         }

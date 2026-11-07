@@ -12,14 +12,27 @@ namespace PdfNotes.Pdf.Writing;
 /// <summary>Vector-preserving page placement. Always starts from the original stripped source, never a previous wrapper.</summary>
 internal static class PageContentWriter
 {
-    internal static byte[] SingleBackground(DocumentSources source, PageSetup setup)
+    /// <param name="backgrounds">
+    /// Source files already stripped and opened for import, kept by the caller (P5d C1: each moved or resized page parsed
+    /// and saved its whole source file again). Use it from one thread at a time.
+    /// </param>
+    internal static byte[] SingleBackground(DocumentSources source, PageSetup setup, Dictionary<byte[], PdfDocument>? backgrounds = null)
     {
         var (_, bytes, pages, index) = source.Locate(setup.Source.PdfPageIndex!.Value, setup.Source.ForeignConverted);
-        using var stripped = EditablePdfReader.OpenStripped(bytes, pages, out var background, saveBackground: true);
-        using var import = PdfSharp.Pdf.IO.PdfReader.Open(new MemoryStream(background.BackgroundPdf, false), PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import);
-        using var document = new PdfDocument();
-        var page = document.AddPage(import.Pages[index]); Apply(page, setup, pages[index]);
-        using var output = new MemoryStream(); document.Save(output, false); return output.ToArray();
+        PdfDocument? kept = null;
+        if (backgrounds is null || !backgrounds.TryGetValue(bytes, out kept))
+        {
+            using (EditablePdfReader.OpenStripped(bytes, pages, out var background, saveBackground: true))
+                kept = PdfSharp.Pdf.IO.PdfReader.Open(new MemoryStream(background.BackgroundPdf, false), PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import);
+            backgrounds?.Add(bytes, kept);
+        }
+        try
+        {
+            using var document = new PdfDocument();
+            var page = document.AddPage(kept.Pages[index]); Apply(page, setup, pages[index]);
+            using var output = new MemoryStream(); document.Save(output, false); return output.ToArray();
+        }
+        finally { if (backgrounds is null) kept.Dispose(); }
     }
     internal const string OriginalKey = "/PdfNotesOriginal";
     internal const string OriginalHashKey = "/PdfNotesOriginalHash";
