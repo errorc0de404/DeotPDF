@@ -26,7 +26,8 @@ public sealed class EraseGesture
     private readonly Page page;
     private readonly List<(StrokeAnnotation Stroke, Affine ToLocal, Rect2 PageBounds)> candidates = [];
     private readonly HashSet<Guid> removed = [];
-    private readonly Dictionary<Guid, PathsD> regions = [];
+    /// <summary>What area mode left of each cut stroke (local points), with its bounds and area so a move beside it costs nothing.</summary>
+    private readonly Dictionary<Guid, (PathsD Region, Rect2 Bounds, double Area)> regions = [];
     private readonly List<(Annotation Mark, PathsD Region, Rect2 PageBounds)> marks = [];
     private readonly List<(TextBoxAnnotation Box, List<(TextHighlightRange Range, PathsD Region)> Ranges)> boxes = [];
     private readonly Dictionary<Guid, HashSet<TextHighlightRange>> erasedRanges = [];
@@ -59,6 +60,7 @@ public sealed class EraseGesture
     private static Rect2 RegionBounds(PathsD region)
     {
         var points = region.SelectMany(r => r).ToArray();
+        if (points.Length == 0) return new(double.PositiveInfinity, double.PositiveInfinity, 0, 0); // overlaps nothing
         double x0 = points.Min(p => p.x), y0 = points.Min(p => p.y);
         return new(x0, y0, points.Max(p => p.x) - x0, points.Max(p => p.y) - y0);
     }
@@ -97,17 +99,24 @@ public sealed class EraseGesture
                 changed = true;
                 continue;
             }
-            if (!regions.TryGetValue(stroke.Id, out var region))
+            if (!regions.TryGetValue(stroke.Id, out var cut))
             {
                 if (!StrokeRegion.Touches(stroke, la, lb, Radius)) continue;
-                region = StrokeRegion.Region(stroke);
+                var whole = StrokeRegion.Region(stroke);
+                cut = (whole, RegionBounds(whole), StrokeRegion.Area(whole));
             }
-            double before = StrokeRegion.Area(region);
-            var rest = StrokeRegion.Subtract(region, StrokeRegion.Capsule(la, lb, Radius));
-            regions[stroke.Id] = rest;
-            if (StrokeRegion.Area(rest) >= before) continue;
+            else
+            {
+                var r = cut.Bounds;
+                if (r.X > Math.Max(la.X, lb.X) + Radius || r.X + r.Width < Math.Min(la.X, lb.X) - Radius ||
+                    r.Y > Math.Max(la.Y, lb.Y) + Radius || r.Y + r.Height < Math.Min(la.Y, lb.Y) - Radius) continue; // beside what is left
+            }
+            var rest = StrokeRegion.Subtract(cut.Region, StrokeRegion.Capsule(la, lb, Radius));
+            double area = StrokeRegion.Area(rest);
+            regions[stroke.Id] = (rest, RegionBounds(rest), area);
+            if (area >= cut.Area) continue;
             var rings = StrokeRegion.ToRings(rest);
-            if (rings.IsEmpty || StrokeRegion.Area(rest) < StrokeRegion.MinPieceAreaPt2)
+            if (rings.IsEmpty || area < StrokeRegion.MinPieceAreaPt2)
             {
                 removed.Add(stroke.Id);
                 preview[stroke.Id] = [];
@@ -168,7 +177,7 @@ public sealed class EraseGesture
                 operations.Add(new RemoveAnnotationOperation(page.Id, index, annotation)); // a glyph mark goes whole
                 continue;
             }
-            var pieces = removed.Contains(stroke.Id) ? [] : StrokeRegion.Pieces(regions[stroke.Id]);
+            var pieces = removed.Contains(stroke.Id) ? [] : StrokeRegion.Pieces(regions[stroke.Id].Region);
             if (pieces.IsEmpty)
             {
                 operations.Add(new RemoveAnnotationOperation(page.Id, index, stroke));

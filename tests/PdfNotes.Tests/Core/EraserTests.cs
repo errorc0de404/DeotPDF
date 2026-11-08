@@ -125,6 +125,25 @@ public sealed class EraserTests
         Assert.Equal(before.Pages[0].Annotations, session.Current.Pages[0].Annotations);
     }
 
+    /// <summary>
+    /// After a cut, a move where the cut-away part was is beside what is left: the preview stays as it is (plan C3 skips
+    /// it by the bounds of what is left instead of subtracting again).
+    /// </summary>
+    [Fact]
+    public void AnEraserMovingBesideACutStrokeLeavesItUnchanged()
+    {
+        var stroke = Ink([new(0, 50), new(200, 50)], width: 4);
+        var (session, pageId) = Session(stroke);
+        var gesture = new EraseGesture(session.Current, pageId, EraserMode.Area, 20);
+        gesture.AddPoint(new(100, 50));
+        Assert.True(gesture.AddPoint(new(215, 50))); // the right half goes
+        var cut = gesture.Preview[stroke.Id];
+        Assert.False(gesture.AddPoint(new(180, 70)));
+        Assert.False(gesture.AddPoint(new(150, 50)));
+        Assert.Same(cut, gesture.Preview[stroke.Id]);
+        Assert.InRange(AnnotationGeometry.LocalBounds(Assert.Single(cut)).X + AnnotationGeometry.LocalBounds(cut[0]).Width, 85, 95);
+    }
+
     [Fact]
     public void ErasingOnlyTheEdgeOfAThickStrokeKeepsTheRestExactly()
     {
