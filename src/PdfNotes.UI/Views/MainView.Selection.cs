@@ -50,7 +50,8 @@ public sealed partial class MainView
     {
         FinishTextEditing();
         if (Document is null) return null;
-        textMenu &= selectTool.HasTextSelection;
+        // A selection of made-up characters only (a space or line end between words) has no shape: the usual menu then.
+        textMenu &= selectTool.HasTextSelection && selectTool.TextSelectionQuads(selectTool.TextSelectionPage).Count > 0;
         Guid? hit;
         bool onText;
         PdfNotes.Editor.Layout.PageAnchor anchor;

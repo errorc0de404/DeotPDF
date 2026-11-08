@@ -240,6 +240,28 @@ public sealed class UiRegressionTests
         w.Close();
     });
 
+    /// <summary>
+    /// Final review of 2026-11-08 (C1): a drag that selects only characters the engine made up (a space or line end
+    /// between words) has a selection without any shape; the menu after it opens like a long press instead of failing.
+    /// </summary>
+    [Fact]
+    public void AfterATextDragOverOnlyMadeUpCharactersTheMenuStillOpens() => Headless.Run(async () =>
+    {
+        var w = await Opened(1);
+        var glyphs = w.View.ViewModel.PageGlyphs(0);
+        int empty = Enumerable.Range(0, glyphs.Count).First(i => glyphs[i].IsEmpty);
+        w.View.SetTool(ToolKind.Select);
+        w.View.Selection.SelectText(0, empty, empty + 1);
+        Assert.True(w.View.Selection.HasTextSelection);
+        Assert.Empty(w.View.Selection.TextSelectionQuads(0));
+        var at = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(new Point2(300, 400));
+        var menu = w.View.OpenAnnotationMenu(at, textMenu: true);
+        Assert.NotNull(menu);
+        Assert.DoesNotContain(menu.Items.OfType<MenuItem>(), i => (string)i.Header! == Strings.Get("command.highlight"));
+        menu.Close();
+        w.Close();
+    });
+
     /// <summary>d13h: opened files go to the recent list; a recent file that is gone is named in the status line and taken off the list.</summary>
     [Fact]
     public void ARecentFileThatIsGoneIsRemoved() => Headless.Run(async () =>
