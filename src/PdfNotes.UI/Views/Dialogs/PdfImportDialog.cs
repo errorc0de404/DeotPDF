@@ -117,10 +117,11 @@ public sealed class PdfImportDialog : AppDialog
         Closed += (_, _) => closing.Cancel();
         range.Text = PageRanges.All;
         ShowPreview(0);
-        Opened += (_, _) => { range.Focus(); range.SelectAll(); RenderVisible(); };
-        // Only the rows in view are drawn (the WPF dialog): when the list scrolls or lays out new rows, and again at another screen scale.
-        list.AddHandler(ScrollViewer.ScrollChangedEvent, (_, _) => RenderVisible());
-        list.LayoutUpdated += (_, _) => RenderVisible();
+        Opened += (_, _) => { range.Focus(); range.SelectAll(); _ = RenderVisibleAsync(); };
+        // Only the rows in view are drawn (the WPF dialog): when the list scrolls, its rows change the extent or it is
+        // resized, and again at another screen scale. Not on every layout pass (plan C5).
+        list.AddHandler(ScrollViewer.ScrollChangedEvent, (_, _) => _ = RenderVisibleAsync());
+        list.SizeChanged += (_, _) => _ = RenderVisibleAsync();
         // Another monitor scale (the window's or the screen's): the thumbnails at its pixels.
         AttachedToVisualTree += (_, _) => { if (TopLevel.GetTopLevel(this) is { } top) top.ScalingChanged += Rescaled; };
         DetachedFromVisualTree += (_, _) => { if (TopLevel.GetTopLevel(this) is { } top) top.ScalingChanged -= Rescaled; };
@@ -130,7 +131,7 @@ public sealed class PdfImportDialog : AppDialog
     {
         scaleGeneration++;
         foreach (var thumb in thumbs) thumb.Image = null;
-        RenderVisible();
+        _ = RenderVisibleAsync();
         if (previewIndex >= 0) ShowPreview(previewIndex);
     }
 
@@ -170,7 +171,7 @@ public sealed class PdfImportDialog : AppDialog
     });
 
     /// <summary>Draws the thumbnails of the rows in view that have none yet, one at a time off the UI thread.</summary>
-    private async void RenderVisible()
+    private async Task RenderVisibleAsync()
     {
         if (rendering || closing.IsCancellationRequested) return;
         rendering = true;
@@ -178,7 +179,9 @@ public sealed class PdfImportDialog : AppDialog
         {
             while (!closing.IsCancellationRequested)
             {
-                var next = thumbs.FirstOrDefault(t => t.Image is null && list.ContainerFromItem(t) is { IsEffectivelyVisible: true } row && InView(row));
+                // The realized rows only (plan C5: every thumbnail asked for its row on each pass).
+                var next = list.GetRealizedContainers().Where(row => row is { IsEffectivelyVisible: true, DataContext: ImportThumb { Image: null } } && InView(row))
+                    .Select(row => (ImportThumb)row.DataContext!).MinBy(t => t.Index);
                 if (next is null) break;
                 int generation = scaleGeneration;
                 var image = await Render(next.Index, ThumbWidth) ?? Unreadable;
