@@ -147,7 +147,11 @@ public sealed class PageRenderQueue<TBitmap> : IDisposable where TBitmap : class
 
     private void Deliver(PageRenderResult<TBitmap> result)
     {
-        if (disposed) return;
+        if (disposed)
+        {
+            (result.Bitmap as IDisposable)?.Dispose(); // finished after the queue was let go: nobody will show it
+            return;
+        }
         long bytes;
         lock (gate)
         {
@@ -160,6 +164,10 @@ public sealed class PageRenderQueue<TBitmap> : IDisposable where TBitmap : class
         Completed?.Invoke(result);
     }
 
+    /// <summary>
+    /// Stops the queue without waiting for the page being rendered (switching documents must not freeze the UI); the
+    /// worker drops that render when it ends. The renderer may be disposed right after: its calls are serialized.
+    /// </summary>
     public void Dispose()
     {
         lock (gate)
@@ -170,7 +178,6 @@ public sealed class PageRenderQueue<TBitmap> : IDisposable where TBitmap : class
             runningCancellation?.Cancel();
         }
         shutdown.Cancel();
-        worker.Join(TimeSpan.FromSeconds(5));
         cache.Clear();
         failures.Clear();
         Completed = null;

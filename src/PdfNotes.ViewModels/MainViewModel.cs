@@ -272,7 +272,8 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
     {
         next.Session.StateChanged += SessionStateChanged;
         DocumentShown?.Invoke(previous, next);
-        previous?.Dispose();
+        // Off the UI thread: closing the old engines waits for the page PDFium is still rendering for it.
+        if (previous is not null) _ = Task.Run(previous.Dispose);
         Pages.DocumentReplaced(); // after the canvas shows the new pages: the active page is the one in view
         Navigation.DocumentReplaced();
         Navigation.ResetPageInput();
