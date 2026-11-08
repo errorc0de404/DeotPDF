@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using PdfNotes.Core.Models;
 using PdfNotes.Core.Serialization;
 using PdfNotes.Pdf.Engine;
@@ -18,6 +19,38 @@ namespace PdfNotes.Pdf.Writing;
 /// </summary>
 public static class EditablePdfWriter
 {
+    /// <summary>What a save stores as the original of a source, and its geometry (<see cref="Prepare"/>).</summary>
+    private sealed record Prepared(byte[] Original, IReadOnlyList<PdfPageGeometry> Pages, IReadOnlyList<PdfPageGeometry>? Given);
+
+    private static readonly ConditionalWeakTable<byte[], Prepared> PreparedSources = new();
+
+    /// <summary>
+    /// The original a save stores for <paramref name="sourcePdf"/>: the archived original of a file this app saved, or else
+    /// the source without our app annotations and metadata. Prepared once per source array (plan C1): source bytes are
+    /// never modified, so every save of an open document reuses it until a save gives the document new source bytes.
+    /// </summary>
+    private static Prepared Prepare(byte[] sourcePdf, IReadOnlyList<PdfPageGeometry>? sourcePages)
+    {
+        if (PreparedSources.TryGetValue(sourcePdf, out var cached) && ReferenceEquals(cached.Given, sourcePages)) return cached;
+        byte[]? original;
+        using (var input = PdfReader.Open(new MemoryStream(sourcePdf, writable: false), PdfDocumentOpenMode.Import))
+            original = PageContentWriter.Original(input);
+        if (original is not null && EditablePdfReader.Read(sourcePdf, PdfPageGeometryReader.Read(sourcePdf)).SourcePdf is null) original = null;
+        Prepared result;
+        if (original is not null) result = new(original, PdfPageGeometryReader.Read(original), sourcePages);
+        else
+        {
+            var pages = sourcePages ?? PdfPageGeometryReader.Read(sourcePdf);
+            using var stripped = EditablePdfReader.OpenStripped(sourcePdf, pages, out _, saveBackground: false);
+            PageContentWriter.RemoveMetadata(stripped.Document);
+            using var saved = new MemoryStream();
+            stripped.Document.Save(saved, false);
+            result = new(saved.ToArray(), pages, sourcePages);
+        }
+        PreparedSources.AddOrUpdate(sourcePdf, result);
+        return result;
+    }
+
     /// <param name="sourcePdf">Bytes of the opened PDF, or null for a new note (all pages generated).</param>
     /// <param name="sourcePages">Geometry measured when <paramref name="sourcePdf"/> was opened.</param>
     /// <param name="imported">
@@ -31,10 +64,9 @@ public static class EditablePdfWriter
         byte[]? original = null;
         if (sourcePdf is not null)
         {
-            using var input = PdfReader.Open(new MemoryStream(sourcePdf, writable: false), PdfDocumentOpenMode.Import);
-            original = PageContentWriter.Original(input);
-            if (original is not null && EditablePdfReader.Read(sourcePdf, PdfPageGeometryReader.Read(sourcePdf)).SourcePdf is null) original = null;
-            if (original is not null) { sourcePdf = original; sourcePages = PdfPageGeometryReader.Read(original); }
+            var prepared = Prepare(sourcePdf, sourcePages);
+            original = sourcePdf = prepared.Original;
+            sourcePages = prepared.Pages;
         }
         model = model with { Pages = model.Pages.Select(p => p with { Annotations = p.Annotations.Where(a => a is not (TextBoxAnnotation { IsBlank: true } or StickyNote { IsBlank: true })).ToImmutableList() }).ToImmutableList() };
         var serialized = SchemaV8.Serialize(model);
@@ -52,17 +84,6 @@ public static class EditablePdfWriter
         }
         else
         {
-            if (sourcePdf is not null)
-            {
-                sourcePages ??= PdfPageGeometryReader.Read(sourcePdf);
-                if (original is null)
-                {
-                    using var stripped = EditablePdfReader.OpenStripped(sourcePdf, sourcePages, out _, saveBackground: false);
-                    PageContentWriter.RemoveMetadata(stripped.Document);
-                    using var savedSource = new MemoryStream(); stripped.Document.Save(savedSource, false); original = savedSource.ToArray();
-                    sourcePdf = original;
-                }
-            }
             if (imported.Count > 0)
             {
                 // Imported pages continue the source numbering: append them to the stored original (spec 11.9).

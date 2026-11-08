@@ -181,6 +181,32 @@ public sealed class EditablePdfTests : IDisposable
         Assert.InRange(sizes.Max() - sizes.Min(), 0, 64);
     }
 
+    /// <summary>
+    /// The stripped original of a source is prepared once per source array (plan C1): a second save of the same source,
+    /// plain PDF or one this app saved (with its archived original), writes the same bytes as the first.
+    /// </summary>
+    [Fact]
+    public void CachedPreparationWritesTheSameBytes()
+    {
+        string path = Path.Combine(folder, "plain.pdf");
+        PdfNotes.Pdf.Prototype.ProbeSamplePdf.Create(path);
+        byte[] plain = File.ReadAllBytes(path);
+        var plainPages = PdfPageGeometryReader.Read(plain);
+        var model = EditablePdfReader.Read(plain, plainPages).Model!;
+        model = With(model, 0, Ink(new(10, 10), new(100, 100)));
+        byte[] first = EditablePdfWriter.Write(plain, plainPages, model);
+        Assert.Equal(WithoutStamps(first), WithoutStamps(EditablePdfWriter.Write(plain, plainPages, model)));
+
+        var savedPages = PdfPageGeometryReader.Read(first);
+        var reopened = EditablePdfReader.Read(first, savedPages).Model!;
+        byte[] again = EditablePdfWriter.Write(first, savedPages, reopened);
+        Assert.Equal(WithoutStamps(again), WithoutStamps(EditablePdfWriter.Write(first, savedPages, reopened)));
+    }
+
+    /// <summary>Every save stamps its time and fresh document IDs; everything else must be the same bytes.</summary>
+    private static string WithoutStamps(byte[] pdf) => System.Text.RegularExpressions.Regex.Replace(System.Text.Encoding.Latin1.GetString(pdf),
+        @"\(D:\d{14}[^)]*\)|\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:Z|[+-]\d\d:\d\d)|uuid:[0-9a-f-]{36}|/ID\[<[0-9A-F]+><[0-9A-F]+>\]", "#");
+
     [Fact]
     public void ForeignAnnotationsAndUnverifiableOwnDataStayVisibleAndReadOnly()
     {
