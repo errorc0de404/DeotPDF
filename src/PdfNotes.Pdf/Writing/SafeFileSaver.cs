@@ -18,6 +18,9 @@ public static class SafeFileSaver
     public static void Save(string targetPath, byte[] content, Action<byte[]> verifyWritten)
     {
         string target = Path.GetFullPath(targetPath);
+        // A rename would put a plain file in place of a symbolic link: replace the file the link points at instead.
+        if (!OperatingSystem.IsWindows() && new FileInfo(target).LinkTarget is not null)
+            target = new FileInfo(target).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? target;
         string folder = Path.GetDirectoryName(target) ?? throw new SaveFailedException(SaveFailure.FolderMissing, "Invalid target path.");
         if (!Directory.Exists(folder)) throw new SaveFailedException(SaveFailure.FolderMissing, "The target folder does not exist.");
         // macOS and Linux replace by renaming, which a read-only file does not stop (Windows refuses): refuse it first.
@@ -36,6 +39,8 @@ public static class SafeFileSaver
             {
                 throw new SaveFailedException(SaveFailure.VerificationFailed, "The written file failed verification.", e);
             }
+            // The temporary file got the default mode; the saved file keeps the one it replaces (a private 0600 stays private).
+            if (!OperatingSystem.IsWindows() && File.Exists(target)) File.SetUnixFileMode(temporary, File.GetUnixFileMode(target));
             if (File.Exists(target)) File.Replace(temporary, target, null, ignoreMetadataErrors: true);
             else File.Move(temporary, target);
         }
