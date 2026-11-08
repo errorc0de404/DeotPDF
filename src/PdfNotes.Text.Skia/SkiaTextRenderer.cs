@@ -9,9 +9,35 @@ namespace PdfNotes.Text;
 /// </summary>
 public static class SkiaTextRenderer
 {
+    /// <summary>The scene of a layout and the text blob of each of its glyph runs (null for other items).</summary>
+    private sealed record Prepared(SkiaTextScene Scene, SKTextBlob?[] Blobs);
+
+    /// <summary>
+    /// Per unscaled layout (plan C7): a box is drawn every frame, its scene and blobs only once. A zoom scales the canvas,
+    /// not the blobs, so they stay. Blobs are immutable and may be drawn from any thread.
+    /// </summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<SkiaTextLayout, Prepared> Scenes = new();
+
+    private static Prepared Prepare(SkiaTextLayout unscaled)
+    {
+        var scene = SkiaTextScene.Of(unscaled);
+        var blobs = new SKTextBlob?[scene.Content.Length];
+        for (int i = 0; i < blobs.Length; i++)
+        {
+            if (scene.Content[i] is not SceneGlyphs run) continue;
+            using var font = SkiaTextScene.Font(run);
+            using var builder = new SKTextBlobBuilder();
+            var buffer = builder.AllocatePositionedRun(font, run.Glyphs.Length);
+            buffer.SetGlyphs(run.Glyphs);
+            buffer.SetPositions(run.Positions);
+            blobs[i] = builder.Build();
+        }
+        return new(scene, blobs);
+    }
+
     public static void Draw(SKCanvas canvas, SkiaTextLayout layout)
     {
-        var scene = SkiaTextScene.Of(layout.Unscaled);
+        var (scene, blobs) = Scenes.GetValue(layout.Unscaled, Prepare);
         int saved = canvas.Save();
         if (layout.Scale != 1) canvas.Scale((float)layout.Scale);
         canvas.ClipRect(new SKRect(0, 0, (float)scene.Width, (float)scene.Height), antialias: true);
@@ -36,18 +62,13 @@ public static class SkiaTextRenderer
             fill.Color = Color(h.Color, h.Opacity);
             canvas.DrawPath(path, fill);
         }
-        foreach (var item in scene.Content)
+        for (int i = 0; i < scene.Content.Length; i++)
         {
+            var item = scene.Content[i];
             if (item is SceneGlyphs run)
             {
-                using var font = SkiaTextScene.Font(run);
-                using var builder = new SKTextBlobBuilder();
-                var buffer = builder.AllocatePositionedRun(font, run.Glyphs.Length);
-                buffer.SetGlyphs(run.Glyphs);
-                buffer.SetPositions(run.Positions);
-                using var blob = builder.Build();
                 fill.Color = Color(run.Color, 1);
-                if (blob is not null) canvas.DrawText(blob, 0, 0, fill);
+                if (blobs[i] is { } blob) canvas.DrawText(blob, 0, 0, fill);
             }
             else if (item is SceneBar bar)
             {
