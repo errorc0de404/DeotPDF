@@ -126,7 +126,8 @@ public sealed class CliDocument : IDisposable
         var pages = new List<Page>();
         foreach (string raw in spec.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         {
-            int dash = raw.IndexOf('-');
+            // Two page IDs joined by a dash split after the first ID (an ID has dashes of its own).
+            int dash = raw.Length == 73 && raw[36] == '-' && Guid.TryParse(raw[..36], out _) && Guid.TryParse(raw[37..], out _) ? 36 : raw.IndexOf('-');
             if (dash > 0 && !Guid.TryParse(raw, out _))
             {
                 if (int.TryParse(raw[..dash], NumberStyles.None, CultureInfo.InvariantCulture, out int from) &&

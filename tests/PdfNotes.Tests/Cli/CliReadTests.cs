@@ -31,6 +31,17 @@ public sealed class CliReadTests : IDisposable
     private string Out(string name) => Path.Combine(folder, name);
 
     [Fact]
+    public void APageIdRangeResolvesBothEnds()
+    {
+        using var doc = CliDocument.Open(sample);
+        var pages = doc.Model.Pages;
+        Assert.True(pages.Count >= 3);
+        var range = doc.ResolvePages($"{pages[0].Id}-{pages[2].Id}");
+        Assert.Equal(pages.Take(3).Select(p => p.Id), range.Select(p => p.Id));
+        Assert.Equal([pages[1].Id], doc.ResolvePages($"{pages[1].Id}").Select(p => p.Id)); // one ID is not a range
+    }
+
+    [Fact]
     public void InfoReportsCanonicalGeometryTextLayerAndStableDerivedPageIds()
     {
         var info = CliRunner.Ok("info", sample);
