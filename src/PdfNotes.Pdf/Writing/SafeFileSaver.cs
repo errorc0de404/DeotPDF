@@ -30,8 +30,9 @@ public static class SafeFileSaver
                 stream.Write(content);
                 stream.Flush(flushToDisk: true);
             }
-            try { verifyWritten(File.ReadAllBytes(temporary)); }
-            catch (Exception e) when (e is InvalidDataException or NotSupportedException or Engine.PdfiumOpenException)
+            byte[] written = File.ReadAllBytes(temporary); // a read error is a write error (classified below), not a failed check
+            try { verifyWritten(written); }
+            catch (Exception e) when (e is not (OutOfMemoryException or SaveFailedException)) // any reader failure (PDFsharp's own too) is a failed check
             {
                 throw new SaveFailedException(SaveFailure.VerificationFailed, "The written file failed verification.", e);
             }

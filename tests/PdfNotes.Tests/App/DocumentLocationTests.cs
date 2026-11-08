@@ -131,6 +131,18 @@ public sealed class DocumentLocationTests : IDisposable
     }
 
     /// <summary>A file keeps its 1.x behavior: the path, the name and the key that ignores case where the system does.</summary>
+    /// <summary>Review 2026-11-08 A10: any failure of the check is a failed check, and the file stays as it was.</summary>
+    [Fact]
+    public void AVerifierThatThrowsAnythingIsAVerificationFailure()
+    {
+        string path = Path.Combine(folder, "kept.pdf");
+        File.WriteAllBytes(path, [1, 2, 3]);
+        var e = Assert.Throws<SaveFailedException>(() => SafeFileSaver.Save(path, [4, 5, 6, 7], _ => throw new InvalidCastException("parser")));
+        Assert.Equal(SaveFailure.VerificationFailed, e.Failure);
+        Assert.Equal([1, 2, 3], File.ReadAllBytes(path));
+        Assert.Single(Directory.GetFiles(folder)); // no temporary file left
+    }
+
     [Fact]
     public async Task AFileLocationIsTheFile()
     {
