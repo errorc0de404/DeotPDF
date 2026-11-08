@@ -70,13 +70,17 @@ public sealed partial class DocumentCanvas
 
     private Avalonia.Threading.DispatcherTimer? holdTimer;
 
+    /// <summary>
+    /// Starts the long-press timer for a contact the router can still turn into a hold. A palm or a second finger landing
+    /// meanwhile does not restart it, so the press in progress keeps its timer.
+    /// </summary>
     private void WatchHold(IPointer pointer)
     {
-        holdTimer?.Stop();
-        if (pointer.Type is not (PointerType.Touch or PointerType.Pen)) return;
         int id = (int)pointer.Id;
+        if (pointer.Type is not (PointerType.Touch or PointerType.Pen) || !Router.WaitsForHold(id)) return;
+        holdTimer?.Stop();
         holdTimer = new Avalonia.Threading.DispatcherTimer { Interval = (TouchOptions?.Invoke() ?? new PointerRouterOptions()).HoldTime };
-        holdTimer.Tick += (_, _) => { holdTimer?.Stop(); Run(Router.HoldElapsed(id), null); };
+        holdTimer.Tick += (_, _) => { holdTimer?.Stop(); Run(Router.HoldElapsed(id), pointer); }; // a hold that selects text drags with this pointer's capture
         holdTimer.Start();
     }
     private Point? linkPress;

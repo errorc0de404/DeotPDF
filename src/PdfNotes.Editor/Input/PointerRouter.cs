@@ -264,6 +264,14 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
         return [new PointerAction.Hold(at)];
     }
 
+    /// <summary>
+    /// Whether a long press of this contact can still come: the pen that is down and not yet held, or the only finger
+    /// before it moved the page. The view (re)starts its hold timer only for such a contact, so a palm or a second
+    /// finger landing meanwhile does not take the timer of the press in progress.
+    /// </summary>
+    public bool WaitsForHold(int pointerId) =>
+        penId == pointerId ? !penHeld : state == TouchState.Pending && touches.Count == 1 && touches.ContainsKey(pointerId);
+
     /// <summary>How far back the finger's last moves count for its speed when it lets go.</summary>
     private static readonly TimeSpan FlingWindow = TimeSpan.FromMilliseconds(100);
 

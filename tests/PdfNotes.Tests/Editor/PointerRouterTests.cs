@@ -157,6 +157,38 @@ public sealed class PointerRouterTests
     }
 
     [Fact]
+    public void APalmDoesNotTakeTheHoldOfThePen()
+    {
+        router.PenHolds = _ => true;
+        router.Down(Pen(50, 50));
+        Assert.True(router.WaitsForHold(1));
+        Assert.Empty(router.Down(Finger(200, 200, id: 20, size: 40))); // the palm lands while the pen is held
+        Assert.False(router.WaitsForHold(20)); // so the view keeps the pen's timer
+        clock.Advance(600);
+        Assert.IsType<A.Hold>(router.HoldElapsed(1)[1]);
+        Assert.False(router.WaitsForHold(1)); // used up
+    }
+
+    [Fact]
+    public void APalmDoesNotTakeTheHoldOfAFinger()
+    {
+        router.Down(Finger(50, 50));
+        Assert.True(router.WaitsForHold(10));
+        router.Down(Finger(200, 200, id: 20, size: 40));
+        Assert.False(router.WaitsForHold(20));
+        Assert.True(router.WaitsForHold(10));
+    }
+
+    [Fact]
+    public void ASecondFingerEndsTheWaitOfTheFirst()
+    {
+        router.Down(Finger(50, 50));
+        router.Down(Finger(150, 50, id: 11));
+        Assert.False(router.WaitsForHold(10));
+        Assert.False(router.WaitsForHold(11));
+    }
+
+    [Fact]
     public void AFingerHeldOnTextSelectsTheWordAndThenDragsTheSelection()
     {
         router.HoldSelects = p => p.Position.X < 100; // text on the left
