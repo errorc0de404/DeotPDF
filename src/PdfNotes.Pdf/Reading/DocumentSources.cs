@@ -29,16 +29,19 @@ public sealed class ForeignVariant : IDisposable
 
     /// <summary>
     /// The variant of a source (<paramref name="bytes"/>, rendered from <paramref name="rendered"/>), or null when nothing
-    /// converts. A source PDFsharp cannot rewrite has nothing to convert: its annotations stay read-only.
+    /// converts. A source PDFsharp cannot rewrite, or whose rewrite PDFium cannot open, has nothing to convert: its
+    /// annotations stay read-only. Never throws, so the lazy value that holds it never keeps an exception to rethrow.
     /// </summary>
     internal static ForeignVariant? Create(byte[] bytes, byte[] rendered, IReadOnlyList<PdfPageGeometry> pages)
     {
-        ForeignConversion conversion;
-        try { conversion = ForeignAnnotations.Convert(bytes, pages); }
+        try
+        {
+            var conversion = ForeignAnnotations.Convert(bytes, pages);
+            if (conversion.Converted.IsEmpty) return null;
+            var background = ReferenceEquals(rendered, bytes) ? conversion.Pdf : ForeignAnnotations.Remove(rendered, conversion.RemovedKeys);
+            return new(conversion.Pdf, new PdfiumDocument(background), conversion.Converted);
+        }
         catch (Exception e) when (e is not OutOfMemoryException) { return null; }
-        if (conversion.Converted.IsEmpty) return null;
-        var background = ReferenceEquals(rendered, bytes) ? conversion.Pdf : ForeignAnnotations.Remove(rendered, conversion.RemovedKeys);
-        return new(conversion.Pdf, new PdfiumDocument(background), conversion.Converted);
     }
 
     public void Dispose() => Engine.Dispose();
