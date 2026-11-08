@@ -47,26 +47,12 @@ public sealed class ContentLocation(Context context, Uri uri) : DocumentLocation
         byte[]? old = null;
         try { old = ReadAll(); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { } // a new document of the picker is empty or unreadable
         string keep = Path.Combine(context.CacheDir!.AbsolutePath, "saving", Guid.NewGuid().ToString("N") + ".pdf");
-        if (old is { Length: > 0 })
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(keep)!);
-            System.IO.File.WriteAllBytes(keep, old); // the old content survives a crash in the middle of the write
-        }
-        try
-        {
-            Write(content);
-            byte[] back = ReadAll();
-            try { verifyWritten(back); }
-            catch (Exception e)
-            {
-                if (old is not null) Write(old);
-                throw new SaveFailedException(SaveFailure.VerificationFailed, "What was written did not verify; the old content was put back.", e);
-            }
-            System.IO.File.Delete(keep);
-        }
+        try { RestoringWrite.Run(content, old, Write, ReadAll, verifyWritten, keep); } // a failure on the way puts the old content back
+        catch (SaveFailedException) { throw; }
         catch (Java.Lang.SecurityException e) { throw new SaveFailedException(SaveFailure.AccessDenied, "Writing is not allowed.", e); }
         catch (Java.IO.IOException e) { throw new SaveFailedException(SaveFailure.Unknown, e.Message ?? "Writing failed.", e); }
-        catch (IOException e) when (e is not SaveFailedException) { throw new SaveFailedException(SaveFailure.Unknown, e.Message, e); }
+        catch (UnauthorizedAccessException e) { throw new SaveFailedException(SaveFailure.AccessDenied, "Writing is not allowed.", e); }
+        catch (IOException e) { throw new SaveFailedException(SaveFailure.Unknown, e.Message, e); }
     }
 
     /// <summary>Truncates and writes ("wt"); providers without truncation take "w".</summary>
