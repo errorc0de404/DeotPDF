@@ -185,10 +185,19 @@ public static class FlattenWriter
         return objects;
     }
 
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PdfDictionary, Dictionary<string, int>> NextNumbers = new();
+
+    /// <summary>
+    /// A name with <paramref name="prefix"/> not yet in <paramref name="objects"/>. The caller adds it right away, so the
+    /// search goes on from the last name given (plan C7: a page with many annotations searched from 0 every time).
+    /// </summary>
     private static string Unique(PdfDictionary objects, string prefix)
     {
-        for (int n = 0; ; n++)
-            if (!objects.Elements.ContainsKey(prefix + n.ToString(CultureInfo.InvariantCulture))) return prefix + n.ToString(CultureInfo.InvariantCulture);
+        var next = NextNumbers.GetOrCreateValue(objects);
+        int n = next.GetValueOrDefault(prefix);
+        while (objects.Elements.ContainsKey(prefix + n.ToString(CultureInfo.InvariantCulture))) n++;
+        next[prefix] = n + 1;
+        return prefix + n.ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>Removes every key of ours (catalog header, image originals, retained source, page fingerprints, text layer and form markers).</summary>
