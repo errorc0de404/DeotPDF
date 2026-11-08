@@ -33,6 +33,32 @@ public sealed class RestoringWriteTests : IDisposable
         Assert.False(File.Exists(Keep));
     }
 
+    /// <summary>
+    /// Final review of 2026-11-08 (I1): the failed write's stream is closed before the old content goes back, so a
+    /// provider that commits on close cannot put the half-written content over the restored one.
+    /// </summary>
+    [Fact]
+    public void TheOldContentGoesBackAfterTheFailedWriteClosedItsStream()
+    {
+        byte[] store = Old;
+        int open = 0, writes = 0;
+        var openWhileWriting = new List<int>();
+        void Write(byte[] content)
+        {
+            openWhileWriting.Add(open);
+            open++; // a stream opened with "wt", closed by its using block
+            try
+            {
+                if (writes++ == 0) throw new IOException("provider went away");
+                store = content;
+            }
+            finally { open--; }
+        }
+        Assert.Throws<IOException>(() => RestoringWrite.Run(New, Old, Write, () => store, _ => { }, Keep));
+        Assert.Equal([0, 0], openWhileWriting);
+        Assert.Equal(Old, store);
+    }
+
     [Fact]
     public void AFailedRestoreKeepsTheCopy()
     {

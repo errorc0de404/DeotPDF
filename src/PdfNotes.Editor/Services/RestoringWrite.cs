@@ -35,9 +35,11 @@ public static class RestoringWrite
                 throw new SaveFailedException(SaveFailure.VerificationFailed, "What was written did not verify; the old content was put back.", e);
             }
         }
-        catch (Exception) when (kept && PutBack(old!, write))
+        catch (Exception) when (kept)
         {
-            Delete(keepPath);
+            // In the catch block, not its filter: the failed write's stream is closed by now, so a provider that commits
+            // on close cannot put the half-written content over the old one.
+            if (PutBack(old!, write)) Delete(keepPath);
             throw;
         }
         if (kept) Delete(keepPath);
