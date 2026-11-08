@@ -154,6 +154,64 @@ public sealed class ForeignAnnotationTests : IDisposable
         Assert.Same(source.Bytes, sources.ForSave(model).Main); // page 2 still shows its originals: keep them in the file
     }
 
+    /// <summary>
+    /// Final review of 2026-11-08 (I2, plan B11): a page copied before the conversion and pasted after it, or a converted
+    /// page pasted after the conversion was undone, leaves one source with converted and unconverted pages. Each page is
+    /// saved as it shows: the converted one without the foreign annotations it shows as ours, the other with them.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AMixedSourceSavesEachPageAsItShows(bool pasteUnconverted)
+    {
+        var (source, sources, session) = Converted(Sample());
+        using var _source = source;
+        byte[] Save(DocumentModel model)
+        {
+            var (main, saved, parts) = sources.ForSave(model);
+            byte[] bytes = EditablePdfWriter.Write(main, source.Pages, saved, parts);
+            EditablePdfWriter.Verify(bytes, saved);
+            return bytes;
+        }
+        var convertedModel = session.Current;
+        session.Undo();
+        var plainModel = session.Current;
+        byte[] asConverted = Save(convertedModel), asPlain = Save(plainModel);
+        var copied = (pasteUnconverted ? plainModel : convertedModel).Pages[0];
+        var pasted = copied with { Id = Guid.NewGuid(), Annotations = [.. copied.Annotations.Select(a => a with { Id = Guid.NewGuid() })] };
+        var shown = pasteUnconverted ? convertedModel : plainModel;
+        var mixed = shown with { Pages = shown.Pages.Add(pasted) };
+
+        byte[] saved = Save(mixed);
+        for (int i = 0; i < mixed.Pages.Count; i++)
+        {
+            var page = mixed.Pages[i];
+            byte[] reference = page.Setup.Source.ForeignConverted ? asConverted : asPlain;
+            Assert.Equal(Foreign(reference, page.Setup.Source.PdfPageIndex!.Value), Foreign(saved, i));
+        }
+        string path = Path.Combine(folder, "mixed.pdf");
+        File.WriteAllBytes(path, saved);
+        using var reopened = PdfSourceDocument.Open(path);
+        Assert.Equal(mixed.Pages.Select(p => p.Annotations.Count), reopened.CreateModel().Pages.Select(p => p.Annotations.Count));
+    }
+
+    /// <summary>Page export (review M2): the converted page and its unconverted copy are two pages of the exported PDF.</summary>
+    [Fact]
+    public void AnExportOfAMixedSourceKeepsEachPageAsItShows()
+    {
+        var (source, sources, session) = Converted(Sample());
+        using var _source = source;
+        var page = session.Current.Pages[0];
+        var converted = page with { Id = Guid.NewGuid(), Annotations = [.. page.Annotations.Select(a => a with { Id = Guid.NewGuid() })] }; // pasted
+        session.Undo();
+        var plain = session.Current.Pages[0];
+        var (subset, pdf) = sources.Subset(session.Current with { Pages = session.Current.Pages.Add(converted) }, [plain.Id, converted.Id]);
+        using var _pdf = pdf;
+        byte[] exported = EditablePdfWriter.Write(null, null, subset, [pdf!]);
+        Assert.Contains("/Ink", Foreign(exported, 0)); // shows the original ink
+        Assert.DoesNotContain("/Ink", Foreign(exported, 1)); // shows it as ours
+    }
+
     [Fact]
     public void OnARotatedPageTextAndSquaresStayUprightOnScreen()
     {

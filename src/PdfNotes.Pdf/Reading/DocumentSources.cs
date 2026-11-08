@@ -217,66 +217,110 @@ public sealed class DocumentSources : IDisposable
         return operations.Count == 0 ? null : new EditCommand("undo.convertForeign", operations);
     }
 
+    private enum SourceUse { Original, Variant, Mixed }
+
     /// <summary>
-    /// Whether a save writes the converted variant of the source holding source pages <paramref name="start"/> to
-    /// <paramref name="start"/> + <paramref name="count"/>: some page shows its converted annotations, and no page still
-    /// shows foreign annotations the variant leaves out. A mixed source (which <see cref="ForeignConversion"/> does not
-    /// make) keeps its original: converted annotations twice rather than foreign ones lost.
+    /// How a save writes the source holding source pages <paramref name="start"/> to <paramref name="start"/> +
+    /// <paramref name="count"/>: as its converted variant when some page shows its converted annotations and no page still
+    /// shows foreign annotations the variant leaves out; as its original plus the converted pages (appended, see
+    /// <see cref="ForSave"/>) when pages of both kinds use it (a copy pasted across the conversion or its Undo, which
+    /// <see cref="ForeignConversion"/> alone does not make); otherwise as its original.
     /// </summary>
-    private static bool UsesVariant(ForeignVariant? variant, int start, int count, DocumentModel model)
+    private static SourceUse Use(ForeignVariant? variant, int start, int count, DocumentModel model)
     {
-        if (variant is null) return false;
-        bool converted = false;
+        if (variant is null) return SourceUse.Original;
+        bool converted = false, plain = false;
         HashSet<int>? removed = null;
         foreach (var page in model.Pages)
         {
             if (page.Setup.Source is not { Kind: PageSourceKind.Pdf, PdfPageIndex: int index } source || index < start || index >= start + count) continue;
             if (source.ForeignConverted) { converted = true; continue; }
             removed ??= variant.Converted.Select(c => c.SourcePageIndex).ToHashSet();
-            if (removed.Contains(index - start)) return false;
+            plain |= removed.Contains(index - start);
         }
-        return converted;
+        return !converted ? SourceUse.Original : plain ? SourceUse.Mixed : SourceUse.Variant;
     }
 
     /// <summary>
     /// What a save writes: the opened PDF's bytes (null for a new note), the model with imported source indices renumbered
     /// so imported PDFs no page uses are left out, and those used PDFs in order. A source whose pages show its converted
-    /// foreign annotations (14.6) is written as its variant, without them. Without imports the model is returned unchanged.
+    /// foreign annotations (14.6) is written as its variant, without them. A source with pages of both kinds is written as
+    /// its original, and the converted pages it shows are appended from the variant after the other sources, so every page
+    /// is saved as it shows. Without imports or conversions the model is returned unchanged.
     /// </summary>
     public (byte[]? Main, DocumentModel Model, IReadOnlyList<ImportedPdf> Imported) ForSave(DocumentModel model)
     {
         int main = MainCount;
-        var converted = model.Pages.Where(p => p.Setup.Source.ForeignConverted).Select(p => p.Setup.Source.PdfPageIndex).OfType<int>().ToHashSet();
-        byte[]? mainBytes = Main is { } m ? UsesVariant(m.Foreign, 0, main, model) ? m.Foreign!.Bytes : m.Bytes : null;
-        // The written sources are the variants already: the model goes to the writer without the flags.
-        if (converted.Count > 0)
-            model = model with { Pages = model.Pages.Select(p => p.Setup.Source.ForeignConverted
-                ? p with { Setup = p.Setup with { Source = p.Setup.Source with { ForeignConverted = false } } } : p).ToImmutableList() };
-        var parts = imported;
-        if (parts.IsEmpty) return (mainBytes, model, []);
         var used = model.Pages.Select(p => p.Setup.Source.PdfPageIndex).OfType<int>().ToHashSet();
         var kept = new List<ImportedPdf>();
-        var shift = new Dictionary<int, int>();
-        int start = main, removed = 0;
-        foreach (var part in parts)
+        var mixed = new List<(ForeignVariant Variant, IReadOnlyList<PdfPageGeometry> Pages, int Start, int Count)>();
+        byte[]? mainBytes = null;
+        if (Main is { } m)
         {
-            bool any = Enumerable.Range(start, part.Pages.Count).Any(used.Contains);
-            if (any)
+            var use = Use(m.Foreign, 0, main, model);
+            mainBytes = use == SourceUse.Variant ? m.Foreign!.Bytes : m.Bytes;
+            if (use == SourceUse.Mixed) mixed.Add((m.Foreign!, m.Pages, 0, main));
+        }
+        var shift = new Dictionary<int, int>(); // imported source index -> index in the written source
+        int start = main, written = main;
+        foreach (var part in imported)
+        {
+            if (Enumerable.Range(start, part.Pages.Count).Any(used.Contains))
             {
-                kept.Add(UsesVariant(part.Foreign, start, part.Pages.Count, model) ? part.Converted() : part);
-                for (int i = 0; i < part.Pages.Count; i++) shift[start + i] = start + i - removed;
+                var use = Use(part.Foreign, start, part.Pages.Count, model);
+                kept.Add(use == SourceUse.Variant ? part.Converted() : part);
+                if (use == SourceUse.Mixed) mixed.Add((part.Foreign!, part.Pages, start, part.Pages.Count));
+                for (int i = 0; i < part.Pages.Count; i++) shift[start + i] = written + i;
+                written += part.Pages.Count;
             }
-            else removed += part.Pages.Count;
             start += part.Pages.Count;
         }
-        if (removed == 0) return (mainBytes, model, kept);
-        var renumbered = model with
+        var appended = new Dictionary<int, int>(); // converted page of a mixed source -> its page among the appended ones
+        foreach (var (variant, pages, from, count) in mixed)
         {
-            Pages = model.Pages.Select(p => p.Setup.Source is { Kind: PageSourceKind.Pdf, PdfPageIndex: int index } && index >= main
-                ? p with { Setup = p.Setup with { Source = p.Setup.Source with { PdfPageIndex = shift[index] } } }
+            var indices = model.Pages.Where(p => p.Setup.Source.ForeignConverted).Select(p => p.Setup.Source.PdfPageIndex).OfType<int>()
+                .Where(i => i >= from && i < from + count).Distinct().Order().ToList();
+            foreach (int index in indices) appended[index] = written++;
+            kept.Add(VariantPages(variant, pages, [.. indices.Select(i => i - from)]));
+        }
+        bool renumbered = shift.Any(s => s.Key != s.Value) || appended.Count > 0;
+        if (!renumbered && !model.Pages.Any(p => p.Setup.Source.ForeignConverted)) return (mainBytes, model, kept);
+        // The written sources are the variants already: the model goes to the writer without the flags.
+        var saved = model with
+        {
+            Pages = model.Pages.Select(p => p.Setup.Source is { Kind: PageSourceKind.Pdf, PdfPageIndex: int index } source
+                ? p with { Setup = p.Setup with { Source = source with
+                    {
+                        PdfPageIndex = source.ForeignConverted && appended.TryGetValue(index, out int added) ? added : index >= main ? shift[index] : index,
+                        ForeignConverted = false
+                    } } }
                 : p).ToImmutableList()
         };
-        return (mainBytes, renumbered, kept);
+        return (mainBytes, saved, kept);
+    }
+
+    /// <summary>
+    /// Pages <paramref name="locals"/> of a variant as an import of their own, stripped of our app annotations and page
+    /// keys like any imported page (spec 11.9). Only the save of a mixed source uses it, so it is built for that save.
+    /// </summary>
+    private static ImportedPdf VariantPages(ForeignVariant variant, IReadOnlyList<PdfPageGeometry> pages, IReadOnlyList<int> locals)
+    {
+        byte[] bytes;
+        using (EditablePdfReader.OpenStripped(variant.Bytes, pages, out var stripped, saveBackground: true))
+        using (var import = PdfSharp.Pdf.IO.PdfReader.Open(new MemoryStream(stripped.BackgroundPdf, writable: false), PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import))
+        using (var subset = new PdfSharp.Pdf.PdfDocument())
+        {
+            foreach (int local in locals)
+            {
+                var page = Writing.PageContentWriter.AddImported(subset, import.Pages[local]);
+                foreach (var key in page.Elements.Keys.Where(k => k.StartsWith("/PdfNotes", StringComparison.Ordinal)).ToArray())
+                    page.Elements.Remove(key);
+            }
+            using var output = new MemoryStream();
+            subset.Save(output, false);
+            bytes = output.ToArray();
+        }
+        return new ImportedPdf(bytes, PdfPageGeometryReader.Read(bytes), variant.Engine, ownsEngine: false);
     }
 
     /// <summary>
@@ -290,9 +334,10 @@ public sealed class DocumentSources : IDisposable
     {
         if (pageIds.Count == 0) throw new ArgumentException("No page was chosen.", nameof(pageIds));
         var chosen = pageIds.Distinct().Select(model.GetPage).ToList(); // a page is in a file once
-        var sources = chosen.Select(p => p.Setup.Source.PdfPageIndex).OfType<int>().Distinct().ToList();
-        var converted = chosen.Where(p => p.Setup.Source.ForeignConverted).Select(p => p.Setup.Source.PdfPageIndex).OfType<int>().ToHashSet();
-        var renumber = new Dictionary<int, int>();
+        // A source page shown both converted and not (a copy pasted across the conversion) is two exported pages.
+        var sources = chosen.Where(p => p.Setup.Source.PdfPageIndex is not null)
+            .Select(p => (Index: p.Setup.Source.PdfPageIndex!.Value, p.Setup.Source.ForeignConverted)).Distinct().ToList();
+        var renumber = new Dictionary<(int, bool), int>();
         ImportedPdf? part = null;
         if (sources.Count > 0)
         {
@@ -304,10 +349,10 @@ public sealed class DocumentSources : IDisposable
                 var opened = new Dictionary<byte[], PdfSharp.Pdf.PdfDocument>(ReferenceEqualityComparer.Instance);
                 try
                 {
-                    foreach (int index in sources)
+                    foreach (var (index, converted) in sources)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        var (_, sourceBytes, sourcePages, local) = Locate(index, converted.Contains(index));
+                        var (_, sourceBytes, sourcePages, local) = Locate(index, converted);
                         if (!opened.TryGetValue(sourceBytes, out var import))
                         {
                             using (EditablePdfReader.OpenStripped(sourceBytes, sourcePages, out var stripped, saveBackground: true))
@@ -317,7 +362,7 @@ public sealed class DocumentSources : IDisposable
                         var page = Writing.PageContentWriter.AddImported(subset, import.Pages[local]);
                         foreach (var key in page.Elements.Keys.Where(k => k.StartsWith("/PdfNotes", StringComparison.Ordinal)).ToArray())
                             page.Elements.Remove(key);
-                        renumber[index] = renumber.Count;
+                        renumber[(index, converted)] = renumber.Count;
                         expected.Add(sourcePages[local]);
                     }
                 }
@@ -340,7 +385,8 @@ public sealed class DocumentSources : IDisposable
             catch { engine.Dispose(); throw; }
             part = new ImportedPdf(bytes, geometry, engine);
         }
-        var pages = chosen.Select(p => p.Setup.Source.PdfPageIndex is int index ? p with { Setup = p.Setup with { Source = PageSource.Pdf(renumber[index]) } } : p).ToImmutableList();
+        var pages = chosen.Select(p => p.Setup.Source.PdfPageIndex is int index
+            ? p with { Setup = p.Setup with { Source = PageSource.Pdf(renumber[(index, p.Setup.Source.ForeignConverted)]) } } : p).ToImmutableList();
         var used = pages.SelectMany(p => p.Annotations).OfType<ImageAnnotation>().Select(i => i.ResourceId).ToHashSet();
         var resources = model.Resources.Where(r => used.Contains(r.Key)).ToImmutableDictionary();
         return (new DocumentModel(Guid.NewGuid(), pages, resources) { Tags = model.Tags }, part);
