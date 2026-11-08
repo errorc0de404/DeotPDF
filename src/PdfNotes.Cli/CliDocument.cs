@@ -52,7 +52,8 @@ public sealed class CliDocument : IDisposable
         bool derived = false;
         try
         {
-            var document = OpenDocument.OpenPdfAsync(full, prepare: (source, model) =>
+            // The bytes that were hashed are the ones opened: a file changed in between cannot pass --expect-hash.
+            var document = OpenDocument.OpenPdfAsync(new SnapshotLocation(DocumentLocation.File(full), bytes), prepare: (source, model) =>
             {
                 if (!source.AppData.FreshModel) return model;
                 derived = true;
@@ -185,4 +186,15 @@ public sealed class CliDocument : IDisposable
     }
 
     public void Dispose() => Document.Dispose();
+}
+
+/// <summary>A file as it was read once: it reads those bytes again and otherwise is the file (path, key, saving).</summary>
+internal sealed class SnapshotLocation(FileLocation file, byte[] bytes) : DocumentLocation
+{
+    public override string Name => file.Name;
+    public override string? FilePath => file.FilePath;
+    public override string Key => file.Key;
+    public override byte[] ReadAll() => bytes;
+    public override void Replace(byte[] content, Action<byte[]> verifyWritten) => file.Replace(content, verifyWritten);
+    public override FileBaseline? Stamp() => file.Stamp();
 }

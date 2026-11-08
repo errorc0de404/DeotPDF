@@ -153,6 +153,18 @@ public sealed class CliWriteTests : IDisposable
     }
 
     [Fact]
+    public void ExpectHashChecksTheBytesThatAreEdited()
+    {
+        // Review 2026-11-08 A7: the hash and the document come from one read, so a file changed in between cannot pass
+        // the check and then be edited in its new form.
+        using var doc = CliDocument.Open(sample);
+        byte[] hashed = File.ReadAllBytes(sample);
+        File.WriteAllBytes(sample, [.. hashed, .. "\n% changed\n"u8.ToArray()]); // another program writes now
+        Assert.Equal(hashed, doc.Document.Location!.ReadAll());
+        Assert.Equal(sample, doc.Document.FilePath); // still the file: the output and the recent list name it
+    }
+
+    [Fact]
     public void PageTransformsPutKnownPointsWhereTheTransformedPageShowsThem()
     {
         // Rotate page 2, shrink page 3 (crop origin ≠ 0) to 80% at the top-left, resize page 4 (turned 270°) with the content fitted.
