@@ -97,6 +97,15 @@ public sealed class PressureTests
         }
     }
 
+    /// <summary>The outline is made once per stroke: the painter and the PDF appearance share it (plan C2).</summary>
+    [Fact]
+    public void ThePressureOutlineIsMadeOncePerStroke()
+    {
+        var stroke = Wedge();
+        Assert.True(StrokeRegion.PressureOutline(stroke) == StrokeRegion.PressureOutline(stroke));
+        Assert.Equal(StrokeRegion.PressureOutline(stroke).Length, StrokeRegion.PressureOutline(stroke with { Id = Guid.NewGuid() }).Length);
+    }
+
     [Fact]
     public void ValidationChecksPressures()
     {

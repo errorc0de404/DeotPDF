@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using Clipper2Lib;
 using PdfNotes.Core.Models;
 
@@ -70,8 +71,14 @@ public static class StrokeRegion
         }
     }
 
-    /// <summary>The outline rings of a pressure stroke, for painters that fill it (even-odd, like an eraser piece).</summary>
-    public static ImmutableArray<ImmutableArray<Point2>> PressureOutline(InkStroke stroke) => ToRings(PressureRegion(stroke));
+    private static readonly ConditionalWeakTable<InkStroke, StrongBox<ImmutableArray<ImmutableArray<Point2>>>> Outlines = new();
+
+    /// <summary>
+    /// The outline rings of a pressure stroke, for painters that fill it (even-odd, like an eraser piece). Made once per
+    /// stroke (strokes are immutable): the screen painter and every save's PDF appearance share it.
+    /// </summary>
+    public static ImmutableArray<ImmutableArray<Point2>> PressureOutline(InkStroke stroke) =>
+        Outlines.GetValue(stroke, s => new(ToRings(PressureRegion(s)))).Value;
 
     /// <summary>
     /// An area-eraser piece of <paramref name="stroke"/>: the same paint with <paramref name="rings"/> as its region and no
