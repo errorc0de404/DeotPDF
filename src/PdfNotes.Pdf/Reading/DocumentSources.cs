@@ -189,7 +189,10 @@ public sealed class DocumentSources : IDisposable
     /// </summary>
     public EditCommand? ForeignConversion(DocumentModel model)
     {
-        var operations = new List<EditOperation>();
+        // A variant leaves out the convertible annotations of every page of its source, so a source converts all its
+        // pages or none: one page that cannot take its annotations keeps the whole source read-only (saved as is).
+        var planned = new List<(Page Page, ForeignVariant Variant, List<Annotation> Mine)>();
+        var failed = new HashSet<ForeignVariant>(ReferenceEqualityComparer.Instance);
         foreach (var page in model.Pages)
         {
             if (page.Setup.Source is not { Kind: PageSourceKind.Pdf, PdfPageIndex: int index, ForeignConverted: false }) continue;
@@ -198,11 +201,38 @@ public sealed class DocumentSources : IDisposable
             var mine = variant.Converted.Where(c => c.SourcePageIndex == local).Select(c => c.Annotation with { Id = Guid.NewGuid() }).ToList();
             if (page.Setup.Content is { } content && !content.Transform.IsIdentity)
                 mine = mine.Select(a => PageTransforms.Transform(a, content.Transform, content.Transform.M11)).ToList();
-            if (mine.Any(a => ModelValidator.ValidateAnnotation(a, _ => false) is not null)) continue; // stays read-only on this page
+            if (mine.Any(a => ModelValidator.ValidateAnnotation(a, _ => false) is not null)) failed.Add(variant);
+            planned.Add((page, variant, mine));
+        }
+        var operations = new List<EditOperation>();
+        foreach (var (page, variant, mine) in planned)
+        {
+            if (failed.Contains(variant)) continue;
             operations.Add(new ReplacePageSetupOperation(page.Id, page.Setup, page.Setup with { Source = page.Setup.Source with { ForeignConverted = true } }));
             for (int i = 0; i < mine.Count; i++) operations.Add(new InsertAnnotationOperation(page.Id, i, mine[i]));
         }
         return operations.Count == 0 ? null : new EditCommand("undo.convertForeign", operations);
+    }
+
+    /// <summary>
+    /// Whether a save writes the converted variant of the source holding source pages <paramref name="start"/> to
+    /// <paramref name="start"/> + <paramref name="count"/>: some page shows its converted annotations, and no page still
+    /// shows foreign annotations the variant leaves out. A mixed source (which <see cref="ForeignConversion"/> does not
+    /// make) keeps its original: converted annotations twice rather than foreign ones lost.
+    /// </summary>
+    private static bool UsesVariant(ForeignVariant? variant, int start, int count, DocumentModel model)
+    {
+        if (variant is null) return false;
+        bool converted = false;
+        HashSet<int>? removed = null;
+        foreach (var page in model.Pages)
+        {
+            if (page.Setup.Source is not { Kind: PageSourceKind.Pdf, PdfPageIndex: int index } source || index < start || index >= start + count) continue;
+            if (source.ForeignConverted) { converted = true; continue; }
+            removed ??= variant.Converted.Select(c => c.SourcePageIndex).ToHashSet();
+            if (removed.Contains(index - start)) return false;
+        }
+        return converted;
     }
 
     /// <summary>
@@ -214,7 +244,7 @@ public sealed class DocumentSources : IDisposable
     {
         int main = MainCount;
         var converted = model.Pages.Where(p => p.Setup.Source.ForeignConverted).Select(p => p.Setup.Source.PdfPageIndex).OfType<int>().ToHashSet();
-        byte[]? mainBytes = Main is { } m ? converted.Any(i => i < main) && m.Foreign is { } variant ? variant.Bytes : m.Bytes : null;
+        byte[]? mainBytes = Main is { } m ? UsesVariant(m.Foreign, 0, main, model) ? m.Foreign!.Bytes : m.Bytes : null;
         // The written sources are the variants already: the model goes to the writer without the flags.
         if (converted.Count > 0)
             model = model with { Pages = model.Pages.Select(p => p.Setup.Source.ForeignConverted
@@ -230,7 +260,7 @@ public sealed class DocumentSources : IDisposable
             bool any = Enumerable.Range(start, part.Pages.Count).Any(used.Contains);
             if (any)
             {
-                kept.Add(Enumerable.Range(start, part.Pages.Count).Any(converted.Contains) ? part.Converted() : part);
+                kept.Add(UsesVariant(part.Foreign, start, part.Pages.Count, model) ? part.Converted() : part);
                 for (int i = 0; i < part.Pages.Count; i++) shift[start + i] = start + i - removed;
             }
             else removed += part.Pages.Count;

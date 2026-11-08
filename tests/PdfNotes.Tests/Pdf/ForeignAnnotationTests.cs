@@ -128,6 +128,33 @@ public sealed class ForeignAnnotationTests : IDisposable
     }
 
     [Fact]
+    public void ConversionIsAllOrNothingPerSource()
+    {
+        using var source = PdfSourceDocument.Open(Sample());
+        var sources = new DocumentSources(source, ownsMain: false);
+        Assert.True(sources.ForeignCount() > 0);
+        var model = source.CreateModel();
+        // Page 1 placed 1000 times larger: its text box would be wider than any box may be, so page 1 cannot convert.
+        var first = model.Pages[0];
+        var placed = first with { Setup = first.Setup with { Content = new SourcePlacement(first.Setup.WidthPt * 1000, first.Setup.HeightPt * 1000, Affine.Scale(1000)) } };
+        model = model with { Pages = model.Pages.SetItem(0, placed) };
+        // The variant of this source removes the convertible annotations of every page: converting page 2 alone would
+        // save page 1 without its foreign annotations.
+        Assert.Null(sources.ForeignConversion(model));
+    }
+
+    [Fact]
+    public void MixedSourceSavesTheOriginalAndLosesNoForeignAnnotation()
+    {
+        var (source, sources, session) = Converted(Sample());
+        using var _source = source;
+        var model = session.Current;
+        var second = model.Pages[1];
+        model = model with { Pages = model.Pages.SetItem(1, second with { Setup = second.Setup with { Source = second.Setup.Source with { ForeignConverted = false } } }) };
+        Assert.Same(source.Bytes, sources.ForSave(model).Main); // page 2 still shows its originals: keep them in the file
+    }
+
+    [Fact]
     public void OnARotatedPageTextAndSquaresStayUprightOnScreen()
     {
         var (source, _, session) = Converted(Sample());
