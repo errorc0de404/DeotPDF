@@ -54,7 +54,7 @@ public sealed class PdfiumDocument : IDisposable
                 document = Native.FPDF_LoadMemDocument64(pinned.AddrOfPinnedObject(), (nuint)pdf.Length, null);
                 if (document == 0)
                 {
-                    uint code = Native.FPDF_GetLastError();
+                    uint code = (uint)Native.FPDF_GetLastError().Value;
                     throw new PdfiumOpenException(Enum.IsDefined(typeof(PdfiumError), (int)code) ? (PdfiumError)code : PdfiumError.Unknown);
                 }
                 PageCount = Native.FPDF_GetPageCount(document);
@@ -86,14 +86,14 @@ public sealed class PdfiumDocument : IDisposable
             using var output = new MemoryStream();
             Native.WriteBlock write = (_, data, size) =>
             {
-                if (size == 0) return 1;
-                var chunk = new byte[size];
-                Marshal.Copy(data, chunk, 0, (int)size);
+                if (size.Value == 0) return 1;
+                var chunk = new byte[checked((int)size.Value)];
+                Marshal.Copy(data, chunk, 0, chunk.Length);
                 output.Write(chunk);
                 return 1;
             };
             var file = new Native.FileWrite { Version = 1, WriteBlockCallback = Marshal.GetFunctionPointerForDelegate(write) };
-            int ok = Native.FPDF_SaveAsCopy(document, ref file, Native.FPDF_REMOVE_SECURITY);
+            int ok = Native.FPDF_SaveAsCopy(document, ref file, new(Native.FPDF_REMOVE_SECURITY));
             GC.KeepAlive(write);
             if (ok == 0 || output.Length == 0) throw new InvalidDataException("PDFium could not write the copy.");
             return output.ToArray();
@@ -140,12 +140,12 @@ public sealed class PdfiumDocument : IDisposable
                 if (depth > 32) return [];
                 for (nint b = Native.FPDFBookmark_GetFirstChild(document, parent); b != 0 && budget-- > 0 && seen.Add(b); b = Native.FPDFBookmark_GetNextSibling(document, b))
                 {
-                    uint bytes = Native.FPDFBookmark_GetTitle(b, 0, 0);
+                    uint bytes = (uint)Native.FPDFBookmark_GetTitle(b, 0, default).Value;
                     string title = "";
                     if (bytes > 2)
                     {
                         var item = b;
-                        var buffer = Filled(bytes, address => Native.FPDFBookmark_GetTitle(item, address, bytes));
+                        var buffer = Filled(bytes, address => Native.FPDFBookmark_GetTitle(item, address, new(bytes)));
                         title = System.Text.Encoding.Unicode.GetString(buffer, 0, (int)bytes - 2);
                     }
                     var (target, x, y, uri) = Target(Native.FPDFBookmark_GetDest(document, b), Native.FPDFBookmark_GetAction(b));
@@ -157,7 +157,7 @@ public sealed class PdfiumDocument : IDisposable
         }
     }
 
-    private static byte[] Filled(uint length, Func<nint, uint> fill)
+    private static byte[] Filled(uint length, Action<nint> fill)
     {
         var buffer = new byte[length];
         var handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
@@ -171,13 +171,13 @@ public sealed class PdfiumDocument : IDisposable
     {
         if (dest == 0 && action != 0)
         {
-            uint type = Native.FPDFAction_GetType(action);
+            uint type = (uint)Native.FPDFAction_GetType(action).Value;
             if (type == Native.PDFACTION_GOTO) dest = Native.FPDFAction_GetDest(document, action);
             else if (type == Native.PDFACTION_URI)
             {
-                uint length = Native.FPDFAction_GetURIPath(document, action, 0, 0);
+                uint length = (uint)Native.FPDFAction_GetURIPath(document, action, 0, default).Value;
                 if (length <= 1 || length > 8192) return (null, null, null, null);
-                var buffer = Filled(length, address => Native.FPDFAction_GetURIPath(document, action, address, length));
+                var buffer = Filled(length, address => Native.FPDFAction_GetURIPath(document, action, address, new(length)));
                 return (null, null, null, System.Text.Encoding.ASCII.GetString(buffer, 0, (int)length - 1));
             }
         }
@@ -242,7 +242,7 @@ public sealed class PdfiumDocument : IDisposable
             {
                 bitmap = Native.FPDFBitmap_CreateEx(region.Width, region.Height, Native.BitmapBgra, pin.AddrOfPinnedObject(), stride);
                 if (bitmap == 0) throw new InvalidOperationException("PDFium bitmap allocation failed.");
-                Native.FPDFBitmap_FillRect(bitmap, 0, 0, region.Width, region.Height, 0xffffffff);
+                Native.FPDFBitmap_FillRect(bitmap, 0, 0, region.Width, region.Height, new(0xffffffffu));
                 // FPDF_ANNOT = 1. Page's intrinsic /Rotate is honored by PDFium; `rotate` adds to it.
                 // The display rectangle may exceed the bitmap; PDFium clips to the bitmap.
                 Native.FPDF_RenderPageBitmap(bitmap, page, -region.X, -region.Y, fullWidth, fullHeight, extraQuarterTurns, annotations ? 1 : 0);
@@ -361,7 +361,11 @@ public sealed class PdfiumDocument : IDisposable
     }
 
     public void Dispose() { lock (Gate) Release(); GC.SuppressFinalize(this); }
-    ~PdfiumDocument() { lock (Gate) Release(); }
+    /// <summary>
+    /// Closes on the thread pool: the finalizer thread must not wait for <see cref="Gate"/> while a long render holds it,
+    /// or every other finalizer in the process waits too.
+    /// </summary>
+    ~PdfiumDocument() => ThreadPool.UnsafeQueueUserWorkItem(static d => { lock (Gate) d.Release(); }, this, preferLocal: false);
     private void Release()
     {
         bool held = pinned.IsAllocated;
@@ -371,7 +375,8 @@ public sealed class PdfiumDocument : IDisposable
         if (held && --users == 0) Native.FPDF_DestroyLibrary();
     }
 
-    // Stable C API from official PDFium public headers. Windows x64 only.
+    // Stable C API from official PDFium public headers. C unsigned long (FPDF_DWORD too) is CULong: 32-bit on Windows,
+    // 64-bit on 64-bit Linux, macOS and Android.
     private static class Native
     {
         // FS_RECTF field order from fpdfview.h: left, top, right, bottom.
@@ -382,7 +387,7 @@ public sealed class PdfiumDocument : IDisposable
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_InitLibrary();
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_DestroyLibrary();
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDF_LoadMemDocument64(nint data, nuint length, [MarshalAs(UnmanagedType.LPUTF8Str)] string? password);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern uint FPDF_GetLastError();
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern CULong FPDF_GetLastError();
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_CloseDocument(nint doc);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_GetPageCount(nint doc);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_GetSecurityHandlerRevision(nint doc);
@@ -393,20 +398,20 @@ public sealed class PdfiumDocument : IDisposable
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFLink_GetAnnotRect(nint link, out RectF rect);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDFLink_GetDest(nint doc, nint link);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDFLink_GetAction(nint link);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern uint FPDFAction_GetType(nint action);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern CULong FPDFAction_GetType(nint action);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDFAction_GetDest(nint doc, nint action);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern uint FPDFAction_GetURIPath(nint doc, nint action, nint buffer, uint length);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern CULong FPDFAction_GetURIPath(nint doc, nint action, nint buffer, CULong length);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFDest_GetDestPageIndex(nint doc, nint dest);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFDest_GetLocationInPage(nint dest, out int hasX, out int hasY, out int hasZoom, out float x, out float y, out float zoom);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDFBookmark_GetFirstChild(nint doc, nint bookmark);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDFBookmark_GetNextSibling(nint doc, nint bookmark);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern uint FPDFBookmark_GetTitle(nint bookmark, nint buffer, uint length);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern CULong FPDFBookmark_GetTitle(nint bookmark, nint buffer, CULong length);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDFBookmark_GetDest(nint doc, nint bookmark);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDFBookmark_GetAction(nint bookmark);
         [StructLayout(LayoutKind.Sequential)] internal struct FileWrite { public int Version; public nint WriteBlockCallback; }
-        /// <summary>FPDF_FILEWRITE.WriteBlock; <c>unsigned long</c> is 32-bit on Windows.</summary>
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int WriteBlock(nint self, nint data, uint size);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_SaveAsCopy(nint doc, ref FileWrite file, uint flags);
+        /// <summary>FPDF_FILEWRITE.WriteBlock.</summary>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int WriteBlock(nint self, nint data, CULong size);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_SaveAsCopy(nint doc, ref FileWrite file, CULong flags);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDF_LoadPage(nint doc, int index);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_ClosePage(nint page);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern float FPDF_GetPageWidthF(nint page);
@@ -416,7 +421,7 @@ public sealed class PdfiumDocument : IDisposable
         internal const int BitmapBgra = 4;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDFBitmap_CreateEx(int width, int height, int format, nint firstScan, int stride);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDFBitmap_Destroy(nint bitmap);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFBitmap_FillRect(nint bitmap, int x, int y, int width, int height, uint color);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFBitmap_FillRect(nint bitmap, int x, int y, int width, int height, CULong color);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_RenderPageBitmap(nint bitmap, nint page, int x, int y, int width, int height, int rotate, int flags);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFBitmap_GetStride(nint bitmap);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDFBitmap_GetBuffer(nint bitmap);
