@@ -212,6 +212,34 @@ public sealed class UiRegressionTests
         w.Close();
     });
 
+    /// <summary>
+    /// Review 2026-11-08 A4: a pen or finger that selected PDF text opens the text menu where it lifted, which can be past
+    /// the end of the line or between pages; it is still the text menu (copy, highlight).
+    /// </summary>
+    [Fact]
+    public void AfterATextDragTheMenuIsTheTextMenuWhereverThePenLifted() => Headless.Run(async () =>
+    {
+        var w = await Opened(1);
+        var glyphs = w.View.ViewModel.PageGlyphs(0);
+        int english = string.Concat(glyphs.Select(g => g.Text)).IndexOf("English", StringComparison.Ordinal);
+        w.View.SetTool(ToolKind.Select);
+        DragAlong(w, Edge(glyphs[english], false), Edge(glyphs[english + 6], true));
+        Assert.True(w.View.Selection.HasTextSelection);
+        var page = w.View.DocumentCanvas.PageTransform(0);
+        var pastTheLine = page.PageToDip.Transform(new Point2(w.View.Document!.Session.Current.Pages[0].Setup.WidthPt - 4, glyphs[english].Box.UpperLeft.Y));
+        var offThePage = page.PageToDip.Transform(new Point2(-30, glyphs[english].Box.UpperLeft.Y));
+        string copy = Strings.Get("command.copy"), highlight = Strings.Get("command.highlight");
+        foreach (var at in new[] { pastTheLine, offThePage })
+        {
+            var menu = w.View.OpenAnnotationMenu(at, textMenu: true);
+            Assert.NotNull(menu);
+            Assert.Equal([copy, highlight], menu.Items.OfType<MenuItem>().Select(i => (string)i.Header!));
+            menu.Close();
+        }
+        Assert.True(w.View.Selection.HasTextSelection); // the menu keeps the selection it acts on
+        w.Close();
+    });
+
     /// <summary>d13h: opened files go to the recent list; a recent file that is gone is named in the status line and taken off the list.</summary>
     [Fact]
     public void ARecentFileThatIsGoneIsRemoved() => Headless.Run(async () =>

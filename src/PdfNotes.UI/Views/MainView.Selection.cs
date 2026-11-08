@@ -35,22 +35,40 @@ public sealed partial class MainView
             suppressContext = false;
             e.Handled = true;
         }, RoutingStrategies.Tunnel);
-        Canvas.Held += (_, at) => OpenAnnotationMenu(at); // a long press on Android, where there is no right button
+        Canvas.Held += (_, held) => OpenAnnotationMenu(held.At, held.AfterTextDrag); // a long press on Android, where there is no right button
         Canvas.PointerMoved += (_, e) => { var p = e.GetPosition(Canvas); lastCanvasPointer = new(p.X, p.Y); };
         Canvas.PointerExited += (_, _) => lastCanvasPointer = null;
     }
 
     /// <summary>
     /// The canvas menu at <paramref name="position"/> (viewport DIPs): on selected PDF text its copy and highlight; on an
-    /// annotation lock, clipboard and order; elsewhere a new text box, the quick tools and paste.
+    /// annotation lock, clipboard and order; elsewhere a new text box, the quick tools and paste. With
+    /// <paramref name="textMenu"/> (a pen or finger just selected PDF text) it is the text menu wherever that lifted —
+    /// past the end of the line, between the lines or the pages.
     /// </summary>
-    public ContextMenu? OpenAnnotationMenu(Point2 position)
+    public ContextMenu? OpenAnnotationMenu(Point2 position, bool textMenu = false)
     {
         FinishTextEditing();
-        if (Document is null || Canvas.HitTestPage(position) is not { } anchor) return null;
-        var hit = selectTool.Pick(position, includeLocked: true);
-        bool onText = hit is null && selectTool.HasTextSelection && selectTool.TextSelectionPage == anchor.PageIndex &&
-            selectTool.TextSelectionQuads(anchor.PageIndex).Any(q => TextSelection.DistanceToQuad(q, anchor.PagePoint) <= 2);
+        if (Document is null) return null;
+        textMenu &= selectTool.HasTextSelection;
+        Guid? hit;
+        bool onText;
+        PdfNotes.Editor.Layout.PageAnchor anchor;
+        if (textMenu)
+        {
+            int page = selectTool.TextSelectionPage;
+            var last = selectTool.TextSelectionQuads(page)[^1];
+            anchor = new(page, new((last.UpperLeft.X + last.LowerRight.X) / 2, (last.UpperLeft.Y + last.LowerRight.Y) / 2));
+            (hit, onText) = (null, true);
+        }
+        else
+        {
+            if (Canvas.HitTestPage(position) is not { } at) return null;
+            anchor = at;
+            hit = selectTool.Pick(position, includeLocked: true);
+            onText = hit is null && selectTool.HasTextSelection && selectTool.TextSelectionPage == anchor.PageIndex &&
+                selectTool.TextSelectionQuads(anchor.PageIndex).Any(q => TextSelection.DistanceToQuad(q, anchor.PagePoint) <= 2);
+        }
         if (selection.Menu(anchor.PageIndex, hit, onText) is not { } entries) return null;
         var menu = new ContextMenu { Placement = PlacementMode.Pointer };
         foreach (var entry in entries.Entries)

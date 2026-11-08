@@ -9,6 +9,12 @@ using PdfNotes.Editor.Tools;
 namespace PdfNotes.UI.Canvas;
 
 /// <summary>
+/// A long press, or a pen or finger lifted after selecting PDF text (<see cref="AfterTextDrag"/>), at a viewport point
+/// (DIPs): the window opens the menu a right click would.
+/// </summary>
+public readonly record struct CanvasHold(Point2 At, bool AfterTextDrag);
+
+/// <summary>
 /// Pointer input of the canvas (roadmap P4 A3), the WPF <c>DocumentView</c>'s rules: the left button drives the tool, the
 /// middle button is the quick eraser while held (spec 7.5), another button cancels a stroke, Space + drag pans. Pen and
 /// touch go through the P3 <see cref="PointerRouter"/> (spec 7.6) exactly as in the WPF app.
@@ -66,7 +72,7 @@ public sealed partial class DocumentCanvas
     public event EventHandler<Point2>? LinkClicked;
 
     /// <summary>A finger (or the pen with a selection tool) was held still on the page (viewport DIPs): the window opens the menu a right click would.</summary>
-    public event EventHandler<Point2>? Held;
+    public event EventHandler<CanvasHold>? Held;
 
     private Avalonia.Threading.DispatcherTimer? holdTimer;
 
@@ -338,7 +344,7 @@ public sealed partial class DocumentCanvas
                     if (touchTool is { IsActive: true } lifting) lifting.PointerUp(up.Pointer);
                     EndTouchTool();
                     // A pen or finger that selected PDF text gets its menu (copy, highlight), as a right click would.
-                    if (textDrag && tool is SelectTool { HasTextSelection: true }) Held?.Invoke(this, up.Pointer.Position);
+                    if (textDrag && tool is SelectTool { HasTextSelection: true }) Held?.Invoke(this, new(up.Pointer.Position, AfterTextDrag: true));
                     break;
                 case PointerAction.ToolCancel:
                     if (touchTool is { IsActive: true } cancelled) cancelled.Cancel();
@@ -357,7 +363,7 @@ public sealed partial class DocumentCanvas
                     StartFling(fling.Velocity);
                     break;
                 case PointerAction.Hold hold:
-                    Held?.Invoke(this, hold.Pointer.Position);
+                    Held?.Invoke(this, new(hold.Pointer.Position, AfterTextDrag: false));
                     break;
             }
     }
