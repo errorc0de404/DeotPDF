@@ -40,7 +40,12 @@ public static class SafeFileSaver
                 throw new SaveFailedException(SaveFailure.VerificationFailed, "The written file failed verification.", e);
             }
             // The temporary file got the default mode; the saved file keeps the one it replaces (a private 0600 stays private).
-            if (!OperatingSystem.IsWindows() && File.Exists(target)) File.SetUnixFileMode(temporary, File.GetUnixFileMode(target));
+            // Only a courtesy: a file system that refuses chmod (FUSE, SMB, Android shared storage) still saves.
+            if (!OperatingSystem.IsWindows() && File.Exists(target))
+            {
+                try { File.SetUnixFileMode(temporary, File.GetUnixFileMode(target)); }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            }
             if (File.Exists(target)) File.Replace(temporary, target, null, ignoreMetadataErrors: true);
             else File.Move(temporary, target);
         }

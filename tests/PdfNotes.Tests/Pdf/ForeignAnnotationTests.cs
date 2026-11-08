@@ -212,6 +212,20 @@ public sealed class ForeignAnnotationTests : IDisposable
         Assert.DoesNotContain("/Ink", Foreign(exported, 1)); // shows it as ours
     }
 
+    /// <summary>
+    /// Final review of B/C (I1): a save of a document with no converted page does not build the conversion. Building it
+    /// may fail (out of memory on a large PDF), and a failure there must not make every save fail.
+    /// </summary>
+    [Fact]
+    public void SavingWithoutAConvertedPageDoesNotBuildTheConversion()
+    {
+        using var source = PdfSourceDocument.Open(Sample());
+        var sources = new DocumentSources(source, ownsMain: false);
+        sources.ForSave(source.CreateModel());
+        var lazy = (Lazy<ForeignVariant?>)typeof(PdfSourceDocument).GetField("foreign", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(source)!;
+        Assert.False(lazy.IsValueCreated);
+    }
+
     [Fact]
     public void OnARotatedPageTextAndSquaresStayUprightOnScreen()
     {

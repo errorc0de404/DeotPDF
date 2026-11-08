@@ -30,7 +30,8 @@ public sealed class ForeignVariant : IDisposable
     /// <summary>
     /// The variant of a source (<paramref name="bytes"/>, rendered from <paramref name="rendered"/>), or null when nothing
     /// converts. A source PDFsharp cannot rewrite, or whose rewrite PDFium cannot open, has nothing to convert: its
-    /// annotations stay read-only. Never throws, so the lazy value that holds it never keeps an exception to rethrow.
+    /// annotations stay read-only. Never throws, so the lazy value that holds it never keeps an exception to rethrow: not
+    /// even running out of memory on a large PDF, which only means the annotations stay read-only.
     /// </summary>
     internal static ForeignVariant? Create(byte[] bytes, byte[] rendered, IReadOnlyList<PdfPageGeometry> pages)
     {
@@ -41,7 +42,7 @@ public sealed class ForeignVariant : IDisposable
             var background = ReferenceEquals(rendered, bytes) ? conversion.Pdf : ForeignAnnotations.Remove(rendered, conversion.RemovedKeys);
             return new(conversion.Pdf, new PdfiumDocument(background), conversion.Converted);
         }
-        catch (Exception e) when (e is not OutOfMemoryException) { return null; }
+        catch (Exception) { return null; }
     }
 
     public void Dispose() => Engine.Dispose();
@@ -226,19 +227,22 @@ public sealed class DocumentSources : IDisposable
     /// <see cref="ForSave"/>) when pages of both kinds use it (a copy pasted across the conversion or its Undo, which
     /// <see cref="ForeignConversion"/> alone does not make); otherwise as its original.
     /// </summary>
-    private static SourceUse Use(ForeignVariant? variant, int start, int count, DocumentModel model)
+    /// <remarks>
+    /// The variant is asked for only when a page of the range shows it converted: building it can take long or fail (a
+    /// large PDF), and a save of a document nobody converted must neither wait for it nor fail with it.
+    /// </remarks>
+    private static SourceUse Use(Func<ForeignVariant?> variantOf, int start, int count, DocumentModel model)
     {
-        if (variant is null) return SourceUse.Original;
-        bool converted = false, plain = false;
-        HashSet<int>? removed = null;
-        foreach (var page in model.Pages)
+        bool InRange(Page page, out int index)
         {
-            if (page.Setup.Source is not { Kind: PageSourceKind.Pdf, PdfPageIndex: int index } source || index < start || index >= start + count) continue;
-            if (source.ForeignConverted) { converted = true; continue; }
-            removed ??= variant.Converted.Select(c => c.SourcePageIndex).ToHashSet();
-            plain |= removed.Contains(index - start);
+            index = page.Setup.Source.PdfPageIndex ?? -1;
+            return page.Setup.Source.Kind == PageSourceKind.Pdf && index >= start && index < start + count;
         }
-        return !converted ? SourceUse.Original : plain ? SourceUse.Mixed : SourceUse.Variant;
+        if (!model.Pages.Any(p => p.Setup.Source.ForeignConverted && InRange(p, out _))) return SourceUse.Original;
+        if (variantOf() is not { } variant) return SourceUse.Original;
+        var removed = variant.Converted.Select(c => c.SourcePageIndex).ToHashSet();
+        bool plain = model.Pages.Any(p => !p.Setup.Source.ForeignConverted && InRange(p, out int index) && removed.Contains(index - start));
+        return plain ? SourceUse.Mixed : SourceUse.Variant;
     }
 
     /// <summary>
@@ -257,7 +261,7 @@ public sealed class DocumentSources : IDisposable
         byte[]? mainBytes = null;
         if (Main is { } m)
         {
-            var use = Use(m.Foreign, 0, main, model);
+            var use = Use(() => m.Foreign, 0, main, model);
             mainBytes = use == SourceUse.Variant ? m.Foreign!.Bytes : m.Bytes;
             if (use == SourceUse.Mixed) mixed.Add((m.Foreign!, m.Pages, 0, main));
         }
@@ -267,7 +271,7 @@ public sealed class DocumentSources : IDisposable
         {
             if (Enumerable.Range(start, part.Pages.Count).Any(used.Contains))
             {
-                var use = Use(part.Foreign, start, part.Pages.Count, model);
+                var use = Use(() => part.Foreign, start, part.Pages.Count, model);
                 kept.Add(use == SourceUse.Variant ? part.Converted() : part);
                 if (use == SourceUse.Mixed) mixed.Add((part.Foreign!, part.Pages, start, part.Pages.Count));
                 for (int i = 0; i < part.Pages.Count; i++) shift[start + i] = written + i;
