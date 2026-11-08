@@ -86,7 +86,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     /// The annotation layer of a page for this frame (inverted with the page on dark pages), taken on the UI thread — what
     /// it shows depends on UI state (a selection being moved, an erase in progress). The default draws the page as it is.
     /// </summary>
-    public Func<int, Page, ViewTransform, PagePainter?>? OverlayFor { get; set; }
+    public Func<int, Page, ViewTransform, IReadOnlyCollection<Guid>, PagePainter?>? OverlayFor { get; set; }
 
     /// <summary>Dark pages for reading (spec 24.12): paper, PDF and annotations inverted.</summary>
     public bool DarkPages
@@ -399,7 +399,19 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     }
 
     /// <summary>The pages' own size at the current zoom with the margins (the layout's extent without the viewport).</summary>
+    private (IReadOnlyList<Page> Pages, double Zoom, ViewMode Mode, int Single, (double, double) Size)? contentSize;
+
+    /// <summary>Asked on every scroll step (plan C6): worked out again only when the pages, zoom or mode change.</summary>
     private (double Width, double Height) ContentSize()
+    {
+        if (contentSize is { } known && ReferenceEquals(known.Pages, pages) && known.Zoom == zoom && known.Mode == mode && known.Single == singlePage)
+            return known.Size;
+        var size = MeasureContent();
+        contentSize = (pages, zoom, mode, singlePage, size);
+        return size;
+    }
+
+    private (double Width, double Height) MeasureContent()
     {
         if (pages.Count == 0) return (0, 0);
         double scale = zoom * Units.DipsPerPoint;
@@ -619,10 +631,10 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
             var tiles = details.TryGetValue(page.Id, out var dd) ? dd.Where(t => t.Key.Setup.Equals(page.Setup)).ToArray() : [];
             var live = PreviewPainter(index, page, transform);
             shots.Add(new(index, page, transform, b.Image, tiles, previewIsMark ? null : live, previewIsMark ? live : null,
-                MarksFor?.Invoke(index, page, transform), OverlayFor?.Invoke(index, page, transform))
+                MarksFor?.Invoke(index, page, transform), OverlayFor?.Invoke(index, page, transform, lastLive))
             {
                 BaseKey = b.Image is null ? null : b.Key, Failed = failed,
-                Live = anyLive ? LiveFor?.Invoke(index, page, transform) : null,
+                Live = anyLive ? LiveFor?.Invoke(index, page, transform, lastLive) : null,
             });
         }
         context.Custom(new CanvasDrawOperation(new Rect(0, 0, viewportWidth, viewportHeight), shots, Snapshot(), frameCache, baseVersion));

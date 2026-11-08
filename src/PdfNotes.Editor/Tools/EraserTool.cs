@@ -36,6 +36,9 @@ public sealed class EraserTool(ICanvasView view, Func<DocumentSession?> session,
     public IReadOnlyDictionary<Guid, IReadOnlyList<Annotation>>? Preview(Guid pageId) =>
         gesture is { } g && g.PageId == pageId ? g.Preview : null;
 
+    /// <summary>The page of the gesture in progress (the only page with a <see cref="Preview"/>), or null.</summary>
+    public Guid? PreviewPageId => gesture?.PageId;
+
     public bool PointerDown(CanvasPointer pointer)
     {
         if (session() is not { } s || view.HitTestPage(pointer.Position) is not { } anchor) return false;

@@ -56,8 +56,11 @@ public sealed partial class DocumentCanvas : ICanvasView
     /// </summary>
     public Func<IReadOnlyCollection<Guid>>? LiveIds { get; set; }
 
-    /// <summary>The live annotations of a page as they look now (drawn inside the page, above the overlay).</summary>
-    public Func<int, Page, ViewTransform, PagePainter?>? LiveFor { get; set; }
+    /// <summary>
+    /// The live annotations of a page as they look now (drawn inside the page, above the overlay). The set is
+    /// <see cref="LiveIds"/>, asked once per frame (plan C6) and given to <see cref="OverlayFor"/> too.
+    /// </summary>
+    public Func<int, Page, ViewTransform, IReadOnlyCollection<Guid>, PagePainter?>? LiveFor { get; set; }
 
     private readonly HashSet<Guid> lastLive = [];
 

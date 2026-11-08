@@ -180,10 +180,9 @@ public sealed partial class MainView
     /// box being edited (its editor draws it). Annotations a drag is changing are left out here and drawn by
     /// <see cref="LiveFor"/>, so the canvas keeps the rest of the frame while they move (roadmap P5d A2).
     /// </summary>
-    private PagePainter? OverlayFor(int index, Page page, ViewTransform transform)
+    private PagePainter? OverlayFor(int index, Page page, ViewTransform transform, IReadOnlyCollection<Guid> live)
     {
         if (viewModel.Display.NotesHidden || Document is not { } doc) return null;
-        var live = LiveIds();
         var shown = new List<Annotation>(page.Annotations.Count);
         foreach (var original in page.Annotations)
             if (original.Id != EditingTextId && !live.Contains(original.Id)) shown.Add(original);
@@ -218,17 +217,16 @@ public sealed partial class MainView
     private IReadOnlyCollection<Guid> LiveIds()
     {
         if (selectTool.IsDragging) return selectTool.SelectedIds;
-        if (Canvas.ActiveTool is EraserTool eraser && Document is { } doc)
-            foreach (var page in doc.Session.Current.Pages)
-                if (eraser.Preview(page.Id) is { Count: > 0 } erased) return [.. erased.Keys];
+        // The page the eraser is on, not a search of every page (plan C6).
+        if (Canvas.ActiveTool is EraserTool { PreviewPageId: { } pageId } eraser && eraser.Preview(pageId) is { Count: > 0 } erased)
+            return [.. erased.Keys];
         return [];
     }
 
     /// <summary>The live annotations of a page as the drag shows them (moved copies, the pieces an eraser leaves).</summary>
-    private PagePainter? LiveFor(int index, Page page, ViewTransform transform)
+    private PagePainter? LiveFor(int index, Page page, ViewTransform transform, IReadOnlyCollection<Guid> live)
     {
         if (viewModel.Display.NotesHidden || Document is not { } doc) return null;
-        var live = LiveIds();
         var replacements = selectTool.IsDragging ? selectTool.DisplayAnnotations.ToDictionary(a => a.Id) : [];
         var erased = (Canvas.ActiveTool as EraserTool)?.Preview(page.Id);
         var across = selectTool.CrossPage;
