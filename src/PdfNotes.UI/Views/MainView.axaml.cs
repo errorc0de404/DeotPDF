@@ -57,14 +57,15 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
     private readonly IViewHost host;
     private TopLevel? topLevel;
 
+    /// <summary>Startup timing (Android debug builds set it); null otherwise.</summary>
+    public static Action<string>? StartupMark;
+
     /// <param name="app">The settings, how they are stored, the settings folder (backups, the running windows' markers, language
     /// packs) and the language; tests pass their own.</param>
     /// <param name="dialogs">The modal UI (questions, messages, file pickers, app windows; tests pass a scripted one).</param>
     /// <param name="host">The window or screen around the view (default: none).</param>
     /// <param name="compose">Puts the view models together from the app's and this view's services (R4g; default <see cref="MainViewModels.Create"/>).</param>
     /// <param name="locations">Finds recent documents again (default: files; Android: content URIs too).</param>
-    public static Action<string>? StartupMark;
-
     public MainView(AppServices app, IDesktopDialogs dialogs, IViewHost? host = null, Func<AppServices, ScreenServices, MainViewModel>? compose = null,
         IDocumentLocations? locations = null)
     {

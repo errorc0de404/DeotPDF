@@ -21,6 +21,8 @@ public sealed class App : Avalonia.Application
     private static MainView? view;
     private static DocumentLocation? pending;
 
+    /// <summary>Startup timing in the log (adb logcat -s DEOTSTART), debug builds only.</summary>
+    [System.Diagnostics.Conditional("DEBUG")]
     public static void Mark(string what) => global::Android.Util.Log.Info("DEOTSTART", $"{(global::Android.OS.SystemClock.ElapsedRealtime() - global::Android.OS.Process.StartElapsedRealtime)} ms {what}");
 
     public override void Initialize() { Mark("Initialize"); AvaloniaXamlLoader.Load(this); Mark("Initialize done"); }
@@ -30,7 +32,9 @@ public sealed class App : Avalonia.Application
         if (ApplicationLifetime is ISingleViewApplicationLifetime single)
         {
             Mark("framework ready");
-            MainView.StartupMark = Mark;
+#if DEBUG
+            MainView.StartupMark = what => Mark(what);
+#endif
             SkiaText.Register(); Mark("skia text"); // one text engine for the screen and the PDF appearances (P2)
             // A command's failure would otherwise vanish with its task: it goes to the log (adb logcat -s DeotPDF).
             TaskScheduler.UnobservedTaskException += (_, e) => global::Android.Util.Log.Error("DeotPDF", "unobserved: " + e.Exception);
@@ -52,12 +56,14 @@ public sealed class App : Avalonia.Application
             shown.AttachedToVisualTree += (_, _) =>
             {
                 Mark("attached");
+#if DEBUG
                 if (Avalonia.Controls.TopLevel.GetTopLevel(shown) is { } top)
                 {
-                    bool laid = false;
-                    top.LayoutUpdated += (_, _) => { if (!laid) { laid = true; Mark("first layout"); } };
+                    void Laid(object? sender, EventArgs e) { top.LayoutUpdated -= Laid; Mark("first layout"); }
+                    top.LayoutUpdated += Laid;
                     top.RequestAnimationFrame(_ => Mark("first frame"));
                 }
+#endif
                 shown.Shown(); Mark("shown");
                 Avalonia.Threading.Dispatcher.UIThread.Post(() => Mark("first idle"), Avalonia.Threading.DispatcherPriority.Background);
                 if (pending is { } location) { pending = null; Open(location); }
