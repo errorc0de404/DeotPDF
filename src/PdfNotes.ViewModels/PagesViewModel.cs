@@ -194,6 +194,36 @@ public sealed class PagesViewModel : ObservableObject
         Refresh();
     }
 
+    /// <summary>
+    /// Makes the rows follow <paramref name="ids"/> by removing, moving and inserting rows (plan C4): kept rows stay the
+    /// same objects and the list sees a few changes, not a rebuild.
+    /// </summary>
+    private static void Sync(ObservableCollection<PageItemViewModel> items, IReadOnlyList<Guid> ids, Func<Guid, PageItemViewModel> create)
+    {
+        var wanted = ids.ToHashSet();
+        for (int i = items.Count - 1; i >= 0; i--)
+            if (!wanted.Contains(items[i].PageId)) items.RemoveAt(i);
+        var rows = items.ToDictionary(t => t.PageId);
+        var target = ids.Select((id, k) => (id, k)).ToDictionary(p => p.id, p => p.k);
+        for (int i = 0; i < ids.Count; i++)
+        {
+            if (i < items.Count && items[i].PageId == ids[i]) continue;
+            if (i + 1 < items.Count && items[i + 1].PageId == ids[i] && target[items[i].PageId] > i)
+            {
+                items.Move(i, Math.Min(target[items[i].PageId], items.Count - 1)); // one page moved later: move it, not the rest
+                i--;
+                continue;
+            }
+            if (rows.TryGetValue(ids[i], out var row))
+            {
+                int from = i; // the rows before i are in place already
+                while (!ReferenceEquals(items[from], row)) from++;
+                items.Move(from, i);
+            }
+            else items.Insert(i, create(ids[i]));
+        }
+    }
+
     /// <summary>Rebuilds the rows after a document or structure change and schedules thumbnails for changed pages.</summary>
     public void Refresh()
     {
@@ -203,11 +233,7 @@ public sealed class PagesViewModel : ObservableObject
         try
         {
             if (!items.Select(t => t.PageId).SequenceEqual(pages.Select(p => p.Id)))
-            {
-                var existing = items.ToDictionary(t => t.PageId);
-                items.Clear();
-                foreach (var page in pages) items.Add(existing.GetValueOrDefault(page.Id) ?? new PageItemViewModel(page.Id, ItemSelectionChanged));
-            }
+                Sync(items, [.. pages.Select(p => p.Id)], id => new PageItemViewModel(id, ItemSelectionChanged));
             // Rows without a thumbnail yet already have its size, so the list does not jump as thumbnails arrive.
             for (int i = 0; i < items.Count; i++)
                 if (items[i].Image is null && pages[i].Setup.Frame is { DisplayWidthPt: > 0 } frame)

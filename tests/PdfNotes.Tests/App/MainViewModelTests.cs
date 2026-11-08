@@ -39,6 +39,22 @@ public sealed class MainViewModelTests : IDisposable
         Assert.NotEqual(other.UndoTip, model.UndoTip);
     }
 
+    /// <summary>
+    /// Plan C4: a stroke changes no page setup, so the other apps' annotation command is not worked out again (it builds
+    /// the whole conversion) and the outline is not checked again.
+    /// </summary>
+    [Fact]
+    public void AStrokeDoesNotRecountForeignAnnotations()
+    {
+        var changed = new List<string?>();
+        model.Foreign.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var session = model.Document!.Session;
+        session.Execute(DocumentEdits.AddAnnotation(session.Current, session.Current.Pages[0].Id, TestModels.Ink()));
+        Assert.Empty(changed);
+        session.Execute(DocumentEdits.InsertPage(session.Current, 1, session.Current.Pages[0].Setup));
+        Assert.Contains(nameof(model.Foreign.CanConvert), changed);
+    }
+
     public void Dispose()
     {
         model.Workflow.Detach()?.Dispose();

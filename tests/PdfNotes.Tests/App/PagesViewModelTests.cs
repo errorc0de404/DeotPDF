@@ -84,6 +84,42 @@ public sealed class PagesViewModelTests : IDisposable
         Assert.Equal(2, List.Selected.Count); // the selection survives a rebuild
     }
 
+    /// <summary>Plan C4: a page move moves its row; the list is not rebuilt (no Reset, the other rows stay).</summary>
+    [Fact]
+    public void MovingAPageMovesOneRowAndKeepsTheOthers()
+    {
+        var rows = Pages.Items.ToList();
+        var changes = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        Pages.Items.CollectionChanged += (_, e) => changes.Add(e.Action);
+        Session.Execute(PageEdits.MovePages(Session.Current, [Id(0)], 3));
+        Assert.Equal([rows[1], rows[2], rows[0]], Pages.Items.ToList());
+        Assert.All(Pages.Items.Zip([rows[1], rows[2], rows[0]]), p => Assert.Same(p.Second, p.First));
+        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Move], changes);
+        Assert.Equal([1, 2, 3], Pages.Items.Select(i => i.Number));
+    }
+
+    /// <summary>Rows are moved, removed and inserted, never rebuilt: after any page edit or Undo they match the pages.</summary>
+    [Fact]
+    public void RowsFollowAnyPageEdit()
+    {
+        var random = new Random(7);
+        var spec = Session.Current.Pages[0].Setup;
+        for (int step = 0; step < 200; step++)
+        {
+            var pages = Session.Current.Pages;
+            var chosen = pages.Where(_ => random.Next(3) == 0).Select(p => p.Id).ToList();
+            switch (random.Next(4))
+            {
+                case 0 when chosen.Count > 0: Session.Execute(PageEdits.MovePages(Session.Current, chosen, random.Next(pages.Count + 1))); break;
+                case 1 when chosen.Count > 0 && chosen.Count < pages.Count: Session.Execute(DocumentEdits.DeletePages(Session.Current, chosen)); break;
+                case 2 when pages.Count < 12: Session.Execute(DocumentEdits.InsertPage(Session.Current, random.Next(pages.Count + 1), spec)); break;
+                default: if (Session.CanUndo) Session.Undo(); break;
+            }
+            Assert.Equal(Session.Current.Pages.Select(p => p.Id), Pages.Items.Select(i => i.PageId));
+            Assert.Equal(Enumerable.Range(1, Pages.Items.Count), Pages.Items.Select(i => i.Number));
+        }
+    }
+
     [Fact]
     public async Task DeleteAsksAndKeepsOnePage()
     {

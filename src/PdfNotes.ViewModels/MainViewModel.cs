@@ -242,16 +242,28 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
     /// <summary>The document was written to this path (the backup starts over).</summary>
     public event Action<string>? FileSaved;
 
+    /// <summary>The pages (and number of imported PDFs) the last model change left, to tell what the next one changed.</summary>
+    private (OpenDocument? Document, IReadOnlyList<Core.Models.Page>? Pages, int Parts) followed;
+
     private void SessionStateChanged(object? sender, EventArgs e)
     {
-        if (!ReferenceEquals(sender, Document?.Session)) return;
+        if (Document is not { } doc || !ReferenceEquals(sender, doc.Session)) return;
+        // Plan C4: most edits change annotations only. The outline and the other apps' annotation command (which builds the
+        // whole conversion) depend on the pages and their setups, so they follow only when those change.
+        var pages = doc.Session.Current.Pages;
+        int parts = doc.Sources.Imported.Count;
+        var last = followed;
+        followed = (doc, pages, parts);
+        bool sameIds = ReferenceEquals(last.Document, doc) && last.Pages is { } before && before.Count == pages.Count &&
+            before.Zip(pages).All(p => p.First.Id == p.Second.Id);
+        bool sameSetups = sameIds && last.Parts == parts && last.Pages!.Zip(pages).All(p => ReferenceEquals(p.First.Setup, p.Second.Setup));
         DocumentChanged?.Invoke();
         Pages.Refresh(); // the rows follow the pages (after the canvas compared them with the model)
         Refresh();
         RefreshCommands();
         Pages.CommandsChanged();
-        Outline.Refresh(); // items of deleted pages are dimmed
-        _ = Foreign.RecountAsync(); // imported pages may bring other apps' annotations
+        if (!sameIds) Outline.Refresh(); // items of deleted pages are dimmed
+        if (!sameSetups) _ = Foreign.RecountAsync(); // imported pages may bring other apps' annotations
         Search.Schedule(keep: true); // text edits, deleted or moved pages: results follow the document
     }
 
@@ -271,6 +283,7 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
     void IDocumentHost.DocumentReplaced(OpenDocument? previous, OpenDocument next)
     {
         next.Session.StateChanged += SessionStateChanged;
+        followed = (next, next.Session.Current.Pages, next.Sources.Imported.Count);
         DocumentShown?.Invoke(previous, next);
         // Off the UI thread: closing the old engines waits for the page PDFium is still rendering for it.
         if (previous is not null) _ = Task.Run(previous.Dispose);
