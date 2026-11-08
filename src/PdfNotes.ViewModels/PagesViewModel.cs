@@ -334,7 +334,9 @@ public sealed class PagesViewModel : ObservableObject
     public async Task RenderThumbnailsAsync()
     {
         if (Document is not { } doc || !panelVisible) return;
+        // The earlier run checks IsCancellationRequested before it touches its token again: disposing it here is safe.
         thumbCancel?.Cancel();
+        thumbCancel?.Dispose();
         var cancel = thumbCancel = new CancellationTokenSource();
         var model = doc.Session.Current;
         bool hidden = owner.Display.NotesHidden;
