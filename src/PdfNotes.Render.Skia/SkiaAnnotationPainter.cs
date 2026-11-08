@@ -66,7 +66,11 @@ public static class SkiaAnnotationPainter
             paint.Style = SKPaintStyle.Fill;
             // While drawing, the overlapping pieces as one non-zero figure (no polygon arithmetic per frame); one draw
             // call, so the opacity is applied once.
-            if (preview && stroke is InkStroke { HasPressure: true } live) canvas.DrawPath(Rings([.. StrokeRegion.PressurePieces(live)], SKPathFillType.Winding), paint);
+            if (preview && stroke is InkStroke { HasPressure: true } live)
+            {
+                using var pieces = Rings([.. StrokeRegion.PressurePieces(live)], SKPathFillType.Winding); // per frame: not cached
+                canvas.DrawPath(pieces, paint);
+            }
             else canvas.DrawPath(Strokes.GetValue(stroke, BuildFilled), paint);
         }
         else if (stroke.Points.Length == 1)
@@ -80,7 +84,12 @@ public static class SkiaAnnotationPainter
             paint.StrokeWidth = (float)stroke.WidthPt;
             paint.StrokeCap = SKStrokeCap.Round;
             paint.StrokeJoin = SKStrokeJoin.Round;
-            canvas.DrawPath(preview ? Polyline(stroke.Points) : Strokes.GetValue(stroke, s => Polyline(s.Points)), paint);
+            if (preview)
+            {
+                using var line = Polyline(stroke.Points); // per frame: not cached
+                canvas.DrawPath(line, paint);
+            }
+            else canvas.DrawPath(Strokes.GetValue(stroke, s => Polyline(s.Points)), paint);
         }
         canvas.RestoreToCount(saved);
     }
