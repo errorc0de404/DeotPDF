@@ -124,7 +124,7 @@ public sealed class BackupViewModel : ObservableObject
                 try
                 {
                     await doc.SaveAsync(path);
-                    schedule.Done(doc.Session.SavedRevision);
+                    if (ReferenceEquals(doc, owner.Document)) schedule.Done(doc.Session.SavedRevision); // another document has its own schedule
                     Backed(null);
                     Saved();
                     return true;
@@ -136,7 +136,7 @@ public sealed class BackupViewModel : ObservableObject
             string file = Store.NewFile(folder, doc.Location?.Name); // a content URI's document is named too (P5b)
             long revision = await doc.WriteCopyAsync(file);
             Store.Added(doc.Location?.Key ?? BackupStore.NewNotesKey, file, Settings.BackupKeep); // a file's key is BackupStore.DocumentKey's
-            schedule.Done(revision);
+            if (ReferenceEquals(doc, owner.Document)) schedule.Done(revision); // another document has its own schedule
             if (ReferenceEquals(doc, owner.Document) && doc.Session.SavedRevision != revision)
                 Store.SetRecoverable(new(doc.DisplayNameIn(texts), file, Now));
             Backed(file);

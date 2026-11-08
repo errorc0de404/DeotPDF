@@ -67,6 +67,33 @@ public sealed class BackupImportViewModelTests : IDisposable
         public Task<PageTransformRequest?> ChooseTransformAsync(bool resize, DocumentModel model, Page active, Func<PageApplyScope, PageSetup[]> targets) => Task.FromResult<PageTransformRequest?>(null);
     }
 
+    /// <summary>
+    /// Review 2026-11-08 A6: a backup still writing when another document opens must not count for the new one (its
+    /// revisions start over, so the old one's number could say the new changes are backed up).
+    /// </summary>
+    [Fact]
+    public async Task ABackupThatEndsAfterAnotherDocumentOpenedLeavesItsScheduleAlone()
+    {
+        Backup.IntervalOverride = TimeSpan.FromSeconds(2);
+        Draw();
+        await Backup.TickAsync();
+        time.Now += TimeSpan.FromSeconds(3);
+        var writing = Backup.TickAsync(); // document A's backup runs off the UI thread
+        Assert.True(Backup.IsRunning);
+        var old = model.Workflow.Detach();
+        model.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default)); // document B, as the window does
+        Backup.Reset();
+        await writing;
+        old?.Dispose();
+
+        Draw(); // B's first change has A's revision number
+        await Backup.TickAsync();
+        time.Now += TimeSpan.FromSeconds(3);
+        string? before = Backup.LastFile;
+        await Backup.TickAsync();
+        Assert.NotEqual(before, Backup.LastFile); // B is backed up
+    }
+
     [Fact]
     public async Task ABackupWaitsForTheIntervalAndForWorkInProgress()
     {
