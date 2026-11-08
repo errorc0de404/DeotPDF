@@ -30,6 +30,7 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
     private int rectPage = -1;
     private Point2 rectStart, rectEnd; // canonical points of rectPage
     private int textPage = -1, textAnchor, textFocus;
+    private (int Start, int End)? textWord; // a drag that began with a whole word keeps it
     private bool overText;
     private ToolCursor? hoverCursor, dragCursor;
     public const double HandleRadiusDip = 7;
@@ -299,6 +300,12 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
     }
     /// <summary>What of the current selection is under <paramref name="viewportPoint"/>: a handle, a selected annotation or the inside of its frame.</summary>
     /// <summary>A press here takes something to drag: the selection, its handles or an unlocked annotation.</summary>
+    /// <summary>A PDF text selection is being dragged (the touch layout opens its menu when it ends).</summary>
+    public bool IsDraggingText => drag == TextDrag;
+
+    /// <summary>A long press here selects PDF text (a word), not the menu: on text where no annotation is.</summary>
+    public bool HoldSelectsText(Point2 viewportPoint) => Pick(viewportPoint) is null && HitSelection(viewportPoint) == SelectionHit.None && TextCaretAt(viewportPoint) is not null;
+
     public bool Grabs(Point2 viewportPoint) => HitSelection(viewportPoint) != SelectionHit.None || Pick(viewportPoint) is not null;
 
     public SelectionHit HitSelection(Point2 viewportPoint)
@@ -373,7 +380,15 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         else if (TextCaretAt(start) is { } text)
         {
             Select(null);
-            textPage = text.Page; textAnchor = textFocus = text.Caret; drag = TextDrag;
+            textPage = text.Page; textAnchor = textFocus = text.Caret; drag = TextDrag; textWord = null;
+            // A double click, or a long press of a finger (2026-11-08), starts with the word under it.
+            if (pointer.ClickCount >= 2 && glyphs is not null && view.HitTestPage(start) is { } on &&
+                TextSelection.WordAt(glyphs(text.Page), on.PagePoint, view.PageTransform(text.Page).DipLengthToPoints(PickToleranceDip)) is { } word)
+            {
+                textWord = word;
+                (textAnchor, textFocus) = word;
+                view.RefreshOverlays();
+            }
         }
         else { Select(null); drag = 2; panOffset = view.Offset; }
         return true;
@@ -390,7 +405,10 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         if (drag == TextDrag)
         {
             var at = view.PageTransform(textPage).DipToPage.Transform(new(pointer.Position.X, pointer.Position.Y));
-            if (glyphs is not null && TextSelection.CaretAt(glyphs(textPage), at) is { } caret && caret != textFocus) { textFocus = caret; view.RefreshOverlays(); }
+            if (glyphs is null || TextSelection.CaretAt(glyphs(textPage), at) is not { } caret) return;
+            var (anchor, focus) = textWord is not { } w ? (textAnchor, caret)
+                : caret >= w.End ? (w.Start, caret) : caret <= w.Start ? (w.End, caret) : (w.Start, w.End);
+            if (anchor != textAnchor || focus != textFocus) { textAnchor = anchor; textFocus = focus; view.RefreshOverlays(); }
             return;
         }
         if (drag == RectDrag)

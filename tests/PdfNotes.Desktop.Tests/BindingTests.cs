@@ -106,7 +106,7 @@ public sealed class BindingTests
             Settle(w);
             foreach (var other in Enum.GetValues<RibbonTab>())
             {
-                Assert.Equal(other == tab, Find<WrapPanel>(w, other + "Tab").IsVisible);
+                Assert.Equal(other == tab, Find<StackPanel>(w, other + "Tab").IsVisible);
                 Assert.Equal(other == tab, Find<RadioButton>(w, other + "TabButton").IsChecked);
             }
         }

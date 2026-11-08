@@ -10,6 +10,7 @@ public sealed class IconLabel : StackPanel
     public static readonly StyledProperty<string?> GlyphProperty = AvaloniaProperty.Register<IconLabel, string?>(nameof(Glyph));
     public static readonly StyledProperty<string?> TextProperty = AvaloniaProperty.Register<IconLabel, string?>(nameof(Text));
     public static readonly StyledProperty<string?> OutlineProperty = AvaloniaProperty.Register<IconLabel, string?>(nameof(Outline));
+    public static readonly StyledProperty<bool> ShowTextProperty = AvaloniaProperty.Register<IconLabel, bool>(nameof(ShowText), true);
 
     private readonly AppIcon icon = new();
     private readonly TextBlock label = new() { VerticalAlignment = VerticalAlignment.Center };
@@ -28,13 +29,16 @@ public sealed class IconLabel : StackPanel
     /// <summary>A drawn outline shown instead of a glyph (the shape button follows the shape tool).</summary>
     public string? Outline { get => GetValue(OutlineProperty); set => SetValue(OutlineProperty, value); }
 
+    /// <summary>False: the icon alone (the touch layout's tool row, where the button's tooltip names it).</summary>
+    public bool ShowText { get => GetValue(ShowTextProperty); set => SetValue(ShowTextProperty, value); }
+
     /// <summary>The icon (its outline for drawn icons such as the shape tool's).</summary>
     public AppIcon IconPart => icon;
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == GlyphProperty || change.Property == TextProperty || change.Property == OutlineProperty) Update();
+        if (change.Property == GlyphProperty || change.Property == TextProperty || change.Property == OutlineProperty || change.Property == ShowTextProperty) Update();
     }
 
     private void Update()
@@ -44,7 +48,7 @@ public sealed class IconLabel : StackPanel
         label.Text = Text;
         bool hasIcon = Glyph is not null || icon.Outline is not null;
         icon.IsVisible = hasIcon;
-        label.IsVisible = !string.IsNullOrEmpty(Text);
+        label.IsVisible = ShowText && !string.IsNullOrEmpty(Text);
         // Space.IconGap (0,0,6,0) between the two, none when the icon stands alone.
         icon.Margin = label.IsVisible ? new Thickness(0, 0, 6, 0) : default;
     }

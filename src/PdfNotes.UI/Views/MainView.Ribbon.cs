@@ -36,6 +36,11 @@ public sealed partial class MainView
             e.Handled = true;
         };
         ZoomBox.LostFocus += (_, _) => viewModel.Navigation.ResetZoomInput();
+        // Another tab starts at its left end, even if the last one was scrolled.
+        viewModel.Ribbon.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(RibbonViewModel.Current) && !IsTouchLayout) RibbonStrip.ScrollToStart(); // touch: the tool row stays
+        };
     }
 
     private void InsertMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => OpenInsertMenu();

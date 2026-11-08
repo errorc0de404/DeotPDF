@@ -28,7 +28,7 @@ public abstract record PointerAction
     /// direction the content moves) and slows down by itself.</summary>
     public sealed record Fling(Point2 Velocity) : PointerAction;
 
-    /// <summary>A finger held still on the page: the right-click menu at <see cref="Pointer"/> (Android has no right button).</summary>
+    /// <summary>A finger (or the pen with a selection tool) held still on the page: the right-click menu at <see cref="Pointer"/> (Android has no right button).</summary>
     public sealed record Hold(CanvasPointer Pointer) : PointerAction;
 }
 
@@ -85,6 +85,10 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
     private TouchState state;
     private int? penId;
     private CanvasPointer? lastPen;
+    private long penDownTicks;
+    private CanvasPointer? penPress;
+    private bool penMoved;
+    private bool penHeld;
     private bool penNear;
     private long penLeftTicks = long.MinValue;
     private (long Ticks, Point2 At)? lastTap;
@@ -98,6 +102,18 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
     /// the page once it drags; a tap there stays a tap. Null: a finger always moves the page.
     /// </summary>
     public Func<CanvasPointer, bool>? FingerGrabs { get; set; }
+
+    /// <summary>
+    /// The pen held still here for <see cref="PointerRouterOptions.HoldTime"/> opens the right-click menu instead of
+    /// pressing the tool (2026-11-08: the selection tools, so a pen alone reaches the menu). Null: the pen never holds.
+    /// </summary>
+    public Func<CanvasPointer, bool>? PenHolds { get; set; }
+
+    /// <summary>
+    /// A finger held still here presses the tool with a double click (a PDF word) and then drags it, instead of the menu
+    /// (2026-11-08: text selection by touch). Null: a long press is always the menu.
+    /// </summary>
+    public Func<CanvasPointer, bool>? HoldSelects { get; set; }
 
     /// <summary>True while a pen or finger owns the tool (a stroke is in progress).</summary>
     public bool IsDrawing => penId is not null || state == TouchState.Drawing;
@@ -115,6 +131,7 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
         if (penId is not null && lastPen is { } last)
         {
             penId = null;
+            if (penHeld) { penHeld = false; return []; }
             return [new PointerAction.ToolUp(last)];
         }
         return [];
@@ -132,6 +149,9 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
                 penId = pointer.PointerId;
                 lastPen = pointer;
                 penNear = true;
+                penDownTicks = clock.GetTimestamp();
+                penMoved = penHeld = false;
+                penPress = pointer;
                 actions.Add(new PointerAction.ToolDown(pointer, pointer.Eraser));
                 return actions;
             }
@@ -146,7 +166,8 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
     {
         if (pointer.Device == PointerDevice.Pen)
         {
-            if (penId != pointer.PointerId) return [];
+            if (penId != pointer.PointerId || penHeld) return [];
+            if (!penMoved && penPress is { } press && pointer.Position.DistanceTo(press.Position) > options().TapSlopDip) penMoved = true;
             lastPen = pointer;
             return [new PointerAction.ToolMove(pointer)];
         }
@@ -187,6 +208,7 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
             if (penId != pointer.PointerId) return [];
             penId = null;
             penLeftTicks = clock.GetTimestamp();
+            if (penHeld) { penHeld = false; return []; } // the menu took this press
             return [new PointerAction.ToolUp(pointer)];
         }
         if (pointer.Device != PointerDevice.Touch) return [];
@@ -228,11 +250,18 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
     /// </summary>
     public IReadOnlyList<PointerAction> HoldElapsed(int pointerId)
     {
+        if (penId == pointerId) return PenHoldElapsed();
         if (state != TouchState.Pending || touches.Count != 1 || !touches.TryGetValue(pointerId, out var contact)) return [];
         if (clock.GetElapsedTime(contact.DownTicks) < options().HoldTime - TimeSpan.FromMilliseconds(30)) return []; // a timer may fire a little early
-        state = TouchState.Finished;
         lastTap = null;
-        return [new PointerAction.Hold(contact.Down with { Position = contact.Last })];
+        var at = contact.Down with { Position = contact.Last };
+        if (HoldSelects?.Invoke(at) == true)
+        {
+            state = TouchState.Drawing;
+            return [new PointerAction.ToolDown(at with { ClickCount = 2 }, false)];
+        }
+        state = TouchState.Finished;
+        return [new PointerAction.Hold(at)];
     }
 
     /// <summary>How far back the finger's last moves count for its speed when it lets go.</summary>
@@ -311,6 +340,15 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
         state = TouchState.Pinching;
         (pinchCenter, pinchDistance) = PinchShape();
         return drawing ? [new PointerAction.ToolCancel()] : [];
+    }
+
+    /// <summary>The pen's press: the stroke is dropped and the menu opens where the pen is (lifting it then does nothing).</summary>
+    private IReadOnlyList<PointerAction> PenHoldElapsed()
+    {
+        if (penHeld || penMoved || penPress is not { } down || down.Eraser || lastPen is not { } last || PenHolds?.Invoke(down) != true) return [];
+        if (clock.GetElapsedTime(penDownTicks) < options().HoldTime - TimeSpan.FromMilliseconds(30)) return [];
+        penHeld = true;
+        return [new PointerAction.ToolCancel(), new PointerAction.Hold(last)];
     }
 
     private IReadOnlyList<PointerAction> Pinch()

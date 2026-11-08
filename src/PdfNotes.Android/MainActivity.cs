@@ -19,7 +19,7 @@ public sealed class AndroidApp(IntPtr handle, JniHandleOwnership ownership) : Av
 /// The one screen. Turning the tablet or folding the keyboard keeps the activity (and the open document). A PDF opened
 /// with DeotPDF from another app ("open with", "share") arrives here (roadmap P5b).
 /// </summary>
-[Activity(Label = "DeotPDF", Theme = "@style/Theme.AppCompat.DayNight.NoActionBar", MainLauncher = true, Exported = true, LaunchMode = LaunchMode.SingleTask,
+[Activity(Label = "DeotPDF", Icon = "@mipmap/ic_launcher", RoundIcon = "@mipmap/ic_launcher_round", Theme = "@style/Theme.AppCompat.DayNight.NoActionBar", MainLauncher = true, Exported = true, LaunchMode = LaunchMode.SingleTask,
     ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode | ConfigChanges.ScreenLayout
         | ConfigChanges.SmallestScreenSize | ConfigChanges.Density | ConfigChanges.Keyboard | ConfigChanges.KeyboardHidden | ConfigChanges.Navigation)]
 [IntentFilter([Intent.ActionView], Categories = [Intent.CategoryDefault, Intent.CategoryBrowsable], DataMimeType = "application/pdf")]

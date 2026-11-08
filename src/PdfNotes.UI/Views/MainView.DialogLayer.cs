@@ -99,6 +99,7 @@ public sealed partial class MainView
             e.Handled = true;
             return;
         }
+        if (CloseTouchMenu()) { e.Handled = true; return; } // the 파일·페이지·보기 list
         if (openCards.Count == 0) return;
         openCards[^1]();
         e.Handled = true;

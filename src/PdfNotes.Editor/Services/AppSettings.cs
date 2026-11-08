@@ -28,7 +28,9 @@ public sealed class AppSettings
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+        // Metadata made at build time (P5d): the reflection path took seconds at the start on Android.
+        TypeInfoResolver = AppSettingsJson.Default,
     };
 
     public TextRun DefaultText { get; set; } = PdfNotes.Core.Commands.TextEditing.Default;
@@ -395,3 +397,8 @@ public sealed class AppSettings
     /// <summary>Items earlier versions wrote that this one read once and moved (D14g): never written back.</summary>
     private static readonly HashSet<string> Retired = ["markup", "textHighlight", "textHighlightAuto", "editForeignAnnotations"];
 }
+
+/// <summary>The settings file's JSON metadata, generated at build time (same names and enum texts as before).</summary>
+[JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+[JsonSerializable(typeof(AppSettings))]
+internal sealed partial class AppSettingsJson : JsonSerializerContext;

@@ -121,6 +121,61 @@ public sealed class PointerRouterTests
     }
 
     [Fact]
+    public void ThePenHeldStillWithASelectionToolOpensTheMenuAndOtherwiseKeepsDrawing()
+    {
+        // No selection tool: a slow pen is still a stroke.
+        router.Down(Pen(50, 50));
+        clock.Advance(700);
+        Assert.Empty(router.HoldElapsed(1));
+        Assert.IsType<A.ToolUp>(Assert.Single(router.Up(Pen(50, 50))));
+
+        router.PenHolds = _ => true;
+        clock.Advance(1000);
+        router.Down(Pen(50, 50));
+        router.Move(Pen(54, 53)); // inside the slop
+        clock.Advance(200);
+        Assert.Empty(router.HoldElapsed(1)); // too soon
+        clock.Advance(400);
+        var actions = router.HoldElapsed(1);
+        Assert.IsType<A.ToolCancel>(actions[0]); // the press is dropped
+        Assert.Equal(new Point2(54, 53), Assert.IsType<A.Hold>(actions[1]).Pointer.Position);
+        Assert.Empty(router.Move(Pen(90, 90))); // used up: no drag
+        Assert.Empty(router.Up(Pen(90, 90)));
+        Assert.False(router.IsDrawing);
+
+        // A pen that moved, or its eraser end, does not hold.
+        clock.Advance(1000);
+        router.Down(Pen(50, 50));
+        router.Move(Pen(50, 80));
+        clock.Advance(700);
+        Assert.Empty(router.HoldElapsed(1));
+        router.Up(Pen(50, 80));
+        clock.Advance(1000);
+        router.Down(Pen(50, 50, eraser: true));
+        clock.Advance(700);
+        Assert.Empty(router.HoldElapsed(1));
+    }
+
+    [Fact]
+    public void AFingerHeldOnTextSelectsTheWordAndThenDragsTheSelection()
+    {
+        router.HoldSelects = p => p.Position.X < 100; // text on the left
+        router.Down(Finger(50, 50));
+        clock.Advance(600);
+        var down = Assert.IsType<A.ToolDown>(Assert.Single(router.HoldElapsed(10)));
+        Assert.Equal(2, down.Pointer.ClickCount); // the word
+        Assert.True(router.IsDrawing);
+        Assert.IsType<A.ToolMove>(Assert.Single(router.Move(Finger(90, 52)))); // drags the selection, not the page
+        Assert.IsType<A.ToolUp>(Assert.Single(router.Up(Finger(90, 52))));
+
+        // Elsewhere a long press is still the menu.
+        clock.Advance(1000);
+        router.Down(Finger(300, 50, id: 11));
+        clock.Advance(600);
+        Assert.IsType<A.Hold>(Assert.Single(router.HoldElapsed(11)));
+    }
+
+    [Fact]
     public void AShortStillTouchIsATapAndTwoAreADoubleTap()
     {
         router.Down(Finger(50, 50));

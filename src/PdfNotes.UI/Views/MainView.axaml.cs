@@ -63,18 +63,21 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
     /// <param name="host">The window or screen around the view (default: none).</param>
     /// <param name="compose">Puts the view models together from the app's and this view's services (R4g; default <see cref="MainViewModels.Create"/>).</param>
     /// <param name="locations">Finds recent documents again (default: files; Android: content URIs too).</param>
+    public static Action<string>? StartupMark;
+
     public MainView(AppServices app, IDesktopDialogs dialogs, IViewHost? host = null, Func<AppServices, ScreenServices, MainViewModel>? compose = null,
         IDocumentLocations? locations = null)
     {
         appFolder = app.SettingsFolder;
         var settings = app.Settings;
         this.host = host ?? NoViewHost.Instance;
-        InitializeComponent();
+        InitializeComponent(); StartupMark?.Invoke("xaml");
         this.dialogs = dialogs;
         clipboard = new DesktopClipboard(this);
         viewModel = (compose ?? MainViewModels.Create)(app,
             new ScreenServices(this.dialogs, Canvas, this) { Thumbnails = this, Window = this, Ui = this, Shell = this, Clipboard = clipboard, PageDialogs = this, Locations = locations ?? FileLocations.Instance });
-        DataContext = viewModel; // the window's controls are bound (R4)
+        StartupMark?.Invoke("compose");
+        DataContext = viewModel; StartupMark?.Invoke("datacontext"); // the window's controls are bound (R4)
         viewModel.DocumentLeaving += RememberPosition;
         viewModel.DocumentShown += DocumentShown;
         viewModel.DocumentChanged += DocumentChanged;
@@ -83,24 +86,24 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
         viewModel.Loading.PagesAwaited += WaitForFirstPages;
         Canvas.SetMode(settings.ViewMode);
         Canvas.ViewChanged += (_, _) => viewModel.Navigation.ViewChanged();
-        InitializeDisplay();
-        InitializeTools();
-        InitializeStyleBar();
-        InitializeText();
-        InitializeTextBar();
-        InitializeKeys();
-        InitializeRibbon();
-        InitializeStatusBar();
-        InitializeLinks();
-        InitializePagePanel();
-        InitializeOutline();
-        InitializeSearch();
-        InitializeNotes();
-        InitializeSelectionCommands();
-        InitializeDrop();
-        InitializeBackup();
-        InitializeDialogLayer();
-        viewModel.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default));
+        InitializeDisplay(); StartupMark?.Invoke("InitializeDisplay");
+        InitializeTools(); StartupMark?.Invoke("InitializeTools");
+        InitializeStyleBar(); StartupMark?.Invoke("InitializeStyleBar");
+        InitializeText(); StartupMark?.Invoke("InitializeText");
+        InitializeTextBar(); StartupMark?.Invoke("InitializeTextBar");
+        InitializeKeys(); StartupMark?.Invoke("InitializeKeys");
+        InitializeRibbon(); StartupMark?.Invoke("InitializeRibbon");
+        InitializeStatusBar(); StartupMark?.Invoke("InitializeStatusBar");
+        InitializeLinks(); StartupMark?.Invoke("InitializeLinks");
+        InitializePagePanel(); StartupMark?.Invoke("InitializePagePanel");
+        InitializeOutline(); StartupMark?.Invoke("InitializeOutline");
+        InitializeSearch(); StartupMark?.Invoke("InitializeSearch");
+        InitializeNotes(); StartupMark?.Invoke("InitializeNotes");
+        InitializeSelectionCommands(); StartupMark?.Invoke("InitializeSelectionCommands");
+        InitializeDrop(); StartupMark?.Invoke("InitializeDrop");
+        InitializeBackup(); StartupMark?.Invoke("InitializeBackup");
+        InitializeDialogLayer(); StartupMark?.Invoke("InitializeDialogLayer");
+        viewModel.Workflow.Replace(OpenDocument.CreateNote(NewPageSpec.Default)); StartupMark?.Invoke("new note");
     }
 
     // ----- the window or screen around the view -----

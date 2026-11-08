@@ -18,6 +18,12 @@
     <!-- JDK 21 for the Android build only (Android Studio's own JDK stays the system's JAVA_HOME). -->
     <JavaSdkDirectory Condition="'$(JavaSdkDirectory)' == '' and Exists('C:\Program Files\Microsoft\jdk-21.0.13.21-hotspot')">C:\Program Files\Microsoft\jdk-21.0.13.21-hotspot</JavaSdkDirectory>
   </PropertyGroup>
+  <!-- Release: the whole app compiled ahead of time (P5d). With the default startup profile only a few framework methods
+       were, and the app's own code (the big generated XAML, JSON) was compiled at the start: over 20 s on the emulator. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="bblanchon.PDFium.Android" />

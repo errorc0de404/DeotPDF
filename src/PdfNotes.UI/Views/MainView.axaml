@@ -26,13 +26,31 @@
             </Button>
         </DataTemplate>
     </UserControl.Resources>
+    <!-- The desktop layout's places and looks as styles, so the touch layout (Themes/TouchLayout.axaml) can change them -->
+    <UserControl.Styles>
+        <Style Selector="StackPanel#TouchLeft, StackPanel#TouchRight">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="v|ScrollStrip#RibbonStrip">
+            <Setter Property="Grid.Row" Value="1" />
+            <Setter Property="Grid.ColumnSpan" Value="3" />
+        </Style>
+        <Style Selector="Border#StatusBar">
+            <Setter Property="Background" Value="{DynamicResource Bar.Background}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Divider}" />
+            <Setter Property="BorderThickness" Value="0,1,0,0" />
+            <Setter Property="Padding" Value="8,2" />
+        </Style>
+    </UserControl.Styles>
     <!-- Roadmap P4 A5: the WPF window's frame (MainWindow.xaml) on Avalonia, with the same names; P5a: a view the desktop window and the Android activity both show. -->
     <Panel>
     <DockPanel>
         <!-- Top ribbon (spec 3.2): quick commands / tab heads / the tab's commands. Changing the tab keeps the tool. -->
+        <!-- Desktop: the tab row above the tab's commands. Touch (MainView.Touch.cs): one row of [save undo redo | 필기 tools | 파일 페이지 보기 settings],
+             the other tabs open over the document. -->
         <Border x:Name="RibbonHost" DockPanel.Dock="Top" Background="{DynamicResource Bar.Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
-            <StackPanel>
-                <DockPanel Margin="{DynamicResource Space.TabRow}">
+            <Grid x:Name="RibbonGrid" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+                <DockPanel x:Name="TabRow" Grid.ColumnSpan="3" Margin="{DynamicResource Space.TabRow}">
                     <!-- Settings (spec 18.1): the right end, on every tab -->
                     <Button x:Name="SettingsButton" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Command="{Binding SettingsCommand}" ToolTip.Tip="{l:T ribbon.settingsTip}">
                         <th:AppIcon Glyph="Settings" />
@@ -54,10 +72,28 @@
                                      IsChecked="{Binding Ribbon.IsView, Mode=OneWay}" Command="{Binding Ribbon.ShowCommand}" CommandParameter="View" />
                     </StackPanel>
                 </DockPanel>
+                <StackPanel x:Name="TouchLeft" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                    <Button x:Name="TouchSaveButton" Theme="{StaticResource ToolButton}" Command="{Binding SaveCommand}" ToolTip.Tip="{l:T ribbon.saveTip}"><th:AppIcon Glyph="Save" /></Button>
+                    <Button x:Name="TouchUndoButton" Theme="{StaticResource ToolButton}" Command="{Binding UndoCommand}" ToolTip.Tip="{Binding UndoTip}"><th:AppIcon Glyph="Undo" /></Button>
+                    <Button x:Name="TouchRedoButton" Theme="{StaticResource ToolButton}" Command="{Binding RedoCommand}" ToolTip.Tip="{Binding RedoTip}"><th:AppIcon Glyph="Redo" /></Button>
+                    <Border Classes="sep" />
+                </StackPanel>
+                <StackPanel x:Name="TouchRight" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
+                    <Border Classes="sep" />
+                    <ToggleButton x:Name="TouchFileButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T tab.file}"
+                                  IsChecked="{Binding Ribbon.IsFile, Mode=OneWay}" Command="{Binding Ribbon.ToggleCommand}" CommandParameter="File"><th:AppIcon Glyph="Open" /></ToggleButton>
+                    <ToggleButton x:Name="TouchPageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T tab.page}"
+                                  IsChecked="{Binding Ribbon.IsPage, Mode=OneWay}" Command="{Binding Ribbon.ToggleCommand}" CommandParameter="Page"><th:AppIcon Glyph="PageList" /></ToggleButton>
+                    <ToggleButton x:Name="TouchViewButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T tab.view}"
+                                  IsChecked="{Binding Ribbon.IsView, Mode=OneWay}" Command="{Binding Ribbon.ToggleCommand}" CommandParameter="View"><th:AppIcon Glyph="FitPage" /></ToggleButton>
+                    <Button x:Name="TouchSettingsButton" Theme="{StaticResource ToolButton}" Command="{Binding SettingsCommand}" ToolTip.Tip="{l:T ribbon.settingsTip}"><th:AppIcon Glyph="Settings" /></Button>
+                </StackPanel>
 
-                <Panel Margin="{DynamicResource Space.Ribbon}">
+                <!-- One row always (2026-11-08): a narrow window or a portrait tablet scrolls the row sideways instead of wrapping it. -->
+                <v:ScrollStrip x:Name="RibbonStrip">
+                <Panel x:Name="RibbonTabs" Margin="{DynamicResource Space.Ribbon}">
                     <!-- 파일 -->
-                    <WrapPanel x:Name="FileTab" IsVisible="{Binding Ribbon.IsFile}">
+                    <StackPanel x:Name="FileTab" Orientation="Horizontal" IsVisible="{Binding Ribbon.IsFile}">
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.document}">
                             <StackPanel Orientation="Horizontal">
                                 <Button x:Name="NewButton" Theme="{StaticResource ToolButton}" Command="{Binding NewCommand}" ToolTip.Tip="{l:T ribbon.newTip}"><th:IconLabel Glyph="New" Text="{l:T ribbon.new}" /></Button>
@@ -66,7 +102,7 @@
                                 <Button x:Name="RecentButton" Theme="{StaticResource ToolButton}" Command="{Binding RecentCommand}" ToolTip.Tip="{l:T ribbon.recent}">
                                     <StackPanel Orientation="Horizontal">
                                         <th:IconLabel Glyph="Recent" Text="{l:T ribbon.recent}" />
-                                        <th:AppIcon Glyph="ChevronDown" Size="10" Margin="4,0,0,0" />
+                                        <th:AppIcon Glyph="ChevronDown" Classes="tiny" Margin="4,0,0,0" />
                                     </StackPanel>
                                 </Button>
                                 <!-- Merge PDFs (D13j): several PDFs → a new document -->
@@ -86,10 +122,10 @@
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.app}">
                             <Button x:Name="SettingsRibbonButton" Theme="{StaticResource ToolButton}" Command="{Binding SettingsCommand}" ToolTip.Tip="{l:T ribbon.settingsTip}"><th:IconLabel Glyph="Settings" Text="{l:T ribbon.settings}" /></Button>
                         </HeaderedContentControl>
-                    </WrapPanel>
+                    </StackPanel>
 
                     <!-- 필기 (the tab named Home): the tools by function; the buttons follow the tool bar's view model (R4d) -->
-                    <WrapPanel x:Name="HomeTab" IsVisible="{Binding Ribbon.IsHome}">
+                    <StackPanel x:Name="HomeTab" Orientation="Horizontal" IsVisible="{Binding Ribbon.HomeShown}">
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.select}">
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton x:Name="SelectToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T tool.select}" Tag="Select"
@@ -119,7 +155,7 @@
                                              IsChecked="{Binding ToolBar.Shape.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Shape.Command}" Classes.return="{Binding ToolBar.Shape.IsReturn}">
                                     <th:IconLabel x:Name="ShapeToolLabel" Text="{l:T ribbon.shape}" Outline="{Binding ToolBar.ShapeIcon, Converter={x:Static th:Converters.ShapeOutline}}" />
                                 </RadioButton>
-                                <Button x:Name="ShapeMenuButton" Theme="{StaticResource ToolButton}" Padding="2,5" ToolTip.Tip="{l:T ribbon.shapeMenuTip}" Click="ShapeMenuClick"><th:AppIcon Glyph="ChevronDown" Size="10" /></Button>
+                                <Button x:Name="ShapeMenuButton" Theme="{StaticResource ToolButton}" Padding="2,5" ToolTip.Tip="{l:T ribbon.shapeMenuTip}" Click="ShapeMenuClick"><th:AppIcon Glyph="ChevronDown" Classes="tiny" /></Button>
                                 <RadioButton x:Name="NoteToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.note}" Tag="Note"
                                              IsChecked="{Binding ToolBar.Note.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Note.Command}" Classes.return="{Binding ToolBar.Note.IsReturn}"><th:IconLabel Glyph="Note" Text="{l:T ribbon.note}" /></RadioButton>
                                 <Button x:Name="InsertImageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T image.insertTitle}" Command="{Binding InsertImageCommand}"><th:IconLabel Glyph="Image" Text="{l:T ribbon.image}" /></Button>
@@ -130,14 +166,14 @@
                         <Button x:Name="ForeignEditButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T foreign.convertTip}" IsVisible="{Binding Foreign.IsShown}" Command="{Binding Foreign.ConvertCommand}">
                             <th:IconLabel Glyph="Edit" Text="{l:T foreign.convert}" />
                         </Button>
-                    </WrapPanel>
+                    </StackPanel>
 
                     <!-- 페이지: the page commands (the same as the page list's context menu; R4e) -->
-                    <WrapPanel x:Name="PageTab" IsVisible="{Binding Ribbon.IsPage}">
+                    <StackPanel x:Name="PageTab" Orientation="Horizontal" IsVisible="{Binding Ribbon.IsPage}">
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.newPage}">
                             <StackPanel Orientation="Horizontal">
                                 <Button x:Name="InsertPageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T ribbon.insertPageTip}" Padding="6,5,2,5" Command="{Binding Pages.InsertBlankCommand}"><th:IconLabel Glyph="New" Text="{l:T import.insert}" /></Button>
-                                <Button x:Name="InsertPageMenuButton" Theme="{StaticResource ToolButton}" Padding="2,5" ToolTip.Tip="{l:T ribbon.insertMenuTip}" Click="InsertMenuClick"><th:AppIcon Glyph="ChevronDown" Size="10" /></Button>
+                                <Button x:Name="InsertPageMenuButton" Theme="{StaticResource ToolButton}" Padding="2,5" ToolTip.Tip="{l:T ribbon.insertMenuTip}" Click="InsertMenuClick"><th:AppIcon Glyph="ChevronDown" Classes="tiny" /></Button>
                             </StackPanel>
                         </HeaderedContentControl>
                         <Border Classes="sep" />
@@ -172,10 +208,10 @@
                             <ToggleButton x:Name="PagePanelButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T page.list}"
                                           IsChecked="{Binding Pages.PanelVisible, Mode=OneWay}" Command="{Binding Pages.TogglePanelCommand}"><th:IconLabel Glyph="PageList" Text="{l:T page.list}" /></ToggleButton>
                         </HeaderedContentControl>
-                    </WrapPanel>
+                    </StackPanel>
 
                     <!-- 보기: zoom, fit, view mode, hide notes, search -->
-                    <WrapPanel x:Name="ViewTab" IsVisible="{Binding Ribbon.IsView}">
+                    <StackPanel x:Name="ViewTab" Orientation="Horizontal" IsVisible="{Binding Ribbon.IsView}">
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.zoom}">
                             <StackPanel Orientation="Horizontal">
                                 <Button x:Name="ZoomOutButton" Theme="{StaticResource ToolButton}" Command="{Binding Navigation.ZoomOutCommand}" ToolTip.Tip="{l:T view.zoomOut}"><th:AppIcon Glyph="ZoomOut" /></Button>
@@ -206,9 +242,10 @@
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.find}">
                             <Button x:Name="SearchButton" Theme="{StaticResource ToolButton}" Command="{Binding SearchCommand}" ToolTip.Tip="{l:T view.searchTip}"><th:IconLabel Glyph="Search" Text="{l:T view.search}" /></Button>
                         </HeaderedContentControl>
-                    </WrapPanel>
+                    </StackPanel>
                 </Panel>
-            </StackPanel>
+                </v:ScrollStrip>
+            </Grid>
         </Border>
 
         <!-- The context settings row: left one of the three bars, right the pen favorites — on every tab (spec 24.7).
@@ -234,6 +271,8 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
+                <!-- One row, scrolled sideways when narrow (2026-11-08), like the ribbon -->
+                <v:ScrollStrip x:Name="SubBarStrip">
                 <Panel>
                     <!-- Style bar (D13c): [palette | width | transparency | kind options]; the three bars have one height -->
                     <Border x:Name="StyleBar" Padding="{DynamicResource Space.SubBar}" IsVisible="{Binding ToolStyles.StyleBarShown}"
@@ -381,17 +420,18 @@
                         </WrapPanel>
                     </Border>
                 </Panel>
+                </v:ScrollStrip>
             </DockPanel>
         </Border>
 
         <!-- Status bar (spec 3.2-7): page number and zoom, a short notice in the middle -->
-        <Border x:Name="StatusBar" DockPanel.Dock="Bottom" Background="{DynamicResource Bar.Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="8,2">
+        <Border x:Name="StatusBar" DockPanel.Dock="Bottom">
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="PreviousPageButton" Theme="{StaticResource ToolButton}" Command="{Binding Navigation.PreviousPageCommand}" ToolTip.Tip="{l:T status.previousPage}"><th:AppIcon Glyph="ChevronLeft" Size="12" /></Button>
-                    <TextBox x:Name="PageBox" Classes="bar" Width="44" Height="22" TextAlignment="Center" ToolTip.Tip="{l:T status.pageNumber}" Text="{Binding Navigation.PageInput, Mode=TwoWay}" />
+                    <Button x:Name="PreviousPageButton" Theme="{StaticResource ToolButton}" Command="{Binding Navigation.PreviousPageCommand}" ToolTip.Tip="{l:T status.previousPage}"><th:AppIcon Glyph="ChevronLeft" Classes="small" /></Button>
+                    <TextBox x:Name="PageBox" Classes="bar status" Width="44" TextAlignment="Center" ToolTip.Tip="{l:T status.pageNumber}" Text="{Binding Navigation.PageInput, Mode=TwoWay}" />
                     <TextBlock x:Name="PageCountText" VerticalAlignment="Center" Margin="6,0" Text="{Binding Navigation.PageCountText}" />
-                    <Button x:Name="NextPageButton" Theme="{StaticResource ToolButton}" Command="{Binding Navigation.NextPageCommand}" ToolTip.Tip="{l:T status.nextPage}"><th:AppIcon Glyph="ChevronRight" Size="12" /></Button>
+                    <Button x:Name="NextPageButton" Theme="{StaticResource ToolButton}" Command="{Binding Navigation.NextPageCommand}" ToolTip.Tip="{l:T status.nextPage}"><th:AppIcon Glyph="ChevronRight" Classes="small" /></Button>
                 </StackPanel>
                 <!-- A new version (roadmap 1.1): opens the release page -->
                 <Button x:Name="UpdateButton" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Margin="12,0,0,0" Padding="6,2" Cursor="Hand"
@@ -516,6 +556,15 @@
                     ToolTip.Tip="{Binding Pages.HandleTip}" Classes.closed="{Binding !Pages.PanelVisible}" Command="{Binding Pages.TogglePanelCommand}">
                 <th:AppIcon x:Name="PagePanelHandleIcon" Glyph="{Binding Pages.HandleGlyph}" Size="10" />
             </Button>
+            <!-- Touch layout: 파일, 페이지 or 보기 drops down from its button as a list (MainView.Touch.cs moves the tabs here) -->
+            <Popup x:Name="TouchMenu" Placement="BottomEdgeAlignedRight" IsLightDismissEnabled="False">
+                <Border x:Name="TouchMenuCard" MinWidth="240" Background="{DynamicResource Surface.Background}" BorderBrush="{DynamicResource Border}" BorderThickness="1"
+                        CornerRadius="{DynamicResource Radius.Popup}" Padding="6" Margin="0,4,0,0" BoxShadow="0 4 16 0 #38000000">
+                    <ScrollViewer x:Name="TouchMenuScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <Panel x:Name="TouchPanelTabs" />
+                    </ScrollViewer>
+                </Border>
+            </Popup>
             <!-- Search (spec 12): Ctrl+F, count, previous/next, close -->
             <Border x:Name="SearchBar" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,28,0" Background="{DynamicResource Surface.Background}"
                     BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="{DynamicResource Radius.Control}" Padding="6,3"

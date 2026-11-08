@@ -1,0 +1,78 @@
+<!-- The touch layout of MainView (2026-11-08, Android tablets): MainView.UseTouchLayout adds these styles and moves the
+     파일·페이지·보기 tabs over the document and the status bar into a small card. The sizes are Touch.axaml's tokens. -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:th="using:PdfNotes.UI.Themes"
+        xmlns:v="using:PdfNotes.UI.Views">
+
+    <!-- One top row: [save undo redo | the 필기 tools (icons) | 파일 페이지 보기 settings]; no tab row, no group names -->
+    <Style Selector="DockPanel#TabRow">
+        <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="StackPanel#TouchLeft, StackPanel#TouchRight">
+        <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="v|ScrollStrip#RibbonStrip">
+        <Setter Property="Grid.Row" Value="0" />
+        <Setter Property="Grid.Column" Value="1" />
+        <Setter Property="Grid.ColumnSpan" Value="1" />
+    </Style>
+    <Style Selector="StackPanel#HomeTab th|IconLabel">
+        <Setter Property="ShowText" Value="False" />
+    </Style>
+    <Style Selector="StackPanel#HomeTab HeaderedContentControl /template/ ContentPresenter#PART_HeaderPresenter">
+        <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+    <!-- The 파일·페이지·보기 list: full-width rows with the icon and the word on the left, lines between the groups, no group names -->
+    <Style Selector="Panel#TouchPanelTabs HeaderedContentControl /template/ ContentPresenter#PART_HeaderPresenter">
+        <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Panel#TouchPanelTabs HeaderedContentControl">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Panel#TouchPanelTabs :is(Button)">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Panel#TouchPanelTabs StackPanel[Orientation=Horizontal] > :is(Button)">
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Panel#TouchPanelTabs Border.sep">
+        <Setter Property="Width" Value="NaN" />
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Margin" Value="8,4" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Icons a finger can aim at (an icon with its own size keeps it) -->
+    <Style Selector="th|AppIcon">
+        <Setter Property="Size" Value="20" />
+    </Style>
+
+    <!-- The status bar as a card at the bottom right of the document: ‹ page / count › · notice · zoom -->
+    <Style Selector="Border#StatusBar">
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+        <Setter Property="Margin" Value="0,0,24,24" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="CornerRadius" Value="22" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+        <Setter Property="Background" Value="{DynamicResource Surface.Background}" />
+        <Setter Property="BoxShadow" Value="0 2 10 0 #30000000" />
+    </Style>
+    <Style Selector="Border#StatusBar TextBlock#StatusText">
+        <Setter Property="MaxWidth" Value="260" />
+    </Style>
+    <Style Selector="TextBox.bar.status">
+        <Setter Property="Height" Value="{DynamicResource Height.Field}" />
+    </Style>
+    <Style Selector="th|AppIcon.small">
+        <Setter Property="Size" Value="18" />
+    </Style>
+    <Style Selector="th|AppIcon.tiny">
+        <Setter Property="Size" Value="14" />
+    </Style>
+</Styles>

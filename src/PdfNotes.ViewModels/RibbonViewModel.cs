@@ -20,6 +20,7 @@ public sealed class RibbonViewModel(AppSettings settings) : ObservableObject
             OnPropertyChanged(nameof(IsHome));
             OnPropertyChanged(nameof(IsPage));
             OnPropertyChanged(nameof(IsView));
+            OnPropertyChanged(nameof(HomeShown));
         }
     }
 
@@ -28,9 +29,30 @@ public sealed class RibbonViewModel(AppSettings settings) : ObservableObject
     public bool IsPage => current == RibbonTab.Page;
     public bool IsView => current == RibbonTab.View;
 
+    /// <summary>The 필기 commands are on screen: their tab is shown, or always in the touch layout.</summary>
+    public bool HomeShown => current == RibbonTab.Home || PanelsFloat;
+
     /// <summary>A tab head: shows that tab (the parameter is the tab's name, as the XAML gives it).</summary>
     public Command<string> ShowCommand => show ??= new(name => { if (Enum.TryParse<RibbonTab>(name, out var tab)) Current = tab; });
     private Command<string>? show;
+
+    /// <summary>The touch layout's tab buttons: shows that tab, or 필기 again when it is already shown (its panel closes).</summary>
+    public Command<string> ToggleCommand => toggle ??= new(name =>
+    {
+        if (Enum.TryParse<RibbonTab>(name, out var tab)) Current = Current == tab ? RibbonTab.Home : tab;
+    });
+    private Command<string>? toggle;
+
+    /// <summary>
+    /// The touch layout (2026-11-08): 필기 is always shown and the other tabs open over the document, so work never
+    /// opens one by itself (<see cref="Auto"/> does nothing).
+    /// </summary>
+    public bool PanelsFloat
+    {
+        get => panelsFloat;
+        set { if (SetProperty(ref panelsFloat, value)) OnPropertyChanged(nameof(HomeShown)); }
+    }
+    private bool panelsFloat;
 
     /// <summary>While true, <see cref="Auto"/> does nothing (an Undo is not canvas work, spec 3.3).</summary>
     public bool Hold { get; set; }
@@ -42,7 +64,7 @@ public sealed class RibbonViewModel(AppSettings settings) : ObservableObject
     /// </summary>
     public void Auto(RibbonTab tab)
     {
-        if (Hold || !settings.AutoSwitchTabs || Current is not (RibbonTab.Home or RibbonTab.Page) || Current == tab) return;
+        if (Hold || PanelsFloat || !settings.AutoSwitchTabs || Current is not (RibbonTab.Home or RibbonTab.Page) || Current == tab) return;
         Current = tab;
     }
 }

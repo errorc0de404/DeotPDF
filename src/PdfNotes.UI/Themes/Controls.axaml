@@ -82,10 +82,11 @@
     <!-- A ribbon group: the commands, and the small group name under them (PowerPoint). -->
     <ControlTheme x:Key="RibbonGroup" TargetType="HeaderedContentControl">
         <Setter Property="Focusable" Value="False" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="Template">
             <ControlTemplate>
                 <StackPanel Margin="2,0">
-                    <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" HorizontalAlignment="Left" />
+                    <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
                     <ContentPresenter Name="PART_HeaderPresenter" Content="{TemplateBinding Header}" HorizontalAlignment="Center" Margin="0,1,0,0"
                                       FontSize="{DynamicResource FontSize.Caption}" Foreground="{DynamicResource Text.Muted}" />
                 </StackPanel>
@@ -95,8 +96,8 @@
 
     <!-- A palette swatch: the annotation color (Background) in a circle; the current color has an accent ring (class current). -->
     <ControlTheme x:Key="Swatch" TargetType="Button">
-        <Setter Property="Width" Value="24" />
-        <Setter Property="Height" Value="24" />
+        <Setter Property="Width" Value="{DynamicResource Size.Swatch}" />
+        <Setter Property="Height" Value="{DynamicResource Size.Swatch}" />
         <Setter Property="Margin" Value="1,0" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Focusable" Value="False" />
@@ -104,8 +105,8 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Panel Background="Transparent">
-                    <Ellipse Name="Ring" Width="22" Height="22" Stroke="Transparent" StrokeThickness="2" />
-                    <Ellipse Width="16" Height="16" Fill="{TemplateBinding Background}" Stroke="{DynamicResource Swatch.Outline}" StrokeThickness="1" />
+                    <Ellipse Name="Ring" Width="{DynamicResource Size.SwatchRing}" Height="{DynamicResource Size.SwatchRing}" Stroke="Transparent" StrokeThickness="2" />
+                    <Ellipse Width="{DynamicResource Size.SwatchDot}" Height="{DynamicResource Size.SwatchDot}" Fill="{TemplateBinding Background}" Stroke="{DynamicResource Swatch.Outline}" StrokeThickness="1" />
                 </Panel>
             </ControlTemplate>
         </Setter>

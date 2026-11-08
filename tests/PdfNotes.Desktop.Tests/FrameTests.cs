@@ -91,8 +91,8 @@ public sealed class FrameTests
 
     // ----- layout (D13b–D13e) -----
 
-    /// <summary>The visible children of a wrap panel: their rows and whether any reaches past the panel.</summary>
-    private static (int Rows, bool Clipped) Rows(WrapPanel panel)
+    /// <summary>The visible children of a row panel: their rows and whether any reaches past the panel.</summary>
+    private static (int Rows, bool Clipped) Rows(Panel panel)
     {
         var shown = panel.Children.Where(c => c.IsVisible && c.Bounds.Width > 0).ToList();
         // A row starts where an item sits below the tops of the row before it (dividers are inset by their margin).
@@ -122,20 +122,38 @@ public sealed class FrameTests
     }
 
     [Fact]
-    public void TheRibbonAndEveryBarFitOneRowAt1200AndNothingIsCutAt720() => Headless.Run(() =>
+    public void TheRibbonIsOneRowThatScrollsAndEveryBarFitsOneRowAt1200AndNothingIsCutAt720() => Headless.Run(() =>
     {
-        foreach (double width in new[] { 1200.0, 720 })
+        bool scrolled = false;
+        foreach (double width in new[] { 1200.0, 720, 480 })
         {
             var w = Window(width, 800);
             foreach (var tab in Enum.GetValues<RibbonTab>())
             {
                 w.View.ShowRibbonTab(tab);
                 Settle(w);
-                var panel = Find<WrapPanel>(w, tab + "Tab");
+                // The ribbon is one row at any width; when it is wider than the window it scrolls (2026-11-08).
+                var panel = Find<StackPanel>(w, tab + "Tab");
+                var strip = Find<ScrollStrip>(w, "RibbonStrip");
                 var (rows, clipped) = Rows(panel);
                 Assert.False(clipped, $"{tab} tab cut at {width}");
-                if (width == 1200) Assert.True(rows == 1, $"{tab} tab: {rows} rows at 1200");
+                Assert.True(rows == 1, $"{tab} tab: {rows} rows at {width}");
+                bool overflows = panel.Bounds.Width > strip.Bounds.Width + 1;
+                if (width == 1200) Assert.False(overflows, $"{tab} tab scrolls at 1200");
+                Assert.False(strip.BackButton.IsVisible);
+                Assert.Equal(overflows, strip.ForwardButton.IsVisible);
+                if (overflows)
+                {
+                    scrolled = true;
+                    for (int i = 0; i < 20 && strip.ForwardButton.IsVisible; i++) { strip.Step(1); Settle(w); }
+                    Assert.False(strip.ForwardButton.IsVisible, $"{tab} tab: the end is out of reach");
+                    Assert.True(strip.BackButton.IsVisible);
+                    w.View.ShowRibbonTab(tab == RibbonTab.Home ? RibbonTab.View : RibbonTab.Home);
+                    Settle(w);
+                    Assert.Equal(0, strip.Offset, 3);
+                }
             }
+            if (width < 720) { w.Close(); continue; } // only the ribbon is checked as narrow as a portrait phone
             foreach (var bar in new[] { "Pen", "Highlighter", "Line", "Shape", "Eraser", "Text" })
             {
                 ShowBar(w, bar);
@@ -152,6 +170,79 @@ public sealed class FrameTests
             }
             w.Close();
         }
+        Assert.True(scrolled, "no tab was wide enough to scroll");
+    });
+
+    [Fact]
+    public void TheTouchLayoutIsOneToolRowWithTheOtherTabsAsDropDownLists() => Headless.Run(() =>
+    {
+        var desktop = Window(860, 1300); // a portrait tablet
+        double desktopTop = desktop.View.DocumentCanvas.TranslatePoint(new Point(0, 0), desktop)!.Value.Y;
+        desktop.Close();
+        // As the Android app: the layout is chosen before the view is shown.
+        var w = new MainWindow(TestWindows.App(new AppSettings(), Headless.TempFolder()), TestWindows.Dialogs) { Width = 860, Height = 1300 };
+        w.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No; // never save on close
+        w.Script.MessageSink = _ => { };
+        w.View.UseTouchLayout();
+        w.Show();
+        Settle(w);
+        Assert.False(Find<DockPanel>(w, "TabRow").IsVisible);
+        Assert.True(Find<StackPanel>(w, "TouchLeft").IsVisible && Find<StackPanel>(w, "TouchRight").IsVisible);
+        var tools = Find<StackPanel>(w, "HomeTab");
+        Assert.True(tools.IsEffectivelyVisible);
+        Assert.All(tools.GetVisualDescendants().OfType<PdfNotes.UI.Themes.IconLabel>(), l => Assert.False(l.ShowText)); // icons only
+        // The tools share the row with save·undo and the tab buttons, so the document starts higher.
+        var undo = Find<Button>(w, "TouchUndoButton");
+        var pen = Find<RadioButton>(w, "PenToolButton");
+        double undoMid = undo.TranslatePoint(default, w)!.Value.Y + undo.Bounds.Height / 2, penMid = pen.TranslatePoint(default, w)!.Value.Y + pen.Bounds.Height / 2;
+        Assert.True(Math.Abs(undoMid - penMid) < 1, $"undo {undoMid} pen {penMid}");
+        Assert.True(w.View.DocumentCanvas.TranslatePoint(new Point(0, 0), w)!.Value.Y < desktopTop - 20);
+
+        // 페이지 drops down as a list with the tools still there; a second press, a command or a touch on the pages closes it.
+        Assert.False(w.View.IsTouchMenuOpen);
+        Press(Find<ToggleButton>(w, "TouchPageButton"));
+        Settle(w);
+        Assert.Equal(RibbonTab.Page, w.View.CurrentRibbonTab);
+        Assert.True(w.View.IsTouchMenuOpen, "list");
+        Assert.True(tools.IsEffectivelyVisible, "tools");
+        var page = Find<StackPanel>(w, "PageTab");
+        Assert.True(page.IsEffectivelyVisible, "page list");
+        Assert.Equal(Avalonia.Layout.Orientation.Vertical, page.Orientation);
+        var delete = Find<Button>(w, "DeletePageButton");
+        var copy = Find<Button>(w, "CopyPageButton");
+        Assert.True(delete.TranslatePoint(default, page)!.Value.Y > copy.TranslatePoint(default, page)!.Value.Y, "one under another");
+        Assert.True(delete.Bounds.Width > page.Bounds.Width - 20, $"a row is the list's width: {delete.Bounds.Width} of {page.Bounds.Width}"); // a touch on its right end works
+        Assert.Equal(Find<Button>(w, "RotateLeftButton").TranslatePoint(default, page)!.Value.Y, Find<Button>(w, "RotateRightButton").TranslatePoint(default, page)!.Value.Y, 1); // ↺ ↻ one row
+        // A touch in the list is not a touch outside it (the popup's input is routed through the view).
+        var rotate = Find<Button>(w, "RotateRightButton");
+        rotate.RaiseEvent(new PointerPressedEventArgs(rotate, new Pointer(Pointer.GetNextFreeId(), PointerType.Touch, true), rotate,
+            new Point(5, 5), 0, new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonPressed), KeyModifiers.None));
+        Assert.True(w.View.IsTouchMenuOpen, "a touch in the list closed it");
+        Press(rotate); // pressed again and again: the list stays
+        Assert.True(w.View.IsTouchMenuOpen);
+        Press(Find<ToggleButton>(w, "TouchPageButton"));
+        Settle(w);
+        Assert.False(w.View.IsTouchMenuOpen);
+        Press(Find<ToggleButton>(w, "TouchViewButton"));
+        Settle(w);
+        Assert.True(w.View.IsTouchMenuOpen && Find<StackPanel>(w, "ViewTab").IsEffectivelyVisible);
+        Press(Find<Button>(w, "FitWidthButton")); // a command: closed
+        Settle(w);
+        Assert.False(w.View.IsTouchMenuOpen);
+        Press(Find<ToggleButton>(w, "TouchFileButton"));
+        Settle(w);
+        Assert.True(w.View.IsTouchMenuOpen);
+        w.View.DocumentCanvas.RaiseEvent(new PointerPressedEventArgs(w.View.DocumentCanvas, new Pointer(Pointer.GetNextFreeId(), PointerType.Touch, true), w,
+            new Point(300, 600), 0, new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonPressed), KeyModifiers.None));
+        Settle(w);
+        Assert.False(w.View.IsTouchMenuOpen);
+        // Work on the page list does not open 페이지 by itself.
+        w.View.ViewModel.Ribbon.Auto(RibbonTab.Page);
+        Assert.Equal(RibbonTab.Home, w.View.CurrentRibbonTab);
+
+        // The status bar is a card over the document.
+        Assert.Same(Find<Panel>(w, "DocumentHost"), Find<Border>(w, "StatusBar").Parent);
+        w.Close();
     });
 
     [Fact]
@@ -178,8 +269,8 @@ public sealed class FrameTests
         Assert.Equal(RibbonTab.Home, w.View.CurrentRibbonTab);
         Press(Find<RadioButton>(w, "PageTabButton"));
         Assert.Equal(RibbonTab.Page, w.View.CurrentRibbonTab);
-        Assert.True(Find<WrapPanel>(w, "PageTab").IsVisible);
-        Assert.False(Find<WrapPanel>(w, "HomeTab").IsVisible);
+        Assert.True(Find<StackPanel>(w, "PageTab").IsVisible);
+        Assert.False(Find<StackPanel>(w, "HomeTab").IsVisible);
         w.View.SetTool(ToolKind.Pen); // a tool change shows 필기 (spec 3.2)
         Assert.Equal(RibbonTab.Home, w.View.CurrentRibbonTab);
 

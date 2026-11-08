@@ -43,6 +43,8 @@ public sealed partial class DocumentCanvas
     public PointerRouter Router => router ??= new(() => TouchOptions?.Invoke() ?? new PointerRouterOptions())
     {
         FingerGrabs = p => !IsToolActive && TouchRules.FingerGrabs(tool, p.Position),
+        PenHolds = p => middleTool is null && TouchRules.PenHolds(tool, p.Position),
+        HoldSelects = p => !IsToolActive && TouchRules.HoldSelects(tool, p.Position),
     };
 
     /// <summary>The tool whose operation is in progress (a temporary one first).</summary>
@@ -63,7 +65,7 @@ public sealed partial class DocumentCanvas
     public Func<bool>? LinkFollowsClick { get; set; }
     public event EventHandler<Point2>? LinkClicked;
 
-    /// <summary>A finger was held still on the page (viewport DIPs): the window opens the menu a right click would.</summary>
+    /// <summary>A finger (or the pen with a selection tool) was held still on the page (viewport DIPs): the window opens the menu a right click would.</summary>
     public event EventHandler<Point2>? Held;
 
     private Avalonia.Threading.DispatcherTimer? holdTimer;
@@ -71,7 +73,7 @@ public sealed partial class DocumentCanvas
     private void WatchHold(IPointer pointer)
     {
         holdTimer?.Stop();
-        if (pointer.Type != PointerType.Touch) return;
+        if (pointer.Type is not (PointerType.Touch or PointerType.Pen)) return;
         int id = (int)pointer.Id;
         holdTimer = new Avalonia.Threading.DispatcherTimer { Interval = (TouchOptions?.Invoke() ?? new PointerRouterOptions()).HoldTime };
         holdTimer.Tick += (_, _) => { holdTimer?.Stop(); Run(Router.HoldElapsed(id), null); };
@@ -328,8 +330,11 @@ public sealed partial class DocumentCanvas
                     if (touchTool is { IsActive: true } moving) moving.PointerMove(move.Pointer);
                     break;
                 case PointerAction.ToolUp up:
+                    bool textDrag = touchTool is SelectTool { IsDraggingText: true };
                     if (touchTool is { IsActive: true } lifting) lifting.PointerUp(up.Pointer);
                     EndTouchTool();
+                    // A pen or finger that selected PDF text gets its menu (copy, highlight), as a right click would.
+                    if (textDrag && tool is SelectTool { HasTextSelection: true }) Held?.Invoke(this, up.Pointer.Position);
                     break;
                 case PointerAction.ToolCancel:
                     if (touchTool is { IsActive: true } cancelled) cancelled.Cancel();
