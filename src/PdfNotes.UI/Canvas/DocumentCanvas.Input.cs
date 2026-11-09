@@ -76,6 +76,9 @@ public sealed partial class DocumentCanvas
 
     private Avalonia.Threading.DispatcherTimer? holdTimer;
 
+    /// <summary>A pen whose press opened a menu: kept until it lifts.</summary>
+    private IPointer? heldPen;
+
     /// <summary>
     /// Starts the long-press timer for a contact the router can still turn into a hold. A palm or a second finger landing
     /// meanwhile does not restart it, so the press in progress keeps its timer.
@@ -239,6 +242,7 @@ public sealed partial class DocumentCanvas
         if (e.Pointer.Type != PointerType.Mouse)
         {
             Run(Router.Up(Pointer(e)), e.Pointer);
+            if (ReferenceEquals(heldPen, e.Pointer)) { heldPen = null; e.Pointer.Capture(null); }
             e.Handled = true;
             return;
         }
@@ -277,6 +281,7 @@ public sealed partial class DocumentCanvas
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         base.OnPointerCaptureLost(e);
+        if (ReferenceEquals(e.Pointer, heldPen)) heldPen = null;
         if (!ReferenceEquals(e.Pointer, captured) && !ReferenceEquals(e.Pointer, touchPointer)) return;
         if (ReferenceEquals(e.Pointer, touchPointer))
         {
@@ -346,8 +351,15 @@ public sealed partial class DocumentCanvas
                     // A pen or finger that selected PDF text gets its menu (copy, highlight), as a right click would.
                     if (textDrag && tool is SelectTool { HasTextSelection: true }) Held?.Invoke(this, new(up.Pointer.Position, AfterTextDrag: true));
                     break;
-                case PointerAction.ToolCancel:
+                case PointerAction.ToolCancel cancel:
                     if (touchTool is { IsActive: true } cancelled) cancelled.Cancel();
+                    if (cancel.KeepCapture && (touchPointer ?? pointer) is { } held)
+                    {
+                        // The pen's press opened a menu under it: lifting the pen there must not press an item.
+                        touchPointer = null;
+                        heldPen = held;
+                        held.Capture(this);
+                    }
                     EndTouchTool();
                     break;
                 case PointerAction.Pan pan:
@@ -468,6 +480,7 @@ public sealed partial class DocumentCanvas
 
     private void CancelTouch()
     {
+        heldPen = null;
         foreach (var _ in Router.Reset()) { }
         if (touchTool is { IsActive: true } active) active.Cancel();
         touchTool = null;

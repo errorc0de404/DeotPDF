@@ -13,7 +13,8 @@ public static class TouchRules
 
     /// <summary>The pen held still opens the right-click menu with the selection tools (2026-11-08); drawing tools keep a slow pen.</summary>
     public static bool PenHolds(ICanvasTool? tool, PdfNotes.Core.Geometry.Point2 at) =>
-        tool is LassoTool || tool is SelectTool select && !select.HoldSelectsText(at); // on PDF text the pen selects it
+        tool is LassoTool || tool is SelectTool select && !select.HoldSelectsText(at) // on PDF text the pen selects it
+            && select.HitSelection(at) != SelectionHit.Handle; // a handle held still is a slow drag, not a menu
 
     /// <summary>A finger held on PDF text with the selection tool selects that word and drags the selection (as other apps).</summary>
     public static bool HoldSelects(ICanvasTool? tool, PdfNotes.Core.Geometry.Point2 at) => tool is SelectTool select && select.HoldSelectsText(at);

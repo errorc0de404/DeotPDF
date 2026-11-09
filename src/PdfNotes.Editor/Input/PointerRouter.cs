@@ -12,8 +12,11 @@ public abstract record PointerAction
 
     public sealed record ToolUp(CanvasPointer Pointer) : PointerAction;
 
-    /// <summary>Drop the stroke being drawn without changing the document (a second finger, a palm, a lost contact).</summary>
-    public sealed record ToolCancel : PointerAction;
+    /// <summary>
+    /// Drop the stroke being drawn without changing the document (a second finger, a palm, a lost contact). With
+    /// <paramref name="KeepCapture"/> the contact stays the canvas's until it lifts: a pen's press opened a menu under it.
+    /// </summary>
+    public sealed record ToolCancel(bool KeepCapture = false) : PointerAction;
 
     /// <summary>Move the content by <see cref="Delta"/> DIPs (the content follows the finger).</summary>
     public sealed record Pan(Point2 Delta) : PointerAction;
@@ -356,7 +359,7 @@ public sealed class PointerRouter(Func<PointerRouterOptions> options, TimeProvid
         if (penHeld || penMoved || penPress is not { } down || down.Eraser || lastPen is not { } last || PenHolds?.Invoke(down) != true) return [];
         if (clock.GetElapsedTime(penDownTicks) < options().HoldTime - TimeSpan.FromMilliseconds(30)) return [];
         penHeld = true;
-        return [new PointerAction.ToolCancel(), new PointerAction.Hold(last)];
+        return [new PointerAction.ToolCancel(KeepCapture: true), new PointerAction.Hold(last)];
     }
 
     private IReadOnlyList<PointerAction> Pinch()

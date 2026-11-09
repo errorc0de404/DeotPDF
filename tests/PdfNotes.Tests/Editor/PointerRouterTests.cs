@@ -157,6 +157,22 @@ public sealed class PointerRouterTests
     }
 
     [Fact]
+    public void APenHoldCancelsTheToolButKeepsThePenUntilItLifts()
+    {
+        router.PenHolds = _ => true;
+        router.Down(Pen(50, 50));
+        clock.Advance(600);
+        var actions = router.HoldElapsed(1);
+        Assert.True(Assert.IsType<A.ToolCancel>(actions[0]).KeepCapture); // the view keeps the pen off the menu
+        Assert.Empty(router.Move(Pen(50, 50)));
+        Assert.Empty(router.Up(Pen(50, 50)));
+        clock.Advance(1000);
+        Assert.IsType<A.ToolDown>(Assert.Single(router.Down(Pen(60, 60)))); // the next press draws again
+        // Other cancels let the contact go.
+        Assert.False(Assert.IsType<A.ToolCancel>(Assert.Single(router.Cancel(1))).KeepCapture);
+    }
+
+    [Fact]
     public void APalmDoesNotTakeTheHoldOfThePen()
     {
         router.PenHolds = _ => true;
