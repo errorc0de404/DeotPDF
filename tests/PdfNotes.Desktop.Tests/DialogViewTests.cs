@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using PdfNotes.Core.Models;
 using PdfNotes.UI.Views;
 
@@ -103,5 +104,43 @@ public sealed class DialogViewTests
         Assert.False(second.Result);
         Assert.True(view.HasDialogCard); // the first is still open
         window.Close();
+    });
+
+    /// <summary>Review 2026-11-08 D6: the merge window's rows are bound to their view models (no rows built in code).</summary>
+    [Fact]
+    public void TheMergeWindowsRowsMoveAndCheckTheirRanges() => Headless.Run(() =>
+    {
+        var folder = Headless.TempFolder();
+        PdfNotes.ViewModels.MergeFile Open(string name, int pages)
+        {
+            string pdf = System.IO.Path.Combine(folder, name);
+            PdfNotes.Pdf.Prototype.ProbeSamplePdf.Create(pdf, pages);
+            return new(name, PdfNotes.Pdf.Reading.PdfSourceDocument.Open(pdf), new PdfNotes.Editor.Services.PdfPreview(new PdfNotes.Pdf.Engine.PdfiumDocument(pdf)));
+        }
+        var files = new[] { Open("a.pdf", 2), Open("b.pdf", 3) };
+        var owner = new Window { Width = 800, Height = 600 };
+        owner.Show();
+        var dialog = new PdfMergeDialog(files, insert: false);
+        var shown = DesktopDialogs.Wrap(dialog).ShowDialog<bool>(owner);
+        Dispatcher.UIThread.RunJobs();
+        var rows = dialog.GetVisualDescendants().OfType<MergeRowView>().ToArray();
+        Assert.Equal(2, rows.Length);
+        Assert.True(dialog.CanAccept);
+        Assert.Contains("5", dialog.TotalText);
+        var first = (PdfNotes.ViewModels.MergeRowViewModel)rows[0].DataContext!;
+        Assert.False(first.UpCommand.CanExecute());
+        first.DownCommand.Execute();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["b.pdf", "a.pdf"], dialog.Files.Select(f => f.Name));
+        var range = dialog.GetVisualDescendants().OfType<TextBox>().First(t => t.Name == "RangeBox");
+        range.Text = "9";
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(dialog.CanAccept); // page 9 of a 3-page file
+        dialog.SetRange(0, "1-2");
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("1-2", range.Text);
+        Assert.True(dialog.CanAccept);
+        owner.Close();
+        foreach (var file in files) { file.Shown.Dispose(); file.File.Dispose(); }
     });
 }

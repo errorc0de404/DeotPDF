@@ -18,7 +18,7 @@ public sealed class PdfMergeDialog : AppDialog
 {
     private readonly List<MergeFile> files;
     private readonly Func<Task<IReadOnlyList<MergeFile>>>? addFiles;
-    private readonly StackPanel rows = new() { Name = "MergeRows" };
+    private readonly ItemsControl rows = new() { Name = "MergeRows", ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<MergeRowViewModel>((_, _) => new MergeRowView()) };
     private readonly TextBlock total = new() { Name = "MergeTotalText", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) };
     private readonly TextBlock mergeError = new() { Name = "MergeError", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
     private readonly ComboBox position = new() { Name = "MergePositionBox", Width = 150, ItemsSource = new[] { Strings.Get("merge.afterCurrent"), Strings.Get("merge.atStart"), Strings.Get("merge.atEnd") }, SelectedIndex = 0 };
@@ -38,8 +38,7 @@ public sealed class PdfMergeDialog : AppDialog
         total.Bind(TextBlock.ForegroundProperty, total.GetResourceObservable("Text.Secondary"));
         var list = new Border { BorderThickness = new Thickness(1), Child = new ScrollViewer { Content = rows } };
         list.Bind(Border.BorderBrushProperty, list.GetResourceObservable("Border"));
-        var add = new Button { Name = "MergeAddButton", Content = Strings.Get("merge.addFiles"), Padding = new Thickness(10, 4), IsEnabled = addFiles is not null };
-        add.Click += async (_, _) => await AddFilesAsync();
+        var add = new Button { Name = "MergeAddButton", Content = Strings.Get("merge.addFiles"), Padding = new Thickness(10, 4), Command = new AsyncCommand(AddFilesAsync, () => addFiles is not null) };
         var line = new StackPanel { Orientation = Orientation.Horizontal, Children = { add } };
         if (insert)
             line.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(16, 0, 0, 0), Children = { new TextBlock { Text = Strings.Get("merge.position"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) }, position } });
@@ -83,9 +82,8 @@ public sealed class PdfMergeDialog : AppDialog
 
     public void SetRange(int index, string text)
     {
-        files[index].Range = text;
-        if (RangeBox(index) is { } box && box.Text != text) box.Text = text;
-        else Validate();
+        if (rows.ItemsSource is IReadOnlyList<MergeRowViewModel> shown && index < shown.Count) shown[index].Range = text;
+        else { files[index].Range = text; Validate(); }
     }
 
     public void AddFiles(IEnumerable<MergeFile> added)
@@ -100,8 +98,6 @@ public sealed class PdfMergeDialog : AppDialog
         Result = [.. files.Select(f => { PageRanges.TryParse(f.Range, f.PageCount, out var pages); return (f, pages); })];
         return true;
     }
-
-    private TextBox? RangeBox(int index) => rows.Children.Count > index && rows.Children[index] is Grid row ? row.Children.OfType<TextBox>().FirstOrDefault() : null;
 
     private async Task AddFilesAsync()
     {
@@ -119,47 +115,8 @@ public sealed class PdfMergeDialog : AppDialog
 
     private void Rebuild()
     {
-        rows.Children.Clear();
-        for (int i = 0; i < files.Count; i++) rows.Children.Add(Row(i));
+        rows.ItemsSource = files.Select((file, i) => new MergeRowViewModel(file, i, files.Count, Strings.Current, () => Validate(), Move, Remove, PickRangeAsync)).ToArray();
         Validate();
-    }
-
-    private Grid Row(int index)
-    {
-        var file = files[index];
-        var row = new Grid { Margin = new Thickness(8, 6), ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto,Auto,Auto") };
-        void Put(Control element, int column) { Grid.SetColumn(element, column); row.Children.Add(element); }
-        var number = new TextBlock { Text = $"{index + 1}", Width = 22, VerticalAlignment = VerticalAlignment.Center };
-        number.Bind(TextBlock.ForegroundProperty, number.GetResourceObservable("Text.Muted"));
-        Put(number, 0);
-        var name = new TextBlock { Text = file.Name, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
-        ToolTip.SetTip(name, file.File.Path);
-        Put(name, 1);
-        var pages = new TextBlock { Text = Strings.Format("merge.pageCount", ("pages", file.PageCount)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
-        pages.Bind(TextBlock.ForegroundProperty, pages.GetResourceObservable("Text.Secondary"));
-        Put(pages, 2);
-        var range = new TextBox { Name = $"MergeRange{index}", Text = file.Range, Width = 130 };
-        ToolTip.SetTip(range, Strings.Get("merge.rangeTip"));
-        range.TextChanged += (_, _) => { file.Range = range.Text ?? ""; Validate(); };
-        Put(range, 3);
-        var pick = new Button { Content = Strings.Get("merge.pick"), Padding = new Thickness(8, 3), Margin = new Thickness(6, 0, 10, 0) };
-        ToolTip.SetTip(pick, Strings.Get("merge.pickTip"));
-        pick.Click += (_, _) => Fire.AndReport(PickRangeAsync(index));
-        Put(pick, 4);
-        Put(new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Children = { Tool("ChevronUp", Strings.Get("merge.up"), () => Move(index, -1), index > 0), Tool("ChevronDown", Strings.Get("merge.down"), () => Move(index, 1), index < files.Count - 1), Tool("Close", Strings.Get("merge.remove"), () => Remove(index), true) }
-        }, 5);
-        return row;
-    }
-
-    private Button Tool(string glyph, string tip, Action action, bool enabled)
-    {
-        var button = new Button { Content = new AppIcon { Glyph = glyph, Size = 12 }, IsEnabled = enabled, Padding = new Thickness(6, 4), Theme = (Avalonia.Styling.ControlTheme)this.FindResource("ToolButton")! };
-        ToolTip.SetTip(button, tip);
-        button.Click += (_, _) => action();
-        return button;
     }
 
     /// <summary>고르기…: the one-file range window on this file, starting from the current text.</summary>

@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:th="using:PdfNotes.UI.Themes"
+        xmlns:l="using:PdfNotes.UI.Localization"
+        xmlns:vm="using:PdfNotes.ViewModels"
+        x:Class="PdfNotes.UI.Views.MergeRowView"
+        x:DataType="vm:MergeRowViewModel">
+    <!-- One file of the merge window (spec 11.9, D13j): number, name, pages, range, 고르기…, up, down, leave out. -->
+    <Grid Margin="8,6" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+        <TextBlock Width="22" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" Text="{Binding Number}" />
+        <TextBlock Grid.Column="1" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,8,0" Text="{Binding Name}" ToolTip.Tip="{Binding Path}" />
+        <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{DynamicResource Text.Secondary}" Text="{Binding PagesText}" />
+        <TextBox x:Name="RangeBox" Grid.Column="3" Width="130" ToolTip.Tip="{l:T merge.rangeTip}" Text="{Binding Range}" />
+        <Button Grid.Column="4" Padding="8,3" Margin="6,0,10,0" Content="{l:T merge.pick}" ToolTip.Tip="{l:T merge.pickTip}" Command="{Binding PickCommand}" />
+        <StackPanel Grid.Column="5" Orientation="Horizontal">
+            <Button Theme="{StaticResource ToolButton}" Padding="6,4" ToolTip.Tip="{l:T merge.up}" Command="{Binding UpCommand}"><th:AppIcon Glyph="ChevronUp" Size="12" /></Button>
+            <Button Theme="{StaticResource ToolButton}" Padding="6,4" ToolTip.Tip="{l:T merge.down}" Command="{Binding DownCommand}"><th:AppIcon Glyph="ChevronDown" Size="12" /></Button>
+            <Button Theme="{StaticResource ToolButton}" Padding="6,4" ToolTip.Tip="{l:T merge.remove}" Command="{Binding RemoveCommand}"><th:AppIcon Glyph="Close" Size="12" /></Button>
+        </StackPanel>
+    </Grid>
+</UserControl>

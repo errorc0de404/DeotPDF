@@ -263,3 +263,46 @@ public sealed class ImportExportViewModel(MainViewModel owner, IEditorDialogs di
         return await owner.Workflow.ExportPagesAsync(groups, choice.Flatten);
     }
 }
+
+/// <summary>One file of the merge window (spec 11.9, D13j): its place, name, pages, range and the row's buttons.</summary>
+public sealed class MergeRowViewModel : ObservableObject
+{
+    private readonly MergeFile file;
+    private readonly Action changed;
+
+    public MergeRowViewModel(MergeFile file, int index, int count, Texts texts, Action changed, Action<int, int> move, Action<int> remove, Func<int, Task> pick)
+    {
+        this.file = file;
+        this.changed = changed;
+        Index = index;
+        PagesText = texts.Format("merge.pageCount", ("pages", file.PageCount));
+        UpCommand = new Command(() => move(index, -1), () => index > 0);
+        DownCommand = new Command(() => move(index, 1), () => index < count - 1);
+        RemoveCommand = new Command(() => remove(index));
+        PickCommand = new AsyncCommand(() => pick(index));
+    }
+
+    public int Index { get; }
+    public string Number => (Index + 1).ToString(System.Globalization.CultureInfo.CurrentCulture);
+    public string Name => file.Name;
+    public string Path => file.File.Path;
+    public string PagesText { get; }
+
+    /// <summary>The pages to take, as typed (validated by the window).</summary>
+    public string Range
+    {
+        get => file.Range;
+        set
+        {
+            if (file.Range == value) return;
+            file.Range = value;
+            OnPropertyChanged();
+            changed();
+        }
+    }
+
+    public Command UpCommand { get; }
+    public Command DownCommand { get; }
+    public Command RemoveCommand { get; }
+    public AsyncCommand PickCommand { get; }
+}
