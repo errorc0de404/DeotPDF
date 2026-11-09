@@ -1,0 +1,155 @@
+<v:DialogView xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:th="using:PdfNotes.UI.Themes"
+        xmlns:l="using:PdfNotes.UI.Localization"
+        xmlns:vm="using:PdfNotes.ViewModels"
+        xmlns:v="using:PdfNotes.UI.Views"
+        xmlns:ui="using:PdfNotes.UI"
+        x:Class="PdfNotes.UI.Views.SettingsDialog"
+        x:DataType="vm:SettingsDialogViewModel">
+    <!-- The settings window (spec 18.1): categories on the left, their items on the right. Rows whose field takes the
+         rest of the width keep the window inside a tablet's card (2026-11-09). -->
+    <v:DialogView.Styles>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Width" Value="80" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="StackPanel.section > CheckBox">
+            <Setter Property="Margin" Value="0,4,0,8" />
+        </Style>
+        <Style Selector="Button.small">
+            <Setter Property="Padding" Value="8,1" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+        </Style>
+    </v:DialogView.Styles>
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+            <Button x:Name="OkButton" Content="{l:T common.ok}" IsDefault="True" MinWidth="84" Padding="10,4" Click="OkClick" />
+            <Button x:Name="CancelButton" Content="{l:T common.cancel}" MinWidth="84" Padding="10,4" Click="CancelClick" />
+        </StackPanel>
+        <ListBox x:Name="CategoryList" DockPanel.Dock="Left" Width="120" BorderThickness="0,0,1,0" BorderBrush="{DynamicResource Divider}" Background="Transparent"
+                 ItemsSource="{Binding Categories}" SelectedIndex="{Binding Category}" />
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <Panel Margin="20,4,4,4">
+                <!-- 필기 -->
+                <StackPanel Classes="section" IsVisible="{Binding IsNotes}">
+                    <CheckBox x:Name="QuickEraseBox" Content="{l:T settings.quickErase}" IsChecked="{Binding QuickErase}" />
+                    <CheckBox x:Name="PageDragBox" Content="{l:T settings.pageDrag}" IsChecked="{Binding PageDrag}" />
+                    <CheckBox x:Name="PenPressureBox" Content="{l:T settings.penPressure}" IsChecked="{Binding PenPressure}" />
+                    <CheckBox x:Name="FingerDrawingBox" Content="{l:T settings.fingerDrawing}" IsChecked="{Binding FingerDrawing}" />
+                </StackPanel>
+                <!-- 저장 (spec 18.2) -->
+                <StackPanel Classes="section" IsVisible="{Binding IsSave}">
+                    <CheckBox x:Name="AutoBackupBox" Content="{l:T settings.autoBackup}" IsChecked="{Binding AutoBackup}" />
+                    <StackPanel Margin="22,0,0,0" IsEnabled="{Binding AutoBackup}">
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Classes="label" Text="{l:T settings.interval}" />
+                            <ComboBox x:Name="BackupIntervalBox" Width="90" ItemsSource="{Binding Intervals}" SelectedIndex="{Binding IntervalIndex}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Classes="label" Text="{l:T settings.mode}" />
+                            <StackPanel>
+                                <RadioButton x:Name="BackupFolderMode" Content="{l:T settings.backupToFolder}" GroupName="BackupMode" IsChecked="{Binding BackupToFolder}" />
+                                <RadioButton x:Name="BackupOriginalMode" Content="{l:T settings.backupInPlace}" GroupName="BackupMode" IsChecked="{Binding BackupToOriginal}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Grid ColumnDefinitions="80,*,Auto,Auto" Margin="0,4">
+                            <TextBlock Classes="label" Text="{l:T settings.backupFolder}" />
+                            <TextBox x:Name="BackupFolderBox" Grid.Column="1" MinWidth="80" IsReadOnly="True" Text="{Binding BackupFolder}" />
+                            <Button x:Name="BackupFolderChange" Grid.Column="2" Classes="small" Content="{l:T settings.change}" Command="{Binding ChangeFolderCommand}" />
+                            <Button x:Name="BackupFolderOpen" Grid.Column="3" Classes="small" Content="{l:T settings.openFolder}" Command="{Binding OpenFolderCommand}" />
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Classes="label" Text="{l:T settings.keep}" />
+                            <TextBox x:Name="BackupKeepBox" Width="50" Text="{Binding Keep}" />
+                            <TextBlock Text="{l:T settings.keepUnit}" VerticalAlignment="Center" Margin="4,0,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                        <TextBlock Classes="label" Text="{l:T settings.backupUsageLabel}" />
+                        <TextBlock x:Name="BackupUsageText" VerticalAlignment="Center" Text="{Binding Usage}" />
+                        <Button x:Name="BackupClear" Classes="small" Margin="10,0,0,0" Content="{l:T settings.clearBackups}" Command="{Binding ClearCommand}" />
+                    </StackPanel>
+                </StackPanel>
+                <!-- 화면 (D13d): every choice shows at once -->
+                <StackPanel Classes="section" IsVisible="{Binding IsDisplay}">
+                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                        <TextBlock Classes="label" Text="{l:T settings.theme}" VerticalAlignment="Top" Margin="0,6,0,0" />
+                        <StackPanel>
+                            <RadioButton x:Name="ThemeSystem" Margin="0,2" GroupName="Theme" Content="{l:T settings.themeSystem}" IsChecked="{Binding ThemeSystem}" />
+                            <RadioButton x:Name="ThemeLight" Margin="0,2" GroupName="Theme" Content="{l:T settings.themeLight}" IsChecked="{Binding ThemeLight}" />
+                            <RadioButton x:Name="ThemeDark" Margin="0,2" GroupName="Theme" Content="{l:T settings.themeDark}" IsChecked="{Binding ThemeDark}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                        <TextBlock Classes="label" Text="{l:T settings.accent}" />
+                        <ItemsControl x:Name="AccentList" ItemsSource="{Binding Accents}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AccentOption">
+                                    <RadioButton Theme="{StaticResource ToolButton}" Padding="5" ToolTip.Tip="{Binding Name}" IsChecked="{Binding IsChecked}">
+                                        <Ellipse Width="16" Height="16">
+                                            <Ellipse.Fill>
+                                                <MultiBinding Converter="{x:Static th:Converters.AccentFill}">
+                                                    <Binding Path="Color" />
+                                                    <Binding Path="Look" />
+                                                </MultiBinding>
+                                            </Ellipse.Fill>
+                                        </Ellipse>
+                                    </RadioButton>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                        <TextBlock Classes="label" Text="{l:T settings.language}" />
+                        <ComboBox x:Name="LanguageBox" MinWidth="140" ItemsSource="{Binding Languages}" SelectedIndex="{Binding LanguageIndex}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,8">
+                        <CheckBox x:Name="PageNumbersBox" Content="{l:T settings.showPageNumbers}" IsChecked="{Binding PageNumbers}" />
+                        <TextBlock Text="{l:T settings.size}" VerticalAlignment="Center" Margin="14,0,6,0" />
+                        <ComboBox x:Name="PageNumberSizeBox" Width="90" ItemsSource="{Binding NumberSizes}" SelectedIndex="{Binding NumberSizeIndex}" />
+                    </StackPanel>
+                    <CheckBox x:Name="DarkPagesBox" Content="{l:T settings.darkPages}" IsChecked="{Binding DarkPages}" />
+                    <CheckBox x:Name="FavoritesBox" Content="{l:T settings.favorites}" IsChecked="{Binding Favorites}" />
+                    <CheckBox x:Name="AutoTabsBox" Content="{l:T settings.autoTabs}" IsChecked="{Binding AutoTabs}" />
+                </StackPanel>
+                <!-- 정보 (roadmap 1.1) -->
+                <StackPanel IsVisible="{Binding IsAbout}">
+                    <TextBlock Text="{x:Static ui:AppInfo.DisplayName}" FontWeight="SemiBold" FontSize="{DynamicResource FontSize.Title}" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                        <TextBlock Classes="label" Text="{l:T about.version}" />
+                        <TextBlock x:Name="VersionText" VerticalAlignment="Center" Text="{Binding Version}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                        <TextBlock Classes="label" Text="{l:T about.license}" />
+                        <TextBlock VerticalAlignment="Center" Text="{Binding License}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,6,0,10">
+                        <Button x:Name="ProjectLink" Classes="link" Margin="6,0,0,0" Content="{l:T about.project}" ToolTip.Tip="{Binding ProjectPage}"
+                                Command="{Binding OpenLinkCommand}" CommandParameter="{Binding ProjectPage}" />
+                        <Button x:Name="NoticesLink" Classes="link" Margin="6,0,0,0" Content="{l:T about.notices}" ToolTip.Tip="{Binding NoticesPage}"
+                                Command="{Binding OpenLinkCommand}" CommandParameter="{Binding NoticesPage}" />
+                    </StackPanel>
+                    <CheckBox x:Name="CheckUpdatesBox" Content="{l:T about.checkAtStart}" Margin="0,4,0,8" IsChecked="{Binding CheckUpdates}" />
+                    <WrapPanel>
+                        <Button x:Name="UpdateCheckButton" Padding="8,1" Content="{l:T about.checkNow}" Command="{Binding CheckNowCommand}" />
+                        <TextBlock x:Name="UpdateStatusText" VerticalAlignment="Center" Margin="10,0,0,0" Text="{Binding UpdateStatus}" />
+                        <Button x:Name="DownloadLink" Classes="link" Margin="6,0,0,0" Content="{l:T about.download}" IsVisible="{Binding HasDownload}"
+                                ToolTip.Tip="{Binding DownloadUrl}" Command="{Binding OpenLinkCommand}" CommandParameter="{Binding DownloadUrl}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Panel>
+        </ScrollViewer>
+    </DockPanel>
+</v:DialogView>

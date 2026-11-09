@@ -10,6 +10,10 @@ namespace PdfNotes.UI.Themes;
 public static class Converters
 {
     /// <summary>An annotation color (<see cref="RgbColor"/>) as a brush: a palette swatch.</summary>
+    /// <summary>An accent color as the current theme shows it (the second value only says the theme changed).</summary>
+    public static readonly IMultiValueConverter AccentFill = new FuncMultiValueConverter<object?, IBrush?>(values =>
+        values.FirstOrDefault() is PdfNotes.Editor.Services.AccentColor accent && Avalonia.Application.Current is { } app ? new SolidColorBrush(DesktopTheme.AccentOf(app, accent)) : null);
+
     public static readonly IValueConverter ColorBrush = new FuncValueConverter<RgbColor, IBrush>(c => new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B)));
 
     /// <summary>The page list's selection mode: the multi-select toggle makes a click add or remove a row (spec 11.1).</summary>
