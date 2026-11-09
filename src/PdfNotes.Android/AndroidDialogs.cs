@@ -45,6 +45,8 @@ public sealed class AndroidDialogs(Func<MainView?> view) : IDesktopDialogs
             builder.SetNeutralButton(Strings.Get("dialog.cancel"), (_, _) => answer.TrySetResult(Answer.Cancel));
         }
         builder.SetOnCancelListener(new CancelListener(() => answer.TrySetResult(closed)));
+        // A dialog that goes away without a button or a cancel (its activity ended) still answers; a button's answer came first.
+        builder.SetOnDismissListener(new DismissListener(() => answer.TrySetResult(closed)));
         IsOpen = true;
         builder.Show();
         return Finish(answer.Task);
@@ -59,6 +61,11 @@ public sealed class AndroidDialogs(Func<MainView?> view) : IDesktopDialogs
     private sealed class CancelListener(Action cancelled) : Java.Lang.Object, global::Android.Content.IDialogInterfaceOnCancelListener
     {
         public void OnCancel(global::Android.Content.IDialogInterface? dialog) => cancelled();
+    }
+
+    private sealed class DismissListener(Action dismissed) : Java.Lang.Object, global::Android.Content.IDialogInterfaceOnDismissListener
+    {
+        public void OnDismiss(global::Android.Content.IDialogInterface? dialog) => dismissed();
     }
 
     public void Tell(string text, NoticeKind kind) =>
