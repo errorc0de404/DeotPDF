@@ -31,7 +31,7 @@ internal sealed class CanvasDrawOperation(Rect bounds, IReadOnlyList<DocumentCan
         canvas.ClipRect(SKRect.Create(0, 0, (float)bounds.Width, (float)bounds.Height));
         if (cache is null || !shots.Any(s => s.Preview is not null || s.MarkPreview is not null || s.Live is not null) || !DrawCached(canvas, cache, lease.GrContext))
         {
-            if (cache is not null) cache.Version = -1;
+            cache?.Release(lease.GrContext); // no preview now: the full-screen picture is not kept until the next one
             PageDrawing.Draw(canvas, shots, look);
         }
         canvas.Restore();
@@ -47,7 +47,7 @@ internal sealed class CanvasDrawOperation(Rect bounds, IReadOnlyList<DocumentCan
         if (width <= 0 || height <= 0) return false;
         if (cache.Surface is null || cache.Width != width || cache.Height != height || cache.Scale != scale || !ReferenceEquals(cache.Gpu, gpu))
         {
-            cache.Surface?.Dispose();
+            cache.Release(gpu);
             var info = new SKImageInfo(width, height);
             cache.Surface = gpu is not null ? SKSurface.Create(gpu, false, info) : SKSurface.Create(info);
             (cache.Width, cache.Height, cache.Scale, cache.Gpu, cache.Version) = (width, height, scale, gpu, -1);
@@ -77,6 +77,16 @@ internal sealed class FrameCache
     public int Width, Height, Version = -1;
     public float Scale;
     public GRContext? Gpu;
+
+    /// <summary>
+    /// Lets the picture go. Its surface is disposed only with the GPU context it was made with: after the context changed
+    /// (the app went to the background and came back) the old one may be gone, and the surface is just dropped.
+    /// </summary>
+    public void Release(GRContext? current)
+    {
+        if (Surface is { } surface && ReferenceEquals(Gpu, current)) surface.Dispose();
+        (Surface, Gpu, Version) = (null, null, -1);
+    }
 }
 
 /// <summary>
