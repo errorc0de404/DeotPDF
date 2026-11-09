@@ -344,7 +344,7 @@ public sealed class AppSettings
             settings.written = settings.ToJson();
             return settings;
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or InvalidOperationException)
         {
             return new();
         }

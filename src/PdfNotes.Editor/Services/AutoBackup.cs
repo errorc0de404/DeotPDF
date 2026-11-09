@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace PdfNotes.Editor.Services;
 
@@ -44,9 +45,13 @@ public sealed class BackupSchedule
 /// another window can bring it forward instead of opening the same file twice, spec 4.6); a marker of a process that is
 /// gone means it did not end normally.
 /// </summary>
-public sealed class BackupStore
+public sealed partial class BackupStore
 {
-    private static readonly JsonSerializerOptions Json = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    /// <summary>Generated, not reflected: a trimmed build (Android Release) has no reflection-based JSON.</summary>
+    [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+    [JsonSerializable(typeof(List<Entry>))]
+    [JsonSerializable(typeof(Marker))]
+    private sealed partial class BackupJson : JsonSerializerContext;
 
     public sealed record Entry(string Document, string File, DateTime Created);
     public sealed record Recoverable(string DocumentName, string File, DateTime Created);
@@ -150,8 +155,8 @@ public sealed class BackupStore
 
     private List<Entry> ReadIndex()
     {
-        try { return File.Exists(IndexPath) ? JsonSerializer.Deserialize<List<Entry>>(File.ReadAllText(IndexPath), Json) ?? [] : []; }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { return []; }
+        try { return File.Exists(IndexPath) ? JsonSerializer.Deserialize(File.ReadAllText(IndexPath), BackupJson.Default.ListEntry) ?? [] : []; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or InvalidOperationException) { return []; }
     }
 
     // ----- crash recovery -----
@@ -196,8 +201,8 @@ public sealed class BackupStore
         {
             if (except is not null && FilePaths.Same(file, except.markerPath)) continue;
             Marker? marker;
-            try { marker = JsonSerializer.Deserialize<Marker>(File.ReadAllText(file), Json); }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { continue; }
+            try { marker = JsonSerializer.Deserialize(File.ReadAllText(file), BackupJson.Default.Marker); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or InvalidOperationException) { continue; }
             if (marker is { DocumentPath: { } shown, Window: not 0 } && FilePaths.Same(shown, wanted) && Running(marker))
                 return marker.Window;
         }
@@ -224,8 +229,8 @@ public sealed class BackupStore
         {
             if (FilePaths.Same(file, markerPath)) continue;
             Marker? marker;
-            try { marker = JsonSerializer.Deserialize<Marker>(File.ReadAllText(file), Json); }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { continue; }
+            try { marker = JsonSerializer.Deserialize(File.ReadAllText(file), BackupJson.Default.Marker); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or InvalidOperationException) { continue; }
             if (marker is null || Running(marker)) continue;
             if (marker.Recoverable is { } r && File.Exists(r.File)) result.Add(r);
             try { File.Delete(file); }
@@ -246,11 +251,12 @@ public sealed class BackupStore
 
     private static void WriteJson<T>(string path, T value)
     {
+        var type = (System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>)BackupJson.Default.GetTypeInfo(typeof(T))!;
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             string temp = path + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(value, Json));
+            File.WriteAllText(temp, JsonSerializer.Serialize(value, type));
             File.Move(temp, path, overwrite: true);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { } // recovery data is a convenience
