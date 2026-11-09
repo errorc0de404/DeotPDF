@@ -26,15 +26,8 @@ namespace PdfNotes.UI.Views;
 /// </summary>
 public sealed partial class MainView
 {
-    private SelectTool selectTool = null!;
-    private StrokeTool penTool = null!, highlighterStrokeTool = null!;
-    private HighlighterTool highlighterTool = null!;
-    private TextTool textTool = null!;
-    private NoteTool noteTool = null!;
-    private LineTool lineTool = null!, curveTool = null!;
-    private LassoTool lassoTool = null!;
-    private ShapeTool shapeTool = null!;
-    private EraserTool strokeEraserTool = null!, areaEraserTool = null!;
+    private ToolSet toolSet = null!;
+    private SelectTool selectTool => toolSet.Select;
 
     private ToolStylesViewModel styles => viewModel.ToolStyles;
     private ToolSwitch tools => viewModel.Tools;
@@ -47,40 +40,18 @@ public sealed partial class MainView
 
     private void InitializeTools()
     {
-        selectTool = new SelectTool(Canvas, () => Document?.Session, viewModel.PageGlyphs) { AllowCrossPage = () => settings.PageDrag && Canvas.Mode == ViewMode.Continuous };
+        toolSet = new ToolSet(Canvas, () => Document?.Session, tools,
+            new(viewModel.PageGlyphs, () => settings.PageDrag && Canvas.Mode == ViewMode.Continuous,
+                () => styles.Pen, () => settings.PenPressure, () => styles.Highlighter, () => settings.HighlighterSnap, () => styles.TextHighlightStyle,
+                () => styles.MarkKind is { } k ? (k, styles.MarkupStyle) : null, () => styles.Line, () => styles.LineOptions,
+                () => settings.ShapeKind, () => styles.Shape, () => settings.StrokeEraserPt, () => settings.AreaEraserPt),
+            new(BeginNewTextAtClick, SelectTextAt, CreateNote, SelectNoteAt),
+            SetTool, ReturnAfterAutoSelect, action => Dispatcher.UIThread.Post(action), changed => TextBoxReleased(null, changed));
         styles.Attach(selectTool);
         viewModel.Selection.Attach(selectTool, CheckImage);
         selectTool.SelectionChanged += (_, _) => Canvas.RefreshOverlays();
-        penTool = new StrokeTool(Canvas, () => Document?.Session, () => styles.Pen, AnnotationKind.Ink, () => settings.PenPressure);
-        highlighterStrokeTool = new StrokeTool(Canvas, () => Document?.Session, () => styles.Highlighter, AnnotationKind.FreeHighlight);
-        textTool = new TextTool(Canvas, BeginNewTextAtClick, SelectTextAt);
-        Action<Guid> SelectFrom(ToolKind tool) => id => Dispatcher.UIThread.Post(() => { SetTool(ToolKind.Select); selectTool.Select(id); tools.Return = tool; });
-        lineTool = new LineTool(Canvas, () => Document?.Session, selectTool, () => styles.Line, () => styles.LineOptions, curve: false, SelectFrom(ToolKind.Line));
-        curveTool = new LineTool(Canvas, () => Document?.Session, selectTool, () => styles.Line, () => styles.LineOptions, curve: true, SelectFrom(ToolKind.Curve));
-        lassoTool = new LassoTool(Canvas, () => Document?.Session, selectTool);
-        shapeTool = new ShapeTool(Canvas, () => Document?.Session, selectTool, () => settings.ShapeKind, () => styles.Shape, SelectFrom(ToolKind.Shape));
-        noteTool = new NoteTool(Canvas, CreateNote, SelectNoteAt);
-        var highlighterText = new TextHighlightTool(Canvas, () => Document?.Session, viewModel.PageGlyphs, () => styles.TextHighlightStyle, SelectFrom(ToolKind.FreeHighlight),
-            () => styles.MarkKind is { } k ? (k, styles.MarkupStyle) : null);
-        highlighterTool = new HighlighterTool(Canvas, () => Document?.Session, highlighterStrokeTool, highlighterText,
-            () => settings.HighlighterSnap, () => styles.MarkKind is not null, SelectFrom(ToolKind.FreeHighlight));
-        lassoTool.Selected += (_, _) => Dispatcher.UIThread.Post(() =>
-        {
-            if (tools.Current != ToolKind.Lasso) return;
-            SetTool(ToolKind.Select);
-            tools.Return = ToolKind.Lasso;
-        });
-        // Spec 5.4 (D14g): after an automatic switch the original tool comes back when the selection is empty.
-        selectTool.Released += TextBoxReleased;
-        selectTool.Released += (_, _) =>
-        {
-            if (selectTool.SelectedIds.Count == 0 && !selectTool.HasTextSelection) ReturnAfterAutoSelect();
-            else if (selectTool.HasTextSelection) tools.Return = null;
-        };
-        strokeEraserTool = new EraserTool(Canvas, () => Document?.Session, () => settings.StrokeEraserPt, EraserMode.Stroke);
-        areaEraserTool = new EraserTool(Canvas, () => Document?.Session, () => settings.AreaEraserPt, EraserMode.Area);
-        Canvas.MiddleButton = () => tools.Current is ToolKind.Pen or ToolKind.FreeHighlight ? (true, settings.QuickErase ? areaEraserTool : null) : (false, null);
-        Canvas.PenEraser = () => settings.Eraser == ToolKind.StrokeEraser ? strokeEraserTool : areaEraserTool;
+        Canvas.MiddleButton = () => tools.Current is ToolKind.Pen or ToolKind.FreeHighlight ? (true, settings.QuickErase ? toolSet.AreaEraser : null) : (false, null);
+        Canvas.PenEraser = () => toolSet.Eraser(settings.Eraser);
         Canvas.TouchOptions = () => new PointerRouterOptions { FingerDrawing = settings.FingerDrawing };
         Canvas.OverlayFor = OverlayFor;
         Canvas.LiveIds = LiveIds;
@@ -104,21 +75,7 @@ public sealed partial class MainView
     /// <summary>Puts the canvas tool for <paramref name="kind"/> in place (and clears a selection the tool does not keep).</summary>
     private void UseTool(ToolKind kind)
     {
-        Canvas.Tool = kind switch
-        {
-            ToolKind.Text => textTool,
-            ToolKind.Select => selectTool,
-            ToolKind.Pen => penTool,
-            ToolKind.FreeHighlight => highlighterTool,
-            ToolKind.Line => lineTool,
-            ToolKind.Curve => curveTool,
-            ToolKind.Lasso => lassoTool,
-            ToolKind.StrokeEraser => strokeEraserTool,
-            ToolKind.AreaEraser => areaEraserTool,
-            ToolKind.Shape => shapeTool,
-            ToolKind.Note => noteTool,
-            _ => throw new ArgumentOutOfRangeException(nameof(kind))
-        };
+        Canvas.Tool = toolSet.For(kind);
         if (!ToolSwitch.KeepsSelection(kind)) selectTool.Select(null);
     }
 
