@@ -153,7 +153,7 @@ public sealed class DocumentSources : IDisposable
     /// </summary>
     internal (PdfiumDocument Engine, byte[] Bytes, IReadOnlyList<PdfPageGeometry> Pages, int Local) Locate(int index, bool converted = false)
     {
-        if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
         if (Main is { } main && index < main.Pages.Count)
             return converted && main.Foreign is { } mv ? (mv.Engine, mv.Bytes, main.Pages, index) : (main.Engine, main.Bytes, main.Pages, index);
         int local = index - MainCount;

@@ -105,7 +105,7 @@ public sealed partial class DocumentCanvas
 
     private CanvasPointer Pointer(PointerEventArgs e, PointerButton button = PointerButton.Left, int clicks = 1) => Pointer(e, e.GetCurrentPoint(this), button, clicks);
 
-    private CanvasPointer Pointer(PointerEventArgs e, PointerPoint point, PointerButton button = PointerButton.Left, int clicks = 1)
+    private static CanvasPointer Pointer(PointerEventArgs e, PointerPoint point, PointerButton button = PointerButton.Left, int clicks = 1)
     {
         var device = e.Pointer.Type switch { PointerType.Pen => PointerDevice.Pen, PointerType.Touch => PointerDevice.Touch, _ => PointerDevice.Mouse };
         var p = point.Properties;

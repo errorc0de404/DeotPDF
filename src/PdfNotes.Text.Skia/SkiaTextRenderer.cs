@@ -50,7 +50,7 @@ public static class SkiaTextRenderer
         }
         if (style.BorderEnabled)
         {
-            float b = (float)scene.BorderWidth;
+            float b = (float)SkiaTextScene.BorderWidth;
             using var stroke = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = b, Color = Color(style.BorderColor, style.BorderOpacity) };
             canvas.DrawRect(b / 2, b / 2, Math.Max(0, (float)scene.Width - b), Math.Max(0, (float)scene.Height - b), stroke);
         }

@@ -140,7 +140,7 @@ public sealed partial class MainView : IPageThumbnailSource
 
     // ----- drag to reorder (spec 11.1–11.2): pointer capture, a drop line between rows -----
 
-    private PageItemViewModel? ItemAt(PointerEventArgs e) =>
+    private static PageItemViewModel? ItemAt(PointerEventArgs e) =>
         (e.Source as Visual)?.FindAncestorOfType<ListBoxItem>(includeSelf: true)?.DataContext as PageItemViewModel;
 
     private void PageListPressed(object? sender, PointerPressedEventArgs e)

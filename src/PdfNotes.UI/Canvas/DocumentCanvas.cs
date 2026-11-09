@@ -180,13 +180,13 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     }
 
     /// <summary>Switches view mode keeping the current page and, when possible, the position on it (spec 4.3).</summary>
-    public void SetMode(ViewMode newMode)
+    public void SetMode(ViewMode mode)
     {
-        if (newMode == mode) return;
+        if (mode == this.mode) return;
         int current = CurrentPageIndex;
         var center = new Point2(viewportWidth / 2, viewportHeight / 2);
         var anchor = EnsureLayout()?.Anchor(center, offset);
-        mode = newMode;
+        this.mode = mode;
         singlePage = current;
         RebuildLayout();
         if (anchor is { } a && a.PageIndex == current) offset = ClampOffset(layout!.OffsetForAnchor(a, center));
@@ -195,41 +195,41 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     }
 
     /// <summary>Shows the page (0-based) from its top.</summary>
-    public void GoToPage(int index)
+    public void GoToPage(int pageIndex)
     {
         if (pages.Count == 0) return;
-        index = Math.Clamp(index, 0, pages.Count - 1);
-        if (mode == ViewMode.SinglePage && index != singlePage)
+        pageIndex = Math.Clamp(pageIndex, 0, pages.Count - 1);
+        if (mode == ViewMode.SinglePage && pageIndex != singlePage)
         {
-            singlePage = index;
+            singlePage = pageIndex;
             RebuildLayout();
         }
-        ScrollToPageTop(index);
+        ScrollToPageTop(pageIndex);
         Invalidate(ScrollPlanDelay);
     }
 
     public void NextPage() => GoToPage(CurrentPageIndex + 1);
     public void PreviousPage() => GoToPage(CurrentPageIndex - 1);
 
-    public void ScrollToPagePoint(int index, Point2 pagePoint)
+    public void ScrollToPagePoint(int pageIndex, Point2 point)
     {
         if (pages.Count == 0) return;
-        index = Math.Clamp(index, 0, pages.Count - 1);
-        if (mode == ViewMode.SinglePage && index != singlePage)
+        pageIndex = Math.Clamp(pageIndex, 0, pages.Count - 1);
+        if (mode == ViewMode.SinglePage && pageIndex != singlePage)
         {
-            singlePage = index;
+            singlePage = pageIndex;
             RebuildLayout();
         }
         if (EnsureLayout() is not { } l) return;
-        offset = ClampOffset(l.OffsetForAnchor(new(index, pagePoint), new(viewportWidth / 2, viewportHeight / 2)));
+        offset = ClampOffset(l.OffsetForAnchor(new(pageIndex, point), new(viewportWidth / 2, viewportHeight / 2)));
         Invalidate(ScrollPlanDelay);
     }
 
-    public void ShowPagePoint(int index, Point2 pagePoint)
+    public void ShowPagePoint(int pageIndex, Point2 point)
     {
-        GoToPage(index);
+        GoToPage(pageIndex);
         if (EnsureLayout() is null) return;
-        var p = PageTransform(index).PageToDip.Transform(pagePoint);
+        var p = PageTransform(pageIndex).PageToDip.Transform(point);
         SetOffset(new(offset.X, offset.Y + p.Y - DocumentLayout.MarginDip));
     }
 
@@ -278,10 +278,10 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
 
     public void ScrollBy(double dx, double dy) => SetOffset(new(offset.X + dx, offset.Y + dy));
 
-    public bool IsInView(int page, IEnumerable<Quad> quads) => ViewportExtent(page, quads) is { } r &&
+    public bool IsInView(int pageIndex, IEnumerable<Quad> quads) => ViewportExtent(pageIndex, quads) is { } r &&
         r.MinX >= 0 && r.MinY >= 0 && r.MaxX <= viewportWidth && r.MaxY <= viewportHeight;
 
-    public bool IsPartlyInView(int page, IEnumerable<Quad> quads) => ViewportExtent(page, quads) is { } r &&
+    public bool IsPartlyInView(int pageIndex, IEnumerable<Quad> quads) => ViewportExtent(pageIndex, quads) is { } r &&
         r.MaxX >= 0 && r.MaxY >= 0 && r.MinX <= viewportWidth && r.MinY <= viewportHeight;
 
     private (double MinX, double MinY, double MaxX, double MaxY)? ViewportExtent(int page, IEnumerable<Quad> quads)

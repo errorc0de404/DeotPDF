@@ -32,18 +32,18 @@ public sealed partial class DocumentCanvas : ICanvasView
     public void SetHorizontalOffset(double value) => SetOffset(new(value, offset.Y));
     public void SetVerticalOffset(double value) => SetOffset(new(offset.X, value));
 
-    public void SetPreview(int pageIndex, ICanvasPreview? newPreview, bool mark = false)
+    public void SetPreview(int pageIndex, ICanvasPreview? preview, bool mark = false)
     {
         // The same preview again (the eraser circle on every move): only the preview is drawn again, the rest of the
         // frame is kept (roadmap P5d A1).
-        if (ReferenceEquals(newPreview, preview) && previewIsMark == mark && previewPage == (newPreview is null ? -1 : pageIndex))
+        if (ReferenceEquals(preview, this.preview) && previewIsMark == mark && previewPage == (preview is null ? -1 : pageIndex))
         {
             RedrawPreview();
             return;
         }
         previewIsMark = mark;
-        previewPage = newPreview is null ? -1 : pageIndex;
-        preview = newPreview;
+        previewPage = preview is null ? -1 : pageIndex;
+        this.preview = preview;
         Redraw();
     }
 

@@ -202,7 +202,7 @@ public sealed class OpenDocument : IDisposable
 
     /// <summary>
     /// Builds pages taken from <paramref name="file"/> (spec 11.9) numbered after this document's sources. Runs off the UI
-    /// thread; changes nothing until <see cref="InsertImported"/>.
+    /// thread; changes nothing until <see cref="InsertImported(PageImport, int)"/>.
     /// </summary>
     public PageImport PrepareImport(PdfSourceDocument file, IReadOnlyList<int> pageIndices, CancellationToken cancellationToken = default) =>
         PdfPageImport.Build(file, pageIndices, Sources.NextIndex, cancellationToken);
@@ -210,7 +210,7 @@ public sealed class OpenDocument : IDisposable
     /// <summary>
     /// Pages another window copied, as the PDF it sent (spec 11.4, D14g): written to a temporary file in
     /// <paramref name="tempFolder"/>, opened and prepared like an import of all its pages. The file is gone afterwards; the
-    /// prepared pages have their own copy. Runs off the UI thread; changes nothing until <see cref="InsertImported"/>.
+    /// prepared pages have their own copy. Runs off the UI thread; changes nothing until <see cref="InsertImported(PageImport, int)"/>.
     /// </summary>
     public async Task<PageImport> PreparePastedPdfAsync(byte[] pdf, string tempFolder, CancellationToken cancellationToken = default)
     {

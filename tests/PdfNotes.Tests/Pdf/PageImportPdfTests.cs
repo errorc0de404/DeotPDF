@@ -45,7 +45,7 @@ public sealed class PageImportPdfTests : IDisposable
         using var doc = PdfReader.Open(new MemoryStream(pdf), PdfDocumentOpenMode.Import);
         var annots = doc.Pages[page].Elements.GetArray("/Annots");
         if (annots is null) return [];
-        return [.. annots.Elements.Select(e => e is PdfSharp.Pdf.Advanced.PdfReference r ? r.Value : e).OfType<PdfDictionary>().Select(a => a.Elements.GetString("/NM")).Where(n => n.StartsWith("Foreign"))];
+        return [.. annots.Elements.Select(e => e is PdfSharp.Pdf.Advanced.PdfReference r ? r.Value : e).OfType<PdfDictionary>().Select(a => a.Elements.GetString("/NM")).Where(n => n.StartsWith("Foreign", StringComparison.Ordinal))];
     }
 
     private static int StoredSourcePages(byte[] saved)

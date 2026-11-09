@@ -18,7 +18,7 @@ namespace PdfNotes.UI.Views;
 /// </summary>
 public sealed partial class MainView
 {
-    private void InitializeKeys()
+    private static void InitializeKeys()
     {
         // The key handlers sit on the window or screen around the view (OnAttachedToVisualTree).
     }

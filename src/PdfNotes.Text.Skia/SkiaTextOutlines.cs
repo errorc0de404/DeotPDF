@@ -24,7 +24,7 @@ internal static class SkiaTextOutlines
             children.Add(new TextPaintShape([Rectangle(new(0, 0, scene.Width, scene.Height))], false, Color(style.BackgroundColor, style.BackgroundOpacity), null, 0));
         if (style.BorderEnabled)
         {
-            double b = scene.BorderWidth;
+            double b = SkiaTextScene.BorderWidth;
             children.Add(new TextPaintShape([Rectangle(new(b / 2, b / 2, Math.Max(0, scene.Width - b), Math.Max(0, scene.Height - b)))], false,
                 null, Color(style.BorderColor, style.BorderOpacity), b));
         }

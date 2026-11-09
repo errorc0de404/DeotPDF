@@ -16,7 +16,6 @@ public sealed class LoadingViewModel : ObservableObject
     private string text = "";
     private bool isShown, blocksInput, waitsForPages;
 
-    /// <param name="after">Runs an action once on the UI thread after a delay; disposing cancels it.</param>
     private readonly Texts texts;
 
     public LoadingViewModel(Func<TimeSpan, Action, IDisposable> after, Texts texts)

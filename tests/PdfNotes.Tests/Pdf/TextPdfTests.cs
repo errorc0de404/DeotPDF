@@ -81,7 +81,7 @@ public sealed class TextPdfTests
         }
         var read = EditablePdfReader.Read(pdf, PdfPageGeometryReader.Read(pdf));
         // Decision 20: the box is editable with a substitute font; the stored family stays for machines that have it.
-        Assert.Equal(0, read.ReadOnlyCount); Assert.Contains(read.Warnings, w => w.StartsWith("Missing font:"));
+        Assert.Equal(0, read.ReadOnlyCount); Assert.Contains(read.Warnings, w => w.StartsWith("Missing font:", StringComparison.Ordinal));
         var box = Assert.IsType<TextBoxAnnotation>(Assert.Single(read.Model.AllAnnotations));
         Assert.All(box.Runs, r => Assert.Equal("MissingFont-D06-12345", r.FontFamily));
         var again = EditablePdfWriter.Write(pdf, PdfPageGeometryReader.Read(pdf), read.Model);

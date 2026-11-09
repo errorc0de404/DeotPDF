@@ -25,8 +25,8 @@ internal sealed class SkiaTextScene
     public required double Width { get; init; }
     public required double Height { get; init; }
     public required TextBoxStyle Style { get; init; }
-    /// <summary>Border width at layout scale 1 (the WPF engine's value: one point).</summary>
-    public double BorderWidth => 1;
+    /// <summary>Border width at layout scale 1: one point.</summary>
+    public const double BorderWidth = 1;
     public required ImmutableArray<(TextHighlightRange Highlight, Rect2[] Lines)> Highlights { get; init; }
     /// <summary><see cref="SceneGlyphs"/> and <see cref="SceneBar"/> items in drawing order.</summary>
     public required ImmutableArray<object> Content { get; init; }

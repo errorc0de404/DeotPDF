@@ -82,7 +82,7 @@ public sealed class EditablePdfTests : IDisposable
         foreach (PdfPage page in document.Pages)
             if (page.Elements.GetArray("/Annots") is { } annots)
                 for (int i = 0; i < annots.Elements.Count; i++)
-                    if (Resolve(annots.Elements[i])?.Elements.GetString("/NM").StartsWith(EditablePdfKeys.NamePrefix) == true) count++;
+                    if (Resolve(annots.Elements[i])?.Elements.GetString("/NM").StartsWith(EditablePdfKeys.NamePrefix, StringComparison.Ordinal) == true) count++;
         return count;
     }
 

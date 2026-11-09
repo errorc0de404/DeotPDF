@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Text.Json.Nodes;
 using PdfNotes.Cli;
@@ -103,7 +104,7 @@ public sealed class CliReadTests : IDisposable
         {
             var spec = ProbeSamplePdf.CliPages[i];
             string png = Out($"page{i + 1}.png");
-            var result = CliRunner.Ok("render", sample, "-p", (i + 1).ToString(), "-o", png);
+            var result = CliRunner.Ok("render", sample, "-p", (i + 1).ToString(CultureInfo.InvariantCulture), "-o", png);
             var image = CliRunner.LoadPng(png);
             Assert.Equal(result["width"]!.GetValue<int>(), image.Width);
             Assert.Equal(result["height"]!.GetValue<int>(), image.Height);
@@ -127,7 +128,7 @@ public sealed class CliReadTests : IDisposable
         {
             var (fx, fy) = ProbeSamplePdf.CliPages[i].Fiducials[1];
             string png = Out($"region{i + 1}.png");
-            var result = CliRunner.Ok("render", sample, "-p", (i + 1).ToString(), "-o", png, "--dpi", "200", "--region", $"{fx - 30},{fy - 20},60,40");
+            var result = CliRunner.Ok("render", sample, "-p", (i + 1).ToString(CultureInfo.InvariantCulture), "-o", png, "--dpi", "200", "--region", $"{fx - 30},{fy - 20},60,40");
             var image = CliRunner.LoadPng(png);
             var pixelRegion = result["pixelRegion"]!.AsArray().Select(n => n!.GetValue<int>()).ToArray();
             Assert.Equal([image.Width, image.Height], pixelRegion[2..]);
@@ -173,8 +174,8 @@ public sealed class CliReadTests : IDisposable
         for (int i = 0; i < shapes.Count; i++)
         {
             string withNotes = Out($"all{i}.png"), paper = Out($"none{i}.png");
-            var all = CliRunner.Ok("render", saved, "-p", (i + 1).ToString(), "-o", withNotes);
-            CliRunner.Ok("render", saved, "-p", (i + 1).ToString(), "-o", paper, "--annotations", "none");
+            var all = CliRunner.Ok("render", saved, "-p", (i + 1).ToString(CultureInfo.InvariantCulture), "-o", withNotes);
+            CliRunner.Ok("render", saved, "-p", (i + 1).ToString(CultureInfo.InvariantCulture), "-o", paper, "--annotations", "none");
             Assert.Equal(1, all["annotationsDrawn"]!.GetValue<int>());
             var a = CliRunner.LoadPng(withNotes);
             var b = CliRunner.LoadPng(paper);
@@ -210,7 +211,7 @@ public sealed class CliReadTests : IDisposable
 
         var words = text["words"]!.AsArray();
         string firstWord = ProbeSamplePdf.CliRepeatedTerm.Split(' ')[0];
-        var termWords = words.Where(w => w!["text"]!.GetValue<string>().StartsWith(firstWord)).ToList();
+        var termWords = words.Where(w => w!["text"]!.GetValue<string>().StartsWith(firstWord, StringComparison.Ordinal)).ToList();
         Assert.Equal(3, termWords.Count);
         foreach (var w in termWords)
         {
@@ -231,7 +232,7 @@ public sealed class CliReadTests : IDisposable
 
         // Rotated, cropped and UserUnit pages report the same text; the image-like page has none.
         foreach (int p in new[] { 2, 3, 4, 6 })
-            Assert.Contains("한글 English 0123456789", CliRunner.Ok("text", sample, "-p", p.ToString(), "--fields", "lines")["lines"]!.AsArray().Select(l => l!["text"]!.GetValue<string>()));
+            Assert.Contains("한글 English 0123456789", CliRunner.Ok("text", sample, "-p", p.ToString(CultureInfo.InvariantCulture), "--fields", "lines")["lines"]!.AsArray().Select(l => l!["text"]!.GetValue<string>()));
         var scan = CliRunner.Ok("text", sample, "-p", "5");
         Assert.False(scan["hasText"]!.GetValue<bool>());
         Assert.Empty(scan["lines"]!.AsArray());

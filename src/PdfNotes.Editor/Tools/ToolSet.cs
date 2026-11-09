@@ -115,7 +115,7 @@ public sealed class ToolSet
     /// <summary>The eraser the pen's eraser end uses with the 지우개 setting <paramref name="setting"/>.</summary>
     public EraserTool Eraser(ToolKind setting) => setting == ToolKind.StrokeEraser ? StrokeEraser : AreaEraser;
 
-    /// <summary>A tool made <paramref name="id"/>: the selection tool takes it, and <paramref name="tool"/> comes back after.</summary>
+    /// <summary>A tool made an annotation: the selection tool takes it, and <paramref name="tool"/> comes back after.</summary>
     private Action<Guid> SelectFrom(ToolKind tool) => id => later(() =>
     {
         setTool(ToolKind.Select);

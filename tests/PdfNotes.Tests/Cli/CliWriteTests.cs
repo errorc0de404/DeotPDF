@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Collections.Immutable;
 using System.IO;
 using System.Text.Json.Nodes;
@@ -181,7 +182,7 @@ public sealed class CliWriteTests : IDisposable
             var matrix = CliRunner.Matrix(transform["matrix"]);
             var inverse = CliRunner.Matrix(transform["inverse"]);
             string png = Out($"t{number}.png");
-            var render = CliRunner.Ok("render", output, "-p", number.ToString(), "-o", png, "--dpi", "144");
+            var render = CliRunner.Ok("render", output, "-p", number.ToString(CultureInfo.InvariantCulture), "-o", png, "--dpi", "144");
             var image = CliRunner.LoadPng(png);
             var toPixel = CliRunner.Matrix(render["pageToPixel"]);
             Assert.Equal(transform["after"]!["width"]!.GetValue<double>(), CliRunner.Ok("info", output)["pages"]![number - 1]!["width"]!.GetValue<double>(), 0.001);

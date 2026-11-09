@@ -170,10 +170,6 @@ public static class EditablePdfWriter
         }
     }
 
-    /// <summary>
-    /// Re-reads a written file and requires it to restore exactly <paramref name="expected"/>: the renderer opens it,
-    /// the header is valid, every app annotation is restored and the metadata is byte-identical.
-    /// </summary>
     /// <summary>Where two envelopes part, as a short JSON excerpt of each (for the verification error).</summary>
     private static string FirstDifference(byte[] read, byte[] wanted)
     {
@@ -185,6 +181,10 @@ public static class EditablePdfWriter
         return $"read …{Cut(a)}… expected …{Cut(b)}…";
     }
 
+    /// <summary>
+    /// Re-reads a written file and requires it to restore exactly <paramref name="expected"/>: the renderer opens it,
+    /// the header is valid, every app annotation is restored and the metadata is byte-identical.
+    /// </summary>
     public static void Verify(byte[] written, DocumentModel expected)
     {
         using (var engine = new PdfiumDocument(written))

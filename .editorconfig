@@ -14,3 +14,28 @@ indent_size = 2
 [*.cs]
 csharp_style_namespace_declarations = file_scoped:suggestion
 dotnet_sort_system_directives_first = true
+
+# Code analysis (latest-recommended, review 2026-11-08 D9). Rules turned off here are decisions, not debt.
+# Names: domain words (Single page, Next, Set, a render Queue) read better than the guideline's alternatives.
+dotnet_diagnostic.CA1711.severity = none
+dotnet_diagnostic.CA1716.severity = none
+dotnet_diagnostic.CA1720.severity = none
+# Interfaces and read-only collections in signatures are deliberate; the speed the rule offers is not measurable here.
+dotnet_diagnostic.CA1859.severity = none
+# The public open/render calls keep their order: optional flags after the token, used by name at every call.
+dotnet_diagnostic.CA1068.severity = none
+# Controls and view models release what they hold when they leave the screen (detach, document closed), not by IDisposable.
+dotnet_diagnostic.CA1001.severity = none
+# Public members stay instance members: bindings and interfaces read them.
+dotnet_code_quality.CA1822.api_surface = private, internal
+
+[{tests,tools}/**.cs]
+# Test and probe code favors the plain, direct form: literal arrays in loops, a fixture's own fields, quick JSON options.
+dotnet_diagnostic.CA1805.severity = none
+dotnet_diagnostic.CA1822.severity = none
+dotnet_diagnostic.CA1826.severity = none
+dotnet_diagnostic.CA1852.severity = none
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.CA1865.severity = none
+dotnet_diagnostic.CA1869.severity = none
+dotnet_diagnostic.CA2208.severity = none

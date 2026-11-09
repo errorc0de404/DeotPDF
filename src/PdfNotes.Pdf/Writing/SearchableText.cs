@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using PdfNotes.Core.Geometry;
@@ -34,7 +35,7 @@ internal static class SearchableText
             var b = chunk[0].Bounds;
             code.Append(fontName).Append(' ').Append(N(b.Height)).Append(" Tf\n");
             code.Append("1 0 0 -1 ").Append(N(b.X)).Append(' ').Append(N(b.Y + b.Height)).Append(" Tm <");
-            for (int i = 0; i < chunk.Length; i++) code.Append((i + 1).ToString("X2"));
+            for (int i = 0; i < chunk.Length; i++) code.Append((i + 1).ToString("X2", CultureInfo.InvariantCulture));
             code.Append("> Tj\n");
         }
         code.Append("ET\nQ\n");
@@ -72,7 +73,7 @@ internal static class SearchableText
         {
             int count = Math.Min(100, characters.Length - start); cmap.Append(count).Append(" beginbfchar\n");
             for (int i = start; i < start + count; i++)
-                cmap.Append('<').Append((i + 1).ToString("X2")).Append("> <").Append(Convert.ToHexString(Encoding.BigEndianUnicode.GetBytes(characters[i].Text))).Append(">\n");
+                cmap.Append('<').Append((i + 1).ToString("X2", CultureInfo.InvariantCulture)).Append("> <").Append(Convert.ToHexString(Encoding.BigEndianUnicode.GetBytes(characters[i].Text))).Append(">\n");
             cmap.Append("endbfchar\n");
         }
         for (int i = 0; i < characters.Length; i++)

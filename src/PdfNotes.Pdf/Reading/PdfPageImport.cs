@@ -17,7 +17,7 @@ public static class PdfPageImport
 {
     /// <summary>
     /// Takes the pages at <paramref name="pageIndices"/> (zero-based, in the order the file shows them) from a PDF opened
-    /// with <see cref="PdfSourceDocument.Open"/>, so it passed the same checks as opening. App annotations restored from
+    /// with <see cref="PdfSourceDocument.Open(string, CancellationToken, bool, bool)"/>, so it passed the same checks as opening. App annotations restored from
     /// a file this app saved come along as editable annotations with new IDs, with their page placement; other content
     /// and foreign annotations stay part of the page. Only the needed source pages are kept. Nothing outside the result
     /// is changed; any failure throws before the document is touched.

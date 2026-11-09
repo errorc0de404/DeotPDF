@@ -107,6 +107,6 @@ public sealed partial class MainView
 
     // ----- a new version (roadmap 1.1) -----
 
-    /// <summary>The start-up check, run by <see cref="App"/> after the window is shown (test windows skip it).</summary>
+    /// <summary>The start-up check, run by the app after the window is shown (test windows skip it).</summary>
     public Task CheckForUpdatesAtStartAsync() => viewModel.Update.CheckAtStartAsync();
 }

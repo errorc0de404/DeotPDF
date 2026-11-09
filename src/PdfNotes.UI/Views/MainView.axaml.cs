@@ -58,7 +58,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
     private TopLevel? topLevel;
 
     /// <summary>Startup timing (Android debug builds set it); null otherwise.</summary>
-    public static Action<string>? StartupMark;
+    public static Action<string>? StartupMark { get; set; }
 
     /// <param name="app">The settings, how they are stored, the settings folder (backups, the running windows' markers, language
     /// packs) and the language; tests pass their own.</param>

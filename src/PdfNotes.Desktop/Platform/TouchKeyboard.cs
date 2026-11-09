@@ -45,7 +45,7 @@ public static class TouchKeyboard
         {
             if (pane != IntPtr.Zero) Marshal.Release(pane);
             if (factory != IntPtr.Zero) Marshal.Release(factory);
-            if (name != IntPtr.Zero) WindowsDeleteString(name);
+            if (name != IntPtr.Zero) _ = WindowsDeleteString(name);
         }
     }
 

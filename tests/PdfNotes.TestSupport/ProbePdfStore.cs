@@ -232,10 +232,10 @@ public static class ProbePdfStore
             state.Elements.SetReal("/ca", path.Opacity);
             if (a.Type == "highlight") state.Elements.SetName("/BM", "/Multiply");
             states.Elements["/S" + i] = state;
-            code.Append($"q /S{i} gs {N(path.Color.R/255d)} {N(path.Color.G/255d)} {N(path.Color.B/255d)} {(path.Fill ? "rg" : "RG")} {N(path.Width)} w 1 J 1 j\n");
+            code.Append(CultureInfo.InvariantCulture, $"q /S{i} gs {N(path.Color.R/255d)} {N(path.Color.G/255d)} {N(path.Color.B/255d)} {(path.Fill ? "rg" : "RG")} {N(path.Width)} w 1 J 1 j\n");
             foreach (var s in path.Segments)
             {
-                foreach (var p in s.Points) code.Append($"{N(p.X)} {N(p.Y)} ");
+                foreach (var p in s.Points) code.Append(CultureInfo.InvariantCulture, $"{N(p.X)} {N(p.Y)} ");
                 code.Append(s.Kind switch { "M" => "m\n", "L" => "l\n", "C" => "c\n", "Z" => "h\n", _ => throw new InvalidDataException() });
             }
             code.Append(path.Fill ? (path.EvenOdd ? "f* Q\n" : "f Q\n") : "S Q\n");
@@ -256,7 +256,7 @@ public static class ProbePdfStore
             var xobjects = new PdfDictionary(doc);
             xobjects.Elements["/Image"] = raster.Reference!;
             resources.Elements["/XObject"] = xobjects;
-            code.Append($"q {N(image.Width)} 0 0 {N(-image.Height)} {N(image.X)} {N(image.Y+image.Height)} cm /Image Do Q\n");
+            code.Append(CultureInfo.InvariantCulture, $"q {N(image.Width)} 0 0 {N(-image.Height)} {N(image.X)} {N(image.Y+image.Height)} cm /Image Do Q\n");
         }
         code.Append("Q\n");
         var form = Stream(doc, Encoding.ASCII.GetBytes(code.ToString()));

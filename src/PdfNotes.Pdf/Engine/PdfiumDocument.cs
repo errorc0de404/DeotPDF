@@ -241,7 +241,7 @@ public sealed class PdfiumDocument : IDisposable
             {
                 bitmap = Native.FPDFBitmap_CreateEx(region.Width, region.Height, Native.BitmapBgra, pin.AddrOfPinnedObject(), stride);
                 if (bitmap == 0) throw new InvalidOperationException("PDFium bitmap allocation failed.");
-                Native.FPDFBitmap_FillRect(bitmap, 0, 0, region.Width, region.Height, new(0xffffffffu));
+                _ = Native.FPDFBitmap_FillRect(bitmap, 0, 0, region.Width, region.Height, new(0xffffffffu));
                 // FPDF_ANNOT = 1. Page's intrinsic /Rotate is honored by PDFium; `rotate` adds to it.
                 // The display rectangle may exceed the bitmap; PDFium clips to the bitmap.
                 Native.FPDF_RenderPageBitmap(bitmap, page, -region.X, -region.Y, fullWidth, fullHeight, extraQuarterTurns, annotations ? 1 : 0);
@@ -385,7 +385,9 @@ public sealed class PdfiumDocument : IDisposable
         private const string Dll = "pdfium";
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_InitLibrary();
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_DestroyLibrary();
+#pragma warning disable CA2101 // the string is marshalled as UTF-8 (MarshalAs), which the rule does not see
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern nint FPDF_LoadMemDocument64(nint data, nuint length, [MarshalAs(UnmanagedType.LPUTF8Str)] string? password);
+#pragma warning restore CA2101
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern CULong FPDF_GetLastError();
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_CloseDocument(nint doc);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_GetPageCount(nint doc);

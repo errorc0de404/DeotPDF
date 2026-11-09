@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Text;
 using PdfNotes.Core.Models;
@@ -44,7 +45,7 @@ public class ImeTests
             {
                 case "preedit":
                     string cursor = rest[(rest.LastIndexOf("cursor ", StringComparison.Ordinal) + 7)..];
-                    editor.SetComposition(Text(), cursor == "-" ? null : int.Parse(cursor));
+                    editor.SetComposition(Text(), cursor == "-" ? null : int.Parse(cursor, CultureInfo.InvariantCulture));
                     break;
                 case "commit":
                     editor.CommitComposition(Text());

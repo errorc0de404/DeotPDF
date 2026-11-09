@@ -197,20 +197,20 @@ public sealed class PagePlacementPreview : Control
 
     private IBrush Brush(string key) => this.TryFindResource(key, ActualThemeVariant, out var value) && value is IBrush b ? b : Brushes.Gray;
 
-    public override void Render(DrawingContext dc)
+    public override void Render(DrawingContext context)
     {
         var size = Bounds.Size;
-        dc.FillRectangle(Brush("Canvas.Background"), new Rect(size));
+        context.FillRectangle(Brush("Canvas.Background"), new Rect(size));
         factor = Math.Max(.0001, Math.Min(Math.Max(1, size.Width - 100) / Math.Max(paperWidth, sourceWidth), Math.Max(1, size.Height - 100) / Math.Max(paperHeight, sourceHeight)));
         var origin = new Point((size.Width - paperWidth * factor) / 2, (size.Height - paperHeight * factor) / 2);
         var paper = new Rect(origin.X, origin.Y, paperWidth * factor, paperHeight * factor);
         contentRect = new(origin.X + left * factor, origin.Y + top * factor, sourceWidth * scale * factor, sourceHeight * scale * factor);
-        dc.DrawRectangle(Brush("Paper"), new Pen(Brush("Paper.Edge"), 1), paper);
-        using (dc.PushClip(paper))
-            if (image is not null) dc.DrawImage(image, new Rect(image.Size), contentRect);
-        dc.DrawRectangle(null, new Pen(Brush(free ? "Accent" : "Overlay.Neutral"), 1.5), contentRect);
+        context.DrawRectangle(Brush("Paper"), new Pen(Brush("Paper.Edge"), 1), paper);
+        using (context.PushClip(paper))
+            if (image is not null) context.DrawImage(image, new Rect(image.Size), contentRect);
+        context.DrawRectangle(null, new Pen(Brush(free ? "Accent" : "Overlay.Neutral"), 1.5), contentRect);
         if (free && !resize)
-            foreach (var point in Corners(contentRect)) dc.DrawRectangle(Brush("Overlay.Halo"), new Pen(Brush("Accent"), 1.5), new Rect(point.X - 5, point.Y - 5, 10, 10));
+            foreach (var point in Corners(contentRect)) context.DrawRectangle(Brush("Overlay.Halo"), new Pen(Brush("Accent"), 1.5), new Rect(point.X - 5, point.Y - 5, 10, 10));
     }
 
     private static Point[] Corners(Rect r) => [r.TopLeft, r.TopRight, r.BottomRight, r.BottomLeft];

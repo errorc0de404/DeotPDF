@@ -7,6 +7,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- The recommended code analysis rules (review 2026-11-08 D9); the ones turned off say why in .editorconfig. -->
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- The XML comments are checked (broken cref, a param that does not exist); not every member needs one. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+    <!-- The comment files are for the build's check only, not for the release packages. -->
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
     <Deterministic>true</Deterministic>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <!-- No default system: builds and tests run anywhere. The lock files cover the four release systems, so a locked

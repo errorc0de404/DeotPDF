@@ -245,13 +245,13 @@ public static class AnnotationAppearance
         {
             var f = style.FillColor;
             states.Elements["/GF"] = AlphaState(doc, style.FillOpacity);
-            code.Append("/GF gs ").Append($"{N(f.R / 255d)} {N(f.G / 255d)} {N(f.B / 255d)} rg\n").Append(path).Append("f*\n");
+            code.Append("/GF gs ").Append(CultureInfo.InvariantCulture, $"{N(f.R / 255d)} {N(f.G / 255d)} {N(f.B / 255d)} rg\n").Append(path).Append("f*\n");
         }
         if (style.BorderEnabled)
         {
             var c = style.BorderColor;
             states.Elements["/GB"] = AlphaState(doc, style.BorderOpacity);
-            code.Append("/GB gs ").Append($"{N(c.R / 255d)} {N(c.G / 255d)} {N(c.B / 255d)} RG ").Append(N(style.BorderWidthPt)).Append(" w 1 J 1 j [");
+            code.Append("/GB gs ").Append(CultureInfo.InvariantCulture, $"{N(c.R / 255d)} {N(c.G / 255d)} {N(c.B / 255d)} RG ").Append(N(style.BorderWidthPt)).Append(" w 1 J 1 j [");
             code.Append(string.Join(' ', LineGeometry.DashPattern(style.BorderDash).Select(v => N(v * style.BorderWidthPt)))).Append("] 0 d\n").Append(path).Append("S\n");
         }
         code.Append("Q\n");
@@ -284,7 +284,7 @@ public static class AnnotationAppearance
         var c = highlight.Color;
         var code = new StringBuilder();
         code.Append("q ").Append(Numbers(toUser.ToArray())).Append(" cm /GS0 gs\n");
-        code.Append($"{N(c.R / 255d)} {N(c.G / 255d)} {N(c.B / 255d)} rg\n");
+        code.Append(CultureInfo.InvariantCulture, $"{N(c.R / 255d)} {N(c.G / 255d)} {N(c.B / 255d)} rg\n");
         foreach (var quad in TextSelection.PaintedQuads(highlight))
         {
             var ring = TextSelection.Ring(quad);
@@ -319,7 +319,7 @@ public static class AnnotationAppearance
         rect = UserBounds(toUser, TextSelection.Bounds(all), 1);
         var code = new StringBuilder();
         code.Append("q ").Append(Numbers(toUser.ToArray())).Append(" cm /GS0 gs\n");
-        code.Append($"{N(c.R / 255d)} {N(c.G / 255d)} {N(c.B / 255d)} rg\n");
+        code.Append(CultureInfo.InvariantCulture, $"{N(c.R / 255d)} {N(c.G / 255d)} {N(c.B / 255d)} rg\n");
         foreach (var quad in all)
         {
             var ring = TextSelection.Ring(quad);
@@ -347,7 +347,7 @@ public static class AnnotationAppearance
         code.Append(fill).Append(" rg ").Append(edge).Append(" RG 1 w 1 j\n");
         code.Append(NoteOutline(s)).Append("B\n");
         code.Append(edge).Append(" RG 1.2 w 1 J\n");
-        foreach (double y in new[] { 6.5, 10.0, 13.5 }) code.Append($"5 {N(y)} m {N(y < 13 ? 15 : 11)} {N(y)} l S\n");
+        foreach (double y in new[] { 6.5, 10.0, 13.5 }) code.Append(CultureInfo.InvariantCulture, $"5 {N(y)} m {N(y < 13 ? 15 : 11)} {N(y)} l S\n");
         code.Append("Q\n");
         return Form(doc, code, rect, 1, out hash);
     }
@@ -517,11 +517,11 @@ public static class AnnotationAppearance
     {
         const double k = 0.5522847498307936;
         double x = center.X, y = center.Y, d = k * r;
-        code.Append($"{N(x + r)} {N(y)} m\n");
-        code.Append($"{N(x + r)} {N(y + d)} {N(x + d)} {N(y + r)} {N(x)} {N(y + r)} c\n");
-        code.Append($"{N(x - d)} {N(y + r)} {N(x - r)} {N(y + d)} {N(x - r)} {N(y)} c\n");
-        code.Append($"{N(x - r)} {N(y - d)} {N(x - d)} {N(y - r)} {N(x)} {N(y - r)} c\n");
-        code.Append($"{N(x + d)} {N(y - r)} {N(x + r)} {N(y - d)} {N(x + r)} {N(y)} c\n");
+        code.Append(CultureInfo.InvariantCulture, $"{N(x + r)} {N(y)} m\n");
+        code.Append(CultureInfo.InvariantCulture, $"{N(x + r)} {N(y + d)} {N(x + d)} {N(y + r)} {N(x)} {N(y + r)} c\n");
+        code.Append(CultureInfo.InvariantCulture, $"{N(x - d)} {N(y + r)} {N(x - r)} {N(y + d)} {N(x - r)} {N(y)} c\n");
+        code.Append(CultureInfo.InvariantCulture, $"{N(x - r)} {N(y - d)} {N(x - d)} {N(y - r)} {N(x)} {N(y - r)} c\n");
+        code.Append(CultureInfo.InvariantCulture, $"{N(x + d)} {N(y - r)} {N(x + r)} {N(y - d)} {N(x + r)} {N(y)} c\n");
     }
 
     private static string Numbers(double[] values) => string.Join(' ', values.Select(N));
