@@ -100,9 +100,9 @@ public sealed partial class MainView
         menu.Items.Add(new Separator());
         if (textEditor is { } editor)
         {
-            menu.Items.Add(Menus.Item(Strings.Get("command.copy"), () => _ = editor.CopyAsync()));
-            menu.Items.Add(Menus.Item(Strings.Get("command.cut"), () => _ = editor.CutAsync()));
-            menu.Items.Add(Menus.Item(Strings.Get("command.paste"), () => _ = editor.PasteAsync()));
+            menu.Items.Add(Menus.Item(Strings.Get("command.copy"), () => Fire.AndReport(editor.CopyAsync())));
+            menu.Items.Add(Menus.Item(Strings.Get("command.cut"), () => Fire.AndReport(editor.CutAsync())));
+            menu.Items.Add(Menus.Item(Strings.Get("command.paste"), () => Fire.AndReport(editor.PasteAsync())));
             menu.Items.Add(Menus.Item(Strings.Get("command.selectAll"), () => { editor.Model?.SelectAll(); editor.InvalidateVisual(); }));
         }
         return menu;

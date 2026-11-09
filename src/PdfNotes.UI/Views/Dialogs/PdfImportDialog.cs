@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using PdfNotes.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
@@ -82,7 +83,7 @@ public sealed class PdfImportDialog : AppDialog
         };
         list.AddHandler(PointerReleasedEvent, (_, e) =>
         {
-            if ((e.Source as Visual)?.FindAncestorOfType<ListBoxItem>(true)?.DataContext is ImportThumb thumb) ShowPreview(thumb.Index);
+            if ((e.Source as Visual)?.FindAncestorOfType<ListBoxItem>(true)?.DataContext is ImportThumb thumb) Fire.AndReport(ShowPreviewAsync(thumb.Index));
         }, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
         range.TextChanged += (_, _) =>
         {
@@ -93,7 +94,7 @@ public sealed class PdfImportDialog : AppDialog
                 list.SelectedItems?.Clear();
                 foreach (int i in indices) list.SelectedItems?.Add(thumbs[i]);
                 syncing = false;
-                if (indices.Length > 0 && !indices.Contains(previewIndex)) ShowPreview(indices[0]);
+                if (indices.Length > 0 && !indices.Contains(previewIndex)) Fire.AndReport(ShowPreviewAsync(indices[0]));
             }
             Validate();
         };
@@ -116,12 +117,12 @@ public sealed class PdfImportDialog : AppDialog
         Build(body, Strings.Get("import.insert"));
         Closed += (_, _) => closing.Cancel();
         range.Text = PageRanges.All;
-        ShowPreview(0);
-        Opened += (_, _) => { range.Focus(); range.SelectAll(); _ = RenderVisibleAsync(); };
+        Fire.AndReport(ShowPreviewAsync(0));
+        Opened += (_, _) => { range.Focus(); range.SelectAll(); Fire.AndReport(RenderVisibleAsync()); };
         // Only the rows in view are drawn (the WPF dialog): when the list scrolls, its rows change the extent or it is
         // resized, and again at another screen scale. Not on every layout pass (plan C5).
-        list.AddHandler(ScrollViewer.ScrollChangedEvent, (_, _) => _ = RenderVisibleAsync());
-        list.SizeChanged += (_, _) => _ = RenderVisibleAsync();
+        list.AddHandler(ScrollViewer.ScrollChangedEvent, (_, _) => Fire.AndReport(RenderVisibleAsync()));
+        list.SizeChanged += (_, _) => Fire.AndReport(RenderVisibleAsync());
         // Another monitor scale (the window's or the screen's): the thumbnails at its pixels.
         AttachedToVisualTree += (_, _) => { if (TopLevel.GetTopLevel(this) is { } top) top.ScalingChanged += Rescaled; };
         DetachedFromVisualTree += (_, _) => { if (TopLevel.GetTopLevel(this) is { } top) top.ScalingChanged -= Rescaled; };
@@ -131,8 +132,8 @@ public sealed class PdfImportDialog : AppDialog
     {
         scaleGeneration++;
         foreach (var thumb in thumbs) thumb.Image = null;
-        _ = RenderVisibleAsync();
-        if (previewIndex >= 0) ShowPreview(previewIndex);
+        Fire.AndReport(RenderVisibleAsync());
+        if (previewIndex >= 0) Fire.AndReport(ShowPreviewAsync(previewIndex));
     }
 
     public override bool Accept()
@@ -193,7 +194,7 @@ public sealed class PdfImportDialog : AppDialog
 
     private bool InView(Control row) => row.TranslatePoint(new Point(0, 0), list) is { } top && top.Y + row.Bounds.Height >= 0 && top.Y <= list.Bounds.Height;
 
-    private async void ShowPreview(int index)
+    private async Task ShowPreviewAsync(int index)
     {
         if (index < 0 || index >= thumbs.Length) return;
         previewIndex = index;

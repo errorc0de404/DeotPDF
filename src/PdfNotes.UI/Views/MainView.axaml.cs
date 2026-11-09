@@ -135,7 +135,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
     }
 
     /// <summary>Another monitor scale: thumbnails at its pixels (D13e).</summary>
-    private void ScalingChanged(object? sender, EventArgs e) => _ = viewModel.Pages.InvalidateThumbnailsAsync();
+    private void ScalingChanged(object? sender, EventArgs e) => Fire.AndReport(viewModel.Pages.InvalidateThumbnailsAsync());
 
     /// <summary>Device pixels per DIP of the window or screen.</summary>
     private double RenderScaling => topLevel?.RenderScaling ?? TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
@@ -298,7 +298,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
         {
             switch (e.PropertyName)
             {
-                case nameof(DisplayViewModel.DarkPages): Canvas.DarkPages = display.DarkPages; _ = viewModel.Pages.InvalidateThumbnailsAsync(); break;
+                case nameof(DisplayViewModel.DarkPages): Canvas.DarkPages = display.DarkPages; Fire.AndReport(viewModel.Pages.InvalidateThumbnailsAsync()); break;
                 case nameof(DisplayViewModel.PageNumbers) or nameof(DisplayViewModel.NumberSize): Canvas.PageNumberSize = display.PageNumbers ? display.PageNumberDip : 0; break;
             }
         };

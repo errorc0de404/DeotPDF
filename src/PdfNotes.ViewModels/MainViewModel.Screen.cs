@@ -85,6 +85,6 @@ public sealed partial class MainViewModel
         if (Selection.Attached is { } select) select.IgnoreAnnotations = hidden;
         ToolStyles.Refresh();
         Viewport.RefreshOverlays();
-        _ = Pages.InvalidateThumbnailsAsync();
+        Fire.AndReport(Pages.InvalidateThumbnailsAsync());
     }
 }

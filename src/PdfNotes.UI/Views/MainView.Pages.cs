@@ -132,7 +132,7 @@ public sealed partial class MainView : IPageThumbnailSource
     private void PageListKeyDown(object? sender, KeyEventArgs e)
     {
         bool ctrl = e.KeyModifiers == KeyModifiers.Control || e.KeyModifiers == KeyModifiers.Meta;
-        if (e.Key == Key.Delete && e.KeyModifiers == KeyModifiers.None) { _ = pages.DeleteSelectedAsync(); e.Handled = true; }
+        if (e.Key == Key.Delete && e.KeyModifiers == KeyModifiers.None) { Fire.AndReport(pages.DeleteSelectedAsync()); e.Handled = true; }
         else if (ctrl && e.Key == Key.C) { pages.Copy(); e.Handled = true; }
         else if (ctrl && e.Key == Key.V) { pages.Paste(); e.Handled = true; }
         else if (ctrl && e.Key == Key.A) { pages.SelectAll(); e.Handled = true; }

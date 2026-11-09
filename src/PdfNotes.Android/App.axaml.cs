@@ -38,6 +38,7 @@ public sealed class App : Avalonia.Application
             SkiaText.Register(); Mark("skia text"); // one text engine for the screen and the PDF appearances (P2)
             // A command's failure would otherwise vanish with its task: it goes to the log (adb logcat -s DeotPDF).
             TaskScheduler.UnobservedTaskException += (_, e) => global::Android.Util.Log.Error("DeotPDF", "unobserved: " + e.Exception);
+            AsyncCommand.UnhandledError += e => global::Android.Util.Log.Error("DeotPDF", "command: " + e);
             var context = global::Android.App.Application.Context;
             string picked = Path.Combine(context.CacheDir!.AbsolutePath, "picked");
             Task.Run(() => RemoveOldCopies(picked));

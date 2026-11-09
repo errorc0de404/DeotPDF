@@ -144,7 +144,7 @@ public sealed class PdfMergeDialog : AppDialog
         Put(range, 3);
         var pick = new Button { Content = Strings.Get("merge.pick"), Padding = new Thickness(8, 3), Margin = new Thickness(6, 0, 10, 0) };
         ToolTip.SetTip(pick, Strings.Get("merge.pickTip"));
-        pick.Click += (_, _) => PickRange(index);
+        pick.Click += (_, _) => Fire.AndReport(PickRangeAsync(index));
         Put(pick, 4);
         Put(new StackPanel
         {
@@ -163,7 +163,7 @@ public sealed class PdfMergeDialog : AppDialog
     }
 
     /// <summary>고르기…: the one-file range window on this file, starting from the current text.</summary>
-    private async void PickRange(int index)
+    private async Task PickRangeAsync(int index)
     {
         var file = files[index];
         var picker = new PdfImportDialog(file.Name, file.Shown) { Title = Strings.Format("merge.pickTitle", ("name", file.Name)) };

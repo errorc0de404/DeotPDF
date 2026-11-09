@@ -84,7 +84,7 @@ public sealed partial class MainView
                     {
                         case AnnotationCommand.AddTextBox: BeginNewTextAtClick(anchor.PageIndex, anchor.PagePoint, 180); break;
                         case AnnotationCommand.Paste: PasteSelection(position); break;
-                        case AnnotationCommand.ConvertForeign: _ = ConvertForeignAsync(); break;
+                        case AnnotationCommand.ConvertForeign: Fire.AndReport(ConvertForeignAsync()); break;
                     }
                 if (!IsEditingText) Canvas.Focus();
                 styles.Refresh();

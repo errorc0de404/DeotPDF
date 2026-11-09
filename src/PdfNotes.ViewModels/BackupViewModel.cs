@@ -68,7 +68,7 @@ public sealed class BackupViewModel : ObservableObject
     {
         if (timer is not null) return;
         Store.Start();
-        timer = time.CreateTimer(_ => owner.Ui.Run(() => _ = TickAsync()), null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
+        timer = time.CreateTimer(_ => owner.Ui.Run(() => Fire.AndReport(TickAsync())), null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
     }
 
     /// <summary>The window closed.</summary>

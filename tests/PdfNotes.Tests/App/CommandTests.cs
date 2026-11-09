@@ -47,6 +47,49 @@ public sealed class CommandTests
         Assert.Equal(1, runs);
     }
 
+    /// <summary>Review 2026-11-08 D2: a second click while the work runs starts nothing.</summary>
+    [Fact]
+    public async Task ACommandRunningDoesNotStartAgain()
+    {
+        var gate = new TaskCompletionSource();
+        int runs = 0, changes = 0;
+        var command = new AsyncCommand(async () => { runs++; await gate.Task; });
+        command.CanExecuteChanged += (_, _) => changes++;
+        command.Execute();
+        Assert.True(command.IsRunning);
+        Assert.False(command.CanExecute());
+        command.Execute(); // the second click
+        await command.RunAsync();
+        Assert.Equal(1, runs);
+        gate.SetResult();
+        await Task.Yield();
+        Assert.False(command.IsRunning);
+        Assert.True(command.CanExecute());
+        Assert.Equal(2, changes); // started, ended
+    }
+
+    /// <summary>Review 2026-11-08 D2: a click's failure is reported, not lost with its task.</summary>
+    [Fact]
+    public void AFailingCommandReportsItsException()
+    {
+        var mine = new List<Exception>();
+        var failure = new InvalidOperationException("boom");
+        new AsyncCommand(() => Task.FromException(failure), onError: mine.Add).Execute();
+        Assert.Same(failure, Assert.Single(mine));
+
+        var reported = new List<Exception>();
+        void Report(Exception e) => reported.Add(e);
+        AsyncCommand.UnhandledError += Report;
+        try
+        {
+            new AsyncCommand(() => Task.FromException(failure)).Execute();
+            Fire.AndReport(Task.FromCanceled(new CancellationToken(true))); // a cancellation is not a failure
+            Fire.AndReport(Task.FromException(failure));
+        }
+        finally { AsyncCommand.UnhandledError -= Report; }
+        Assert.Equal([failure, failure], reported);
+    }
+
     [Fact]
     public void TheRibbonShowCommandShowsTheNamedTab()
     {

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using PdfNotes.ViewModels;
 using System.Diagnostics;
 using Avalonia.Input;
 using PdfNotes.Core.Geometry;
@@ -31,7 +32,7 @@ public sealed partial class MainView
         {
             // A click that selected an annotation over the link edits it instead (selection tool).
             if (selectTool.SelectedIds.Count > 0 && !lastCtrl) return;
-            if (LinkAt(p) is { } hit) _ = FollowLinkAsync(hit.Link);
+            if (LinkAt(p) is { } hit) Fire.AndReport(FollowLinkAsync(hit.Link));
         };
         // The mouse's back and forward buttons (spec 24.3).
         AddHandler(PointerPressedEvent, (_, e) =>

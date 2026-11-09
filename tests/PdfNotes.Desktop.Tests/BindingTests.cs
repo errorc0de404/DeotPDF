@@ -275,4 +275,23 @@ public sealed class BindingTests
         Assert.False(Find<StackPanel>(w, "FavoritesGroup").IsVisible);
         w.Close();
     });
+
+    /// <summary>Review 2026-11-08 D2: a second click on 저장 while the first save runs does not ask or write again.</summary>
+    [Fact]
+    public void ASaveClickedTwiceSavesOnce() => Headless.Run(() =>
+    {
+        var w = Window();
+        Stroke(w);
+        string target = Path.Combine(Headless.TempFolder(), "twice.pdf");
+        int asked = 0;
+        w.Script.SaveDialogOverride = _ => { asked++; return target; };
+        var save = w.View.ViewModel.SaveCommand;
+        save.Execute();
+        save.Execute();
+        for (int i = 0; i < 100 && save.IsRunning; i++) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(10); }
+        Assert.False(save.IsRunning);
+        Assert.Equal(1, asked);
+        Assert.True(File.Exists(target));
+        w.Close();
+    });
 }

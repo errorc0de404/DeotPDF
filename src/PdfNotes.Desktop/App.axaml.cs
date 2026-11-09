@@ -61,7 +61,7 @@ public sealed class App : Application
         {
             if (item.TryGetLocalPath() is not { } path || !File.Exists(path)) continue;
             if (BackupStore.WindowShowing(folder, path) is { } other) { WindowActivation.Bring(other); continue; }
-            if (window.View.ShowsUntouchedNote) { _ = window.View.OpenFileAsync(path); continue; }
+            if (window.View.ShowsUntouchedNote) { Fire.AndReport(window.View.OpenFileAsync(path)); continue; }
             try { Process.Start(new ProcessStartInfo(Environment.ProcessPath!, [path]) { UseShellExecute = false }); }
             catch (Exception x) when (x is InvalidOperationException or System.ComponentModel.Win32Exception) { }
         }
@@ -75,6 +75,8 @@ public sealed class App : Application
     private void CatchCrashes(MainWindow window)
     {
         Dispatcher.UIThread.UnhandledException += (_, e) => { e.Handled = true; Crash(window, e.Exception); };
+        // A click or key whose work failed later: the same as a failure on the UI thread (review 2026-11-08 D2).
+        AsyncCommand.UnhandledError += e => Dispatcher.UIThread.Post(() => Crash(window, e));
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             Dispatcher.UIThread.Invoke(() => Crash(window, e.ExceptionObject as Exception), DispatcherPriority.Send);
     }

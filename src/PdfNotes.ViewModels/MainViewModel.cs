@@ -263,7 +263,7 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
         RefreshCommands();
         Pages.CommandsChanged();
         if (!sameIds) Outline.Refresh(); // items of deleted pages are dimmed
-        if (!sameSetups) _ = Foreign.RecountAsync(); // imported pages may bring other apps' annotations
+        if (!sameSetups) Fire.AndReport(Foreign.RecountAsync()); // imported pages may bring other apps' annotations
         Search.Schedule(keep: true); // text edits, deleted or moved pages: results follow the document
     }
 
@@ -296,7 +296,7 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
         ToolStyles.Refresh();
         Refresh();
         RefreshCommands();
-        _ = Foreign.RecountAsync();
+        Fire.AndReport(Foreign.RecountAsync());
     }
 
     void IDocumentHost.SetStatus(string text) => Status = text;

@@ -75,12 +75,12 @@ public sealed partial class MainView
         // Commands of the window everywhere (also from a field): files, settings, search.
         e.Handled = mods switch
         {
-            EditorModifiers.Control when e.Key == Key.S => Run(() => { FinishTextEditing(); _ = SaveAsync(saveAs: false); }),
-            EditorModifiers.Control | EditorModifiers.Shift when e.Key == Key.S => Run(() => { FinishTextEditing(); _ = SaveAsync(saveAs: true); }),
-            EditorModifiers.Control when e.Key == Key.O => Run(() => _ = OpenWithDialogAsync()),
-            EditorModifiers.Control when e.Key == Key.N => Run(() => _ = NewNoteAsync()),
+            EditorModifiers.Control when e.Key == Key.S => Run(() => { FinishTextEditing(); Fire.AndReport(SaveAsync(saveAs: false)); }),
+            EditorModifiers.Control | EditorModifiers.Shift when e.Key == Key.S => Run(() => { FinishTextEditing(); Fire.AndReport(SaveAsync(saveAs: true)); }),
+            EditorModifiers.Control when e.Key == Key.O => Run(() => Fire.AndReport(OpenWithDialogAsync())),
+            EditorModifiers.Control when e.Key == Key.N => Run(() => Fire.AndReport(NewNoteAsync())),
             EditorModifiers.Control when e.Key == Key.F => Run(OpenSearch),
-            EditorModifiers.Control when e.Key == Key.OemComma => Run(() => _ = ShowSettingsAsync()),
+            EditorModifiers.Control when e.Key == Key.OemComma => Run(() => Fire.AndReport(ShowSettingsAsync())),
             EditorModifiers.None or EditorModifiers.Shift when e.Key == Key.F3 && IsSearchOpen => Run(() => { if (mods == EditorModifiers.Shift) viewModel.Search.Previous(); else viewModel.Search.Next(); }),
             _ => false
         };

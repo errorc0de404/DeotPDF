@@ -301,7 +301,7 @@ public sealed class PagesViewModel : ObservableObject
     public void ScheduleThumbnails()
     {
         thumbTimer?.Dispose();
-        thumbTimer = owner.After(TimeSpan.FromMilliseconds(250), () => { thumbTimer = null; _ = RenderThumbnailsAsync(); });
+        thumbTimer = owner.After(TimeSpan.FromMilliseconds(250), () => { thumbTimer = null; Fire.AndReport(RenderThumbnailsAsync()); });
     }
 
     /// <summary>Moved to a monitor with another scale (D13e): every thumbnail is drawn again at its pixels.</summary>
@@ -373,7 +373,7 @@ public sealed class PagesViewModel : ObservableObject
     {
         bool ready = true;
         foreach (var box in page.Annotations.OfType<TextBoxAnnotation>())
-            if (!PdfNotes.Text.TextLayout.TryMeasure(box, out _)) { ready = false; _ = PdfNotes.Text.TextLayout.MeasureAsync(box, urgent: false); }
+            if (!PdfNotes.Text.TextLayout.TryMeasure(box, out _)) { ready = false; Fire.AndReport(PdfNotes.Text.TextLayout.MeasureAsync(box, urgent: false)); }
         return ready;
     }
 
@@ -632,7 +632,7 @@ public sealed class PagesViewModel : ObservableObject
         clipboardHasPages = null;
         try { clipboard.SetData(PageTransfer.Format, PageTransfer.Encode(doc.Session.SessionId, [])); }
         catch (ClipboardUnavailableException) { }
-        _ = PutOnClipboardAsync(doc, ids, mode == PageCopyMode.WithAnnotations);
+        Fire.AndReport(PutOnClipboardAsync(doc, ids, mode == PageCopyMode.WithAnnotations));
         return true;
     }
 

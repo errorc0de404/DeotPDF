@@ -208,7 +208,7 @@ public sealed class SettingsDialog : DialogView
         var mode = originalMode.IsChecked == true ? BackupMode.Original : BackupMode.Folder;
         if (backup.IsChecked == true && mode == BackupMode.Original && initialMode != BackupMode.Original && !originalConfirmed)
         {
-            _ = ConfirmOriginalAsync(); // the answer may come later (Android): OK goes on from there
+            Fire.AndReport(ConfirmOriginalAsync()); // the answer may come later (Android): OK goes on from there
             return false;
         }
         int count = int.TryParse((keep.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out int n) ? n : 10;
