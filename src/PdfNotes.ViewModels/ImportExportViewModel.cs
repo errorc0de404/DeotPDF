@@ -9,11 +9,11 @@ using PdfNotes.Pdf.Reading;
 namespace PdfNotes.ViewModels;
 
 /// <summary>One PDF of a merge: the opened file (checked like opening), its renderer for the range picker, and the range text.</summary>
-public sealed class MergeFile(string name, PdfSourceDocument file, PdfiumDocument shown)
+public sealed class MergeFile(string name, PdfSourceDocument file, PdfPreview shown)
 {
     public string Name { get; } = name;
     public PdfSourceDocument File { get; } = file;
-    public PdfiumDocument Shown { get; } = shown;
+    public PdfPreview Shown { get; } = shown;
     public int PageCount => Shown.PageCount;
     public string Range { get; set; } = PageRanges.All;
 }
@@ -225,7 +225,7 @@ public sealed class ImportExportViewModel(MainViewModel owner, IEditorDialogs di
                         // The windows show the file as saved, with its annotations; the pages keep the order of the model.
                         var engine = new PdfiumDocument(File.ReadAllBytes(opened.Path));
                         if (engine.PageCount != opened.CreateModel().Pages.Count) { engine.Dispose(); throw new PdfOpenException(PdfOpenFailure.Unsupported, "Page count differs."); }
-                        return (opened, engine);
+                        return (opened, new PdfPreview(engine));
                     }
                     catch (Exception e) when (e is IOException or UnauthorizedAccessException or PdfiumOpenException)
                     {

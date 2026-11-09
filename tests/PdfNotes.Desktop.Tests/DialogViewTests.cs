@@ -53,7 +53,7 @@ public sealed class DialogViewTests
     {
         string pdf = System.IO.Path.Combine(Headless.TempFolder(), "many.pdf");
         PdfNotes.Pdf.Prototype.ProbeSamplePdf.Create(pdf, 40);
-        using var file = new PdfNotes.Pdf.Engine.PdfiumDocument(pdf);
+        using var file = new PdfNotes.Editor.Services.PdfPreview(new PdfNotes.Pdf.Engine.PdfiumDocument(pdf));
         var owner = new Window { Width = 800, Height = 600 };
         owner.Show();
         var dialog = new PdfImportDialog("many.pdf", file);

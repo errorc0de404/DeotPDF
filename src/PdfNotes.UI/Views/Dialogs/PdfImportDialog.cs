@@ -11,8 +11,9 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using PdfNotes.Core.Commands;
+using PdfNotes.Editor.Services;
+using PdfNotes.UI.Canvas;
 using PdfNotes.Editor.Localization;
-using PdfNotes.Pdf.Engine;
 
 namespace PdfNotes.UI.Views;
 
@@ -34,7 +35,7 @@ public sealed class ImportThumb(int index) : INotifyPropertyChanged
 public sealed class PdfImportDialog : AppDialog
 {
     private const double ThumbWidth = 132, PreviewWidth = 420, PreviewHeight = 520;
-    private readonly PdfiumDocument file;
+    private readonly PdfPreview file;
     private readonly ImportThumb[] thumbs;
     private readonly ListBox list = new() { Name = "ImportPageList", SelectionMode = SelectionMode.Multiple, Width = 190 };
     private readonly TextBox range = new() { Name = "ImportRangeBox", Width = 220 };
@@ -54,7 +55,7 @@ public sealed class PdfImportDialog : AppDialog
     public bool CanInsert => OkButton.IsEnabled;
     public int PreviewIndex => previewIndex;
 
-    public PdfImportDialog(string fileName, PdfiumDocument file) : base(Strings.Format("import.titleFile", ("name", fileName)))
+    public PdfImportDialog(string fileName, PdfPreview file) : base(Strings.Format("import.titleFile", ("name", fileName)))
     {
         this.file = file;
         rangeError.Bind(TextBlock.ForegroundProperty, rangeError.GetResourceObservable("Text.Danger"));
@@ -210,22 +211,10 @@ public sealed class PdfImportDialog : AppDialog
         double dpi = RenderScaling > 0 ? RenderScaling : 1;
         try
         {
-            var page = await Task.Run(() =>
-            {
-                token.ThrowIfCancellationRequested();
-                var box = file.GetPageBox(index);
-                double w = box.Right - box.Left, h = box.Top - box.Bottom;
-                if (box.Rotation is 90 or 270) (w, h) = (h, w);
-                double perPoint = Math.Min(width / Math.Max(w, 1), height / Math.Max(h, 1)) * dpi;
-                return file.Render(index, perPoint, annotations: true, token);
-            }, token);
-            var bitmap = new WriteableBitmap(new PixelSize(page.Width, page.Height), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul); // see PageSnapshots
-            using (var locked = bitmap.Lock())
-                for (int y = 0; y < page.Height; y++)
-                    System.Runtime.InteropServices.Marshal.Copy(page.Bgra, y * page.Stride, locked.Address + y * locked.RowBytes, Math.Min(page.Stride, locked.RowBytes));
-            return bitmap;
+            var page = await Task.Run(() => file.Fit(index, width, height, dpi, token), token);
+            return page is null ? null : PageImages.ToBitmap(page.Bgra, page.Width, page.Height, page.Stride);
         }
-        catch (Exception e) when (e is OperationCanceledException or ObjectDisposedException or InvalidDataException or ArgumentOutOfRangeException or PdfiumOpenException)
+        catch (OperationCanceledException)
         {
             return null;
         }
