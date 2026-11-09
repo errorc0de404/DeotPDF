@@ -39,6 +39,8 @@ public sealed class App : Avalonia.Application
             // A command's failure would otherwise vanish with its task: it goes to the log (adb logcat -s DeotPDF).
             TaskScheduler.UnobservedTaskException += (_, e) => global::Android.Util.Log.Error("DeotPDF", "unobserved: " + e.Exception);
             var context = global::Android.App.Application.Context;
+            string picked = Path.Combine(context.CacheDir!.AbsolutePath, "picked");
+            Task.Run(() => RemoveOldCopies(picked));
             string folder = Path.Combine(context.FilesDir!.AbsolutePath, "settings");
             Directory.CreateDirectory(folder);
             string file = AppSettings.FileIn(folder);
@@ -71,6 +73,22 @@ public sealed class App : Avalonia.Application
             };
         }
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// Copies of picked PDFs and images (<see cref="AndroidDialogs"/>) older than a day: not removed right after use, since an
+    /// import may still be reading them.
+    /// </summary>
+    private static void RemoveOldCopies(string folder)
+    {
+        try
+        {
+            if (!Directory.Exists(folder)) return;
+            foreach (var copy in new DirectoryInfo(folder).EnumerateDirectories())
+                if (copy.LastWriteTimeUtc < DateTime.UtcNow.AddDays(-1))
+                    try { copy.Delete(recursive: true); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
     /// <summary>Opens a document another app sent; one that arrives before the view is shown opens when it is.</summary>
