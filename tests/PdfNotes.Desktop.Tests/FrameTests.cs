@@ -61,28 +61,11 @@ public sealed class FrameTests
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static Point At(MainWindow w, Point2 page)
-    {
-        var dip = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
-        return w.View.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
-    }
+    private static Point At(MainWindow w, Point2 page) => w.PageAt(page);
 
-    private static void Drag(MainWindow w, params Point2[] points)
-    {
-        w.MouseMove(At(w, points[0]));
-        w.MouseDown(At(w, points[0]), MouseButton.Left);
-        foreach (var p in points.Skip(1)) w.MouseMove(At(w, p));
-        w.MouseUp(At(w, points[^1]), MouseButton.Left);
-        Dispatcher.UIThread.RunJobs();
-    }
+    private static void Drag(MainWindow w, params Point2[] points) => w.DragThrough(MouseButton.Left, RawInputModifiers.None, points);
 
-    private static void Click(MainWindow w, Point2 p, MouseButton button = MouseButton.Left)
-    {
-        w.MouseMove(At(w, p));
-        w.MouseDown(At(w, p), button);
-        w.MouseUp(At(w, p), button);
-        Dispatcher.UIThread.RunJobs();
-    }
+    private static void Click(MainWindow w, Point2 p, MouseButton button = MouseButton.Left) => w.ClickAt(p, button);
 
     private static Point2[] Line(Point2 a, Point2 b, int n = 8) =>
         [.. Enumerable.Range(0, n).Select(i => new Point2(a.X + (b.X - a.X) * i / (n - 1), a.Y + (b.Y - a.Y) * i / (n - 1)))];

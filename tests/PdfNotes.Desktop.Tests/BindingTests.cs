@@ -47,11 +47,7 @@ public sealed class BindingTests
     private static T Find<T>(MainWindow w, string name) where T : Control =>
         w.GetLogicalDescendants().OfType<T>().FirstOrDefault(c => c.Name == name) ?? w.View.FindControl<T>(name) ?? throw new InvalidOperationException($"{name} not found");
 
-    private static Avalonia.Point At(MainWindow w, Point2 page)
-    {
-        var dip = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
-        return w.View.DocumentCanvas.TranslatePoint(new Avalonia.Point(dip.X, dip.Y), w)!.Value;
-    }
+    private static Avalonia.Point At(MainWindow w, Point2 page) => w.PageAt(page);
 
     private static void Stroke(MainWindow w)
     {

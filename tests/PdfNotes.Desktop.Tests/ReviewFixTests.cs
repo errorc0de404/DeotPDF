@@ -17,10 +17,10 @@ using PdfNotes.Pdf.Prototype;
 namespace PdfNotes.Desktop.Tests;
 
 /// <summary>
-/// Behaviors the A5 code review (기록/로드맵_P4_A5_코드리뷰.md) found to differ from the WPF app, each as the WPF app does
-/// them: keys while the page list has the keyboard, typing into a box only after the text tool, the note card before a
-/// save, one outline jump, bar fields, page turning in single page mode and with a held arrow, editing keeps the box
-/// selected, a new box from the menu takes the text tool, image resolution, Backspace, scroll bars only when needed.
+/// Behaviors the A5 code review (기록/로드맵_P4_A5_코드리뷰.md) found wrong, each as the app does them now: keys while
+/// the page list has the keyboard, typing into a box only after the text tool, the note card before a save, one outline
+/// jump, bar fields, page turning in single page mode and with a held arrow, editing keeps the box selected, a new box
+/// from the menu takes the text tool, image resolution, Backspace, scroll bars only when needed.
 /// </summary>
 public sealed class ReviewFixTests
 {
@@ -40,35 +40,13 @@ public sealed class ReviewFixTests
     private static T Find<T>(MainWindow w, string name) where T : Control =>
         w.GetLogicalDescendants().OfType<T>().FirstOrDefault(c => c.Name == name) ?? w.View.FindControl<T>(name) ?? throw new InvalidOperationException(name);
 
-    private static Point At(MainWindow w, Point2 page)
-    {
-        var dip = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
-        return w.View.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
-    }
+    private static Point At(MainWindow w, Point2 page) => w.PageAt(page);
 
-    private static void Drag(MainWindow w, params Point2[] points)
-    {
-        w.MouseMove(At(w, points[0]));
-        w.MouseDown(At(w, points[0]), MouseButton.Left);
-        foreach (var p in points.Skip(1)) w.MouseMove(At(w, p));
-        w.MouseUp(At(w, points[^1]), MouseButton.Left);
-        Dispatcher.UIThread.RunJobs();
-    }
+    private static void Drag(MainWindow w, params Point2[] points) => w.DragThrough(MouseButton.Left, RawInputModifiers.None, points);
 
-    private static void Click(MainWindow w, Point2 p)
-    {
-        w.MouseMove(At(w, p));
-        w.MouseDown(At(w, p), MouseButton.Left);
-        w.MouseUp(At(w, p), MouseButton.Left);
-        Dispatcher.UIThread.RunJobs();
-    }
+    private static void Click(MainWindow w, Point2 p) => w.ClickAt(p);
 
-    private static void Key(MainWindow w, Key key, RawInputModifiers modifiers = RawInputModifiers.None)
-    {
-        w.KeyPress(key, modifiers, PhysicalKey.None, null);
-        w.KeyRelease(key, modifiers, PhysicalKey.None, null);
-        Dispatcher.UIThread.RunJobs();
-    }
+    private static void Key(MainWindow w, Key key, RawInputModifiers modifiers = RawInputModifiers.None) => w.Tap(key, modifiers);
 
     private static IReadOnlyList<Annotation> Annotations(MainWindow w) => w.View.Document!.Session.Current.Pages[0].Annotations;
 

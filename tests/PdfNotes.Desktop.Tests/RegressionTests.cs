@@ -46,34 +46,13 @@ public sealed class RegressionTests
 
     private static IReadOnlyList<Annotation> Annotations(MainWindow w, int page = 0) => w.View.Document!.Session.Current.Pages[page].Annotations;
 
-    private static Point At(MainWindow w, Point2 page)
-    {
-        var dip = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
-        return w.View.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
-    }
+    private static Point At(MainWindow w, Point2 page) => w.PageAt(page);
 
-    private static void Drag(MainWindow w, Point2 a, Point2 b)
-    {
-        w.MouseMove(At(w, a));
-        w.MouseDown(At(w, a), MouseButton.Left);
-        for (int i = 1; i <= 8; i++) w.MouseMove(At(w, new(a.X + (b.X - a.X) * i / 8, a.Y + (b.Y - a.Y) * i / 8)));
-        w.MouseUp(At(w, b), MouseButton.Left);
-        Dispatcher.UIThread.RunJobs();
-    }
+    private static void Drag(MainWindow w, Point2 a, Point2 b) => w.DragThrough(MouseButton.Left, RawInputModifiers.None, Gestures.Steps(a, b, 8));
 
-    private static void Click(MainWindow w, Point2 p)
-    {
-        w.MouseDown(At(w, p), MouseButton.Left);
-        w.MouseUp(At(w, p), MouseButton.Left);
-        Dispatcher.UIThread.RunJobs();
-    }
+    private static void Click(MainWindow w, Point2 p) => w.ClickAt(p, hover: false);
 
-    private static void Press(MainWindow w, Key key, RawInputModifiers modifiers = RawInputModifiers.None)
-    {
-        w.KeyPress(key, modifiers, PhysicalKey.None, null);
-        w.KeyRelease(key, modifiers, PhysicalKey.None, null);
-        Dispatcher.UIThread.RunJobs();
-    }
+    private static void Press(MainWindow w, Key key, RawInputModifiers modifiers = RawInputModifiers.None) => w.Tap(key, modifiers);
 
     private static void Stroke(MainWindow w, double y = 100)
     {

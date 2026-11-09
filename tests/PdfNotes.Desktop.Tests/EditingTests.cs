@@ -33,40 +33,16 @@ public sealed class EditingTests
     private static IReadOnlyList<Annotation> Annotations(MainWindow w) => w.View.Document!.Session.Current.Pages[0].Annotations;
 
     /// <summary>The window point of a canonical point on page 0.</summary>
-    private static Point At(MainWindow w, Point2 page)
-    {
-        var dip = w.View.DocumentCanvas.PageTransform(0).PageToDip.Transform(page);
-        return w.View.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
-    }
+    private static Point At(MainWindow w, Point2 page) => w.PageAt(page);
 
-    private static void Drag(MainWindow w, MouseButton button, params Point2[] points)
-    {
-        w.MouseMove(At(w, points[0]));
-        w.MouseDown(At(w, points[0]), button);
-        foreach (var p in points.Skip(1)) w.MouseMove(At(w, p));
-        w.MouseUp(At(w, points[^1]), button);
-        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-    }
+    private static void Drag(MainWindow w, MouseButton button, params Point2[] points) => w.DragThrough(button, RawInputModifiers.None, points);
 
-    private static void Click(MainWindow w, Point2 p, int clicks = 1)
-    {
-        for (int i = 0; i < clicks; i++)
-        {
-            w.MouseDown(At(w, p), MouseButton.Left);
-            w.MouseUp(At(w, p), MouseButton.Left);
-        }
-        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-    }
+    private static void Click(MainWindow w, Point2 p, int clicks = 1) => w.ClickAt(p, clicks: clicks, hover: false);
 
     private static Point2[] Line(Point2 a, Point2 b, int n = 10) =>
         [.. Enumerable.Range(0, n).Select(i => new Point2(a.X + (b.X - a.X) * i / (n - 1), a.Y + (b.Y - a.Y) * i / (n - 1)))];
 
-    private static void Key(MainWindow w, Key key, RawInputModifiers modifiers = RawInputModifiers.None)
-    {
-        w.KeyPress(key, modifiers, PhysicalKey.None, null);
-        w.KeyRelease(key, modifiers, PhysicalKey.None, null);
-        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-    }
+    private static void Key(MainWindow w, Key key, RawInputModifiers modifiers = RawInputModifiers.None) => w.Tap(key, modifiers);
 
     [Fact]
     public void ThePenDrawsAndUndoRedoKeysWork() => Headless.Run(() =>

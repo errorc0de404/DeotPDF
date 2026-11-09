@@ -39,20 +39,9 @@ public sealed class UiRegressionTests
 
     private static IReadOnlyList<Annotation> Annotations(MainWindow w, int page = 0) => w.View.Document!.Session.Current.Pages[page].Annotations;
 
-    private static Point At(MainWindow w, Point2 page, int index = 0)
-    {
-        var dip = w.View.DocumentCanvas.PageTransform(index).PageToDip.Transform(page);
-        return w.View.DocumentCanvas.TranslatePoint(new Point(dip.X, dip.Y), w)!.Value;
-    }
+    private static Point At(MainWindow w, Point2 page, int index = 0) => w.PageAt(page, index);
 
-    private static void Drag(MainWindow w, Point2 a, Point2 b, RawInputModifiers modifiers = RawInputModifiers.None)
-    {
-        w.MouseMove(At(w, a), modifiers);
-        w.MouseDown(At(w, a), MouseButton.Left, modifiers);
-        for (int i = 1; i <= 10; i++) w.MouseMove(At(w, new(a.X + (b.X - a.X) * i / 10, a.Y + (b.Y - a.Y) * i / 10)), modifiers);
-        w.MouseUp(At(w, b), MouseButton.Left, modifiers);
-        Dispatcher.UIThread.RunJobs();
-    }
+    private static void Drag(MainWindow w, Point2 a, Point2 b, RawInputModifiers modifiers = RawInputModifiers.None) => w.DragThrough(MouseButton.Left, modifiers, Gestures.Steps(a, b, 10));
 
     /// <summary>A point inside a glyph near its start or end (as the WPF Probe d09).</summary>
     private static Point2 Edge(TextGlyph g, bool end)
@@ -72,20 +61,9 @@ public sealed class UiRegressionTests
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static void Click(MainWindow w, Point2 p, RawInputModifiers modifiers = RawInputModifiers.None)
-    {
-        w.MouseMove(At(w, p), modifiers);
-        w.MouseDown(At(w, p), MouseButton.Left, modifiers);
-        w.MouseUp(At(w, p), MouseButton.Left, modifiers);
-        Dispatcher.UIThread.RunJobs();
-    }
+    private static void Click(MainWindow w, Point2 p, RawInputModifiers modifiers = RawInputModifiers.None) => w.ClickAt(p, modifiers: modifiers);
 
-    private static void Press(MainWindow w, Key key, RawInputModifiers modifiers = RawInputModifiers.None)
-    {
-        w.KeyPress(key, modifiers, PhysicalKey.None, null);
-        w.KeyRelease(key, modifiers, PhysicalKey.None, null);
-        Dispatcher.UIThread.RunJobs();
-    }
+    private static void Press(MainWindow w, Key key, RawInputModifiers modifiers = RawInputModifiers.None) => w.Tap(key, modifiers);
 
     /// <summary>d13h: Ctrl+± zoom within 10–800 %, PageDown, Ctrl+End and Ctrl+Home; none of it changes the document.</summary>
     [Fact]
