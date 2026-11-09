@@ -33,7 +33,7 @@ public sealed class MainActivity : AvaloniaMainActivity
     {
         Current = this;
         base.OnCreate(savedInstanceState);
-        Received(Intent);
+        if (savedInstanceState is null) Received(Intent); // a recreated activity keeps its intent, which was handled then
     }
 
     protected override void OnNewIntent(Intent? intent)
@@ -43,7 +43,8 @@ public sealed class MainActivity : AvaloniaMainActivity
     }
 
     private const int CreateDocumentRequest = 0x5D0C;
-    private TaskCompletionSource<global::Android.Net.Uri?>? creating;
+    // The app's, not the activity's: the result reaches whichever activity is shown when the picker returns.
+    private static TaskCompletionSource<global::Android.Net.Uri?>? creating;
 
     /// <summary>
     /// The system's "save as": a new PDF document named <paramref name="name"/> in the folder the user picks, or null when
@@ -71,7 +72,11 @@ public sealed class MainActivity : AvaloniaMainActivity
 
     protected override void OnDestroy()
     {
-        if (ReferenceEquals(Current, this)) Current = null;
+        if (ReferenceEquals(Current, this))
+        {
+            Current = null;
+            if (IsFinishing) { creating?.TrySetResult(null); creating = null; } // the app is closing: nothing will answer the picker
+        }
         base.OnDestroy();
     }
 
@@ -90,6 +95,7 @@ public sealed class MainActivity : AvaloniaMainActivity
         };
         if (uri is null) return;
         if (intent!.Action == Intent.ActionView) intent.SetData(null); // opened once, not again when the activity is recreated
-        App.Open(new ContentLocation(this, uri));
+        else intent.RemoveExtra(Intent.ExtraStream);
+        App.Open(new ContentLocation(ApplicationContext!, uri));
     }
 }

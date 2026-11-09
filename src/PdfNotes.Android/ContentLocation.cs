@@ -15,6 +15,7 @@ namespace PdfNotes.Android;
 /// </summary>
 public sealed class ContentLocation(Context context, Uri uri) : DocumentLocation
 {
+    private readonly Context context = context.ApplicationContext ?? context; // kept with recent documents: never an activity
     private string? name;
 
     public Uri Uri => uri;
