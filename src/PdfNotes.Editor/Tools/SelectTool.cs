@@ -25,12 +25,28 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
     private Point2 panOffset;
     private Affine frame;
     private Rect2 bounds;
-    private int drag; // 0 idle, 1 move, 2 pan, 3 rotate, 4..7 corners, 8.. line point handles (ends first, then controls), TextDrag
-    private const int TextDrag = 1000, RectDrag = 1001;
+    /// <summary>What a press is dragging.</summary>
+    private abstract record Drag
+    {
+        public static readonly Drag Idle = new None(), Moving = new Move(), Panning = new Pan(), Rotating = new Rotate(), Selecting = new Text(), Framing = new Box();
+        public sealed record None : Drag;
+        public sealed record Move : Drag;
+        public sealed record Pan : Drag;
+        public sealed record Rotate : Drag;
+        /// <summary>A corner handle (0 top left, clockwise); 0 and 1 are the width handles of a text box.</summary>
+        public sealed record Corner(int Index) : Drag;
+        /// <summary>A point of a line: the two ends first (0, 1), then its control points (2…).</summary>
+        public sealed record LineHandle(int Index) : Drag;
+        /// <summary>PDF text being selected.</summary>
+        public sealed record Text : Drag;
+        /// <summary>A Shift rectangle selection.</summary>
+        public sealed record Box : Drag;
+    }
+
+    private Drag drag = Drag.Idle;
     private int rectPage = -1;
     private Point2 rectStart, rectEnd; // canonical points of rectPage
-    private int textPage = -1, textAnchor, textFocus;
-    private (int Start, int End)? textWord; // a drag that began with a whole word keeps it
+    private readonly TextSelectionDrag text = new(view, glyphs);
     private bool overText;
     private ToolCursor? hoverCursor, dragCursor;
     public const double HandleRadiusDip = 7;
@@ -43,13 +59,13 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
 
     public ToolCursor? Cursor => drag switch
     {
-        2 => ToolCursor.Hand,
-        TextDrag => ToolCursor.IBeam,
-        RectDrag => ToolCursor.Cross,
-        0 => hoverCursor ?? (overText ? ToolCursor.IBeam : null),
+        Drag.Pan => ToolCursor.Hand,
+        Drag.Text => ToolCursor.IBeam,
+        Drag.Box => ToolCursor.Cross,
+        Drag.None => hoverCursor ?? (overText ? ToolCursor.IBeam : null),
         _ => dragCursor
     };
-    public bool IsActive => drag != 0;
+    public bool IsActive => drag is not Drag.None;
     public Guid? PageId { get; private set; }
     public Guid? SelectedId => ids.Count == 1 ? ids.First() : null;
     public IReadOnlyCollection<Guid> SelectedIds => ids;
@@ -95,38 +111,30 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
 
     // ----- PDF text selection (spec 5.3, 17) -----
 
-    public int TextSelectionPage => HasTextSelection ? textPage : -1;
-    public bool HasTextSelection => textPage >= 0 && textAnchor != textFocus;
-    public (int Start, int End) TextSelectionRange => (Math.Min(textAnchor, textFocus), Math.Max(textAnchor, textFocus));
-    public string SelectedText => HasTextSelection && glyphs is not null ? TextSelection.TextOf(glyphs(textPage), TextSelectionRange.Start, TextSelectionRange.End) : "";
+    public int TextSelectionPage => HasTextSelection ? text.Page : -1;
+    public bool HasTextSelection => text.HasSelection;
+    public (int Start, int End) TextSelectionRange => text.Range;
+    public string SelectedText => text.Text;
 
     /// <summary>Line quads of the selected glyphs on <paramref name="pageIndex"/> (empty elsewhere).</summary>
-    public IReadOnlyList<Quad> TextSelectionQuads(int pageIndex) =>
-        HasTextSelection && pageIndex == textPage && glyphs is not null ? TextSelection.LineQuads(glyphs(textPage), TextSelectionRange.Start, TextSelectionRange.End) : [];
+    public IReadOnlyList<Quad> TextSelectionQuads(int pageIndex) => text.Quads(pageIndex);
 
     /// <summary>Selects the glyphs between two carets of a page (also used by the validation harness).</summary>
     public void SelectText(int pageIndex, int anchor, int focus)
     {
         SetSelection([]);
-        textPage = pageIndex; textAnchor = anchor; textFocus = focus;
+        text.Set(pageIndex, anchor, focus);
         view.RefreshOverlays();
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void ClearTextSelection()
     {
-        if (textPage < 0) return;
-        textPage = -1;
-        view.RefreshOverlays();
+        if (text.Clear()) view.RefreshOverlays();
     }
 
     /// <summary>Caret under a viewport point when PDF text is within <paramref name="toleranceDip"/>, with its page.</summary>
-    public (int Page, int Caret)? TextCaretAt(Point2 viewportPoint, double toleranceDip = PickToleranceDip)
-    {
-        if (glyphs is null || view.HitTestPage(viewportPoint) is not { } anchor) return null;
-        double tolerance = view.PageTransform(anchor.PageIndex).DipLengthToPoints(toleranceDip);
-        return TextSelection.CaretAt(glyphs(anchor.PageIndex), anchor.PagePoint, tolerance) is { } caret ? (anchor.PageIndex, caret) : null;
-    }
+    public (int Page, int Caret)? TextCaretAt(Point2 viewportPoint, double toleranceDip = PickToleranceDip) => text.CaretAt(viewportPoint, toleranceDip);
 
     public void PointerHover(Point2? position, InputModifiers modifiers)
     {
@@ -189,7 +197,7 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         ids.Clear();
         foreach (var l in locations.Where(l => l!.Page.Id == PageId)) ids.Add(l!.Annotation.Id);
         idsVersion++;
-        textPage = -1; // annotation and text selections are exclusive
+        text.Clear(); // annotation and text selections are exclusive
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
     public void Revalidate()
@@ -298,16 +306,16 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         }
         return [.. corners, new(top.X + direction.X / length * 24, top.Y + direction.Y / length * 24)];
     }
-    /// <summary>What of the current selection is under <paramref name="viewportPoint"/>: a handle, a selected annotation or the inside of its frame.</summary>
-    /// <summary>A press here takes something to drag: the selection, its handles or an unlocked annotation.</summary>
     /// <summary>A PDF text selection is being dragged (the touch layout opens its menu when it ends).</summary>
-    public bool IsDraggingText => drag == TextDrag;
+    public bool IsDraggingText => drag is Drag.Text;
 
     /// <summary>A long press here selects PDF text (a word), not the menu: on text where no annotation is.</summary>
     public bool HoldSelectsText(Point2 viewportPoint) => Pick(viewportPoint) is null && HitSelection(viewportPoint) == SelectionHit.None && TextCaretAt(viewportPoint) is not null;
 
+    /// <summary>A press here takes something to drag: the selection, its handles or an unlocked annotation.</summary>
     public bool Grabs(Point2 viewportPoint) => HitSelection(viewportPoint) != SelectionHit.None || Pick(viewportPoint) is not null;
 
+    /// <summary>What of the current selection is under <paramref name="viewportPoint"/>: a handle, a selected annotation or the inside of its frame.</summary>
     public SelectionHit HitSelection(Point2 viewportPoint)
     {
         if (ids.Count == 0 || PageId is not { } pageId || session() is not { } s || s.Current.IndexOfPage(pageId) is not (>= 0 and var index)) return SelectionHit.None;
@@ -329,20 +337,20 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
     {
         if (SelectedAnnotations.Length == 0 || !CanTransform) return false;
         start = viewportPoint;
-        Begin(1);
+        Begin(Drag.Moving);
         return true;
     }
 
     /// <summary>Starts a handle drag (resize or rotate) when <paramref name="viewportPoint"/> is on a selection handle.</summary>
     private bool BeginHandle(Point2 viewportPoint)
     {
-        if (LineHandleAt(viewportPoint) is >= 0 and var lineHandle) { Begin(8 + lineHandle); dragCursor = ToolCursor.Cross; return true; }
+        if (LineHandleAt(viewportPoint) is >= 0 and var lineHandle) { Begin(new Drag.LineHandle(lineHandle)); dragCursor = ToolCursor.Cross; return true; }
         if (PageId is not { } pageId || session()?.Current.IndexOfPage(pageId) is not (>= 0 and var index)) return false;
         var transform = view.PageTransform(index);
         int handle = HandleAt(viewportPoint, transform);
         if (handle < 0) return false;
         var cursor = handle == 4 ? ToolCursor.Rotate(transform.DpiScale) : ResizeCursor(handle, transform);
-        Begin(handle == 4 ? 3 : handle + 4);
+        Begin(handle == 4 ? Drag.Rotating : new Drag.Corner(handle));
         dragCursor = cursor;
         return true;
     }
@@ -358,8 +366,8 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         // Shift + a drag from where no annotation is: rectangle selection, added to the page's selection (spec 5.3, D14g).
         if (picked is null && pointer.Modifiers.HasFlag(InputModifiers.Shift) && !IgnoreAnnotations && view.HitTestPage(start) is { } corner)
         {
-            textPage = -1;
-            rectPage = corner.PageIndex; rectStart = rectEnd = corner.PagePoint; drag = RectDrag;
+            text.Clear();
+            rectPage = corner.PageIndex; rectStart = rectEnd = corner.PagePoint; drag = Drag.Framing;
             view.SetPreview(rectPage, this);
             return true;
         }
@@ -375,49 +383,39 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
             }
             else if (!ids.Contains(id)) Select(id);
             if (!CanTransform) return false; // selected, but glyph highlights stay where their text is
-            Begin(1);
+            Begin(Drag.Moving);
         }
-        else if (TextCaretAt(start) is { } text)
+        else if (TextCaretAt(start) is { } caret)
         {
             Select(null);
-            textPage = text.Page; textAnchor = textFocus = text.Caret; drag = TextDrag; textWord = null;
+            drag = Drag.Selecting;
             // A double click, or a long press of a finger (2026-11-08), starts with the word under it.
-            if (pointer.ClickCount >= 2 && glyphs is not null && view.HitTestPage(start) is { } on &&
-                TextSelection.WordAt(glyphs(text.Page), on.PagePoint, view.PageTransform(text.Page).DipLengthToPoints(PickToleranceDip)) is { } word)
-            {
-                textWord = word;
-                (textAnchor, textFocus) = word;
-                view.RefreshOverlays();
-            }
+            text.Begin(caret, start, wholeWord: pointer.ClickCount >= 2, PickToleranceDip);
         }
-        else { Select(null); drag = 2; panOffset = view.Offset; }
+        else { Select(null); drag = Drag.Panning; panOffset = view.Offset; }
         return true;
     }
-    private void Begin(int mode)
+    private void Begin(Drag mode)
     {
         originals = SelectedAnnotations; preview = [];
         (bounds, frame) = SelectionFrame()!.Value; drag = mode;
-        dragCursor = mode == 1 ? ToolCursor.Move : null;
+        dragCursor = mode is Drag.Move ? ToolCursor.Move : null;
     }
     public void PointerMove(CanvasPointer pointer)
     {
-        if (drag == 0) return;
-        if (drag == TextDrag)
+        if (drag is Drag.None) return;
+        if (drag is Drag.Text)
         {
-            var at = view.PageTransform(textPage).DipToPage.Transform(new(pointer.Position.X, pointer.Position.Y));
-            if (glyphs is null || TextSelection.CaretAt(glyphs(textPage), at) is not { } caret) return;
-            var (anchor, focus) = textWord is not { } w ? (textAnchor, caret)
-                : caret >= w.End ? (w.Start, caret) : caret <= w.Start ? (w.End, caret) : (w.Start, w.End);
-            if (anchor != textAnchor || focus != textFocus) { textAnchor = anchor; textFocus = focus; view.RefreshOverlays(); }
+            if (text.Extend(pointer.Position)) view.RefreshOverlays();
             return;
         }
-        if (drag == RectDrag)
+        if (drag is Drag.Box)
         {
             rectEnd = view.PageTransform(rectPage).DipToPage.Transform(new(pointer.Position.X, pointer.Position.Y));
             view.RefreshPreview();
             return;
         }
-        if (drag == 2)
+        if (drag is Drag.Pan)
         {
             view.SetHorizontalOffset(panOffset.X - (pointer.Position.X - start.X));
             view.SetVerticalOffset(panOffset.Y - (pointer.Position.Y - start.Y)); return;
@@ -427,18 +425,20 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         var a = toPage.Transform(new(start.X, start.Y));
         var b = toPage.Transform(new(pointer.Position.X, pointer.Position.Y));
         if (new Point2(start.X, start.Y).DistanceTo(new(pointer.Position.X, pointer.Position.Y)) < 2) { preview = []; CrossPage = null; view.RefreshLive(); return; }
-        if (drag >= 8 && originals is [LineAnnotation line])
+        if (drag is Drag.LineHandle(var point))
         {
-            var grabbed = line.Transform.Transform(LineGeometry.ControlPolygon(line)[drag == 8 ? 0 : drag == 9 ? line.Controls.Length + 1 : drag - 9]);
-            preview = [MoveLinePoint(line, drag - 8, new(grabbed.X + b.X - a.X, grabbed.Y + b.Y - a.Y), pointer.Modifiers.HasFlag(InputModifiers.Shift))];
+            if (originals is not [LineAnnotation line]) { preview = []; view.RefreshLive(); return; }
+            // The control polygon runs start, controls…, end; the handles number the ends first.
+            var grabbed = line.Transform.Transform(LineGeometry.ControlPolygon(line)[point == 0 ? 0 : point == 1 ? line.Controls.Length + 1 : point - 1]);
+            preview = [MoveLinePoint(line, point, new(grabbed.X + b.X - a.X, grabbed.Y + b.Y - a.Y), pointer.Modifiers.HasFlag(InputModifiers.Shift))];
         }
-        else if (drag == 1)
+        else if (drag is Drag.Move)
         {
             CrossPage = AllowCrossPage?.Invoke() == true && view.HitTestPage(pointer.Position) is { } over && over.PageIndex != index &&
                 MovedToPage(index, over.PageIndex, pointer.Position) is { } landed ? (over.PageIndex, landed) : null;
             preview = CrossPage is null ? originals.Select(x => AnnotationGeometry.Similarity(x, default, move: new(b.X - a.X, b.Y - a.Y))).ToArray() : [];
         }
-        else if (drag == 3)
+        else if (drag is Drag.Rotate)
         {
             var center = frame.Transform(new(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2));
             double angle = Math.Atan2(b.Y - center.Y, b.X - center.X) - Math.Atan2(a.Y - center.Y, a.X - center.X);
@@ -446,18 +446,18 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
             angle = SnapRotation(Math.Atan2(frame.M12, frame.M11), angle, pointer.Modifiers.HasFlag(InputModifiers.Shift), pointer.Modifiers.HasFlag(InputModifiers.Alt));
             preview = originals.Select(x => AnnotationGeometry.Similarity(x, center, angle: angle)).ToArray();
         }
-        else
+        else if (drag is Drag.Corner(var corner))
         {
-            if (originals is [TextBoxAnnotation text])
+            if (originals is [TextBoxAnnotation box])
             {
-                var localPoint = text.Transform.Invert().Transform(b);
-                bool left = drag == 4;
-                double width = Math.Clamp(left ? text.WidthPt - localPoint.X : localPoint.X, 16, 100000);
-                preview = [text with { WidthPt = width, Transform = left ? Affine.Translation(text.WidthPt - width, 0).Then(text.Transform) : text.Transform }];
+                var localPoint = box.Transform.Invert().Transform(b);
+                bool left = corner == 0;
+                double width = Math.Clamp(left ? box.WidthPt - localPoint.X : localPoint.X, 16, 100000);
+                preview = [box with { WidthPt = width, Transform = left ? Affine.Translation(box.WidthPt - width, 0).Then(box.Transform) : box.Transform }];
                 view.RefreshLive(); return;
             }
             var corners = AnnotationGeometry.Corners(bounds, Affine.Identity);
-            var anchor = corners[(drag - 4 + 2) % 4];
+            var anchor = corners[(corner + 2) % 4];
             var local = frame.Invert().Transform(b);
             var startLocal = frame.Invert().Transform(a);
             double sx = Math.Clamp((local.X - anchor.X) / NonZero(startLocal.X - anchor.X), .01, 100);
@@ -496,20 +496,20 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
     }
     public void PointerUp(CanvasPointer pointer)
     {
-        if (drag == TextDrag)
+        if (drag is Drag.Text)
         {
             PointerMove(pointer);
-            drag = 0;
-            if (!HasTextSelection) textPage = -1;
+            drag = Drag.Idle;
+            if (!HasTextSelection) text.Clear();
             view.RefreshOverlays();
             SelectionChanged?.Invoke(this, EventArgs.Empty);
             Released?.Invoke(this, false);
             return;
         }
-        if (drag == RectDrag)
+        if (drag is Drag.Box)
         {
             PointerMove(pointer);
-            drag = 0;
+            drag = Drag.Idle;
             view.SetPreview(-1, null);
             int page = rectPage; rectPage = -1;
             if (start.DistanceTo(pointer.Position) >= Lasso.MinDragDip && session() is { } current && page < current.Current.Pages.Count)
@@ -523,9 +523,9 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
             return;
         }
         PointerMove(pointer);
-        var changes = preview; int mode = drag;
+        var changes = preview; var mode = drag;
         var across = CrossPage;
-        drag = 0; preview = []; originals = []; CrossPage = null;
+        drag = Drag.Idle; preview = []; originals = []; CrossPage = null;
         if (across is { } c && session() is { } s && PageId is { } fromPage)
         {
             // Dropped on another page (spec 5.3, D14g): the annotations move there and stay selected.
@@ -537,20 +537,20 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
             return;
         }
         bool changed = changes.Length > 0 && session() is not null;
-        if (changed) session()!.Execute(DocumentEdits.UpdateAnnotations(session()!.Current, changes, mode == 1 ? "undo.move" : mode == 3 ? "undo.rotate" : mode >= 8 ? "undo.editLine" : "undo.resize"));
+        if (changed) session()!.Execute(DocumentEdits.UpdateAnnotations(session()!.Current, changes, mode switch { Drag.Move => "undo.move", Drag.Rotate => "undo.rotate", Drag.LineHandle => "undo.editLine", _ => "undo.resize" }));
         view.RefreshOverlays();
         Released?.Invoke(this, changed);
     }
     public void Cancel()
     {
-        if (drag == TextDrag) textPage = -1;
-        if (drag == RectDrag) { rectPage = -1; view.SetPreview(-1, null); }
-        drag = 0; preview = []; originals = []; CrossPage = null; view.RefreshOverlays();
+        if (drag is Drag.Text) text.Clear();
+        if (drag is Drag.Box) { rectPage = -1; view.SetPreview(-1, null); }
+        drag = Drag.Idle; preview = []; originals = []; CrossPage = null; view.RefreshOverlays();
     }
     /// <summary>The rectangle of a Shift-drag selection in progress.</summary>
     IEnumerable<CanvasMark> ICanvasPreview.Marks(int pageIndex, Page page, ViewTransform transform)
     {
-        if (drag != RectDrag || pageIndex != rectPage) yield break;
+        if (drag is not Drag.Box || pageIndex != rectPage) yield break;
         yield return new LassoMark([rectStart, new(rectEnd.X, rectStart.Y), rectEnd, new(rectStart.X, rectEnd.Y)]);
     }
 
