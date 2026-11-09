@@ -70,7 +70,7 @@ public sealed partial class MainView
     public Task<bool> RunBackupAsync() => backup.RunAsync();
 
     /// <summary>백업 비우기 (spec 18.2): asks once, then deletes every backup the app made.</summary>
-    public bool ClearBackups() => backup.Clear();
+    public Task<bool> ClearBackupsAsync() => backup.ClearAsync();
 
     /// <summary>The app is ending because of an unexpected error: the unsaved document goes to the backup folder.</summary>
     public string? WriteCrashBackup(Exception? error) => backup.WriteCrashBackup(error, () => { CloseNote(); FinishTextEditing(); });

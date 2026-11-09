@@ -31,7 +31,7 @@ public sealed partial class MainView
         {
             // A click that selected an annotation over the link edits it instead (selection tool).
             if (selectTool.SelectedIds.Count > 0 && !lastCtrl) return;
-            if (LinkAt(p) is { } hit) FollowLink(hit.Link);
+            if (LinkAt(p) is { } hit) _ = FollowLinkAsync(hit.Link);
         };
         // The mouse's back and forward buttons (spec 24.3).
         AddHandler(PointerPressedEvent, (_, e) =>
@@ -73,11 +73,11 @@ public sealed partial class MainView
     private string Describe(PdfLink link) => link.Uri ?? Strings.Format("link.pageTip", ("page", viewModel.PageShowing(link.TargetPage)!.Value + 1));
 
     /// <summary>Internal targets jump (remembered for Alt+←); http, https and mailto open in the browser after a question; nothing else opens.</summary>
-    public void FollowLink(PdfLink link)
+    public async Task FollowLinkAsync(PdfLink link)
     {
         if (link.Uri is { } uri)
         {
-            if (!IsOpenableUri(uri) || !Confirm(Strings.Format("link.openConfirm", ("uri", uri)))) return;
+            if (!IsOpenableUri(uri) || !await ConfirmAsync(Strings.Format("link.openConfirm", ("uri", uri)))) return;
             if (LinkLauncherOverride is { } launch) { launch(uri); return; }
             OpenWebPage(uri);
             return;

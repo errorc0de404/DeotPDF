@@ -346,5 +346,6 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
     /// <summary>A message box (the editor's dialogs).</summary>
     private void Tell(string text, NoticeKind kind = NoticeKind.Information) => dialogs.Tell(text, kind);
 
-    private bool Confirm(string text, NoticeKind kind = NoticeKind.Question) => dialogs.Ask(text, AskButtons.YesNo, kind) == Answer.Yes;
+    /// <summary>A yes/no question; answered later where the platform cannot wait (Android).</summary>
+    private async Task<bool> ConfirmAsync(string text, NoticeKind kind = NoticeKind.Question) => await dialogs.AskAsync(text, AskButtons.YesNo, kind) == Answer.Yes;
 }

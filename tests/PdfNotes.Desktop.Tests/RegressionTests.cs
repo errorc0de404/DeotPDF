@@ -274,10 +274,10 @@ public sealed class RegressionTests
         await next.View.OpenFileAsync(Sample(folder)); // the crash file is not the open document any more
         Assert.Equal(1, next.View.Backups.Usage().Count);
         next.Script.PromptOverride = (_, _) => Answer.No;
-        Assert.False(next.View.ClearBackups());
+        Assert.False(await next.View.ClearBackupsAsync());
         Assert.True(File.Exists(file));
         next.Script.PromptOverride = (_, _) => Answer.Yes;
-        Assert.True(next.View.ClearBackups());
+        Assert.True(await next.View.ClearBackupsAsync());
         Assert.False(File.Exists(file));
         Assert.False(File.Exists(Path.ChangeExtension(file, ".txt")));
         next.Close();

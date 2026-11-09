@@ -182,11 +182,11 @@ public sealed class BackupViewModel : ObservableObject
     /// 백업 비우기 (spec 18.2, D14g): asks once with the count and size, then deletes every backup the app made (files
     /// another window is using stay). Returns true when it deleted.
     /// </summary>
-    public bool Clear()
+    public async Task<bool> ClearAsync()
     {
         var (count, bytes) = Store.Usage();
         if (count == 0) return false;
-        if (dialogs.Ask(texts.Format("settings.clearBackupsConfirm", ("count", count), ("size", FileSizes.Format(bytes))), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes) return false;
+        if (await dialogs.AskAsync(texts.Format("settings.clearBackupsConfirm", ("count", count), ("size", FileSizes.Format(bytes))), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes) return false;
         Store.Clear();
         LastFile = null;
         return true;

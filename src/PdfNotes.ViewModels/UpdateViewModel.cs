@@ -29,7 +29,7 @@ public sealed class UpdateViewModel(AppSettings settings, Action save, IEditorDi
         if (UpdateCheck.IsDevelopment(version)) return;
         if (settings.CheckUpdates is null)
         {
-            settings.CheckUpdates = dialogs.Ask(texts.Get("update.ask"), AskButtons.YesNo, NoticeKind.Question) == Answer.Yes;
+            settings.CheckUpdates = await dialogs.AskAsync(texts.Get("update.ask"), AskButtons.YesNo, NoticeKind.Question) == Answer.Yes;
             save();
         }
         if (UpdateCheck.Due(settings.CheckUpdates, settings.UpdateCheckedAt, time.GetUtcNow().UtcDateTime, version)) await CheckAsync();

@@ -55,7 +55,15 @@ public sealed class BackupImportViewModelTests : IDisposable
         public IDocumentViewport Viewport => View;
         public IPageThumbnailSource Thumbnails => List;
         public IWindowCoordinator Window => Coordinator;
-        public Answer Ask(string text, AskButtons buttons, NoticeKind kind) { Asked.Add(text); return Answer; }
+        /// <summary>As on Android: a question cannot be answered at once, only later.</summary>
+        public bool AnswersLater;
+        public Answer Ask(string text, AskButtons buttons, NoticeKind kind) => AnswersLater ? throw new InvalidOperationException("only asked asynchronously") : Record(text);
+        public async Task<Answer> AskAsync(string text, AskButtons buttons, NoticeKind kind)
+        {
+            if (AnswersLater) await Task.Yield();
+            return Record(text);
+        }
+        private Answer Record(string text) { Asked.Add(text); return Answer; }
         public void Tell(string text, NoticeKind kind) => Told.Add(text);
         public string? ChooseSavePath(SavePathRequest request) => null;
         public Task<string[]?> ChoosePdfFilesAsync(string title) => Task.FromResult(Files);
@@ -92,6 +100,23 @@ public sealed class BackupImportViewModelTests : IDisposable
         string? before = Backup.LastFile;
         await Backup.TickAsync();
         Assert.NotEqual(before, Backup.LastFile); // B is backed up
+    }
+
+    /// <summary>Review 2026-11-09 B12: 백업 비우기 on Android, where a question is answered later.</summary>
+    [Fact]
+    public async Task ClearingBackupsWaitsForAnAnswerGivenLater()
+    {
+        Backup.IntervalOverride = TimeSpan.FromSeconds(2);
+        Draw();
+        await Backup.TickAsync();
+        time.Now += TimeSpan.FromSeconds(3);
+        await Backup.TickAsync();
+        Assert.True(File.Exists(Backup.LastFile));
+        string file = Backup.LastFile!;
+        shell.AnswersLater = true;
+        shell.Answer = Answer.Yes;
+        Assert.True(await Backup.ClearAsync());
+        Assert.False(File.Exists(file));
     }
 
     [Fact]
@@ -137,11 +162,11 @@ public sealed class BackupImportViewModelTests : IDisposable
         Assert.Equal(first, Backup.LastFile); // the same state is not backed up again
 
         shell.Answer = Answer.No;
-        Assert.False(Backup.Clear());
+        Assert.False(await Backup.ClearAsync());
         Assert.Contains(FileSizes.Format(new FileInfo(first!).Length), shell.Asked.Single());
         Assert.True(File.Exists(first));
         shell.Answer = Answer.Yes;
-        Assert.True(Backup.Clear());
+        Assert.True(await Backup.ClearAsync());
         Assert.False(File.Exists(first));
         Assert.Null(Backup.LastFile);
 

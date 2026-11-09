@@ -24,7 +24,7 @@ public sealed record SettingsValues(bool QuickErase, bool PageDrag, BackupValues
 public sealed record AboutActions(Func<Task<UpdateResult>> Check, Action<string> Open);
 
 /// <summary>What 저장 shows and does about the backups the app made (spec 18.2, D14g).</summary>
-public sealed record BackupActions(Func<(int Count, long Bytes)> Usage, Func<bool> Clear);
+public sealed record BackupActions(Func<(int Count, long Bytes)> Usage, Func<Task<bool>> Clear);
 
 /// <summary>
 /// The settings window (spec 18.1, the WPF SettingsDialog): categories 필기·저장·화면·정보 on the left, their items on the
@@ -62,7 +62,8 @@ public sealed class SettingsDialog : DialogView
     private readonly CheckBox checkUpdates = new() { Name = "CheckUpdatesBox", Content = Strings.Get("about.checkAtStart"), Margin = new Thickness(0, 4, 0, 8) };
     private readonly TextBlock updateStatus = new() { Name = "UpdateStatusText", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
     private readonly BackupMode initialMode;
-    private readonly Func<bool> confirmOriginal;
+    private readonly Func<Task<bool>> confirmOriginal;
+    private bool originalConfirmed;
     private readonly Action<DisplayValues>? preview;
     private readonly IReadOnlyList<LanguagePack> packs;
     private bool built;
@@ -72,7 +73,7 @@ public sealed class SettingsDialog : DialogView
     private static readonly (AccentColor Color, string Name)[] AccentNames =
         [(AccentColor.Blue, Strings.Get("color.blue")), (AccentColor.Green, Strings.Get("color.green")), (AccentColor.Purple, Strings.Get("color.purple")), (AccentColor.Orange, Strings.Get("color.orange")), (AccentColor.Red, Strings.Get("color.red")), (AccentColor.Gray, Strings.Get("color.gray"))];
 
-    public SettingsDialog(SettingsValues current, Func<bool> confirmOriginal, Action<DisplayValues>? preview = null, IReadOnlyList<LanguagePack>? languages = null,
+    public SettingsDialog(SettingsValues current, Func<Task<bool>> confirmOriginal, Action<DisplayValues>? preview = null, IReadOnlyList<LanguagePack>? languages = null,
         BackupActions? backups = null, AboutActions? about = null)
     {
         this.confirmOriginal = confirmOriginal;
@@ -122,7 +123,7 @@ public sealed class SettingsDialog : DialogView
             usage.Text = Strings.Format("settings.backupUsage", ("count", count), ("size", FileSizes.Format(bytes)));
             clear.IsEnabled = count > 0;
         }
-        clear.Click += (_, _) => { if (backups?.Clear() == true) ShowUsage(); };
+        clear.Click += async (_, _) => { if (backups is not null && await backups.Clear()) ShowUsage(); };
         ShowUsage();
         var usageRow = Row(Strings.Get("settings.backupUsageLabel"), usage, clear);
         backup.IsCheckedChanged += (_, _) => backupItems.IsEnabled = backup.IsChecked == true;
@@ -189,14 +190,25 @@ public sealed class SettingsDialog : DialogView
     /// <summary>The categories (tests choose one by position).</summary>
     public ListBox Categories => categories;
 
+    /// <summary>The question about the original file; yes goes on with OK, no goes back to the backup folder.</summary>
+    private async Task ConfirmOriginalAsync()
+    {
+        if (await confirmOriginal())
+        {
+            originalConfirmed = true;
+            if (Accept()) Finish(true);
+        }
+        else folderMode.IsChecked = true;
+    }
+
     /// <summary>OK: switching to the original file needs its confirmation; a declined switch keeps the window open.</summary>
 
     public override bool Accept()
     {
         var mode = originalMode.IsChecked == true ? BackupMode.Original : BackupMode.Folder;
-        if (backup.IsChecked == true && mode == BackupMode.Original && initialMode != BackupMode.Original && !confirmOriginal())
+        if (backup.IsChecked == true && mode == BackupMode.Original && initialMode != BackupMode.Original && !originalConfirmed)
         {
-            folderMode.IsChecked = true;
+            _ = ConfirmOriginalAsync(); // the answer may come later (Android): OK goes on from there
             return false;
         }
         int count = int.TryParse((keep.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out int n) ? n : 10;
