@@ -272,6 +272,12 @@
           "PdfNotes.Text.Skia": "[1.2.1, )"
         }
       },
+      "pdfnotes.testsupport": {
+        "type": "Project",
+        "dependencies": {
+          "PdfNotes.Pdf": "[1.2.1, )"
+        }
+      },
       "pdfnotes.text": {
         "type": "Project",
         "dependencies": {

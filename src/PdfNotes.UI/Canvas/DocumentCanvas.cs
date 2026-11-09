@@ -312,7 +312,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     }
 
     /// <summary>Recomputes the render plan now instead of after the debounce delay (tests).</summary>
-    public void PlanRendersNow()
+    internal void PlanRendersNow()
     {
         planTimer.Stop();
         PlanRenders();

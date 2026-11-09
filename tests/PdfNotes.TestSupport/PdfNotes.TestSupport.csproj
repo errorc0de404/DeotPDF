@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Sample PDFs and the D01 storage proof the tests and the local probes build on; not part of the apps. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsRidAgnostic>true</IsRidAgnostic>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PdfNotes.Pdf\PdfNotes.Pdf.csproj" />
+  </ItemGroup>
+</Project>

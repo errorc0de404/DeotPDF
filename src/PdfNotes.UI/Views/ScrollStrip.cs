@@ -54,9 +54,9 @@ public sealed class ScrollStrip : Panel
     public Control? Child { get => GetValue(ChildProperty); set => SetValue(ChildProperty, value); }
 
     /// <summary>The ‹ and › (tests).</summary>
-    public Button BackButton => back;
+    internal Button BackButton => back;
 
-    public Button ForwardButton => forward;
+    internal Button ForwardButton => forward;
 
     public double Offset => scroller.Offset.X;
 

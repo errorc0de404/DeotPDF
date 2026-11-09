@@ -46,7 +46,7 @@ public sealed partial class MainView
     private void InsertMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => OpenInsertMenu();
 
     /// <summary>The insert menu opened last (tests).</summary>
-    public ContextMenu? LastInsertMenu { get; private set; }
+    internal ContextMenu? LastInsertMenu { get; private set; }
 
     /// <summary>The ▾ of 삽입 (spec 11.5): a blank page, or pages of another PDF (11.9).</summary>
     public ContextMenu OpenInsertMenu()
@@ -59,7 +59,7 @@ public sealed partial class MainView
     }
 
     /// <summary>The recent documents menu opened last (tests).</summary>
-    public ContextMenu? LastRecentMenu { get; private set; }
+    internal ContextMenu? LastRecentMenu { get; private set; }
 
     /// <summary>파일 › 최근 문서 ▾: file names (full path as tooltip), most recent first; each has 목록에서 제거 on its right-click (spec 24.1).</summary>
     public ContextMenu OpenRecentMenu()

@@ -16,6 +16,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PdfNotes.Desktop.Tests/PdfNotes.Desktop.Tests.csproj" />
+    <Project Path="tests/PdfNotes.TestSupport/PdfNotes.TestSupport.csproj" />
     <Project Path="tests/PdfNotes.Tests/PdfNotes.Tests.csproj" />
   </Folder>
 </Solution>

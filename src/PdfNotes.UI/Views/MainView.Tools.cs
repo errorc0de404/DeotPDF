@@ -129,7 +129,7 @@ public sealed partial class MainView
     private void ShapeMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => OpenShapeMenu();
 
     /// <summary>The shape button menu opened last (tests).</summary>
-    public ContextMenu? LastShapeMenu { get; private set; }
+    internal ContextMenu? LastShapeMenu { get; private set; }
 
     /// <summary>The menu of the shape button (spec 8): line, curve, then the four shapes; the current one checked.</summary>
     public ContextMenu OpenShapeMenu()

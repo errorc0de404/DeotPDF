@@ -272,7 +272,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
     }
 
     /// <summary>The zoom menu opened last (tests).</summary>
-    public ContextMenu? LastZoomMenu { get; private set; }
+    internal ContextMenu? LastZoomMenu { get; private set; }
 
     /// <summary>A click on the zoom percentage: the presets and the two fits, the current zoom checked (spec 4.4).</summary>
     public ContextMenu OpenZoomMenu()

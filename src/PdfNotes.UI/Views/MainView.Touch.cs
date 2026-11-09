@@ -22,7 +22,7 @@ public sealed partial class MainView
     public bool IsTouchLayout { get; private set; }
 
     /// <summary>The 파일·페이지·보기 list is open (tests).</summary>
-    public bool IsTouchMenuOpen => TouchMenu.IsOpen;
+    internal bool IsTouchMenuOpen => TouchMenu.IsOpen;
 
     /// <summary>Turns the touch layout on (the Android app, before the view is shown). There is no way back.</summary>
     public void UseTouchLayout()

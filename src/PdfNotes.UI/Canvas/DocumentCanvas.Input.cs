@@ -390,7 +390,7 @@ public sealed partial class DocumentCanvas
     private bool flinging;
 
     /// <summary>The page is still moving after a fling (tests).</summary>
-    public bool IsFlinging => flinging;
+    internal bool IsFlinging => flinging;
 
     private void StartFling(Point2 velocity)
     {
@@ -460,7 +460,7 @@ public sealed partial class DocumentCanvas
     }
 
     /// <summary>For tests: a pen event (0 down, 1 move, 2 up) through the router and the canvas actions.</summary>
-    public void ProbePen(CanvasPointer pointer, int phase) => Run(phase switch { 0 => Router.Down(pointer), 1 => Router.Move(pointer), _ => Router.Up(pointer) }, null);
+    internal void ProbePen(CanvasPointer pointer, int phase) => Run(phase switch { 0 => Router.Down(pointer), 1 => Router.Move(pointer), _ => Router.Up(pointer) }, null);
 
     private void FingerTap(CanvasPointer pointer)
     {

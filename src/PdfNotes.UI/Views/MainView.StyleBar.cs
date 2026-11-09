@@ -65,7 +65,7 @@ public sealed partial class MainView
     }
 
     /// <summary>The color pickers of the palettes by name (tests).</summary>
-    public Dictionary<string, ColorPickerPanel> CustomColorPickers { get; } = [];
+    internal Dictionary<string, ColorPickerPanel> CustomColorPickers { get; } = [];
 
     // ----- eyedropper (spec 3.2): one click anywhere in the window picks that pixel's color -----
 

@@ -13,6 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
+    <ProjectReference Include="..\PdfNotes.TestSupport\PdfNotes.TestSupport.csproj" />
     <ProjectReference Include="..\..\src\PdfNotes.Desktop\PdfNotes.Desktop.csproj" />
   </ItemGroup>
 </Project>

@@ -107,7 +107,7 @@ public sealed partial class MainView : IPageThumbnailSource
         spec is null ? await pages.AddBlankWithDialogAsync(insertAfterActive) : pages.AddBlank(insertAfterActive, spec);
 
     /// <summary>The page menu opened last (tests).</summary>
-    public ContextMenu? LastPageMenu { get; private set; }
+    internal ContextMenu? LastPageMenu { get; private set; }
 
     /// <summary>The page list's context menu (<see cref="PagesViewModel.Menu"/>).</summary>
     public ContextMenu OpenPageMenu()
@@ -207,7 +207,7 @@ public sealed partial class MainView : IPageThumbnailSource
     }
 
     /// <summary>Drag a page's row with the mouse onto another place (tests): the same path as a real drag.</summary>
-    public bool MovePagesTo(Guid[] ids, int insertBefore) => pages.MoveTo(ids, insertBefore);
+    internal bool MovePagesTo(Guid[] ids, int insertBefore) => pages.MoveTo(ids, insertBefore);
 
     private void ShowDropLine(int index)
     {

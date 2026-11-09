@@ -28,7 +28,7 @@ public sealed partial class MainView
     private Guid editingPageId;
 
     /// <summary>The box being edited (tests), or null.</summary>
-    public TextBoxAnnotation? EditingText => editSession?.Model.Box;
+    internal TextBoxAnnotation? EditingText => editSession?.Model.Box;
 
     public TextBoxEditor? ActiveTextEditor => textEditor;
 

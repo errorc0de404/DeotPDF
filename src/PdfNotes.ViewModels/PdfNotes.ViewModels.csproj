@@ -5,4 +5,9 @@
   <ItemGroup>
     <ProjectReference Include="..\PdfNotes.Editor\PdfNotes.Editor.csproj" />
   </ItemGroup>
+  <!-- Members the tests observe (the last menu opened, a paste in progress) stay internal. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="PdfNotes.Desktop.Tests" />
+    <InternalsVisibleTo Include="PdfNotes.Tests" />
+  </ItemGroup>
 </Project>

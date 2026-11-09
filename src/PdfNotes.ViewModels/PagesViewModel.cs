@@ -650,7 +650,7 @@ public sealed class PagesViewModel : ObservableObject
     }
 
     /// <summary>Completes a paste of another window's pages (validation harness and tests).</summary>
-    public Task<bool>? LastForeignPaste { get; private set; }
+    internal Task<bool>? LastForeignPaste { get; private set; }
 
     /// <summary>
     /// Pastes copied pages after the active page, in their copied order (spec 11.4): another window's pages when they are

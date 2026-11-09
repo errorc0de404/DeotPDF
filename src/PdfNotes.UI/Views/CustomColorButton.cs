@@ -53,7 +53,7 @@ public sealed class CustomColorButton : Panel
     public ICommand? Command { get => GetValue(CommandProperty); set => SetValue(CommandProperty, value); }
 
     /// <summary>The color window (tests).</summary>
-    public ColorPickerPanel Picker { get; }
+    internal ColorPickerPanel Picker { get; }
 
     /// <summary>The eyedropper was chosen: the window samples a pixel and calls <see cref="Pick"/>.</summary>
     public event Action? EyedropperRequested;

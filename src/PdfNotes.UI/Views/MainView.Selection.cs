@@ -20,7 +20,7 @@ public sealed partial class MainView
     private Point2? lastCanvasPointer;
 
     /// <summary>The canvas menu opened last (tests).</summary>
-    public ContextMenu? LastCanvasMenu { get; private set; }
+    internal ContextMenu? LastCanvasMenu { get; private set; }
 
     private void InitializeSelectionCommands()
     {

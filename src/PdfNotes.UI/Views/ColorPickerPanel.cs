@@ -105,7 +105,7 @@ public sealed class ColorPickerPanel : StackPanel
     }
 
     /// <summary>Sets the plane and strip as a click at these fractions would (tests).</summary>
-    public void SetHsv(double h, double s, double v)
+    internal void SetHsv(double h, double s, double v)
     {
         hue = h; saturation = s; brightness = v;
         Refresh(keepCode: false);
