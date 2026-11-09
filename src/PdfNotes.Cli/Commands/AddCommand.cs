@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using PdfNotes.Core.Commands;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
+using PdfNotes.Editor.Tools;
 using PdfNotes.Editor.Services;
 using PdfNotes.Text;
 using DashStyle = PdfNotes.Core.Models.DashStyle;
@@ -25,8 +26,8 @@ public static class AddCommand
     private static readonly string[] CommonFlags = ["--lock"];
 
     /// <summary>App defaults (spec 7.2, 9.2, 24.8, 24.9): highlighter yellow at 60 % transparency, underline red 1.5 pt.</summary>
-    private static readonly RgbColor HighlightYellow = new(0xFF, 0xE6, 0x00), MarkupRed = new(0xE5, 0x39, 0x35), NoteYellow = new(0xFF, 0xD5, 0x4F);
-    private const double HighlightOpacity = 0.4, MarkupWidth = 1.5;
+    private static readonly RgbColor HighlightYellow = StrokeStyle.DefaultHighlighter.Color, MarkupRed = StrokeStyle.DefaultMarkup.Color, NoteYellow = new(0xFF, 0xD5, 0x4F);
+    private static readonly double HighlightOpacity = StrokeStyle.DefaultHighlighter.Opacity, MarkupWidth = StrokeStyle.DefaultMarkup.WidthPt;
 
     /// <summary>What a kind's builder makes: the annotation, an image resource, extra result fields and warnings.</summary>
     private sealed record Built(Annotation Annotation, Resource? Resource = null, JsonObject? Fields = null, JsonArray? Warnings = null);
