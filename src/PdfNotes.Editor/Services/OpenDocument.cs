@@ -208,6 +208,29 @@ public sealed class OpenDocument : IDisposable
         PdfPageImport.Build(file, pageIndices, Sources.NextIndex, cancellationToken);
 
     /// <summary>
+    /// Pages another window copied, as the PDF it sent (spec 11.4, D14g): written to a temporary file in
+    /// <paramref name="tempFolder"/>, opened and prepared like an import of all its pages. The file is gone afterwards; the
+    /// prepared pages have their own copy. Runs off the UI thread; changes nothing until <see cref="InsertImported"/>.
+    /// </summary>
+    public async Task<PageImport> PreparePastedPdfAsync(byte[] pdf, string tempFolder, CancellationToken cancellationToken = default)
+    {
+        string file = Path.Combine(tempFolder, $"PdfNotes-pages-{Guid.NewGuid():N}.pdf");
+        PdfSourceDocument? source = null;
+        try
+        {
+            await File.WriteAllBytesAsync(file, pdf, cancellationToken);
+            source = await Task.Run(() => PdfSourceDocument.Open(file, allowPermissionRestricted: true), cancellationToken);
+            var opened = source;
+            return await Task.Run(() => PrepareImport(opened, Enumerable.Range(0, opened.Pages.Count).ToArray(), cancellationToken), cancellationToken);
+        }
+        finally
+        {
+            source?.Dispose();
+            try { File.Delete(file); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>
     /// Several files for one insert (D13j): each file's pages numbered after the previous file's. Runs off the UI thread;
     /// on a failure the parts built so far are disposed and nothing changes.
     /// </summary>

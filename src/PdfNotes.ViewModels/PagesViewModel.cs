@@ -9,64 +9,6 @@ using PdfNotes.Pdf.Reading;
 
 namespace PdfNotes.ViewModels;
 
-/// <summary>One row of the page panel: number, thumbnail, whether it is selected and whether it is the active page (spec 11.1, 11.5).</summary>
-public sealed class PageItemViewModel(Guid pageId, Action<PageItemViewModel>? selectionChanged = null) : ObservableObject
-{
-    private int number;
-    private bool active, selected;
-    private object? image;
-    private double width = PagesViewModel.ThumbnailWidth, height = PagesViewModel.ThumbnailWidth * 1.414;
-
-    public Guid PageId { get; } = pageId;
-    public int Number { get => number; set => SetProperty(ref number, value); }
-    public bool IsActive { get => active; set => SetProperty(ref active, value); }
-
-    /// <summary>Selected in the list (the list's selection is this, R4e): a click, Ctrl/Shift, or a command that made pages.</summary>
-    public bool IsSelected
-    {
-        get => selected;
-        set { if (SetProperty(ref selected, value)) selectionChanged?.Invoke(this); }
-    }
-
-    /// <summary>The thumbnail, a platform image made by <see cref="IPageThumbnailSource"/> (null until drawn).</summary>
-    public object? Image { get => image; set => SetProperty(ref image, value); }
-
-    public double ImageWidth { get => width; set => SetProperty(ref width, value); }
-    public double ImageHeight { get => height; set => SetProperty(ref height, value); }
-
-    /// <summary>The model page the image shows (reference); a changed page gets a new image. Null: draw again.</summary>
-    public Page? Rendered { get; set; }
-}
-
-/// <summary>A drawn thumbnail: the platform image, its size in DIPs, and whether every text box was laid out.</summary>
-public sealed record PageThumbnail(object Image, double Width, double Height, bool Complete);
-
-/// <summary>Draws page thumbnails (the PDF background and the app's notes) at the screen's pixels (P1 V5).</summary>
-public interface IPageThumbnailSource
-{
-    /// <summary>
-    /// The thumbnail of <paramref name="page"/>, <paramref name="width"/> DIPs wide, without notes when
-    /// <paramref name="notesHidden"/>; null when cancelled. An unrenderable PDF page gives a white thumbnail.
-    /// </summary>
-    Task<PageThumbnail?> RenderAsync(OpenDocument document, DocumentModel model, Page page, double width, bool notesHidden, CancellationToken cancel);
-}
-
-/// <summary>What the resize and shrink dialog asks for (spec 11.6–11.8, D10d); the target IDs are fixed when it opens.</summary>
-public sealed record PageTransformRequest(PageApplyScope Scope, double Percent, double WidthMm, double HeightMm, PageResizeMode Mode, int Alignment)
-{
-    public Point2? FreePosition { get; init; }
-    public Guid[]? TargetPageIds { get; init; }
-}
-
-/// <summary>The commands of the page panel's context menu and the 페이지 tab (spec 11).</summary>
-public enum PageCommand { InsertBlank, CopyWithNotes, CopyPageOnly, Paste, Delete, ClearNotes, Export, RotateRight, RotateLeft, Shrink, Resize }
-
-/// <summary>A context menu row; <see cref="Text"/> null is a separator.</summary>
-public sealed record PageMenuEntry(PageCommand Command, string? Text, bool Enabled = true)
-{
-    public static PageMenuEntry Separator { get; } = new(default, null);
-}
-
 /// <summary>
 /// The page panel (spec 3.2-5, 11; P1 V5): rows in document order with thumbnails, the active page (insert target and
 /// paste position, following the view when the panel is idle), the selection, and the page commands — add, insert,
@@ -674,15 +616,10 @@ public sealed class PagesViewModel : ObservableObject
     private async Task<bool> PasteForeignAsync(Guid session)
     {
         if (Document is not { } target) return false;
-        string file = Path.Combine(Path.GetTempPath(), $"PdfNotes-pages-{Guid.NewGuid():N}.pdf");
-        PdfSourceDocument? source = null;
         try
         {
             if (await ForeignPagesPdfAsync(session) is not { } pdf) throw new InvalidDataException("The copied pages did not arrive.");
-            await File.WriteAllBytesAsync(file, pdf);
-            source = await Task.Run(() => PdfSourceDocument.Open(file, allowPermissionRestricted: true));
-            var opened = source;
-            var import = await Task.Run(() => target.PrepareImport(opened, Enumerable.Range(0, opened.Pages.Count).ToArray()));
+            var import = await target.PreparePastedPdfAsync(pdf, Path.GetTempPath());
             if (!ReferenceEquals(Document, target)) { import.Pdf?.Dispose(); return false; }
             owner.Editing.FinishTextEditing();
             owner.Editing.CancelTool();
@@ -694,11 +631,6 @@ public sealed class PagesViewModel : ObservableObject
         {
             dialogs.Tell(texts.Get("clipboard.pasteFailed"), NoticeKind.Warning);
             return false;
-        }
-        finally
-        {
-            source?.Dispose();
-            try { File.Delete(file); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         }
     }
 }
