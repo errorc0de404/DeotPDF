@@ -8,9 +8,8 @@ public sealed record PageRenderResult<TBitmap>(RenderKey Key, TBitmap? Bitmap, s
 
 /// <summary>
 /// Renders page bitmaps on one background thread (PDFium is serialized anyway) for one open document, for any UI
-/// (roadmap P4: the Avalonia app; the WPF app keeps its own copy, <c>PageRenderScheduler</c>, until it is retired).
-/// <see cref="Request"/> replaces the whole pending queue, so requests for pages that scrolled away are dropped before
-/// they start. The constructor's <c>toBitmap</c> turns the PDFium pixels into the platform bitmap on the render thread;
+/// (roadmap P4). <see cref="Request"/> replaces the whole pending queue, so requests for pages that scrolled away are
+/// dropped before they start. The constructor's <c>toBitmap</c> turns the PDFium pixels into the platform bitmap on the render thread;
 /// finished bitmaps go into a byte-bounded LRU cache and are announced through its <c>post</c> on the UI thread.
 /// </summary>
 public sealed class PageRenderQueue<TBitmap> : IDisposable where TBitmap : class

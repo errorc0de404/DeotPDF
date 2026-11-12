@@ -6,10 +6,9 @@ using Avalonia.Media;
 namespace PdfNotes.UI.Themes;
 
 /// <summary>
-/// An icon of the app (roadmap P4 A5): a Fluent UI System Icons path (<see cref="IconData"/>, the same family as the WPF
-/// app's Segoe Fluent Icons glyphs, but drawn the same on Windows, macOS and Linux) or one of the outlines the WPF app
-/// draws itself (<see cref="Outline"/>: the shape tools). It takes the text color of its button (<c>Foreground</c>
-/// inherited), so the on, off and disabled states follow the button like a glyph would.
+/// An icon of the app (roadmap P4 A5): a Fluent UI System Icons path (<see cref="IconData"/>, drawn the same on Windows,
+/// macOS and Linux) or one of the app's own outlines (<see cref="Outline"/>: the shape tools). It takes the text color
+/// of its button (<c>Foreground</c> inherited), so the on, off and disabled states follow the button like a glyph would.
 /// </summary>
 public sealed class AppIcon : Control
 {
@@ -31,13 +30,13 @@ public sealed class AppIcon : Control
     /// <summary>A key of <see cref="IconData.Paths"/> (filled, 20 × 20 box).</summary>
     public string? Glyph { get => GetValue(GlyphProperty); set => SetValue(GlyphProperty, value); }
 
-    /// <summary>Path data drawn as a 1.1 DIP outline in a 16 × 16 box (the WPF app's own icons, Icon.Stroke).</summary>
+    /// <summary>Path data drawn as a 1.1 DIP outline in a 16 × 16 box (the app's own icons, Icon.Stroke).</summary>
     public string? Outline { get => GetValue(OutlineProperty); set => SetValue(OutlineProperty, value); }
 
     /// <summary>The icon cell in DIPs (Icon.Size, 16; FontSize.IconSmall icons 12).</summary>
     public double Size { get => GetValue(SizeProperty); set => SetValue(SizeProperty, value); }
 
-    /// <summary>Drawn left-right mirrored (the WPF app mirrors one rotate glyph for 왼쪽으로 회전).</summary>
+    /// <summary>Drawn left-right mirrored (one rotate glyph serves 왼쪽으로 회전 this way).</summary>
     public bool Mirrored { get => GetValue(MirroredProperty); set => SetValue(MirroredProperty, value); }
 
     public static bool Exists(string glyph) => IconData.Paths.ContainsKey(glyph);
@@ -60,8 +59,8 @@ public sealed class AppIcon : Control
         using var mirror = context.PushTransform(Mirrored ? Matrix.CreateScale(-1, 1) * Matrix.CreateTranslation(s, 0) : Matrix.Identity);
         if (Glyph is { } glyph && IconData.Paths.TryGetValue(glyph, out var data))
         {
-            // Fluent's 20 px icons keep a 2 px margin; the Segoe Fluent Icons glyphs of the WPF app fill their cell, so the
-            // inner 16 px are what fills this icon's cell (the same visual size and stroke weight).
+            // Fluent's 20 px icons keep a 2 px margin, so the inner 16 px are what fills this icon's cell (the visual size
+            // and stroke weight of icon font glyphs, which fill their cell).
             using var scale = context.PushTransform(Matrix.CreateTranslation(-2, -2) * Matrix.CreateScale(s / 16, s / 16));
             context.DrawGeometry(brush, null, Parse(data));
         }
@@ -72,7 +71,7 @@ public sealed class AppIcon : Control
         }
     }
 
-    /// <summary>The outline of a shape group tool (the WPF ShapeIcon paths).</summary>
+    /// <summary>The outline of a shape group tool.</summary>
     public static string ShapeOutline(PdfNotes.Editor.Tools.ToolKind tool, PdfNotes.Core.Models.ShapeKind shape) => tool switch
     {
         PdfNotes.Editor.Tools.ToolKind.Line => "M2,14 L14,2",

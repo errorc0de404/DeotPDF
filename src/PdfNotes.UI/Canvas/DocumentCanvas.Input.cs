@@ -15,9 +15,9 @@ namespace PdfNotes.UI.Canvas;
 public readonly record struct CanvasHold(Point2 At, bool AfterTextDrag);
 
 /// <summary>
-/// Pointer input of the canvas (roadmap P4 A3), the WPF <c>DocumentView</c>'s rules: the left button drives the tool, the
+/// Pointer input of the canvas (roadmap P4 A3): the left button drives the tool, the
 /// middle button is the quick eraser while held (spec 7.5), another button cancels a stroke, Space + drag pans. Pen and
-/// touch go through the P3 <see cref="PointerRouter"/> (spec 7.6) exactly as in the WPF app.
+/// touch go through the P3 <see cref="PointerRouter"/> (spec 7.6).
 /// </summary>
 public sealed partial class DocumentCanvas
 {
@@ -213,7 +213,7 @@ public sealed partial class DocumentCanvas
             if (e.Pointer.Type == PointerType.Pen && !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && !Router.IsDrawing)
                 Run(Router.PenInRange(true), e.Pointer);
             else
-                // Every sample of the report, so fast strokes keep their shape and their pressure changes (as the WPF view).
+                // Every sample of the report, so fast strokes keep their shape and their pressure changes.
                 foreach (var sample in e.GetIntermediatePoints(this)) Run(Router.Move(Pointer(e, sample)), e.Pointer);
             return;
         }
@@ -230,7 +230,7 @@ public sealed partial class DocumentCanvas
             if (tip != shownTip)
             {
                 shownTip = tip;
-                Avalonia.Controls.ToolTip.SetTip(this, tip); // opens after the usual delay, as a WPF tooltip
+                Avalonia.Controls.ToolTip.SetTip(this, tip); // opens after the usual tooltip delay
                 if (tip is null) Avalonia.Controls.ToolTip.SetIsOpen(this, false);
             }
         }
@@ -506,7 +506,7 @@ public sealed partial class DocumentCanvas
         if (spaceHeld || panning) type = StandardCursorType.Hand;
         else if (ActiveTool?.Cursor is { Shape: CursorShape.Rotate or CursorShape.Lock or CursorShape.Pen } custom)
         {
-            // Not stock cursors here (the WPF SelectionCursors and Cursors.Pen): drawn at the screen's pixels.
+            // Not stock cursors here (CanvasCursors): drawn at the screen's pixels.
             double scale = Avalonia.Controls.TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
             Cursor = custom.Shape switch { CursorShape.Rotate => CanvasCursors.Rotate(scale), CursorShape.Lock => CanvasCursors.Lock(scale), _ => CanvasCursors.Pen(scale) };
             return;

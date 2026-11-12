@@ -107,7 +107,7 @@ public sealed partial class MainView
     private static (ImageAnnotation Image, Resource Resource) PlacedImage(byte[] bytes, Page page, Point2? center)
     {
         var resource = ImageResources.Create(bytes);
-        var (w, h, dpi) = ImageFiles.Check(bytes); // decodes whole, 64 M pixels at most, the file's DPI (the WPF ImageAssets)
+        var (w, h, dpi) = ImageFiles.Check(bytes); // decodes whole, 64 M pixels at most, the file's DPI
         return (ImagePlacement.Place(resource, w, h, dpi, page, center), resource);
     }
 

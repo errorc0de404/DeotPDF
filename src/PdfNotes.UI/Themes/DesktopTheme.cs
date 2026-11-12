@@ -8,7 +8,7 @@ namespace PdfNotes.UI.Themes;
 /// <summary>
 /// The theme setting (spec 3.2) on Avalonia: light, dark or the system's (Avalonia follows the OS itself), and the accent
 /// color. The palette lives in Themes/Colors.axaml; this sets the theme variant and the three accent brushes
-/// (<c>Accent</c>, <c>Accent.Subtle</c>, <c>Accent.Foreground</c>) for the variant actually shown, as the WPF Theme does.
+/// (<c>Accent</c>, <c>Accent.Subtle</c>, <c>Accent.Foreground</c>) for the variant actually shown.
 /// </summary>
 public static class DesktopTheme
 {

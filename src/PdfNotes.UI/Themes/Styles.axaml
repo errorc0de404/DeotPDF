@@ -1,4 +1,4 @@
-<!-- Small layout rules of the bars (roadmap P4 A5, the WPF FieldGroup/FieldLabel/FieldUnit/Separator styles). -->
+<!-- Small layout rules of the bars (roadmap P4 A5): field groups, labels, units, separators and bar fields. -->
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:th="using:PdfNotes.UI.Themes">

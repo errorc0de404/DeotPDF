@@ -69,7 +69,7 @@ public sealed partial class MainView
         menu.Open(TextStylesButton);
     }
 
-    /// <summary>`Slot 1` in the slot's own font, size (11–20 DIP), weight and color, as in the WPF menu.</summary>
+    /// <summary>`Slot 1` in the slot's own font, size (11–20 DIP), weight and color.</summary>
     private object SlotHeader(int index)
     {
         string name = $"Slot {index + 1}"; // slot names are fixed, as in the spec (not UI text, D14e)
@@ -96,7 +96,7 @@ public sealed partial class MainView
         menu.Items.Add(SavedTextStylesMenu());
         menu.Items.Add(Menus.Sub(Strings.Get("text.saveStyle"), true, Enumerable.Range(0, 5).Select(i => (Control)Menus.Item(SlotHeader(i), () => textStyle.SaveStyle(i)))));
         menu.Items.Add(Menus.Item(Strings.Get("text.makeDefault"), () => textStyle.SaveStyle(null)));
-        // The clipboard commands of the editor (the WPF menu's Copy, Cut, Paste, Select all).
+        // The clipboard commands of the editor (Copy, Cut, Paste, Select all).
         menu.Items.Add(new Separator());
         if (textEditor is { } editor)
         {

@@ -42,7 +42,7 @@ public abstract class AppDialog : DialogView
     }
 
     /// <summary>
-    /// A resizable window of a preferred size that fits the screen it opens on (the WPF ScreenArea.Fit): never larger than
+    /// A resizable window of a preferred size that fits the screen it opens on: never larger than
     /// the work area, never smaller than the minimum.
     /// </summary>
     protected void Fit(double width, double height, double minWidth, double minHeight) => PreferredSize = (width, height, minWidth, minHeight);

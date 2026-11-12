@@ -28,7 +28,7 @@ public sealed class ImportThumb(int index) : INotifyPropertyChanged
 }
 
 /// <summary>
-/// The range window of PDF에서 불러오기 (spec 11.9, the WPF PdfImportDialog): page thumbnails on the left (click, Ctrl,
+/// The range window of PDF에서 불러오기 (spec 11.9): page thumbnails on the left (click, Ctrl,
 /// Shift), the range text and the chosen count kept in step with them, and a large preview of the clicked page. Invalid
 /// text shows a short message and disables 삽입. The file is drawn as saved (with its annotations). Nothing changes here.
 /// </summary>
@@ -120,7 +120,7 @@ public sealed class PdfImportDialog : AppDialog
         range.Text = PageRanges.All;
         Fire.AndReport(ShowPreviewAsync(0));
         Opened += (_, _) => { range.Focus(); range.SelectAll(); Fire.AndReport(RenderVisibleAsync()); };
-        // Only the rows in view are drawn (the WPF dialog): when the list scrolls, its rows change the extent or it is
+        // Only the rows in view are drawn: when the list scrolls, its rows change the extent or it is
         // resized, and again at another screen scale. Not on every layout pass (plan C5).
         list.AddHandler(ScrollViewer.ScrollChangedEvent, (_, _) => Fire.AndReport(RenderVisibleAsync()));
         list.SizeChanged += (_, _) => Fire.AndReport(RenderVisibleAsync());
@@ -165,7 +165,7 @@ public sealed class PdfImportDialog : AppDialog
     private bool rendering;
     private int scaleGeneration; // a thumbnail drawn for an earlier screen scale is not kept
 
-    /// <summary>An unreadable page: a 3:4 sheet of paper instead of stopping the others (the WPF Unreadable image).</summary>
+    /// <summary>An unreadable page: a 3:4 sheet of paper instead of stopping the others.</summary>
     private static readonly IImage Unreadable = new Avalonia.Media.Imaging.WriteableBitmap(new PixelSize(3, 4), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul).Also(b =>
     {
         using var l = b.Lock();

@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="PdfNotes.Desktop.App"
              RequestedThemeVariant="Default">
-    <!-- Roadmap P4: Fluent controls (compact, like the WPF app's field heights) under the app's design tokens (Themes/Tokens,
-         Themes/Colors — the WPF values) and its own looks (Themes/Controls: tool buttons, ribbon, swatches). -->
+    <!-- Roadmap P4: Fluent controls (compact field heights) under the app's design tokens (Themes/Tokens, Themes/Colors)
+         and its own looks (Themes/Controls: tool buttons, ribbon, swatches). -->
     <Application.Styles>
         <FluentTheme DensityStyle="Compact" />
         <StyleInclude Source="avares://PdfNotes.UI/Themes/Styles.axaml" />

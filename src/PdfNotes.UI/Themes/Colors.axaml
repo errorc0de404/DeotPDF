@@ -1,5 +1,5 @@
-<!-- Generated from src/PdfNotes.App/Themes/Light.xaml, Dark.xaml, Canvas.xaml and Accents.xaml (roadmap P4 A0). Same keys and values as the WPF tokens until the WPF app
-     is retired; ThemeTokenTests checks that they match. Change both, or regenerate. -->
+<!-- The colors of the app (roadmap P4 A0): light and dark theme colors, canvas and accent colors. ShellTests checks
+     that Light and Dark define the same keys. -->
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 

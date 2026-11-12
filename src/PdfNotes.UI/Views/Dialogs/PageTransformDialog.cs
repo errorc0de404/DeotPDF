@@ -14,7 +14,7 @@ using PdfNotes.ViewModels;
 namespace PdfNotes.UI.Views;
 
 /// <summary>
-/// 페이지 크기 / 내용 축소 (spec 11.6–11.8, D10d, the WPF PageTransformDialog): the settings scroll on the left, the
+/// 페이지 크기 / 내용 축소 (spec 11.6–11.8, D10d): the settings scroll on the left, the
 /// placement preview on the right, the buttons below both. Opening or cancelling changes nothing.
 /// </summary>
 public sealed class PageTransformDialog : DialogView
@@ -42,7 +42,7 @@ public sealed class PageTransformDialog : DialogView
         this.resize = resize;
         this.targets = targets;
         Title = resize ? Strings.Get("transform.resizeTitle") : Strings.Get("transform.shrinkTitle");
-        PreferredSize = (930, 760, 760, 560); // the WPF size and minimum, clamped to the screen
+        PreferredSize = (930, 760, 760, 560); // preferred size and minimum, clamped to the screen
         error.Bind(TextBlock.ForegroundProperty, error.GetResourceObservable("Text.Danger"));
         var root = new Grid { Margin = new Thickness(20), ColumnDefinitions = new ColumnDefinitions("330,*"), RowDefinitions = new RowDefinitions("*,Auto") };
         Content = root;

@@ -24,7 +24,7 @@ public sealed class TextEditedEventArgs(TextBoxAnnotation box, TextEditKind kind
 }
 
 /// <summary>
-/// The clipboard as the editor uses it. The platform reads and writes the real clipboard (the WPF and Avalonia hosts;
+/// The clipboard as the editor uses it. The platform reads and writes the real clipboard (the Avalonia host;
 /// roadmap P2 S4 keeps clipboard access out of the model). <see cref="Set"/> puts both forms on the clipboard at once.
 /// </summary>
 public interface ITextClipboard

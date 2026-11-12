@@ -1,9 +1,9 @@
 namespace PdfNotes.Core.Geometry;
 
 /// <summary>
-/// 2D affine matrix using the PDF/WPF row-vector convention:
+/// 2D affine matrix using the PDF row-vector convention:
 /// x' = x*M11 + y*M21 + OffsetX, y' = x*M12 + y*M22 + OffsetY.
-/// The six values map directly to a PDF <c>[a b c d e f]</c> matrix and a WPF Matrix.
+/// The six values map directly to a PDF <c>[a b c d e f]</c> matrix.
 /// </summary>
 public readonly record struct Affine(double M11, double M12, double M21, double M22, double OffsetX, double OffsetY)
 {

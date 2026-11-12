@@ -8,7 +8,7 @@ namespace PdfNotes.Text;
 /// <summary>
 /// The PDF drawing of a Skia layout as <see cref="TextPaint"/> (roadmap P2 S2): the scene's shapes as flattened
 /// outlines (0.02 pt, D01), glyphs from <see cref="SKFont.GetGlyphPath"/> with fake bold and slant applied by Skia.
-/// The tree has the WPF engine's shape: [scale group] → clip group → fill, border, highlights, glyphs and bars.
+/// The tree: [scale group] → clip group → fill, border, highlights, glyphs and bars.
 /// </summary>
 internal static class SkiaTextOutlines
 {

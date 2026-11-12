@@ -4,7 +4,7 @@ namespace PdfNotes.Desktop.Platform;
 
 /// <summary>
 /// Shows the Windows touch keyboard (spec 7.6): a text box edit started with a finger tap brings it up, as the OS does for
-/// its own text fields (the WPF app's, roadmap P4 A6). Uses the InputPane of the window (Windows 10 1803 and later) through raw COM calls; anything that
+/// its own text fields (roadmap P4 A6). Uses the InputPane of the window (Windows 10 1803 and later) through raw COM calls; anything that
 /// fails is ignored (no touch keyboard on this PC, an older Windows) — typing with a hardware keyboard still works.
 /// </summary>
 public static class TouchKeyboard

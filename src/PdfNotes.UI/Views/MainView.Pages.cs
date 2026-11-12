@@ -20,7 +20,7 @@ using Page = PdfNotes.Core.Models.Page;
 namespace PdfNotes.UI.Views;
 
 /// <summary>
-/// The left page panel (spec 3.2-5, 11, the WPF MainWindow.Pages): thumbnails in document order. The rows, their
+/// The left page panel (spec 3.2-5, 11): thumbnails in document order. The rows, their
 /// selection, the panel's toggles and the page commands are bound to <see cref="PagesViewModel"/> (R4e); this file has
 /// the input that is the window's — dragging rows to reorder, the context menu, the list's keys — and draws thumbnails.
 /// </summary>

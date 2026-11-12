@@ -14,8 +14,8 @@ namespace PdfNotes.ViewModels;
 public enum TextColorTarget { Text, Fill, Border }
 
 /// <summary>
-/// The text box being edited, as the text bar sees it (P1 V8). The WPF window implements it over its RichTextBox; the
-/// P2 editor implements the same. Editing itself (IME, caret, keys) stays with the implementation.
+/// The text box being edited, as the text bar sees it (P1 V8), implemented by the
+/// P2 editor. Editing itself (IME, caret, keys) stays with the implementation.
 /// </summary>
 public interface ITextEditorSession
 {

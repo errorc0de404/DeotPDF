@@ -1,5 +1,5 @@
-<!-- Generated from src/PdfNotes.App/Themes/Tokens.xaml (roadmap P4 A0). Same keys and values as the WPF tokens until the WPF app
-     is retired; ThemeTokenTests checks that they match. Change both, or regenerate. -->
+<!-- The design tokens that do not change with the theme (roadmap P4 A0). Theme colors are in Colors.axaml; ShellTests
+     checks that no theme color key is also here. -->
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 

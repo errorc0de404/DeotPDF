@@ -4,9 +4,9 @@ using SkiaSharp;
 namespace PdfNotes.UI.Views;
 
 /// <summary>
-/// Image files going into a document (spec 10), as the WPF ImageAssets: the whole picture must decode and have at most
-/// 64 million pixels, and its stored resolution sets its natural size (WPF reads it from the file through BitmapFrame;
-/// Skia does not report it, so it is read from the PNG pHYs, JPEG JFIF and BMP headers here; 96 DPI otherwise).
+/// Image files going into a document (spec 10): the whole picture must decode and have at most 64 million pixels, and
+/// its stored resolution sets its natural size (Skia does not report it, so it is read from the PNG pHYs, JPEG JFIF and
+/// BMP headers here; 96 DPI otherwise).
 /// </summary>
 public static class ImageFiles
 {

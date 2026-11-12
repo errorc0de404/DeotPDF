@@ -7,8 +7,8 @@ using PdfNotes.ViewModels;
 namespace PdfNotes.UI.Views;
 
 /// <summary>
-/// Automatic backup, recovery after an abnormal end (spec 18.2) and the running window's session marker (spec 4.6), as
-/// the WPF window's <c>MainWindow.Backup</c>. The work is <see cref="BackupViewModel"/>'s.
+/// Automatic backup, recovery after an abnormal end (spec 18.2) and the running window's session marker (spec 4.6).
+/// The work is <see cref="BackupViewModel"/>'s.
 /// </summary>
 public sealed partial class MainView
 {

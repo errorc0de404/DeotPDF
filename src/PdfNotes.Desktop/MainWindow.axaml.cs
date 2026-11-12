@@ -103,7 +103,7 @@ public sealed partial class MainWindow : Window, IViewHost
 
     // ----- placement (spec 24.1, D13h) -----
 
-    // Placement is stored like the WPF app (the same settings file): DIPs of the screen the window is on, and the outer
+    // Placement is stored in the settings file: DIPs of the screen the window is on, and the outer
     // window size (frame and title bar included; Avalonia's Width/Height are the client area).
 
     private double PlacementScale

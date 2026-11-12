@@ -111,7 +111,7 @@ public static class ZoomLimits
 }
 
 /// <summary>
-/// The single conversion path between canonical page points, WPF DIPs and device pixels for one page.
+/// The single conversion path between canonical page points, DIPs and device pixels for one page.
 /// View state (zoom, DPI, scroll origin) never enters stored geometry.
 /// </summary>
 public sealed class ViewTransform

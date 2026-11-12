@@ -20,7 +20,7 @@ using SkiaSharp;
 namespace PdfNotes.UI.Views;
 
 /// <summary>
-/// The canvas tools (roadmap P4 A3): the same Editor tools and the same wiring as the WPF window (MainWindow.Tools), with
+/// The canvas tools (roadmap P4 A3): the Editor tools wired to the canvas, with
 /// the tool state in the view model (<see cref="ToolBarViewModel"/>, <see cref="ToolSwitch"/>): the canvas tool follows
 /// <see cref="ToolBarViewModel.Current"/>, and the 필기 tab's buttons are bound to it (R4d). Here also the shape menu.
 /// </summary>
@@ -133,7 +133,7 @@ public sealed partial class MainView
     // ----- what the canvas draws: taken on the UI thread for each frame -----
 
     /// <summary>
-    /// The annotation layer of a page as the WPF overlay shows it: nothing while the notes are hidden, and not the text
+    /// The annotation layer of a page: nothing while the notes are hidden, and not the text
     /// box being edited (its editor draws it). Annotations a drag is changing are left out here and drawn by
     /// <see cref="LiveFor"/>, so the canvas keeps the rest of the frame while they move (roadmap P5d A2).
     /// </summary>
@@ -146,7 +146,7 @@ public sealed partial class MainView
         // A new sticky note is drawn while its card is open (it joins the document when closed with text).
         if (viewModel.NoteCard is { IsNew: true, Note: { } open } card && card.PageId == page.Id) shown.Add(open);
         var resources = doc.Session.Current.Resources;
-        // The box being edited has its edit frame (the WPF overlay): a thin frame with a white halo when the box has no
+        // The box being edited has its edit frame: a thin frame with a white halo when the box has no
         // border of its own, so it shows on dark pages too (D13c); a real border is the box's and the editor draws it.
         (Affine Transform, double Width, double Height)? editFrame = null;
         if (editSession is { } editing && editingPageId == page.Id && !editing.Model.Box.BoxStyle.BorderEnabled)
@@ -201,7 +201,7 @@ public sealed partial class MainView
         return (canvas, _, _, t) => { foreach (var a in shown) SkiaAnnotationPainter.Paint(canvas, a, t, id => resources.GetValueOrDefault(id)); };
     }
 
-    /// <summary>Selection marks of a page (the WPF PaintMarks): text selection, then the frame, handles or line handles.</summary>
+    /// <summary>Selection marks of a page: text selection, then the frame, handles or line handles.</summary>
     private PagePainter? MarksFor(int index, Page page, ViewTransform transform)
     {
         var colors = Canvas.MarkColors;

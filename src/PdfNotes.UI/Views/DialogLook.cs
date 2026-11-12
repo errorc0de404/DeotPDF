@@ -4,7 +4,7 @@ using Avalonia.Controls.Primitives;
 
 namespace PdfNotes.UI.Views;
 
-/// <summary>The app's windows other than the main one: the theme's colors and the UI font (the WPF Theme.Attach + UseDialogTokens).</summary>
+/// <summary>The app's windows other than the main one: the theme's colors and the UI font.</summary>
 public static class DialogLook
 {
     public static void Apply(Window window)
@@ -16,7 +16,7 @@ public static class DialogLook
         window.ShowInTaskbar = false;
     }
 
-    /// <summary>The WPF ScreenArea.Fit: a preferred size clamped to the work area of the owner's screen, resizable, with a minimum.</summary>
+    /// <summary>A preferred size clamped to the work area of the owner's screen, resizable, with a minimum.</summary>
     public static void Fit(Window window, double width, double height, double minWidth, double minHeight)
     {
         window.SizeToContent = SizeToContent.Manual;

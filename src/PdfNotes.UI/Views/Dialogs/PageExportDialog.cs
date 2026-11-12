@@ -8,7 +8,7 @@ using PdfNotes.Editor.Localization;
 namespace PdfNotes.UI.Views;
 
 /// <summary>
-/// 내보내기 (spec 11.10, D13j, D14g; the WPF PageExportDialog): page numbers and ranges, several files separated by
+/// 내보내기 (spec 11.10, D13j, D14g): page numbers and ranges, several files separated by
 /// <c>;</c>, editable or with the notes merged (Flatten). The file name is asked after this window. Nothing changes here.
 /// </summary>
 public sealed class PageExportDialog : AppDialog

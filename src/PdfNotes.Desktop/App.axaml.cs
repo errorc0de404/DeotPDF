@@ -70,7 +70,7 @@ public sealed class App : Application
     private bool crashing;
 
     /// <summary>
-    /// An unexpected error ends the app, but first the open document is saved as a crash backup (spec 18.2, as the WPF app).
+    /// An unexpected error ends the app, but first the open document is saved as a crash backup (spec 18.2).
     /// </summary>
     private void CatchCrashes(MainWindow window)
     {
@@ -93,7 +93,7 @@ public sealed class App : Application
     }
 
     /// <summary>
-    /// The UI font token (Font.Ui, Malgun Gothic as in the WPF app) on macOS and Linux is that system's Korean UI font, so
+    /// The UI font token (Font.Ui, Malgun Gothic) on macOS and Linux is that system's Korean UI font, so
     /// menus and labels do not fall back glyph by glyph. Windows keeps the token.
     /// </summary>
     public static void UsePlatformFont(Application app)
@@ -104,7 +104,7 @@ public sealed class App : Application
     }
 
     /// <summary>
-    /// Applies the language pack before any window exists (D14e, as the WPF app). Problems fall back to Korean and go to
+    /// Applies the language pack before any window exists (D14e). Problems fall back to Korean and go to
     /// <c>Languages/language.log</c> in the settings folder.
     /// </summary>
     private static void UseLanguage(string? language, string folder)

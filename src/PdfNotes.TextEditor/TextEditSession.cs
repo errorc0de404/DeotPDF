@@ -4,9 +4,8 @@ using PdfNotes.Core.Models;
 namespace PdfNotes.TextEditor;
 
 /// <summary>
-/// Keeps the document in step with a <see cref="TextEditorModel"/> while its box is edited (what the WPF app's
-/// <c>FlushTextEdit</c>/<c>FinishTextEditing</c> do; roadmap P2 S4). Every change goes into the document at once, so
-/// other views see it, but one edit is one document Undo step (2026-11-03 user decision, spec 13.2): a new box comes
+/// Keeps the document in step with a <see cref="TextEditorModel"/> while its box is edited (roadmap P2 S4). Every
+/// change goes into the document at once, so other views see it, but one edit is one document Undo step (2026-11-03 user decision, spec 13.2): a new box comes
 /// and goes as a whole, an edited box goes back to how it was before the edit. Undo while editing is the editor's own
 /// (per word) and only moves the box inside that step. Blank text is not written while editing; <see cref="Finish"/>
 /// removes a box left blank in the same step, and an edit that changed nothing leaves no step.

@@ -8,8 +8,8 @@ using SkiaSharp;
 namespace PdfNotes.Render.Skia;
 
 /// <summary>
-/// App annotations on a Skia canvas (roadmap P4 A2), matching their PDF appearance (Pdf/Writing/AnnotationAppearance) and
-/// the WPF <c>AnnotationPainter</c>: a stroke is one round-capped path (a pressure stroke or an eraser piece its filled
+/// App annotations on a Skia canvas (roadmap P4 A2), matching their PDF appearance (Pdf/Writing/AnnotationAppearance):
+/// a stroke is one round-capped path (a pressure stroke or an eraser piece its filled
 /// region), a single point is a dot of the stroke width, and opacity is applied once per annotation so a highlighter's
 /// self-overlap does not darken while separate strokes do (spec 9.2). The canvas is in viewport DIPs;
 /// <see cref="ViewTransform.PageToDip"/> places the page. Safe to call from the render thread: it reads only the
@@ -154,7 +154,7 @@ public static class SkiaAnnotationPainter
         canvas.RestoreToCount(saved);
     }
 
-    /// <summary>A round-capped, round-joined pen; <paramref name="dashes"/> are in pen widths (as WPF dash styles are).</summary>
+    /// <summary>A round-capped, round-joined pen; <paramref name="dashes"/> are in pen widths.</summary>
     private static SKPaint Pen(RgbColor color, double width, double[] dashes, double opacity = 1)
     {
         var paint = new SKPaint

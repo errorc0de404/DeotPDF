@@ -4,10 +4,9 @@ using Avalonia.Input.TextInput;
 namespace PdfNotes.UI.Canvas;
 
 /// <summary>
-/// The first key typed on a selected text box (spec 5.4, D12; roadmap P4 A5). The WPF canvas has no IME and replays the
-/// key into the editor; here the canvas itself is an IME client: the composition of that first key (a Korean initial
-/// consonant, then the syllable it becomes) goes to <see cref="Preedit"/>, the window starts editing the box and shows it
-/// there, and the committed text arrives as a TextInput event as usual. Only then does the keyboard move to the editor,
+/// The first key typed on a selected text box (spec 5.4, D12; roadmap P4 A5). The canvas itself is an IME client: the
+/// composition of that first key (a Korean initial consonant, then the syllable it becomes) goes to <see cref="Preedit"/>,
+/// the window starts editing the box and shows it there, and the committed text arrives as a TextInput event as usual. Only then does the keyboard move to the editor,
 /// so the IME never resets in the middle of the first syllable.
 /// </summary>
 public sealed partial class DocumentCanvas
@@ -31,8 +30,8 @@ public sealed partial class DocumentCanvas
     /// <summary>The candidate window should follow the caret again (the box was opened for editing).</summary>
     public void TypingCaretMoved() => ime?.Moved();
 
-    /// <summary>Ends a composition no box takes (a letter typed with nothing to type into): the WPF canvas has no IME at all,
-    /// and a pending composition would swallow the next Space, Esc or Delete.</summary>
+    /// <summary>Ends a composition no box takes (a letter typed with nothing to type into): a pending composition would
+    /// swallow the next Space, Esc or Delete.</summary>
     public void DropComposition() => Avalonia.Threading.Dispatcher.UIThread.Post(() => ime?.Reset());
 
     /// <summary>For tests: what the IME would send (a composition, then the commit comes as text input).</summary>

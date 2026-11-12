@@ -27,8 +27,7 @@ public sealed record MarkColors
 }
 
 /// <summary>
-/// Tool previews (<see cref="CanvasMark"/>) and selection marks on a Skia canvas in viewport DIPs — the WPF
-/// <c>ToolMarkPainter</c> and the selection parts of <c>AnnotationPainter</c> (roadmap P4 A2).
+/// Tool previews (<see cref="CanvasMark"/>) and selection marks on a Skia canvas in viewport DIPs (roadmap P4 A2).
 /// </summary>
 public static class SkiaMarkPainter
 {

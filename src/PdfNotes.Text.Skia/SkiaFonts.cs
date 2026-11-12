@@ -39,7 +39,7 @@ public sealed class SkiaFontFace
     /// <summary>
     /// The typeface glyphs are drawn and outlined with. For a color font (COLR, CBDT, sbix or SVG glyphs, like Segoe UI
     /// Emoji) Skia gives no outline, so this is a copy of the font without its color tables: the one-color glyphs the
-    /// font keeps for plain renderers, the same on screen and in PDF (the WPF engine drew these too). Glyph ids are
+    /// font keeps for plain renderers, the same on screen and in PDF. Glyph ids are
     /// unchanged, so shaping stays on <see cref="Typeface"/>.
     /// </summary>
     public SKTypeface DrawingTypeface => drawing.Value;

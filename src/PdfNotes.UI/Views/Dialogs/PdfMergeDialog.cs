@@ -10,7 +10,7 @@ using PdfNotes.ViewModels;
 namespace PdfNotes.UI.Views;
 
 /// <summary>
-/// Several PDFs at once (spec 11.9, D13j, the WPF PdfMergeDialog): the files in insert order (up, down, leave out, 파일
+/// Several PDFs at once (spec 11.9, D13j): the files in insert order (up, down, leave out, 파일
 /// 추가…), a range per file (typed or picked on thumbnails with 고르기…), and for an insert where the pages go. Choosing or
 /// cancelling changes nothing; the caller owns the files.
 /// </summary>

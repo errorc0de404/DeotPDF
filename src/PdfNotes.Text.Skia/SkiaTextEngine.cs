@@ -5,7 +5,7 @@ using PdfNotes.Text.LineBreaking;
 namespace PdfNotes.Text;
 
 /// <summary>
-/// The SkiaSharp + HarfBuzz text engine (roadmap P2). Its rules are its own, not the WPF engine's (decision B): one
+/// The SkiaSharp + HarfBuzz text engine (roadmap P2). Its rules are its own (decision B): one
 /// paragraph per hard line break, the default UAX #14 break opportunities filled greedily (a word longer than the line
 /// breaks between graphemes), white space hanging past the line end, tab stops every <see cref="TabStop"/> points, line
 /// height from the fonts' hhea metrics (largest ascent plus largest descent and gap on the line, glyphs on one baseline),

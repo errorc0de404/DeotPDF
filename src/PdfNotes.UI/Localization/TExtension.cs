@@ -3,7 +3,7 @@ using PdfNotes.Editor.Localization;
 
 namespace PdfNotes.UI.Localization;
 
-/// <summary>XAML text from the language pack (D14e), as in the WPF app: <c>Text="{l:T ribbon.save}"</c>.</summary>
+/// <summary>XAML text from the language pack (D14e): <c>Text="{l:T ribbon.save}"</c>.</summary>
 public sealed class TExtension : MarkupExtension
 {
     public TExtension() { }

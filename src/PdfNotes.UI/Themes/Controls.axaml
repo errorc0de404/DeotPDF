@@ -1,5 +1,5 @@
 <!--
-  Control looks of the app (roadmap P4 A5): the WPF Themes/Controls.xaml rules on Avalonia — tool buttons, ribbon tabs and
+  Control looks of the app (roadmap P4 A5): tool buttons, ribbon tabs and
   groups, palette swatches, the page list handle. Colors, spacing and corners are the tokens (Tokens.axaml, Colors.axaml),
   so a theme change follows. Button states: normal (transparent) · over (Control.Hover) · pressed (Control.Pressed) ·
   on (Accent.Subtle) · disabled (Text.Disabled). The other Fluent controls keep their Fluent templates (compact density).
@@ -155,7 +155,7 @@
         </Style>
     </ControlTheme>
 
-    <!-- Sliders (the WPF Slider style): a 4 DIP groove, the part before the thumb in the accent, a 14 DIP thumb with an accent dot. -->
+    <!-- Sliders: a 4 DIP groove, the part before the thumb in the accent, a 14 DIP thumb with an accent dot. -->
     <ControlTheme x:Key="SliderRepeat" TargetType="RepeatButton">
         <Setter Property="Focusable" Value="False" />
         <Setter Property="Background" Value="Transparent" />

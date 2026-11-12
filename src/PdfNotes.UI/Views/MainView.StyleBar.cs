@@ -42,7 +42,7 @@ public sealed partial class MainView
     }
 
     /// <summary>
-    /// A bar field (the WPF StyleBoxKeyDown): Enter or Esc gives the keyboard back to the canvas, and leaving the field
+    /// A bar field: Enter or Esc gives the keyboard back to the canvas, and leaving the field
     /// applies it once — Esc first puts the current value back, so nothing changes.
     /// </summary>
     private void Field(TextBox box, Action apply, InputField field)
@@ -77,7 +77,7 @@ public sealed partial class MainView
     {
         eyedropper = apply;
         Cursor = new Cursor(StandardCursorType.Cross);
-        Canvas.CursorOverride = new Cursor(StandardCursorType.Cross); // the pages too (the WPF Mouse.OverrideCursor)
+        Canvas.CursorOverride = new Cursor(StandardCursorType.Cross); // the pages too
         viewModel.Status = Strings.Get("color.eyedropperTip");
     }
 

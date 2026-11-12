@@ -42,7 +42,7 @@
             <Setter Property="Padding" Value="8,2" />
         </Style>
     </UserControl.Styles>
-    <!-- Roadmap P4 A5: the WPF window's frame (MainWindow.xaml) on Avalonia, with the same names; P5a: a view the desktop window and the Android activity both show. -->
+    <!-- Roadmap P4 A5: the main window's frame; P5a: a view the desktop window and the Android activity both show. -->
     <Panel>
     <DockPanel>
         <!-- Top ribbon (spec 3.2): quick commands / tab heads / the tab's commands. Changing the tab keeps the tool. -->
@@ -482,7 +482,7 @@
                     <GridSplitter x:Name="OutlineSplitter" Grid.Row="1" Height="5" HorizontalAlignment="Stretch" ResizeDirection="Rows" Background="{DynamicResource Divider}"
                                   IsVisible="{Binding Outline.IsVisible}" />
                     <Panel Grid.Row="2" MinHeight="80">
-                        <!-- The list and the 빈 페이지 추가 button below it scroll together (the WPF list held the button as its last row) -->
+                        <!-- The list and the 빈 페이지 추가 button below it scroll together -->
                         <ScrollViewer x:Name="PageScroller" HorizontalScrollBarVisibility="Disabled">
                             <StackPanel>
                                 <ListBox x:Name="PageList" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"

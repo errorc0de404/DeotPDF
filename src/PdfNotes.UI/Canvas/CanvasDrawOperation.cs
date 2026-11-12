@@ -128,7 +128,7 @@ public static class PageDrawing
             canvas.ClipRect(rect);
             fill.Color = look.Paper;
             canvas.DrawRect(rect, fill);
-            // Pictures go where their own pixels per point put them (the WPF PixelRectToLocal): 1:1 at the zoom they were made
+            // Pictures go where their own pixels per point put them: 1:1 at the zoom they were made
             // for, stretched in place while a new one renders after a zoom.
             if (shot.Base is { } b)
             {
@@ -165,7 +165,7 @@ public static class PageDrawing
             if (previews) shot.Marks?.Invoke(canvas, shot.Index, shot.Page, t);
             if (previews && shot.MarkPreview is { } preview)
             {
-                // Tool marks (eraser circle, lasso) stay inside the page like the WPF view's.
+                // Tool marks (eraser circle, lasso) stay inside the page.
                 canvas.Save();
                 canvas.ClipRect(rect);
                 preview(canvas, shot.Index, shot.Page, t);

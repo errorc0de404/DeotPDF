@@ -12,7 +12,7 @@ using PdfNotes.Pdf.Reading;
 namespace PdfNotes.UI.Views;
 
 /// <summary>
-/// PDF links and the back/forward history of jumps (spec 24.3, D13h), as the WPF window: links are read from the source
+/// PDF links and the back/forward history of jumps (spec 24.3, D13h): links are read from the source
 /// pages (never part of the document model) and placed on the current paper like the glyphs; following one is a view
 /// change only.
 /// </summary>

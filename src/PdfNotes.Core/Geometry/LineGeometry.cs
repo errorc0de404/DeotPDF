@@ -367,7 +367,7 @@ public static class LineGeometry
 
     /// <summary>
     /// Dash pattern in multiples of the line width for round caps (each dash grows by one width).
-    /// The same numbers drive WPF (relative to thickness) and PDF (multiplied by the width).
+    /// The same numbers drive the screen and PDF (both multiplied by the width).
     /// </summary>
     public static double[] DashPattern(DashStyle dash) => dash switch
     {

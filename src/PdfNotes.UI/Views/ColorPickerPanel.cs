@@ -11,7 +11,7 @@ using PdfNotes.Editor.Localization;
 namespace PdfNotes.UI.Views;
 
 /// <summary>
-/// The color entry behind a palette's + (spec 3.2, the WPF ColorPickerPanel): a saturation × brightness plane with a hue
+/// The color entry behind a palette's + (spec 3.2): a saturation × brightness plane with a hue
 /// strip, the color code, the eyedropper and 추가. 추가 or Enter in the code picks the color; the eyedropper asks the owner
 /// to sample a pixel of the window. The plane shows annotation colors (HSV), not frame colors.
 /// </summary>

@@ -8,7 +8,7 @@ namespace PdfNotes.ViewModels;
 /// <summary>
 /// The main window's screen state (P1): the document file flow, the tool switch, the title, the status line and the
 /// undo/redo tips (V1); the ribbon tab, recent documents, update check, loading card, outline and other apps'
-/// annotations (V2); search (V3); navigation, display and favorites (V4); the page panel (V5); backups, imports and exports (V6); tool styles and the tool switch (V7); selection commands, the text bar and the sticky note card (V8). Platform-free so the WPF window and later the Avalonia views share it.
+/// annotations (V2); search (V3); navigation, display and favorites (V4); the page panel (V5); backups, imports and exports (V6); tool styles and the tool switch (V7); selection commands, the text bar and the sticky note card (V8). Platform-free so the desktop and Android views share it.
 /// </summary>
 public sealed partial class MainViewModel : ObservableObject, IDocumentHost
 {

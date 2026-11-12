@@ -6,8 +6,8 @@ using SkiaSharp;
 namespace PdfNotes.UI.Canvas;
 
 /// <summary>
-/// The two cursors no system has (roadmap P4 A5, the WPF SelectionCursors): a circular arrow over a rotation handle and a
-/// padlock over a locked annotation (spec 5.2, D14g). Drawn once per pixel size in the 32 px design grid of the WPF app,
+/// The two cursors no system has (roadmap P4 A5): a circular arrow over a rotation handle and a
+/// padlock over a locked annotation (spec 5.2, D14g). Drawn once per pixel size in a 32 px design grid,
 /// black with a white outline (Cursor.Fill, Cursor.Outline), hotspot in the middle.
 /// </summary>
 public static class CanvasCursors
@@ -25,7 +25,7 @@ public static class CanvasCursors
     public static Cursor Lock(double scale) => Get(Kind.Lock, Pixels(scale));
 
     /// <summary>
-    /// The pen of the drawing tools (the WPF app shows the system's Cursors.Pen; Avalonia has no such stock cursor): a pen
+    /// The pen of the drawing tools (Avalonia has no stock pen cursor): a pen
     /// tilted to the lower left, the hotspot at its tip.
     /// </summary>
     public static Cursor Pen(double scale) => Get(Kind.Pen, Pixels(scale));

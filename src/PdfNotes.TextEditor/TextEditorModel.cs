@@ -676,7 +676,7 @@ public sealed class TextEditorModel
             }
         }
         if (found >= 0) return found;
-        // A layout without empty lines (the WPF fallback): the last line that starts before the offset.
+        // A layout without empty lines (the default BuildLines): the last line that starts before the offset.
         int last = 0;
         for (int i = 0; i < lines.Length; i++) if (lines[i].Start <= offset) last = i;
         return lines.Length == 0 ? 0 : last;

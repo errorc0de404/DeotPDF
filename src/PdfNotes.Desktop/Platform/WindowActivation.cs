@@ -7,7 +7,7 @@ namespace PdfNotes.Desktop.Platform;
 /// <summary>
 /// Brings the window of another running DeotPDF forward (spec 4.6: a file already open in a window is not opened
 /// twice). Each window's session marker (<see cref="BackupStore.SetOpenDocument"/>) names it by <see cref="WindowId"/>:
-/// on Windows the window handle, as the WPF app writes it, so either app brings the other's window forward; on macOS
+/// on Windows the window handle, so one window brings the other forward directly; on macOS
 /// and Linux, where one process cannot raise another's window, the process number, and the window listens on a local
 /// pipe named after it (<see cref="Listen"/>) and comes forward itself when asked.
 /// </summary>

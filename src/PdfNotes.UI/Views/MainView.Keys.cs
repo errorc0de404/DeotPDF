@@ -11,7 +11,7 @@ using EditorModifiers = PdfNotes.Editor.Input.InputModifiers;
 namespace PdfNotes.UI.Views;
 
 /// <summary>
-/// Keys of the window (spec 17, the WPF WindowPreviewKeyDown/WindowKeyDown): the shared shortcut table with its scopes
+/// Keys of the window (spec 17): the shared shortcut table with its scopes
 /// (<see cref="Shortcuts"/>: zoom anywhere, favorites while writing, back/forward outside text input, page keys on the
 /// canvas), the arrows nudging a selection, the file and edit commands, Esc steps, Delete, Space to pan. A text box being
 /// edited and the app's fields take their own keys first. On macOS ⌘ is the Ctrl of every shortcut.

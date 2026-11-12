@@ -7,8 +7,8 @@ namespace PdfNotes.Text;
 
 /// <summary>
 /// The text box layout contract shared by the editor, the screen, hit tests and PDF outlines (D06). Units are page
-/// points. The layout itself comes from a platform <see cref="ITextLayoutEngine"/> (D14a: the WPF FlowDocument engine in
-/// PdfNotes.Text.Wpf); everything here is platform independent.
+/// points. The layout itself comes from a platform <see cref="ITextLayoutEngine"/> (D14a: the Skia engine in
+/// PdfNotes.Text.Skia); everything here is platform independent.
 /// </summary>
 public static class TextLayout
 {
@@ -58,7 +58,7 @@ public static class TextLayout
     private static readonly ConditionalWeakTable<TextBoxAnnotation, Layout> Cache = new();
     private static ITextLayoutEngine? engine;
 
-    /// <summary>The platform layout engine. Set once at startup (App, tests and the Probe register the WPF engine).</summary>
+    /// <summary>The platform layout engine. Set once at startup (the apps, the CLI and tests register the Skia engine).</summary>
     public static ITextLayoutEngine Engine
     {
         get => engine ?? throw new InvalidOperationException("No text layout engine is registered (PdfNotes.Text.Wpf: WpfText.Register()).");

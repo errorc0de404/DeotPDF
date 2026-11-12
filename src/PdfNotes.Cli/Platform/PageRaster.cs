@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace PdfNotes.Cli;
 
-/// <summary>The Skia imaging of the CLI built with <c>-p:DeotEngine=Skia</c> (roadmap P2 S7; no WPF, any thread, any OS).</summary>
+/// <summary>The Skia imaging of the CLI built with <c>-p:DeotEngine=Skia</c> (roadmap P2 S7; any thread, any OS).</summary>
 public static partial class PageRaster
 {
     /// <summary>A new image drawn through <see cref="IRasterCanvas"/>.</summary>
@@ -84,7 +84,7 @@ public static partial class PageRaster
 
 /// <summary>
 /// Image files for <c>add image</c>: pixel size from Skia's decoder and the horizontal DPI from the file header (PNG
-/// pHYs, JPEG JFIF density, BMP pixels per meter); 96 when the file does not say, as the WPF decoder reports.
+/// pHYs, JPEG JFIF density, BMP pixels per meter); 96 when the file does not say.
 /// </summary>
 public static class ImageProbe
 {

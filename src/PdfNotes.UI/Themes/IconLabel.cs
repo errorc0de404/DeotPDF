@@ -4,7 +4,7 @@ using Avalonia.Layout;
 
 namespace PdfNotes.UI.Themes;
 
-/// <summary>The content of a ribbon button: an icon and a word (the WPF `[Icon glyph][TextBlock]` pair). Either may be left out.</summary>
+/// <summary>The content of a ribbon button: an icon and a word. Either may be left out.</summary>
 public sealed class IconLabel : StackPanel
 {
     public static readonly StyledProperty<string?> GlyphProperty = AvaloniaProperty.Register<IconLabel, string?>(nameof(Glyph));

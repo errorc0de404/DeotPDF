@@ -96,7 +96,7 @@ public sealed partial class MainView
 
     /// <summary>
     /// A new box from a click (text tool): the caret starts where the user clicked — the box moves left by its padding and
-    /// up by the padding plus half a line of the typing style (the WPF rule, 2026-10-15).
+    /// up by the padding plus half a line of the typing style.
     /// </summary>
     public void BeginNewTextAtClick(int pageIndex, Point2 position, double width = 180)
     {
@@ -110,7 +110,7 @@ public sealed partial class MainView
     {
         FinishTextEditing();
         if (Document is not { } doc) return;
-        SetTool(ToolKind.Text); // also from the quick menu or a paste: the text tool and the 필기 tab follow (the WPF window)
+        SetTool(ToolKind.Text); // also from the quick menu or a paste: the text tool and the 필기 tab follow
         var box = new TextBoxAnnotation(Guid.NewGuid(), false, Affine.Translation(position.X, position.Y), "", [], PdfNotes.Core.Models.TextAlignment.Left,
             Math.Clamp(width, 16, 100000), viewModel.TextStyle.NewBoxStyle, []);
         Attach(doc, doc.Session.Current.Pages[pageIndex].Id, TextBoxEditor.Edit(box, settings.DefaultText));
@@ -151,7 +151,7 @@ public sealed partial class MainView
         Dispatcher.UIThread.Post(() =>
         {
             textEditor?.Focus();
-            // Started with a finger tap: bring up the touch keyboard (spec 7.6, as the WPF window).
+            // Started with a finger tap: bring up the touch keyboard (spec 7.6).
             if (textEditor is not null && Canvas.LastPressDevice == PointerDevice.Touch)
                 TouchKeyboardShown = host.ShowTouchKeyboard();
         }, DispatcherPriority.Input);
@@ -194,7 +194,7 @@ public sealed partial class MainView
             textEditor = null;
             editor.Model = null;
             TextLayer.Children.Remove(editor);
-            if (focused) Canvas.Focus(); // keys go back to the canvas (the WPF window does the same)
+            if (focused) Canvas.Focus(); // keys go back to the canvas
         }
         Canvas.RefreshOverlays();
         styles.Refresh();
@@ -238,12 +238,12 @@ public sealed partial class MainView
 
     private void OnCanvasPressed(object? sender, PointerPressedEventArgs e)
     {
-        // A left press (or a pen or finger) ends the edit, as the WPF PreviewMouseLeftButtonDown; the middle button pans or
+        // A left press (or a pen or finger) ends the edit; the middle button pans or
         // erases without ending it. A press on the canvas's scroll bars is not on the pages.
         if (e.Source is Visual v && v.FindAncestorOfType<Avalonia.Controls.Primitives.ScrollBar>(includeSelf: true) is not null) return;
         if (e.Pointer.Type == PointerType.Mouse && !e.GetCurrentPoint(Canvas).Properties.IsLeftButtonPressed) return;
         FinishTextEditing();
-        // PowerPoint-like (spec 5.4, D12; the WPF reclickText): after the text tool selected a box, a press on that box again
+        // PowerPoint-like (spec 5.4, D12): after the text tool selected a box, a press on that box again
         // edits it there once released without a drag. Decided at the press, so a move in between does not matter.
         var pressed = e.GetPosition(Canvas);
         reclickBox = tools.Current == ToolKind.Select && tools.Return == ToolKind.Text && e.ClickCount == 1 &&
@@ -281,7 +281,7 @@ public sealed partial class MainView
             HandKeyboardToEditor();
             return;
         }
-        // A space is the hand for panning, not a typed character (the WPF IsTypingKey has no Space).
+        // A space is the hand for panning, not a typed character.
         if (string.IsNullOrWhiteSpace(e.Text) || TypingTarget is not { } box) return;
         BeginTextEdit(box.Id);
         editSession?.Model.Type(e.Text);

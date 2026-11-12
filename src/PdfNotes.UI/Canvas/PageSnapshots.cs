@@ -13,7 +13,7 @@ namespace PdfNotes.UI.Canvas;
 
 /// <summary>
 /// A page drawn whole, off screen: the PDF background (PDFium) with the app's notes on top (Skia painters). The page
-/// list's thumbnails and the page size window's preview use it (the WPF RenderTargetBitmap pictures).
+/// list's thumbnails and the page size window's preview use it.
 /// </summary>
 public static class PageSnapshots
 {

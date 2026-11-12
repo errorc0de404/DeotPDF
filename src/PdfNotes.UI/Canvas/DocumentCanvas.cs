@@ -17,9 +17,9 @@ namespace PdfNotes.UI.Canvas;
 public delegate void PagePainter(SKCanvas canvas, int pageIndex, Page page, ViewTransform transform);
 
 /// <summary>
-/// The document area of the Avalonia app (roadmap P4 A1): the same layout (<see cref="DocumentLayout"/>), render plan
-/// (<see cref="RenderPlanner"/>) and render queue as the WPF <c>DocumentView</c>, drawn with Skia in one custom draw
-/// operation: paper, the PDF bitmap (base and detail tiles), the annotation layer, the live preview, then screen marks.
+/// The document area of the app (roadmap P4 A1): the layout (<see cref="DocumentLayout"/>), render plan
+/// (<see cref="RenderPlanner"/>) and render queue, drawn with Skia in one custom draw operation: paper, the PDF bitmap
+/// (base and detail tiles), the annotation layer, the live preview, then screen marks.
 /// Dark pages (spec 24.12) invert the paper, bitmap and annotations, never the marks. Scroll bars are its children.
 /// </summary>
 public sealed partial class DocumentCanvas : Panel, IDocumentViewport
@@ -145,7 +145,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
         Invalidate(ScrollPlanDelay);
     }
 
-    // ----- zoom and navigation (the WPF DocumentView's rules) -----
+    // ----- zoom and navigation -----
 
     /// <summary>Sets the zoom keeping the page point under <paramref name="viewportAnchor"/> (default: viewport center) in place.</summary>
     public void SetZoom(double newZoom, Point2? viewportAnchor = null)
@@ -239,7 +239,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     public void LineUp() => SetOffset(new(offset.X, offset.Y - WheelStepDip));
     public void LineDown() => SetOffset(new(offset.X, offset.Y + WheelStepDip));
 
-    /// <summary>A held ←/→ turns one page per this many milliseconds (2026-10-15 user request: 0.3 s), as the WPF view.</summary>
+    /// <summary>A held ←/→ turns one page per this many milliseconds (2026-10-15 user request: 0.3 s).</summary>
     public const int HeldPageTurnMs = 300;
     private long lastPageTurn = long.MinValue / 2, edgeReached = long.MinValue / 2;
 
@@ -424,7 +424,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
         return (pages.Max(p => p.Setup.Frame.DisplayWidthPt) * scale + 2 * DocumentLayout.MarginDip, height);
     }
 
-    /// <summary>Scroll bars only when the pages do not fit (the WPF view's ScrollBarVisibility Auto); a bar takes room from the other way.</summary>
+    /// <summary>Scroll bars only when the pages do not fit; a bar takes room from the other way.</summary>
     private (bool Vertical, bool Horizontal) NeedBars(Size size)
     {
         var (contentWidth, contentHeight) = ContentSize();
@@ -438,7 +438,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        // Another monitor scale: the pages are rendered again at its pixels (the WPF OnDpiChanged), the drawn cursors too.
+        // Another monitor scale: the pages are rendered again at its pixels, the drawn cursors too.
         scaledTop = TopLevel.GetTopLevel(this);
         if (scaledTop is not null) scaledTop.ScalingChanged += OnScalingChanged;
     }
@@ -530,7 +530,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
         e.Handled = true;
     }
 
-    /// <summary>A click on the scroll bar's track: in single page mode it turns the page (the WPF view's PageUp/PageDown).</summary>
+    /// <summary>A click on the scroll bar's track: in single page mode it turns the page, like PageUp/PageDown.</summary>
     private void BarPaged(Avalonia.Controls.Primitives.ScrollEventType type)
     {
         if (mode != ViewMode.SinglePage) return;
@@ -647,7 +647,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
         /// <summary>The key the base picture was made for (its pixels per point place it 1:1).</summary>
         public RenderKey? BaseKey { get; init; }
 
-        /// <summary>The page could not be rendered: its paper says so (the WPF page.renderFailed).</summary>
+        /// <summary>The page could not be rendered: its paper says so (page.renderFailed).</summary>
         public bool Failed { get; init; }
 
         /// <summary>Annotations a drag is changing, painted over the overlay (not part of the kept frame).</summary>
