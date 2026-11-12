@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using PdfNotes.Core.Geometry;
@@ -61,7 +62,51 @@ public static class AnnotationAppearance
         if (annotation is StickyNote note) return CreateNote(document, box, note, out rect, out hash);
         if (annotation is ShapeAnnotation shape) return CreateShape(document, box, shape, out rect, out hash);
         if (annotation is not StrokeAnnotation stroke) throw new NotSupportedException($"{annotation.Kind} has no PDF appearance yet.");
-        var toUser = annotation.Transform.Then(box.CanonicalToPdfUser);
+        byte[] content;
+        if (Strokes.TryGetValue(stroke, out var drawn) && drawn.Box == box)
+            (content, rect, hash) = (drawn.Content, drawn.Rect, drawn.Hash);
+        else
+        {
+            content = StrokeContent(stroke, box, out rect);
+            hash = Hash(content, rect, stroke.Opacity, stroke.Opacity, "", matrix: false);
+            Strokes.AddOrUpdate(stroke, new(box, content, rect, hash));
+        }
+
+        var state = new PdfDictionary(document);
+        state.Elements.SetName("/Type", "/ExtGState");
+        state.Elements["/CA"] = new PdfLiteral(N(stroke.Opacity));
+        state.Elements["/ca"] = new PdfLiteral(N(stroke.Opacity));
+        var states = new PdfDictionary(document);
+        states.Elements["/GS0"] = state;
+        var resources = new PdfDictionary(document);
+        resources.Elements["/ExtGState"] = states;
+
+        var form = new PdfDictionary(document);
+        form.CreateStream(content);
+        form.Elements.SetName("/Type", "/XObject");
+        form.Elements.SetName("/Subtype", "/Form");
+        form.Elements.SetInteger("/FormType", 1);
+        form.Elements["/BBox"] = Array(document, rect);
+        form.Elements["/Resources"] = resources;
+        form.Stream.Zip();
+        document.Internals.AddObject(form);
+        return form;
+    }
+
+    /// <summary>
+    /// What a save draws for an annotation, kept per annotation and page box (save plan 2026-11-12): annotations are
+    /// immutable, so an unchanged one is not drawn, formatted and fingerprinted again on every save. A changed one is a
+    /// new object; a page that changed size or turned gives another box.
+    /// </summary>
+    private sealed record Drawn(PdfPageBox Box, byte[] Content, double[] Rect, string Hash, double[]? Alphas = null);
+
+    private static readonly ConditionalWeakTable<StrokeAnnotation, Drawn> Strokes = new();
+    private static readonly ConditionalWeakTable<TextBoxAnnotation, Drawn> Texts = new();
+
+    /// <summary>The drawing operators of a stroke, in canonical points through one <c>cm</c>.</summary>
+    private static byte[] StrokeContent(StrokeAnnotation stroke, PdfPageBox box, out double[] rect)
+    {
+        var toUser = stroke.Transform.Then(box.CanonicalToPdfUser);
         var local = AnnotationGeometry.LocalBounds(stroke);
         rect = UserBounds(toUser, local, margin: 1);
 
@@ -98,28 +143,7 @@ public static class AnnotationAppearance
             code.Append("S\n");
         }
         code.Append("Q\n");
-
-        var state = new PdfDictionary(document);
-        state.Elements.SetName("/Type", "/ExtGState");
-        state.Elements["/CA"] = new PdfLiteral(N(stroke.Opacity));
-        state.Elements["/ca"] = new PdfLiteral(N(stroke.Opacity));
-        var states = new PdfDictionary(document);
-        states.Elements["/GS0"] = state;
-        var resources = new PdfDictionary(document);
-        resources.Elements["/ExtGState"] = states;
-
-        byte[] content = Encoding.ASCII.GetBytes(code.ToString());
-        hash = Hash(content, rect, stroke.Opacity, stroke.Opacity, "", matrix: false);
-        var form = new PdfDictionary(document);
-        form.CreateStream(content);
-        form.Elements.SetName("/Type", "/XObject");
-        form.Elements.SetName("/Subtype", "/Form");
-        form.Elements.SetInteger("/FormType", 1);
-        form.Elements["/BBox"] = Array(document, rect);
-        form.Elements["/Resources"] = resources;
-        form.Stream.Zip();
-        document.Internals.AddObject(form);
-        return form;
+        return Encoding.ASCII.GetBytes(code.ToString());
     }
 
     /// <summary>
@@ -428,20 +452,45 @@ public static class AnnotationAppearance
 
     private static PdfDictionary CreateText(PdfDocument doc, PdfPageBox box, TextBoxAnnotation text, out double[] rect, out string hash)
     {
-        var layout = PdfNotes.Text.TextLayout.Measure(text);
-        var toUser = text.Transform.Then(box.CanonicalToPdfUser);
-        rect = UserBounds(toUser, new(0, 0, text.WidthPt, layout.Height), 1);
         var states = new PdfDictionary(doc);
-        var code = new StringBuilder("q " + Numbers(toUser.ToArray()) + " cm\n");
-        TextPaths(layout.Paint, code, doc, states, 1);
-        code.Append("Q\n");
+        byte[] content;
+        bool known = Texts.TryGetValue(text, out var drawn) && drawn.Box == box;
+        if (known)
+        {
+            (content, rect) = (drawn!.Content, drawn.Rect);
+            for (int i = 0; i < drawn.Alphas!.Length; i++) states.Elements["/T" + i] = TextAlpha(doc, drawn.Alphas[i]);
+        }
+        else
+        {
+            var layout = PdfNotes.Text.TextLayout.Measure(text);
+            var toUser = text.Transform.Then(box.CanonicalToPdfUser);
+            rect = UserBounds(toUser, new(0, 0, text.WidthPt, layout.Height), 1);
+            var code = new StringBuilder("q " + Numbers(toUser.ToArray()) + " cm\n");
+            TextPaths(layout.Paint, code, doc, states, 1);
+            code.Append("Q\n");
+            content = Encoding.ASCII.GetBytes(code.ToString());
+        }
         var resources = new PdfDictionary(doc); resources.Elements["/ExtGState"] = states;
         var form = new PdfDictionary(doc);
         form.Elements.SetName("/Type", "/XObject"); form.Elements.SetName("/Subtype", "/Form"); form.Elements.SetInteger("/FormType", 1);
         form.Elements["/BBox"] = new PdfArray(doc, rect.Select(v => (PdfItem)Real(v)).ToArray());
         form.Elements["/Resources"] = resources; form.Elements.SetBoolean("/PdfNotesText", true);
-        form.CreateStream(Encoding.ASCII.GetBytes(code.ToString()));
-        hash = Hash(form); form.Stream.Zip(); doc.Internals.AddObject(form); return form;
+        form.CreateStream(content);
+        if (known) hash = drawn!.Hash;
+        else
+        {
+            hash = Hash(form);
+            var alphas = Enumerable.Range(0, states.Elements.Count).Select(i => states.Elements.GetDictionary("/T" + i)!.Elements.GetReal("/ca")).ToArray();
+            Texts.AddOrUpdate(text, new(box, content, rect, hash, alphas));
+        }
+        form.Stream.Zip(); doc.Internals.AddObject(form); return form;
+    }
+
+    private static PdfDictionary TextAlpha(PdfDocument doc, double alpha)
+    {
+        var state = new PdfDictionary(doc); state.Elements.SetName("/Type", "/ExtGState");
+        state.Elements["/ca"] = Real(alpha); state.Elements["/CA"] = Real(alpha);
+        return state;
     }
     private static void TextPaths(PdfNotes.Text.TextPaint paint, StringBuilder code, PdfDocument doc, PdfDictionary states, double opacity)
     {
@@ -467,9 +516,7 @@ public static class AnnotationAppearance
     private static void Paint(PdfNotes.Text.TextColor color, double opacity, bool stroke, StringBuilder code, PdfDocument doc, PdfDictionary states)
     {
         string key = "/T" + states.Elements.Count;
-        var state = new PdfDictionary(doc); state.Elements.SetName("/Type", "/ExtGState");
-        state.Elements["/ca"] = Real(color.Alpha * opacity); state.Elements["/CA"] = Real(color.Alpha * opacity);
-        states.Elements[key] = state;
+        states.Elements[key] = TextAlpha(doc, color.Alpha * opacity);
         code.Append(key).Append(" gs ").Append(N(color.R / 255d)).Append(' ').Append(N(color.G / 255d)).Append(' ').Append(N(color.B / 255d)).Append(stroke ? " RG\n" : " rg\n");
     }
     /// <summary>D01 policy: 0.02pt outline flattening (done by the text engine). No font binaries, same shaped glyphs as the editor.</summary>
