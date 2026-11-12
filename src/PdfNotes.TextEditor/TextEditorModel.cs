@@ -43,6 +43,17 @@ public sealed class TextEditorModel
     private string composition = "";
     private int? compositionCursor;
     private bool backspaceGuard; // a composition was just emptied: the IME's own Backspace may arrive once more as a key
+    private long guardSince;
+
+    /// <summary>
+    /// How long after a composition was emptied its Backspace may still come as a key. The Windows IME sends it at once;
+    /// the Samsung keyboard (Android) sends none, and then the user's next Backspace, pressed later, must delete
+    /// (2026-11-12 user report: two presses to delete).
+    /// </summary>
+    public const int BackspaceGuardMs = 150;
+
+    /// <summary>Milliseconds now (tests set a clock).</summary>
+    public Func<long> Clock { get; init; } = () => Environment.TickCount64;
 
     private enum DragUnit { None, Character, Word }
     private DragUnit drag;
@@ -176,7 +187,7 @@ public sealed class TextEditorModel
         bool shift = modifiers.HasFlag(EditorModifiers.Shift), control = modifiers.HasFlag(EditorModifiers.Control);
         // The IME deleted the last character of its composition and the same Backspace comes again as a key (1.1 IME
         // trial): it would delete a committed character, so it is dropped once.
-        if (key == EditorKey.Backspace && backspaceGuard) { backspaceGuard = false; return; }
+        if (key == EditorKey.Backspace && backspaceGuard && Clock() - guardSince <= BackspaceGuardMs) { backspaceGuard = false; return; }
         backspaceGuard = false;
         if (composition.Length > 0)
         {
@@ -350,7 +361,7 @@ public sealed class TextEditorModel
                 typedSpaceLast = false;
             }
         }
-        else if (composition.Length > 0) backspaceGuard = true;
+        else if (composition.Length > 0) { backspaceGuard = true; guardSince = Clock(); }
         if (text == composition && cursor == compositionCursor) return;
         composition = text;
         compositionCursor = text.Length == 0 || cursor is not { } c ? null : Math.Clamp(c, 0, text.Length);

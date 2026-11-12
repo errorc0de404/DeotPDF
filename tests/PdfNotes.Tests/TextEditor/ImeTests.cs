@@ -142,6 +142,23 @@ public class ImeTests
         Assert.Equal("가", editor.Box.Text);
     }
 
+    /// <summary>
+    /// 2026-11-12 user report: on Android (Samsung keyboard) no Backspace key follows an emptied composition, so the
+    /// user's next Backspace, pressed later, must delete at once instead of being taken for the IME's.
+    /// </summary>
+    [Fact]
+    public void ALaterBackspaceAfterAnEmptiedCompositionDeletes()
+    {
+        long now = 1000;
+        var editor = new TextEditorModel(TextEditorModelTests.Box(), null, PdfNotes.Text.SkiaTextEngine.Layout) { Clock = () => now };
+        editor.Type("안");
+        editor.SetComposition("ㄴ");
+        editor.SetComposition("");       // the IME's Backspace emptied it, and sent no key
+        now += TextEditorModel.BackspaceGuardMs + 200; // the user presses Backspace again
+        editor.Key(EditorKey.Backspace);
+        Assert.Equal("", editor.Box.Text);
+    }
+
     [Fact]
     public void KeysAndCommandsCommitTheCompositionFirst()
     {
