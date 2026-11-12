@@ -62,6 +62,7 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
         planTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = ScrollPlanDelay };
         planTimer.Tick += (_, _) => { planTimer.Stop(); PlanRenders(); };
         InitializeIme();
+        InitializeTouchBars();
     }
 
     /// <summary>Zoom, current page, page count or view mode changed.</summary>
