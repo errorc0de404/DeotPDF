@@ -17,12 +17,55 @@ namespace PdfNotes.Pdf.Writing;
 /// annotation, and the schema v1 metadata. The whole file is rewritten every time, so repeated saves never
 /// accumulate annotations or resources (spec 14.4).
 /// </summary>
+/// <summary>A written editable PDF with the data it stores (for <see cref="EditablePdfWriter.VerifyQuick"/>).</summary>
+/// <param name="ReusedBackgrounds">The page fingerprints came from an earlier save of the same pages.</param>
+public sealed record WrittenPdf(byte[] Bytes, SerializedDocument Data, int PageCount, bool ReusedBackgrounds);
+
+/// <summary>
+/// The check a save hands to the file writers: what is read back must be the bytes written, and those
+/// bytes are checked once (the file saver and an Android document each read back; an Android save also checks before).
+/// </summary>
+public sealed class WrittenCheck(byte[] content, Action<byte[]> check)
+{
+    private bool done;
+
+    public void Verify(byte[] bytes)
+    {
+        if (!ReferenceEquals(bytes, content) && !bytes.AsSpan().SequenceEqual(content))
+            throw new InvalidDataException("What was read back differs from what was written.");
+        if (done) return;
+        check(content);
+        done = true;
+    }
+}
+
 public static class EditablePdfWriter
 {
     /// <summary>What a save stores as the original of a source, and its geometry (<see cref="Prepare"/>).</summary>
     private sealed record Prepared(byte[] Original, IReadOnlyList<PdfPageGeometry> Pages, IReadOnlyList<PdfPageGeometry>? Given);
 
     private static readonly ConditionalWeakTable<byte[], Prepared> PreparedSources = new();
+
+    /// <summary>
+    /// The background fingerprints of the last save from one original (save plan 2026-11-12): what the pages were and
+    /// which had a text box layer. A save with the same pages writes these fingerprints at once instead of saving, reading
+    /// the file back to compute them and saving again. The fingerprint is of the page without our annotations, so new or
+    /// changed strokes do not change it; a page's text layer can (its content becomes an array), so that is part of the key.
+    /// </summary>
+    private sealed record BackgroundMemo(PageSetup[] Setups, bool[] TextLayers, string[] Hashes);
+
+    private static readonly ConditionalWeakTable<object, BackgroundMemo> Backgrounds = new();
+
+    /// <summary>The key of a document without a source PDF (a new note): its pages are generated only.</summary>
+    private static readonly object NoSource = new();
+
+    /// <summary>The last stored original with imported pages appended, per original (the append is a full PDF rewrite).</summary>
+    private sealed record Appended(ImportedPdf[] Parts, byte[] Bytes);
+
+    private static readonly ConditionalWeakTable<object, Appended> AppendedSources = new();
+
+    /// <summary>Forgets the remembered background fingerprints (a written file did not verify with them).</summary>
+    public static void ForgetBackgrounds() => Backgrounds.Clear();
 
     /// <summary>
     /// The original a save stores for <paramref name="sourcePdf"/>: the archived original of a file this app saved, or else
@@ -58,9 +101,19 @@ public static class EditablePdfWriter
     /// appended to the one stored original, so the saved file has a single source like any other (no schema change).
     /// </param>
     public static byte[] Write(byte[]? sourcePdf, IReadOnlyList<PdfPageGeometry>? sourcePages, DocumentModel model,
-        IReadOnlyList<ImportedPdf>? imported = null)
+        IReadOnlyList<ImportedPdf>? imported = null) => WritePdf(sourcePdf, sourcePages, model, imported).Bytes;
+
+    /// <inheritdoc cref="Write(byte[], IReadOnlyList{PdfPageGeometry}, DocumentModel, IReadOnlyList{ImportedPdf})"/>
+    public static WrittenPdf WritePdf(byte[]? sourcePdf, IReadOnlyList<PdfPageGeometry>? sourcePages, DocumentModel model,
+        IReadOnlyList<ImportedPdf>? imported = null) => Build(sourcePdf, sourcePages, model, imported, null);
+
+    /// <param name="knownHashes">The page fingerprints just computed for these pages (the second build of a first save).</param>
+    private static WrittenPdf Build(byte[]? sourcePdf, IReadOnlyList<PdfPageGeometry>? sourcePages, DocumentModel model,
+        IReadOnlyList<ImportedPdf>? imported, string[]? knownHashes)
     {
+        bool reusedBackgrounds = false;
         imported ??= [];
+        var given = (Source: sourcePdf, Pages: sourcePages, Imported: imported);
         byte[]? original = null;
         if (sourcePdf is not null)
         {
@@ -88,7 +141,15 @@ public static class EditablePdfWriter
             {
                 // Imported pages continue the source numbering: append them to the stored original (spec 11.9).
                 var expected = (sourcePages ?? []).Concat(imported.SelectMany(part => part.Pages)).ToList();
-                original = sourcePdf = PageContentWriter.Append(original, imported);
+                object appendKey = (object?)original ?? NoSource;
+                if (AppendedSources.TryGetValue(appendKey, out var appended) && appended.Parts.SequenceEqual(imported, ReferenceEqualityComparer.Instance))
+                    original = appended.Bytes;
+                else
+                {
+                    original = PageContentWriter.Append(original, imported);
+                    AppendedSources.AddOrUpdate(appendKey, new([.. imported], original));
+                }
+                sourcePdf = original;
                 sourcePages = PdfPageGeometryReader.Read(original);
                 if (sourcePages.Count != expected.Count || sourcePages.Zip(expected).Any(p => !SameGeometry(p.First, p.Second)))
                     throw new InvalidDataException("Imported pages changed while they were added to the source.");
@@ -151,16 +212,35 @@ public static class EditablePdfWriter
                 }
             }
             document.Internals.Catalog.Elements[EditablePdfKeys.Header] = Stream(document, serialized.Header).Reference!;
+            object backgroundKey = (object?)original ?? NoSource;
+            var setups = model.Pages.Select(p => p.Setup).ToArray();
+            var textLayers = model.Pages.Select(p => p.Annotations.Any(a => a is TextBoxAnnotation)).ToArray();
+            string[]? known = knownHashes;
+            if (known is null && Backgrounds.TryGetValue(backgroundKey, out var memo) && memo.Setups.SequenceEqual(setups) && memo.TextLayers.SequenceEqual(textLayers))
+            {
+                known = memo.Hashes;
+                reusedBackgrounds = true;
+            }
+            if (known is not null)
+            {
+                // The same pages as the last save: their fingerprints are known, one save is enough.
+                for (int i = 0; i < known.Length; i++) document.Pages[i].Elements.SetString(PageContentWriter.BackgroundHashKey, known[i]);
+                using var once = new MemoryStream();
+                document.Save(once, false);
+                return new(once.ToArray(), serialized, model.Pages.Count, reusedBackgrounds);
+            }
             using var buffer = new MemoryStream();
             document.Save(buffer, false);
             var bytes = buffer.ToArray();
             // PDFsharp adds standard resource defaults during serialization. Fingerprint that final physical
             // representation with our appearances removed, then attach the fingerprints without changing content.
-            using var background = EditablePdfReader.OpenStripped(bytes, PdfPageGeometryReader.Read(bytes), out _, saveBackground: false);
-            var hashes = background.Document.Pages.Cast<PdfPage>().Select(p => PageContentWriter.BackgroundHash(p)).ToArray();
-            using var final = PdfReader.Open(new MemoryStream(bytes, false), PdfDocumentOpenMode.Modify);
-            for (int i = 0; i < hashes.Length; i++) final.Pages[i].Elements.SetString(PageContentWriter.BackgroundHashKey, hashes[i]);
-            using var output = new MemoryStream(); final.Save(output, false); return output.ToArray();
+            string[] hashes;
+            using (var background = EditablePdfReader.OpenStripped(bytes, PdfPageGeometryReader.Read(bytes), out _, saveBackground: false))
+                hashes = background.Document.Pages.Cast<PdfPage>().Select(p => PageContentWriter.BackgroundHash(p)).ToArray();
+            Backgrounds.AddOrUpdate(backgroundKey, new(setups, textLayers, hashes));
+            // Built again with the fingerprints now known: the same bytes every later save of these pages writes (a document
+            // is saved only once, so this one cannot just take them).
+            return Build(given.Source, given.Pages, model, given.Imported, hashes);
         }
         finally
         {
@@ -204,6 +284,51 @@ public static class EditablePdfWriter
         foreach (var (got, wanted) in a.Annotations.Zip(b.Annotations))
             if (got.AnnotationId != wanted.AnnotationId || !got.Envelope.AsSpan().SequenceEqual(wanted.Envelope))
                 throw new InvalidDataException($"The written PDF does not restore the saved document (annotation {wanted.AnnotationId}: {FirstDifference(got.Envelope, wanted.Envelope)}).");
+    }
+
+    /// <summary>
+    /// The quick check of a written file (save plan 2026-11-12), for automatic backups and saves: the renderer opens it
+    /// with the right page count, the stored header and every annotation's data are the bytes that were written, nothing
+    /// of ours is missing or extra, and each page's background fingerprint holds once our annotations are taken off (so
+    /// the next open keeps the stored original). It does not rebuild the model from the file or recompute every
+    /// appearance fingerprint as <see cref="Verify"/> does; a manual save still runs that.
+    /// </summary>
+    public static void VerifyQuick(byte[] written, WrittenPdf expected)
+    {
+        using (var engine = new PdfiumDocument(written))
+            if (engine.PageCount != expected.PageCount) throw new InvalidDataException("The written PDF has a different page count.");
+        using var stream = new MemoryStream(written, writable: false);
+        using var document = PdfReader.Open(stream, PdfDocumentOpenMode.Modify);
+        if (document.PageCount != expected.PageCount) throw new InvalidDataException("The written PDF has a different page count.");
+        var header = document.Internals.Catalog.Elements.GetDictionary(EditablePdfKeys.Header)?.Stream?.UnfilteredValue;
+        if (header is null || !header.AsSpan().SequenceEqual(expected.Data.Header)) throw new InvalidDataException("The written PDF does not hold the saved header.");
+        var wanted = expected.Data.Annotations.ToDictionary(a => a.AnnotationId, a => a.Envelope);
+        int found = 0;
+        for (int p = 0; p < document.PageCount; p++)
+        {
+            var page = document.Pages[p];
+            if (page.Elements.GetArray("/Annots") is not { } annots) continue;
+            var removed = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
+            for (int i = annots.Elements.Count - 1; i >= 0; i--)
+            {
+                if (EditablePdfReader.Resolve(annots.Elements[i]) is not { } annot) continue;
+                string name = annot.Elements.GetString("/NM") ?? "";
+                if (!name.StartsWith(EditablePdfKeys.NamePrefix, StringComparison.Ordinal)) continue;
+                if (!Guid.TryParseExact(name.AsSpan(EditablePdfKeys.NamePrefix.Length), "D", out var id) || !wanted.TryGetValue(id, out var envelope) ||
+                    annot.Elements.GetDictionary(EditablePdfKeys.Envelope)?.Stream?.UnfilteredValue is not { } data || !data.AsSpan().SequenceEqual(envelope))
+                    throw new InvalidDataException($"The written PDF does not hold annotation {name} as saved.");
+                found++;
+                SearchableText.Remove(page, annot);
+                removed.Add(annot);
+                annots.Elements.RemoveAt(i);
+            }
+            for (int i = annots.Elements.Count - 1; i >= 0; i--)
+                if (EditablePdfReader.Resolve(annots.Elements[i]) is { } a && a.Elements.GetName("/Subtype") == "/Popup" &&
+                    a.Elements.GetDictionary("/Parent") is { } parent && removed.Contains(parent))
+                    annots.Elements.RemoveAt(i);
+        }
+        if (found != wanted.Count) throw new InvalidDataException($"The written PDF holds {found} of {wanted.Count} annotations.");
+        if (!PageContentWriter.BackgroundVerified(document)) throw new InvalidDataException("The written PDF's page fingerprints do not match.");
     }
 
     /// <summary>

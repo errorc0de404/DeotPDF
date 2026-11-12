@@ -59,11 +59,7 @@ public sealed class OpenDocument : IDisposable
         var snapshot = Session.CreateSnapshot();
         var sourcePages = Source?.Pages;
         var (sourceBytes, model, imported) = Sources.ForSave(snapshot.Model);
-        bool written = await WriteSerializedAsync(target, () => Task.Run(() =>
-        {
-            byte[] pdf = EditablePdfWriter.Write(sourceBytes, sourcePages, model, imported);
-            target.Replace(pdf, written => EditablePdfWriter.Verify(written, model));
-        }));
+        bool written = await WriteSerializedAsync(target, () => Task.Run(() => WriteChecked(target, sourceBytes, sourcePages, model, imported, quick: false)));
         if (!written) return; // a newer save of this document reached the file first: never mark an older state saved
         Session.MarkSaved(snapshot);
         Location = target;
@@ -92,12 +88,36 @@ public sealed class OpenDocument : IDisposable
         var target = DocumentLocation.File(path);
         var sourcePages = Source?.Pages;
         var (sourceBytes, model, imported) = Sources.ForSave(snapshot.Model);
-        await WriteSerializedAsync(target, () => Task.Run(() =>
-        {
-            byte[] pdf = EditablePdfWriter.Write(sourceBytes, sourcePages, model, imported);
-            target.Replace(pdf, written => EditablePdfWriter.Verify(written, model));
-        }));
+        await WriteSerializedAsync(target, () => Task.Run(() => WriteChecked(target, sourceBytes, sourcePages, model, imported, quick: true)));
         return snapshot.Revision;
+    }
+
+    /// <summary>
+    /// Writes <paramref name="model"/> to <paramref name="target"/> and checks it (spec 14.4): a manual save rebuilds the
+    /// document from the file (<see cref="EditablePdfWriter.Verify"/>), a backup takes the quick check
+    /// (<see cref="EditablePdfWriter.VerifyQuick"/>). A file written with page fingerprints remembered from an earlier save
+    /// that fails its check is written once more without them.
+    /// </summary>
+    private static void WriteChecked(DocumentLocation target, byte[]? sourceBytes, IReadOnlyList<PdfPageGeometry>? sourcePages, DocumentModel model,
+        IReadOnlyList<ImportedPdf> imported, bool quick)
+    {
+        var written = EditablePdfWriter.WritePdf(sourceBytes, sourcePages, model, imported);
+        try { Replace(target, written, model, quick); }
+        catch (SaveFailedException e) when (e.Failure == SaveFailure.VerificationFailed && written.ReusedBackgrounds)
+        {
+            EditablePdfWriter.ForgetBackgrounds();
+            Replace(target, EditablePdfWriter.WritePdf(sourceBytes, sourcePages, model, imported), model, quick);
+        }
+    }
+
+    private static void Replace(DocumentLocation target, WrittenPdf written, DocumentModel model, bool quick)
+    {
+        var check = new WrittenCheck(written.Bytes, bytes =>
+        {
+            if (quick) EditablePdfWriter.VerifyQuick(bytes, written);
+            else EditablePdfWriter.Verify(bytes, model);
+        });
+        target.Replace(written.Bytes, check.Verify);
     }
 
     /// <summary>
