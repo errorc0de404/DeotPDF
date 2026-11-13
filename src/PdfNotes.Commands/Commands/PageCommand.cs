@@ -166,7 +166,7 @@ public static class PageCommand
         var pages = args.Value("--range") is { } range ? doc.ResolvePages(range) : Targets(doc, args);
         var result = CliJson.Result("page export", doc.SourceHash);
         result["exported"] = Refs(doc, pages.Select(p => p.Id));
-        result["dryRun"] = write.DryRun;
+        result["dryRun"] = write.ReportedDryRun;
         result["flatten"] = write.Flatten;
         result["output"] = null;
         result["outputHash"] = null;

@@ -75,7 +75,6 @@ public sealed class DocumentSession
         if (command.IsEmpty) return false;
         lock (gate)
         {
-            if (Filter is { } filter) command = filter(current, command);
             var next = EditCommand.Apply(current, command.Operations);
             current = next;
             ClearRedo();
@@ -133,12 +132,6 @@ public sealed class DocumentSession
         OnStateChanged();
         return true;
     }
-
-    /// <summary>
-    /// Rewrites each command before <see cref="Execute"/> applies it, given the state it applies to (the app's authorship
-    /// rule, <see cref="Authorship.ForUserEdit"/>). Null: commands run as given. Undo and Redo replay what was recorded.
-    /// </summary>
-    public Func<DocumentModel, EditCommand, EditCommand>? Filter { get; set; }
 
     /// <summary>
     /// The operations of the history entries made after <paramref name="sinceRevision"/>, oldest first (a scratch session

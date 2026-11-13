@@ -16,6 +16,13 @@ public static class LiveClient
 {
     private static readonly UTF8Encoding Utf8 = new(false);
 
+    /// <summary>
+    /// The longest a request waits for its answer: the user's consent (60 s), their input ending (10 s) and the work
+    /// itself. A window that stopped answering then counts as not reachable instead of hanging the caller (deot mcp
+    /// runs one tool call at a time).
+    /// </summary>
+    private const int RequestTimeoutMs = 180_000;
+
     /// <summary>The name a client goes by in the window's question: <c>DEOT_CLIENT</c>, else "deot".</summary>
     public static string DefaultClient => Environment.GetEnvironmentVariable("DEOT_CLIENT") is { Length: > 0 } name ? name : "deot";
 
@@ -59,7 +66,7 @@ public static class LiveClient
         string name = CliApp.FindName(tokens) ?? throw new CliException("UNKNOWN_COMMAND", "Unknown command. Run 'deot schema' for the list.");
         int words = name.Split(' ').Length;
         var args = new List<string>(tokens);
-        if (name is not ("schema" or "fonts")) args.Insert(words, CliLive.Input);
+        if (name is not ("schema" or "fonts" or "measure")) args.Insert(words, CliLive.Input);
         string? stdin = null;
         if (name == "apply")
         {
@@ -104,7 +111,7 @@ public static class LiveClient
             ["args"] = new JsonArray([.. args.Select(a => (JsonNode)a)]),
             ["stdin"] = stdin,
         };
-        var answer = Ask(window, request, Timeout.Infinite) ?? throw NotRunning();
+        var answer = Ask(window, request, RequestTimeoutMs) ?? throw NotRunning();
         int exit = answer["exit"] is JsonValue e && e.TryGetValue(out int code) ? code : ExitCodes.Internal;
         var result = answer["result"] as JsonObject ?? CliJson.Error("INTERNAL", "The window sent no result.", null);
         return (exit, (JsonObject)result.DeepClone(), answer["files"] as JsonObject);

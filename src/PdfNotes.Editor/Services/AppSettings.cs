@@ -173,6 +173,9 @@ public sealed class AppSettings
     /// </summary>
     public bool LiveLink { get; set; }
 
+    /// <summary>The halo color of the AI tab's 강조 (#RRGGBB; MCP_LIVE_PLAN 6).</summary>
+    public string AiHaloColor { get; set; } = "#FFC400";
+
     /// <summary>Settings window 필기 (spec 5.3, 18.1, D14g): drag selections to another page in the continuous view, off by default.</summary>
     public bool PageDrag { get; set; }
 

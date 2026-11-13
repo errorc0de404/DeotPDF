@@ -149,8 +149,9 @@ public sealed partial class MainView
         var shown = new List<Annotation>(page.Annotations.Count);
         foreach (var original in page.Annotations)
             if (original.Id != EditingTextId && !live.Contains(original.Id) && !ai.Hides(model, original)) shown.Add(original);
-        // 강조 (MCP_LIVE_PLAN 6): AI writing gets a halo, strokes underneath and the rest outlined on top.
+        // 강조 (MCP_LIVE_PLAN 6): a soft glow in the halo color under AI writing, and a thin edge on top of framed kinds.
         var halos = ai.IsEmphasized && !model.Tags.IsEmpty ? shown.Where(a => Authorship.IsAi(model, a.Id)).ToList() : null;
+        var haloColor = new SKColor(ai.HaloColor.R, ai.HaloColor.G, ai.HaloColor.B);
         // A new sticky note is drawn while its card is open (it joins the document when closed with text).
         if (viewModel.NoteCard is { IsNew: true, Note: { } open } card && card.PageId == page.Id) shown.Add(open);
         var resources = doc.Session.Current.Resources;
@@ -164,9 +165,9 @@ public sealed partial class MainView
         }
         return (canvas, _, _, t) =>
         {
-            if (halos is not null) foreach (var a in halos) if (SkiaAiHalo.Under(a)) SkiaAiHalo.Paint(canvas, a, t, PdfNotes.Text.TextLayout.Bounds);
+            if (halos is not null) foreach (var a in halos) SkiaAiHalo.PaintGlow(canvas, a, t, haloColor, PdfNotes.Text.TextLayout.Bounds);
             foreach (var a in shown) SkiaAnnotationPainter.Paint(canvas, a, t, id => resources.GetValueOrDefault(id));
-            if (halos is not null) foreach (var a in halos) if (!SkiaAiHalo.Under(a)) SkiaAiHalo.Paint(canvas, a, t, PdfNotes.Text.TextLayout.Bounds);
+            if (halos is not null) foreach (var a in halos) SkiaAiHalo.PaintEdge(canvas, a, t, haloColor, PdfNotes.Text.TextLayout.Bounds);
             if (editFrame is { } f)
             {
                 var m = f.Transform.Then(t.PageToDip);

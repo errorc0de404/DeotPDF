@@ -24,6 +24,7 @@ public enum EraserMode { Stroke, Area }
 public sealed class EraseGesture
 {
     private readonly Page page;
+    private readonly System.Collections.Immutable.ImmutableDictionary<Guid, AnnotationTag> tags;
     private readonly List<(StrokeAnnotation Stroke, Affine ToLocal, Rect2 PageBounds)> candidates = [];
     private readonly HashSet<Guid> removed = [];
     /// <summary>What area mode left of each cut stroke (local points), with its bounds and area so a move beside it costs nothing.</summary>
@@ -41,6 +42,7 @@ public sealed class EraseGesture
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
         if (!double.IsFinite(diameterPt) || diameterPt <= 0) throw new ArgumentOutOfRangeException(nameof(diameterPt));
         page = model.GetPage(pageId);
+        tags = model.Tags;
         Mode = mode;
         Radius = diameterPt / 2;
         foreach (var stroke in page.Annotations.OfType<StrokeAnnotation>().Where(s => !s.Locked && skip?.Invoke(s) != true))
@@ -162,6 +164,7 @@ public sealed class EraseGesture
     {
         string label = Mode == EraserMode.Stroke ? "undo.strokeEraser" : "undo.areaEraser";
         var operations = new List<EditOperation>();
+        var retagged = new List<(Guid Id, AnnotationTag Tag)>();
         // Highest index first: inserting pieces never shifts an index that a later operation still uses.
         for (int index = page.Annotations.Count - 1; index >= 0; index--)
         {
@@ -185,8 +188,14 @@ public sealed class EraseGesture
             }
             operations.Add(new ReplaceAnnotationOperation(page.Id, stroke, Piece(stroke, stroke.Id, pieces[0])));
             for (int i = 1; i < pieces.Length; i++)
-                operations.Add(new InsertAnnotationOperation(page.Id, index + i, Piece(stroke, Guid.NewGuid(), pieces[i])));
+            {
+                var piece = Piece(stroke, Guid.NewGuid(), pieces[i]);
+                operations.Add(new InsertAnnotationOperation(page.Id, index + i, piece));
+                if (tags.TryGetValue(stroke.Id, out var tag)) retagged.Add((piece.Id, tag with { SourceKey = null }));
+            }
         }
+        // The pieces of AI writing stay AI writing (MCP_LIVE_PLAN 5); the source key stays with the piece that keeps the id.
+        foreach (var (id, tag) in retagged) operations.Add(new SetTagOperation(id, null, tag));
         return new(label, operations);
     }
 

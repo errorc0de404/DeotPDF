@@ -25,7 +25,9 @@ public enum AnnotationCommand
 {
     CopyText, HighlightText,
     SavedStyles, Lock, Unlock, Copy, Cut, Paste, Delete, Forward, Backward, ToFront, ToBack,
-    AddTextBox, Tool, ConvertForeign
+    AddTextBox, Tool, ConvertForeign,
+    /// <summary>내 필기로: the AI writing among the targets becomes the user's own (MCP_LIVE_PLAN 5).</summary>
+    Adopt
 }
 
 /// <param name="SeparatorBefore">A line goes above this entry.</param>
@@ -198,6 +200,14 @@ public sealed class SelectionViewModel(MainViewModel owner, IEditorDialogs dialo
         if (Document is { } doc) doc.Session.Execute(DocumentEdits.ChangeZOrder(doc.Session.Current, pageId, targets, order));
     }
 
+    /// <summary>내 필기로 (MCP_LIVE_PLAN 5): the AI writing among <paramref name="targets"/> becomes the user's own; one Undo unit.</summary>
+    public void Adopt(IReadOnlyCollection<Guid> targets)
+    {
+        if (Document is not { } doc || Authorship.Adopt(doc.Session.Current, targets) is not { } command) return;
+        doc.Session.Execute(command);
+        owner.Status = texts.Format("ai.adopted", ("count", command.Operations.Length));
+    }
+
     private static readonly (AnnotationCommand Command, string Key, ToolKind Tool)[] QuickTools =
     [
         (AnnotationCommand.Tool, "tool.select", ToolKind.Select), (AnnotationCommand.Tool, "tool.lasso", ToolKind.Lasso),
@@ -239,6 +249,7 @@ public sealed class SelectionViewModel(MainViewModel owner, IEditorDialogs dialo
             entries.Add(new(AnnotationCommand.Backward, texts.Get("order.backward"), unlocked));
             entries.Add(new(AnnotationCommand.ToFront, texts.Get("order.toFront"), unlocked));
             entries.Add(new(AnnotationCommand.ToBack, texts.Get("order.toBack"), unlocked));
+            if (targets.Any(t => Authorship.IsAi(model, t))) entries.Add(new(AnnotationCommand.Adopt, texts.Get("ai.adopt"), SeparatorBefore: true));
             return new(entries, pageId, targets);
         }
         entries.Add(new(AnnotationCommand.AddTextBox, texts.Get("menu.addTextBox")));
@@ -268,6 +279,7 @@ public sealed class SelectionViewModel(MainViewModel owner, IEditorDialogs dialo
             case AnnotationCommand.Backward: ChangeOrder(menu.PageId, menu.Targets, ZOrderChange.Backward); return true;
             case AnnotationCommand.ToFront: ChangeOrder(menu.PageId, menu.Targets, ZOrderChange.ToFront); return true;
             case AnnotationCommand.ToBack: ChangeOrder(menu.PageId, menu.Targets, ZOrderChange.ToBack); return true;
+            case AnnotationCommand.Adopt: Adopt(menu.Targets); return true;
             case AnnotationCommand.Tool when entry.Tool is { } tool: owner.ToolBar.SetTool(tool); return true;
             default: return false;
         }

@@ -233,7 +233,7 @@ public sealed class DeotMcpServer : IDisposable
                     else
                     {
                         tokens = tool.Command == "render" ? RenderTokens(tool, arguments, images) : McpTools.Tokens(tool, arguments);
-                        if (tool.Command is not ("schema" or "fonts")) tokens.Insert(tool.Command.Split(' ').Length, CliLive.Input);
+                        if (tool.Command is not ("schema" or "fonts" or "measure")) tokens.Insert(tool.Command.Split(' ').Length, CliLive.Input);
                     }
                     answer = LiveClient.Execute(doc, client, tokens, stdin);
                     break;

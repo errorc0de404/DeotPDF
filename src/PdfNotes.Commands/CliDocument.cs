@@ -34,8 +34,9 @@ public sealed class CliDocument : IDisposable
     /// A document a DeotPDF window has open (<see cref="CliLive"/>), not owned: disposing it leaves it open. Its "hash" is
     /// <c>live:&lt;id&gt;:&lt;revision&gt;</c>; page IDs are the window's own.
     /// </summary>
-    internal static CliDocument Live(OpenDocument document, string id) =>
-        new(document, CliLive.Input, $"live:{id}:{document.Session.Revision}", false, owned: false);
+    /// <param name="revision">The revision of the window's document: the hash changes with every edit there.</param>
+    internal static CliDocument Live(OpenDocument document, string id, long revision) =>
+        new(document, CliLive.Input, $"live:{id}:{revision}", false, owned: false);
 
     /// <summary>True for a document a DeotPDF window has open.</summary>
     public bool IsLive => !owned;

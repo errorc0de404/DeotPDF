@@ -179,6 +179,42 @@ public sealed class AiNotesTests
     });
 
     [Fact]
+    public void DisconnectingAsksFirst() => Headless.Run(async () =>
+    {
+        var w = await Opened();
+        var live = w.View.ViewModel.LiveLink;
+        Assert.True((await Send(w, Apply(TwoBoxes), "LiveAiWriteButton"))["ok"]!.GetValue<bool>());
+        w.Script.PromptOverride = (_, _) => Answer.No;
+        Press(w, "AiDisconnectButton");
+        Headless.Pump(() => true);
+        Assert.True(live.IsConnected); // a slip of the hand changes nothing
+        w.Script.PromptOverride = (_, _) => Answer.Yes;
+        Press(w, "AiDisconnectButton");
+        Headless.Pump(() => !live.IsConnected);
+        Assert.False(live.IsConnected);
+    });
+
+    /// <summary>MCP_LIVE_PLAN 5: the pieces an eraser leaves of AI writing are AI writing; the source key stays with the piece that keeps the id.</summary>
+    [Fact]
+    public void EraserPiecesStayAiWriting()
+    {
+        var stroke = new InkStroke(Guid.NewGuid(), false, PdfNotes.Core.Geometry.Affine.Identity, [new(0, 50), new(200, 50)], 4, new RgbColor(255, 0, 0), 1);
+        var model = DocumentModel.Create([new PageSetup(560, 600, 0, PageSource.Generated, PageBackground.Blank)]);
+        model = model with { Pages = model.Pages.SetItem(0, model.Pages[0] with { Annotations = [stroke] }), Tags = model.Tags.Add(stroke.Id, new AnnotationTag(AnnotationTag.AiAuthor, "b1", "key-1")) };
+        var session = new DocumentSession(model);
+        var gesture = new EraseGesture(session.Current, model.Pages[0].Id, EraserMode.Area, 20);
+        gesture.AddPoint(new(100, 50)); // cuts the middle out: two pieces
+        session.Execute(gesture.Commit());
+        var pieces = session.Current.Pages[0].Annotations;
+        Assert.Equal(2, pieces.Count);
+        Assert.All(pieces, p => Assert.True(Authorship.IsAi(session.Current, p.Id)));
+        Assert.Single(pieces, p => session.Current.TagOf(p.Id)!.SourceKey == "key-1");
+        Assert.All(pieces, p => Assert.Equal("b1", session.Current.TagOf(p.Id)!.BatchId));
+        session.Undo();
+        Assert.Single(session.Current.Tags);
+    }
+
+    [Fact]
     public void ARunCountsWhatOnlyUndoTakesBack()
     {
         var session = new DocumentSession(DocumentModel.Create([new PageSetup(560, 600, 0, PageSource.Generated, PageBackground.Blank)]));

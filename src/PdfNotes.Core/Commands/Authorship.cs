@@ -3,11 +3,10 @@ using PdfNotes.Core.Models;
 namespace PdfNotes.Core.Commands;
 
 /// <summary>
-/// Who owns an annotation after an edit (MCP_LIVE_PLAN 5): tags only ever move toward the user. When the user changes an
-/// annotation an AI made (moves, resizes, restyles, retypes, locks or reorders it), the same command removes its tag, so
-/// it becomes the user's own writing: "remove AI writing" and a new CLI run leave it alone, and Undo brings the tag back
-/// with the edit. Eraser pieces and pasted copies get new IDs and so never had a tag. Commands the AI sends
-/// (<see cref="AiLabel"/>) are left as they are.
+/// Who owns an annotation (MCP_LIVE_PLAN 5): what an AI made stays AI writing whatever the user does to it — moving,
+/// restyling, retyping, locking, reordering, erasing part of it — until the user takes it with 내 필기로 (the canvas menu
+/// or the work list). So "erase AI writing" removes all of it, touched or not. The pieces an eraser leaves stay AI
+/// writing too (EraseGesture); a pasted copy is the user's own. What an AI changes of the user's writing stays the user's.
 /// </summary>
 public static class Authorship
 {
@@ -54,32 +53,5 @@ public static class Authorship
     {
         var untag = annotationIds.Distinct().Where(id => IsAi(model, id)).Select(id => (EditOperation)new SetTagOperation(id, model.Tags[id], null)).ToList();
         return untag.Count == 0 ? null : new EditCommand(AdoptLabel, untag);
-    }
-
-    /// <summary>A <see cref="DocumentSession.Filter"/>: adds tag removals for tagged annotations the user's command changes.</summary>
-    public static EditCommand ForUserEdit(DocumentModel model, EditCommand command)
-    {
-        if (command.Label == AiLabel || model.Tags.IsEmpty) return command;
-        var removed = new HashSet<Guid>();
-        var changed = new List<Guid>();
-        foreach (var operation in command.Operations)
-        {
-            switch (operation)
-            {
-                case ReplaceAnnotationOperation replace when replace.Before.Id == replace.After.Id:
-                    changed.Add(replace.After.Id);
-                    break;
-                case RemoveAnnotationOperation remove:
-                    removed.Add(remove.Annotation.Id);
-                    break;
-                case InsertAnnotationOperation insert when removed.Contains(insert.Annotation.Id):
-                    changed.Add(insert.Annotation.Id); // taken out and put back: moved in the stacking order
-                    break;
-                case SetTagOperation:
-                    return command; // a command that sets tags itself decides them
-            }
-        }
-        var untag = changed.Distinct().Where(model.Tags.ContainsKey).Select(id => (EditOperation)new SetTagOperation(id, model.Tags[id], null)).ToList();
-        return untag.Count == 0 ? command : new EditCommand(command.Label, command.Operations.Concat(untag), command.CoalesceKey);
     }
 }

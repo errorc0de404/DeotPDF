@@ -253,6 +253,17 @@
                                 <ToggleButton x:Name="AiShowButton" Theme="{StaticResource ToolButton}" Padding="8,3" IsChecked="{Binding AiNotes.IsShown, Mode=OneWay}" Command="{Binding AiNotes.ShowCommand}"><TextBlock Text="{l:T ai.show}" /></ToggleButton>
                                 <ToggleButton x:Name="AiHideButton" Theme="{StaticResource ToolButton}" Padding="8,3" IsChecked="{Binding AiNotes.IsHidden, Mode=OneWay}" Command="{Binding AiNotes.HideCommand}"><TextBlock Text="{l:T ai.hide}" /></ToggleButton>
                                 <ToggleButton x:Name="AiEmphasizeButton" Theme="{StaticResource ToolButton}" Padding="8,3" IsChecked="{Binding AiNotes.IsEmphasized, Mode=OneWay}" Command="{Binding AiNotes.EmphasizeCommand}"><TextBlock Text="{l:T ai.emphasize}" /></ToggleButton>
+                                <!-- The halo color of 강조: highlighter-like presets, kept as an app setting -->
+                                <ItemsControl x:Name="AiHaloColors" VerticalAlignment="Center" Margin="4,0,0,0" ItemsSource="{Binding AiNotes.HaloChoices}" ItemsPanel="{StaticResource Row}" ToolTip.Tip="{l:T ai.haloColor}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AiHaloChoice">
+                                            <ToggleButton Theme="{StaticResource ToolButton}" Padding="3" IsChecked="{Binding IsChecked, Mode=OneWay}" Command="{Binding PickCommand}">
+                                                <Border Width="14" Height="14" CornerRadius="7" BorderBrush="{DynamicResource Border}" BorderThickness="1"
+                                                        Background="{Binding Color, Converter={x:Static th:Converters.ColorBrush}}" />
+                                            </ToggleButton>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </HeaderedContentControl>
                         <Border Classes="sep" />

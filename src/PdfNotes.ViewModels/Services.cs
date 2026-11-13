@@ -118,7 +118,7 @@ public static class MainViewModels
         main.ToolStyles = new ToolStylesViewModel(main);
         main.ToolBar = new ToolBarViewModel(main);
         main.Backup = new BackupViewModel(main, screen.Dialogs, app.Time, app.SettingsFolder);
-        main.LiveLink = new LiveLinkViewModel(main, app.LiveCommands, screen.Viewport, screen.Ui, app.Time);
+        main.LiveLink = new LiveLinkViewModel(main, app.LiveCommands, screen.Viewport, screen.Ui, app.Time, screen.Dialogs);
         main.AiNotes = new AiNotesViewModel(main, screen.Dialogs, screen.Viewport);
         main.Assembled();
         return main;

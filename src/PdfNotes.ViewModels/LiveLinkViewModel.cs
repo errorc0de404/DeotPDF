@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using PdfNotes.Core.Commands;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
+using PdfNotes.Editor.Platform;
 using PdfNotes.Editor.Services;
 using PdfNotes.Editor.Tools;
 
@@ -14,6 +15,9 @@ public enum LiveAccess { None = 0, Read = 1, AiWrite = 2, FullEdit = 3 }
 /// <summary>deot's commands as the live link runs them on the open document (the desktop app implements it with them).</summary>
 public interface ILiveCommands
 {
+    /// <summary>The only folder a live command may write a file in (the PNG the window hands back as bytes).</summary>
+    string ScratchFolder { get; }
+
     /// <summary>What a command line is: its name, whether it writes, the access it needs, or why it cannot run live.</summary>
     LiveCommandInfo Inspect(IReadOnlyList<string> tokens, string? stdin);
 
@@ -44,14 +48,16 @@ public sealed class LiveLinkViewModel : ObservableObject
     private readonly IDocumentViewport viewport;
     private readonly IUiThread ui;
     private readonly TimeProvider time;
+    private readonly IEditorDialogs dialogs;
     private readonly Dictionary<(Guid Session, string Client), LiveAccess> granted = [];
     private readonly List<Pending> pending = [];
 
     private sealed record Pending(Guid Session, string Client, TaskCompletionSource<LiveAccess> Answer);
 
-    public LiveLinkViewModel(MainViewModel main, ILiveCommands? commands, IDocumentViewport viewport, IUiThread ui, TimeProvider time)
+    public LiveLinkViewModel(MainViewModel main, ILiveCommands? commands, IDocumentViewport viewport, IUiThread ui, TimeProvider time, IEditorDialogs dialogs)
     {
         this.main = main;
+        this.dialogs = dialogs;
         this.commands = commands;
         this.viewport = viewport;
         this.ui = ui;
@@ -63,7 +69,7 @@ public sealed class LiveLinkViewModel : ObservableObject
         DenyCommand = new(() => Answer(LiveAccess.None));
         EnableCommand = new(Enable);
         CloseDisabledCommand = new(() => DisabledClient = null);
-        DisconnectCommand = new(Disconnect);
+        DisconnectCommand = new(DisconnectAsync);
         SetAccessCommand = new(name => { if (Enum.TryParse<LiveAccess>(name, out var access)) SetAccess(access); });
     }
 
@@ -108,7 +114,7 @@ public sealed class LiveLinkViewModel : ObservableObject
     public Command DenyCommand { get; }
     public Command EnableCommand { get; }
     public Command CloseDisabledCommand { get; }
-    public Command DisconnectCommand { get; }
+    public AsyncCommand DisconnectCommand { get; }
 
     /// <summary>권한 바꾸기 (MCP_LIVE_PLAN 2): every connected client of this document gets this access (parameter: Read, AiWrite, FullEdit).</summary>
     public Command<string> SetAccessCommand { get; }
@@ -155,10 +161,15 @@ public sealed class LiveLinkViewModel : ObservableObject
         main.Status = main.Texts.Get("live.enabled");
     }
 
-    /// <summary>Every client loses access to this document (each is asked again next time).</summary>
-    private void Disconnect()
+    /// <summary>
+    /// 끊기: after one confirmation (a slip of the hand would otherwise make every client ask again) every client loses
+    /// access to this document; each is asked again next time.
+    /// </summary>
+    public async Task DisconnectAsync()
     {
-        if (main.Document is not { } doc) return;
+        if (main.Document is not { } doc || !IsConnected) return;
+        if (await dialogs.AskAsync(main.Texts.Get("live.disconnectConfirm"), AskButtons.YesNo, NoticeKind.Question) != PdfNotes.Editor.Platform.Answer.Yes) return;
+        if (!ReferenceEquals(main.Document, doc)) return;
         var session = doc.Session.SessionId;
         foreach (var key in granted.Keys.Where(k => k.Session == session).ToList()) granted.Remove(key);
         RefreshIndicator();
@@ -256,7 +267,7 @@ public sealed class LiveLinkViewModel : ObservableObject
         {
             "context" => Ok(Context(doc, id)),
             "goto" or "flash" => GoTo(doc, request, op == "flash") is var shown && shown["ok"]!.GetValue<bool>() ? Ok(shown) : shown,
-            _ => info!.IsWrite ? await WriteAsync(doc, id, client, args, stdin) : await ReadAsync(doc, id, args, stdin, request),
+            _ => info!.IsWrite ? await WriteAsync(doc, id, client, needs, args, stdin) : await ReadAsync(doc, id, args, stdin, request),
         };
     }
 
@@ -265,15 +276,17 @@ public sealed class LiveLinkViewModel : ObservableObject
         var doc = main.Document;
         var session = doc?.Session.SessionId;
         var access = session is { } s && granted.TryGetValue((s, client), out var a) ? a : LiveAccess.None;
+        bool enabled = commands is not null && main.Settings.LiveLink;
+        // While the link is off a caller learns only that a window is there (so that it can be told to ask the user).
         return new JsonObject
         {
             ["ok"] = true,
             ["doc"] = DocumentId,
-            ["name"] = doc?.DisplayNameIn(main.Texts),
-            ["path"] = doc?.FilePath,
-            ["dirty"] = doc?.Session.IsDirty ?? false,
-            ["pageCount"] = doc?.Session.Current.Pages.Count ?? 0,
-            ["enabled"] = commands is not null && main.Settings.LiveLink,
+            ["name"] = enabled ? doc?.DisplayNameIn(main.Texts) : null,
+            ["path"] = enabled ? doc?.FilePath : null,
+            ["dirty"] = enabled && (doc?.Session.IsDirty ?? false),
+            ["pageCount"] = enabled ? doc?.Session.Current.Pages.Count ?? 0 : 0,
+            ["enabled"] = enabled,
             ["access"] = Name(access),
         };
     }
@@ -304,7 +317,7 @@ public sealed class LiveLinkViewModel : ObservableObject
         if (outIndex >= 0 && outIndex + 1 < args.Count)
         {
             asked = args[outIndex + 1];
-            temp = Path.Combine(Path.GetTempPath(), "deotpdf-live", $"{Guid.NewGuid():N}.png");
+            temp = Path.Combine(commands!.ScratchFolder, $"{Guid.NewGuid():N}.png");
             Directory.CreateDirectory(Path.GetDirectoryName(temp)!);
             args[outIndex + 1] = temp;
         }
@@ -435,7 +448,7 @@ public sealed class LiveLinkViewModel : ObservableObject
         if (Option(args, "--rect") is { } rectText)
         {
             var n = rectText.Split(',').Select(t => double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : double.NaN).ToArray();
-            if (n.Length != 4 || n.Any(double.IsNaN) || n[2] <= 0 || n[3] <= 0) return Error("INVALID_ARGUMENT", "--rect is x,y,w,h in page points.");
+            if (n.Length != 4 || !n.All(double.IsFinite) || n[2] <= 0 || n[3] <= 0) return Error("INVALID_ARGUMENT", "--rect is x,y,w,h in page points.");
             target = new(n[0], n[1], n[2], n[3]);
         }
         if (Option(args, "--rect") is null) viewport.GoToPage(index);
@@ -449,7 +462,7 @@ public sealed class LiveLinkViewModel : ObservableObject
 
     // ----- writing -----
 
-    private async Task<JsonObject> WriteAsync(OpenDocument doc, string id, string client, List<string> args, string? stdin)
+    private async Task<JsonObject> WriteAsync(OpenDocument doc, string id, string client, LiveAccess needs, List<string> args, string? stdin)
     {
         var deadline = time.GetUtcNow() + BusyWait;
         while (Busy())
@@ -458,6 +471,11 @@ public sealed class LiveLinkViewModel : ObservableObject
             await Task.Delay(TimeSpan.FromMilliseconds(100), time);
             if (!ReferenceEquals(main.Document, doc)) return Error("LIVE_DOC_NOT_FOUND", "A different file was opened meanwhile.");
         }
+        // The user may have disconnected or lowered the access while this waited.
+        var now = granted.GetValueOrDefault((doc.Session.SessionId, client), LiveAccess.None);
+        if (now < needs)
+            return Error("LIVE_PERMISSION", $"This needs '{Name(needs)}' access; the user gave '{Name(now)}'.",
+                new JsonObject { ["needs"] = Name(needs), ["granted"] = Name(now) });
         // On the UI thread from the copy to the commit, so no edit of the user's comes in between.
         var result = commands!.Run(doc, id, args, stdin);
         var response = Wrap(result);

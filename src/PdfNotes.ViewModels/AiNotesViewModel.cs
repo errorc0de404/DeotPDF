@@ -39,6 +39,17 @@ public sealed record AiRun(string BatchId, DateTimeOffset Time, string Client, I
     }
 }
 
+/// <summary>One halo color of the AI tab's 강조: the swatch, whether it is the one in use, and the command that picks it.</summary>
+public sealed class AiHaloChoice(RgbColor color, Action<AiHaloChoice> pick) : ObservableObject
+{
+    private bool isChecked;
+
+    public RgbColor Color { get; } = color;
+    public string Hex { get; } = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+    public bool IsChecked { get => isChecked; set => SetProperty(ref isChecked, value); }
+    public Command PickCommand => field ??= new(() => pick(this));
+}
+
 /// <summary>A row of the work list: one batch of AI writing still in the document, with this run's record when it has one.</summary>
 public sealed class AiWorkItem : ObservableObject
 {
@@ -117,7 +128,38 @@ public sealed class AiNotesViewModel : ObservableObject
             Refresh();
         };
         main.DocumentChanged += Refresh;
+        HaloChoices = [.. HaloPresets.Select(c => new AiHaloChoice(c, PickHalo))];
+        haloColor = Parse(main.Settings.AiHaloColor) ?? HaloPresets[0];
+        foreach (var choice in HaloChoices) choice.IsChecked = choice.Color == haloColor;
     }
+
+    // ----- the halo color -----
+
+    /// <summary>Highlighter-like colors for the halo: yellow first (the default), then orange, pink, green, blue and violet.</summary>
+    private static readonly RgbColor[] HaloPresets =
+        [new(0xFF, 0xC4, 0x00), new(0xFF, 0x8A, 0x00), new(0xFF, 0x4F, 0xA3), new(0x2E, 0xCC, 0x71), new(0x2D, 0x9C, 0xFF), new(0xA0, 0x3C, 0xE8)];
+
+    private RgbColor haloColor;
+
+    public IReadOnlyList<AiHaloChoice> HaloChoices { get; }
+
+    /// <summary>The color of the glow around AI writing while it is emphasized (an app setting).</summary>
+    public RgbColor HaloColor => haloColor;
+
+    private void PickHalo(AiHaloChoice choice)
+    {
+        haloColor = choice.Color;
+        foreach (var c in HaloChoices) c.IsChecked = ReferenceEquals(c, choice);
+        main.Settings.AiHaloColor = choice.Hex;
+        main.SaveSettings();
+        OnPropertyChanged(nameof(HaloColor));
+        if (view != AiNotesView.Emphasized) SetView(AiNotesView.Emphasized); // picking a color shows it
+        else viewport.RefreshOverlays();
+    }
+
+    private static RgbColor? Parse(string? hex) =>
+        hex is { Length: 7 } && hex[0] == '#' && uint.TryParse(hex.AsSpan(1), System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out uint v)
+            ? new((byte)(v >> 16), (byte)(v >> 8), (byte)v) : null;
 
     /// <summary>Raised when the view state changes: the canvas and the thumbnails draw again.</summary>
     public event Action? ViewChanged;
@@ -209,11 +251,16 @@ public sealed class AiNotesViewModel : ObservableObject
 
     private int CurrentPage(DocumentModel model) => Math.Clamp(viewport.CurrentPageIndex, 0, Math.Max(0, model.Pages.Count - 1));
 
-    private bool Execute(EditCommand? command)
+    /// <summary>
+    /// Ends the user's text editing and tool first (they change the document), then runs the command
+    /// <paramref name="make"/> builds on the model that is there now. False when there is nothing to do.
+    /// </summary>
+    private bool Execute(Func<DocumentModel, EditCommand?> make)
     {
-        if (command is null || main.Document is not { } doc) return false;
+        if (main.Document is not { } doc) return false;
         main.Editing.FinishTextEditing();
         main.Editing.CancelTool();
+        if (make(doc.Session.Current) is not { } command) return false;
         try { doc.Session.Execute(command); }
         catch (EditConflictException) { return false; }
         main.Selection.Attached?.Revalidate();
@@ -224,10 +271,14 @@ public sealed class AiNotesViewModel : ObservableObject
     public void ErasePage()
     {
         if (main.Document is not { } doc || doc.Session.Current.Pages.Count == 0) return;
-        var model = doc.Session.Current;
-        var ids = Authorship.AiAnnotations(model, model.Pages[CurrentPage(model)].Id).Select(x => x.Annotation.Id).ToList();
-        if (ids.Count == 0) { main.Status = main.Texts.Get("ai.nothingOnPage"); return; }
-        if (Execute(Authorship.Erase(model, ids))) main.Status = main.Texts.Format("ai.erased", ("count", ids.Count));
+        int count = 0;
+        bool done = Execute(model =>
+        {
+            var ids = Authorship.AiAnnotations(model, model.Pages[CurrentPage(model)].Id).Select(x => x.Annotation.Id).ToList();
+            count = ids.Count;
+            return Authorship.Erase(model, ids);
+        });
+        main.Status = done ? main.Texts.Format("ai.erased", ("count", count)) : main.Texts.Get("ai.nothingOnPage");
     }
 
     /// <summary>모든 AI 필기 지우기: after one confirmation ("AI 필기 N개(M쪽)를 지울까요?").</summary>
@@ -240,9 +291,14 @@ public sealed class AiNotesViewModel : ObservableObject
         int pages = all.Select(x => x.Page.Id).Distinct().Count();
         if (await dialogs.AskAsync(main.Texts.Format("ai.eraseAllConfirm", ("count", all.Count), ("pages", pages)), AskButtons.YesNo, NoticeKind.Warning) != Answer.Yes) return;
         if (!ReferenceEquals(main.Document, doc)) return;
-        var current = doc.Session.Current;
-        var ids = Authorship.AiAnnotations(current).Select(x => x.Annotation.Id).ToList();
-        if (Execute(Authorship.Erase(current, ids))) main.Status = main.Texts.Format("ai.erased", ("count", ids.Count));
+        int count = 0;
+        bool done = Execute(model =>
+        {
+            var ids = Authorship.AiAnnotations(model).Select(x => x.Annotation.Id).ToList();
+            count = ids.Count;
+            return Authorship.Erase(model, ids);
+        });
+        if (done) main.Status = main.Texts.Format("ai.erased", ("count", count));
     }
 
     /// <summary>모두 선택: the AI writing of this page, selected so the user can change it (hidden writing shows again).</summary>
@@ -263,15 +319,20 @@ public sealed class AiNotesViewModel : ObservableObject
     /// </summary>
     public void EraseLast()
     {
-        if (runs.Count == 0 || main.Document is not { } doc) return;
+        if (runs.Count == 0 || main.Document is null) return;
         var run = runs[^1];
-        var model = doc.Session.Current;
-        var ids = run.Created.Where(id => Authorship.IsAi(model, id)).ToList();
-        bool erased = ids.Count > 0 && Execute(Authorship.Erase(model, ids));
-        string text = erased ? main.Texts.Format("ai.erased", ("count", ids.Count)) : main.Texts.Get("ai.nothingAdded");
+        int count = 0;
+        bool erased = Execute(model =>
+        {
+            var ids = run.Created.Where(id => Authorship.IsAi(model, id)).ToList();
+            count = ids.Count;
+            return Authorship.Erase(model, ids);
+        });
+        if (!erased && count > 0) return; // the edit did not fit: the record stays for another try
+        string text = erased ? main.Texts.Format("ai.erased", ("count", count)) : main.Texts.Get("ai.nothingAdded");
         if (run.UndoOnlyChanges > 0) text += " " + main.Texts.Format("ai.undoOnly", ("count", run.UndoOnlyChanges));
         main.Status = text;
-        runs.RemoveAt(runs.Count - 1);
+        runs.Remove(run);
         Refresh();
     }
 
@@ -363,17 +424,28 @@ public sealed class AiNotesViewModel : ObservableObject
     /// </summary>
     public void EraseChecked()
     {
-        if (main.Document is not { } doc) return;
-        var model = doc.Session.Current;
-        var ids = Items.Where(i => i.IsChecked).SelectMany(i => i.Run is { } run ? run.Created.Where(id => Authorship.IsAi(model, id)) : i.Ids).Distinct().ToList();
-        if (Execute(Authorship.Erase(model, ids))) main.Status = main.Texts.Format("ai.erased", ("count", ids.Count));
+        var picked = Items.Where(i => i.IsChecked).ToList();
+        int count = 0;
+        bool done = Execute(model =>
+        {
+            var ids = picked.SelectMany(i => i.Run is { } run ? run.Created.Where(id => Authorship.IsAi(model, id)) : i.Ids).Distinct()
+                .Where(id => Authorship.IsAi(model, id)).ToList();
+            count = ids.Count;
+            return Authorship.Erase(model, ids);
+        });
+        if (done) main.Status = main.Texts.Format("ai.erased", ("count", count));
     }
 
     /// <summary>[내 필기로] on the checked rows: their AI writing becomes the user's own (the tags go).</summary>
     public void AdoptChecked()
     {
-        if (main.Document is not { } doc) return;
-        var ids = Items.Where(i => i.IsChecked).SelectMany(i => i.Ids).Distinct().ToList();
-        if (Execute(Authorship.Adopt(doc.Session.Current, ids))) main.Status = main.Texts.Format("ai.adopted", ("count", ids.Count));
+        var picked = Items.Where(i => i.IsChecked).SelectMany(i => i.Ids).Distinct().ToList();
+        int count = 0;
+        bool done = Execute(model =>
+        {
+            count = picked.Count(id => Authorship.IsAi(model, id));
+            return Authorship.Adopt(model, picked);
+        });
+        if (done) main.Status = main.Texts.Format("ai.adopted", ("count", count));
     }
 }

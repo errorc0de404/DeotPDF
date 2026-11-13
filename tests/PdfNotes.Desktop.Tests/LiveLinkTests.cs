@@ -105,7 +105,7 @@ public sealed class LiveLinkTests
     });
 
     [Fact]
-    public void AWriteIsOneUndoUnitAndTheUsersEditMakesItTheirs() => Headless.Run(async () =>
+    public void AWriteIsOneUndoUnitAndStaysAiWritingUntilTheUserTakesIt() => Headless.Run(async () =>
     {
         var w = await Opened();
         var session = w.View.Document!.Session;
@@ -123,11 +123,18 @@ public sealed class LiveLinkTests
         Assert.Equal(AnnotationTag.AiAuthor, model.TagOf(box.Id)!.Author);
         Assert.Single(model.Pages[1].Annotations.OfType<TextBoxAnnotation>());
 
-        // The user moves it: it is theirs now; Undo gives the tag back.
+        // The user moves it: still AI writing (MCP_LIVE_PLAN 5). Only 내 필기로 (the canvas menu) makes it theirs; Undo gives the tag back.
         session.Execute(DocumentEdits.UpdateAnnotations(session.Current, [PdfNotes.Core.Geometry.AnnotationGeometry.Similarity(box, default, move: new PdfNotes.Core.Geometry.Point2(10, 0))], "undo.move"));
+        Assert.True(Authorship.IsAi(session.Current, box.Id));
+        var selection = w.View.ViewModel.Selection;
+        var menu = selection.Menu(0, box.Id, onTextSelection: false)!;
+        var adopt = Assert.Single(menu.Entries, e => e.Command == AnnotationCommand.Adopt);
+        Assert.True(selection.Run(menu, adopt));
         Assert.Null(session.Current.TagOf(box.Id));
+        Assert.DoesNotContain(selection.Menu(0, box.Id, onTextSelection: false)!.Entries, e => e.Command == AnnotationCommand.Adopt);
         session.Undo();
-        Assert.NotNull(session.Current.TagOf(box.Id));
+        Assert.True(Authorship.IsAi(session.Current, box.Id));
+        session.Undo(); // the move
 
         // Ctrl+Z on the AI edit removes both boxes at once.
         session.Undo();
@@ -140,6 +147,50 @@ public sealed class LiveLinkTests
         // Files of the window's own are not read for a client.
         var image = await Ask(w, Request("command", "add", "image", "@live", "-p", "1", "--file", "x.png", "--rect", "0,0,10,10"));
         Assert.Equal("LIVE_UNSUPPORTED", Code(image));
+    });
+
+    /// <summary>What a client must not get around (review 2026-11-13): the plan's defaults, a plan or text file, a dry run.</summary>
+    [Fact]
+    public void AClientGetsNoMoreThanItWasGiven() => Headless.Run(async () =>
+    {
+        var w = await Opened();
+        var session = w.View.Document!.Session;
+        JsonObject Apply(string plan, params string[] more) => new()
+        {
+            ["op"] = "command", ["client"] = "Claude", ["args"] = new JsonArray([.. ((string[])["apply", "@live", "-", .. more]).Select(a => (JsonNode)a)]), ["stdin"] = plan,
+        };
+        var first = await Ask(w, Apply("""[{ "op": "add.text", "page": 1, "rect": [50, 50, 120, 30], "text": "hi" }]"""), "LiveAiWriteButton");
+        Assert.True(first["ok"]!.GetValue<bool>(), first.ToJsonString());
+        string hash = first["result"]!["sourceHash"]!.GetValue<string>();
+
+        // allowUntagged in the plan's defaults is the user's writing too: full editing.
+        var mine = new StickyNote(Guid.NewGuid(), false, PdfNotes.Core.Geometry.Affine.Translation(10, 10), "mine", new RgbColor(255, 213, 79));
+        session.Execute(DocumentEdits.AddAnnotation(session.Current, session.Current.Pages[0].Id, mine));
+        string steal = $$"""{ "defaults": { "annot.delete": { "allowUntagged": true } }, "ops": [{ "op": "annot.delete", "id": "{{mine.Id}}" }] }""";
+        Assert.Equal("LIVE_PERMISSION", Code(await Ask(w, Apply(steal))));
+        Assert.NotNull(session.Current.FindAnnotation(mine.Id));
+
+        // The plan comes on standard input, never from a file the window would open; the input is exactly @live.
+        string file = Path.Combine(Headless.TempFolder(), "plan.json");
+        File.WriteAllText(file, """[{ "op": "page.delete", "page": 3 }]""");
+        Assert.Equal("LIVE_UNSUPPORTED", Code(await Ask(w, Request("command", "apply", "@live", file))));
+        Assert.Equal("LIVE_UNSUPPORTED", Code(await Ask(w, Request("command", "info", file, "--note", "@live"))));
+        Assert.Equal(3, session.Current.Pages.Count);
+
+        // The window reads no file for a client (text from a file).
+        string secret = Path.Combine(Headless.TempFolder(), "secret.txt");
+        File.WriteAllText(secret, "secret");
+        var text = await Ask(w, Request("command", "add", "text", "@live", "-p", "1", "--rect", "10,10,100,20", "--text", "@" + secret));
+        Assert.Equal("PATH_NOT_ALLOWED", Code(text));
+
+        // A dry run reports and changes nothing; the hash follows the window's document.
+        int undo = session.UndoCount;
+        var dry = await Ask(w, Apply("""[{ "op": "add.text", "page": 2, "rect": [50, 50, 120, 30], "text": "dry" }]""", "--dry-run"));
+        Assert.True(dry["ok"]!.GetValue<bool>(), dry.ToJsonString());
+        Assert.True(dry["result"]!["dryRun"]!.GetValue<bool>());
+        Assert.Equal(undo, session.UndoCount);
+        Assert.Empty(session.Current.Pages[1].Annotations);
+        Assert.NotEqual(hash, dry["result"]!["sourceHash"]!.GetValue<string>());
     });
 
     [Fact]

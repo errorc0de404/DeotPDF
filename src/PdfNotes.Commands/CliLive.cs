@@ -35,13 +35,14 @@ public static class CliLive
     /// <summary>
     /// The permission a command needs: reads need <see cref="LiveLevel.Read"/>; AI writing (add, AI annotations, blank
     /// pages) <see cref="LiveLevel.AiWrite"/>; the user's writing and page structure <see cref="LiveLevel.FullEdit"/>.
-    /// <paramref name="plan"/> is the operation list of <c>apply</c>.
+    /// <paramref name="plan"/> is the operation list of <c>apply</c> and <paramref name="defaults"/> its <c>defaults</c>
+    /// object, which <c>apply</c> merges into the operations: an <c>allowUntagged</c> anywhere in it counts for all of them.
     /// </summary>
-    public static LiveLevel Needs(string command, IReadOnlyList<string> args, JsonArray? plan)
+    public static LiveLevel Needs(string command, IReadOnlyList<string> args, JsonArray? plan, JsonNode? defaults = null)
     {
         if (command == "apply")
         {
-            var level = LiveLevel.Read;
+            var level = AllowsUntagged(defaults) ? LiveLevel.FullEdit : LiveLevel.Read;
             foreach (var op in plan ?? [])
             {
                 string name = op?["op"] is JsonValue n && n.TryGetValue(out string? s) ? s : "";
@@ -52,6 +53,32 @@ public static class CliLive
             return level;
         }
         return IsWrite(command) ? OpLevel(command, args.Contains("--allow-untagged")) : LiveLevel.Read;
+    }
+
+    private static bool AllowsUntagged(JsonNode? node) => node switch
+    {
+        JsonObject o => o.Any(p => p.Key == "allowUntagged" && p.Value is JsonValue v && v.TryGetValue(out bool b) && b || AllowsUntagged(p.Value)),
+        JsonArray a => a.Any(AllowsUntagged),
+        _ => false,
+    };
+
+    /// <summary>The folder a live command may read and write files in: only the PNG the window hands back is put there.</summary>
+    public static string ScratchFolder => Path.Combine(Path.GetTempPath(), "deotpdf-live");
+
+    /// <summary>
+    /// Null when <paramref name="tokens"/> have the shape of a live command: the input right after the command name is
+    /// exactly <c>@live</c> (so no file of the client's choosing is opened), and the plan of <c>apply</c> is <c>-</c>
+    /// (standard input, which the permission check has read). Otherwise why not.
+    /// </summary>
+    public static string? ShapeError(string command, IReadOnlyList<string> tokens)
+    {
+        if (command is "schema" or "fonts" or "measure") return tokens.Contains(Input) ? $"'{command}' takes no input document; leave out {Input}." : null;
+        int words = command.Split(' ').Length;
+        if (tokens.Count <= words || tokens[words] != Input || tokens.Count(t => t == Input) != 1)
+            return $"A live command takes {Input} as its input PDF, right after the command name.";
+        if (command == "apply" && (tokens.Count <= words + 1 || tokens[words + 1] != "-"))
+            return "A live apply reads its plan from standard input: apply @live -";
+        return null;
     }
 
     /// <summary>The op names of an <c>apply</c> plan that <see cref="Unsupported"/> refuses.</summary>
@@ -78,24 +105,37 @@ public static class CliLive
     /// </summary>
     public static LiveRun Run(OpenDocument document, string id, IReadOnlyList<string> tokens, string? stdin)
     {
+        long revision = document.Session.Revision; // the window's document, not the copy (a new session starts at 1)
         using var fork = document.Fork();
         long start = fork.Session.Revision;
-        var context = new LiveContext(CliDocument.Live(fork, id), stdin);
+        var context = new LiveContext(CliDocument.Live(fork, id, revision), stdin);
         var previous = current.Value;
+        var roots = CliPaths.Roots;
         current.Value = context;
+        // The window opens and writes no file a client names (--text @file, --style file, overlays, ...): only its own
+        // scratch folder, where the PNG it hands back is drawn.
+        CliPaths.Roots = [ScratchFolder];
         try
         {
             using var output = new StringWriter();
             using var log = new StringWriter();
             int exit = CliApp.Run(tokens, output, log);
-            var operations = exit == ExitCodes.Ok ? fork.Session.OperationsSince(start) : [];
+            var operations = exit == ExitCodes.Ok && !context.DryRun ? fork.Session.OperationsSince(start) : [];
             return new LiveRun(exit, output.ToString().Trim(), operations);
         }
-        finally { current.Value = previous; }
+        finally
+        {
+            current.Value = previous;
+            CliPaths.Roots = roots;
+        }
     }
 }
 
-internal sealed record LiveContext(CliDocument Document, string? StandardInput);
+internal sealed record LiveContext(CliDocument Document, string? StandardInput)
+{
+    /// <summary>The command asked for <c>--dry-run</c>: its result is reported and nothing reaches the window's document.</summary>
+    public bool DryRun { get; set; }
+}
 
 /// <summary>A command run on a live document: exit code, its JSON and the operations a writing command made.</summary>
 public sealed record LiveRun(int ExitCode, string Json, IReadOnlyList<EditOperation> Operations);

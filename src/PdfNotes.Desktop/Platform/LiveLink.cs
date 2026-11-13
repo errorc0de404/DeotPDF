@@ -21,6 +21,15 @@ public static class LiveLink
 
     private static readonly UTF8Encoding Utf8 = new(false);
 
+    /// <summary>Connections at a time: a few clients and their short requests, not a queue for anything on the machine.</summary>
+    private const int MaxConnections = 16;
+
+    /// <summary>The longest request line (an apply plan with long text), in characters.</summary>
+    private const int MaxRequestChars = 16 * 1024 * 1024;
+
+    /// <summary>How long a connection may stay silent before its request arrives.</summary>
+    private static readonly TimeSpan RequestWait = TimeSpan.FromSeconds(15);
+
     /// <summary>Listens until <paramref name="stop"/> is cancelled; <paramref name="handle"/> answers each request.</summary>
     public static Task Listen(Func<JsonObject, Task<JsonObject>> handle, CancellationToken stop) =>
         Task.Run(() => AcceptAsync(PipeName(Environment.ProcessId), handle, stop), CancellationToken.None);
@@ -32,7 +41,7 @@ public static class LiveLink
             NamedPipeServerStream? server = null;
             try
             {
-                server = new NamedPipeServerStream(name, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances,
+                server = new NamedPipeServerStream(name, PipeDirection.InOut, MaxConnections,
                     PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
                 await server.WaitForConnectionAsync(stop);
                 var connected = server;
@@ -40,7 +49,7 @@ public static class LiveLink
                 _ = Task.Run(() => ServeAsync(connected, handle, stop), CancellationToken.None);
             }
             catch (OperationCanceledException) { server?.Dispose(); return; }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            catch (Exception) // too many connections, a broken pipe, ...: the listener must outlive it
             {
                 server?.Dispose();
                 try { await Task.Delay(1000, stop); }
@@ -56,7 +65,7 @@ public static class LiveLink
         await using var writer = new StreamWriter(pipe, Utf8) { AutoFlush = true };
         try
         {
-            while (!stop.IsCancellationRequested && await reader.ReadLineAsync(stop) is { } line)
+            while (!stop.IsCancellationRequested && await ReadRequestAsync(reader, stop) is { } line)
             {
                 JsonObject answer;
                 try
@@ -68,8 +77,26 @@ public static class LiveLink
                 await writer.WriteLineAsync(answer.ToJsonString());
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { } // the window closes, or the client sent nothing in time
         catch (IOException) { } // the client went away
+        catch (InvalidDataException) { } // a request longer than MaxRequestChars
+    }
+
+    /// <summary>One request line; null at the end. Gives up on a silent client and on a line that never ends.</summary>
+    private static async Task<string?> ReadRequestAsync(StreamReader reader, CancellationToken stop)
+    {
+        using var wait = CancellationTokenSource.CreateLinkedTokenSource(stop);
+        wait.CancelAfter(RequestWait);
+        var line = new StringBuilder();
+        char[] one = new char[1];
+        while (true)
+        {
+            // Character by character: the reader buffers, and what follows the newline belongs to the next request.
+            if (await reader.ReadAsync(one.AsMemory(), wait.Token) == 0) return line.Length == 0 ? null : line.ToString();
+            if (one[0] == '\n') return line.ToString().TrimEnd('\r');
+            if (line.Length >= MaxRequestChars) throw new InvalidDataException("The request is too long.");
+            line.Append(one[0]);
+        }
     }
 
     private static JsonObject Error(string code, string message) => new()
@@ -82,29 +109,33 @@ public static class LiveLink
 /// <summary>deot's commands for <see cref="LiveLinkViewModel"/>: the same code the command line runs (<see cref="CliLive"/>).</summary>
 public sealed class DesktopLiveCommands : ILiveCommands
 {
+    public string ScratchFolder => CliLive.ScratchFolder;
+
     public LiveCommandInfo Inspect(IReadOnlyList<string> tokens, string? stdin)
     {
         if (CliLive.CommandOf(tokens) is not { } name) return new(null, false, LiveAccess.Read, "Unknown command. Run 'deot schema' for the list.");
         if (CliLive.Unsupported.Contains(name)) return new(name, false, LiveAccess.Read, $"'{name}' is not available on a document open in DeotPDF (it reads or writes files of its own).");
-        bool takesInput = name is not ("schema" or "fonts");
-        if (takesInput && !tokens.Contains(CliLive.Input)) return new(name, false, LiveAccess.Read, $"A live command takes {CliLive.Input} as its input PDF.");
+        if (CliLive.ShapeError(name, tokens) is { } shape) return new(name, false, LiveAccess.Read, shape);
         JsonArray? plan = null;
+        JsonNode? defaults = null;
         if (name == "apply")
         {
             try
             {
-                plan = JsonNode.Parse(stdin ?? "") switch
+                var root = JsonNode.Parse(stdin ?? "");
+                plan = root switch
                 {
                     JsonObject o => o["ops"] as JsonArray,
                     JsonArray a => a,
                     _ => null,
                 };
+                defaults = (root as JsonObject)?["defaults"];
             }
             catch (JsonException) { } // apply itself reports the bad plan
             if (CliLive.UnsupportedOps(plan).FirstOrDefault() is { } op)
                 return new(name, true, LiveAccess.Read, $"The op '{op}' is not available on a document open in DeotPDF (it reads files of its own).");
         }
-        return new(name, CliLive.IsWrite(name), (LiveAccess)(int)CliLive.Needs(name, tokens, plan), null);
+        return new(name, CliLive.IsWrite(name), (LiveAccess)(int)CliLive.Needs(name, tokens, plan, defaults), null);
     }
 
     public LiveCommandResult Run(OpenDocument document, string id, IReadOnlyList<string> tokens, string? stdin)
