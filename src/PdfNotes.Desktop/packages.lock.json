@@ -147,6 +147,16 @@
         "resolved": "0.94.1",
         "contentHash": "11YMr7FnAbL83bQmVxlhbIKHvSLxjO81D12Ej0QMSGXMDTxNA9MTOa4MQxx43nv5el/efuPHwzyrj6a5ha2gug=="
       },
+      "pdfnotes.commands": {
+        "type": "Project",
+        "dependencies": {
+          "PdfNotes.Core": "[1.2.1, )",
+          "PdfNotes.Editor": "[1.2.1, )",
+          "PdfNotes.Pdf": "[1.2.1, )",
+          "PdfNotes.Text": "[1.2.1, )",
+          "PdfNotes.Text.Skia": "[1.2.1, )"
+        }
+      },
       "pdfnotes.core": {
         "type": "Project",
         "dependencies": {

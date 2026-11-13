@@ -64,6 +64,13 @@ public static class CliApp
         return exit;
     }
 
+    /// <summary>The name of the command <paramref name="args"/> start with, or null.</summary>
+    public static string? FindName(IReadOnlyList<string> args)
+    {
+        try { return Find(args).Command.Name; }
+        catch (CliException) { return null; }
+    }
+
     private static (Command Command, IReadOnlyList<string> Remaining) Find(IReadOnlyList<string> args)
     {
         var words = args.TakeWhile(a => !a.StartsWith('-')).ToList();

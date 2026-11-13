@@ -285,6 +285,22 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
     public bool IsPartlyInView(int pageIndex, IEnumerable<Quad> quads) => ViewportExtent(pageIndex, quads) is { } r &&
         r.MaxX >= 0 && r.MaxY >= 0 && r.MinX <= viewportWidth && r.MinY <= viewportHeight;
 
+    public Rect2? VisiblePart(int pageIndex)
+    {
+        if (pageIndex < 0 || pageIndex >= pages.Count || (mode == ViewMode.SinglePage && pageIndex != CurrentPageIndex)) return null;
+        try
+        {
+            var setup = pages[pageIndex].Setup;
+            var toPage = PageTransform(pageIndex).DipToPage;
+            Point2[] corners = [new(0, 0), new(viewportWidth, 0), new(viewportWidth, viewportHeight), new(0, viewportHeight)];
+            var p = corners.Select(toPage.Transform).ToArray();
+            double x0 = Math.Max(0, p.Min(c => c.X)), y0 = Math.Max(0, p.Min(c => c.Y));
+            double x1 = Math.Min(setup.WidthPt, p.Max(c => c.X)), y1 = Math.Min(setup.HeightPt, p.Max(c => c.Y));
+            return x1 > x0 && y1 > y0 ? new Rect2(x0, y0, x1 - x0, y1 - y0) : null;
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException) { return null; }
+    }
+
     private (double MinX, double MinY, double MaxX, double MaxY)? ViewportExtent(int page, IEnumerable<Quad> quads)
     {
         if (mode == ViewMode.SinglePage && page != CurrentPageIndex) return null;

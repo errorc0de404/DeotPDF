@@ -32,6 +32,12 @@ public interface IDocumentViewport
     /// <summary>Some part of <paramref name="quads"/> on page <paramref name="pageIndex"/> is inside the viewport.</summary>
     bool IsPartlyInView(int pageIndex, IEnumerable<Quad> quads);
 
+    /// <summary>
+    /// The part of page <paramref name="pageIndex"/> inside the viewport in canonical page points, or null when none of
+    /// it is (an AI client asks what the user sees, MCP_LIVE_PLAN 3).
+    /// </summary>
+    Rect2? VisiblePart(int pageIndex);
+
     /// <summary>Scrolls so that <paramref name="point"/> of page <paramref name="pageIndex"/> is at the viewport's center (zoom kept).</summary>
     void ScrollToPagePoint(int pageIndex, Point2 point);
 

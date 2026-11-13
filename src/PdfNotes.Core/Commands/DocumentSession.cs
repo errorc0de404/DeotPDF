@@ -75,6 +75,7 @@ public sealed class DocumentSession
         if (command.IsEmpty) return false;
         lock (gate)
         {
+            if (Filter is { } filter) command = filter(current, command);
             var next = EditCommand.Apply(current, command.Operations);
             current = next;
             ClearRedo();
@@ -131,6 +132,31 @@ public sealed class DocumentSession
         }
         OnStateChanged();
         return true;
+    }
+
+    /// <summary>
+    /// Rewrites each command before <see cref="Execute"/> applies it, given the state it applies to (the app's authorship
+    /// rule, <see cref="Authorship.ForUserEdit"/>). Null: commands run as given. Undo and Redo replay what was recorded.
+    /// </summary>
+    public Func<DocumentModel, EditCommand, EditCommand>? Filter { get; set; }
+
+    /// <summary>
+    /// The operations of the history entries made after <paramref name="sinceRevision"/>, oldest first (a scratch session
+    /// that ran several commands gives them to another session as one command, MCP_LIVE_PLAN 8.3). Throws when the current
+    /// state is not reached from that revision by the recorded entries (undone, trimmed or never there).
+    /// </summary>
+    public IReadOnlyList<EditOperation> OperationsSince(long sinceRevision)
+    {
+        lock (gate)
+        {
+            if (sinceRevision == revision) return [];
+            var entries = undo.SkipWhile(e => e.Before != sinceRevision).ToList();
+            if (entries.Count == 0 || entries[^1].After != revision)
+                throw new InvalidOperationException("The history does not lead from that revision to the current state.");
+            for (int i = 1; i < entries.Count; i++)
+                if (entries[i].Before != entries[i - 1].After) throw new InvalidOperationException("The history has a gap after that revision.");
+            return [.. entries.SelectMany(e => e.Operations)];
+        }
     }
 
     /// <summary>Ends the current coalescing group (cursor move, formatting, paste, IME commit, drag end, ...).</summary>

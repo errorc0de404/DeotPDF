@@ -25,6 +25,26 @@ public sealed class OpenDocument : IDisposable
         Renderer = new PageRenderer(Sources);
     }
 
+    private OpenDocument(OpenDocument parent, DocumentSession session)
+    {
+        Session = session;
+        Source = parent.Source;
+        Sources = parent.Sources;
+        Location = parent.Location;
+        Baseline = parent.Baseline;
+        Renderer = parent.Renderer;
+        borrowed = true;
+    }
+
+    private readonly bool borrowed;
+
+    /// <summary>
+    /// A scratch copy of the current state with its own history over the same source PDFs and renderer (it owns neither,
+    /// so disposing it leaves this document open). An AI request runs its operations on it, and the operations are then
+    /// executed here as one command (MCP_LIVE_PLAN 8.3). Do not import pages into it: that adds to the shared sources.
+    /// </summary>
+    public OpenDocument Fork() => new(this, new DocumentSession(Session.Current, new HistoryBudget(int.MaxValue, long.MaxValue)));
+
     public DocumentSession Session { get; }
     public PdfSourceDocument? Source { get; }
 
@@ -380,6 +400,7 @@ public sealed class OpenDocument : IDisposable
 
     public void Dispose()
     {
+        if (borrowed) return;
         Renderer.Dispose();
         Sources.Dispose();
     }

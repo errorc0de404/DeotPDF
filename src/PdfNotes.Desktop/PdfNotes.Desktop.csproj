@@ -19,6 +19,8 @@
   <ItemGroup>
     <!-- The app's screen (P5a); the window, the start-up and the system integration are here. -->
     <ProjectReference Include="..\PdfNotes.UI\PdfNotes.UI.csproj" />
+    <!-- deot's commands, run on the open document for AI clients (MCP_LIVE_PLAN, Platform/LiveLink.cs). -->
+    <ProjectReference Include="..\PdfNotes.Commands\PdfNotes.Commands.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- The language packs shipped next to the app (D14e: the app folder's Languages, then the settings folder's). -->

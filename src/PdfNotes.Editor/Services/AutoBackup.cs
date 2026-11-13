@@ -209,6 +209,25 @@ public sealed partial class BackupStore
         return null;
     }
 
+    /// <summary>
+    /// The process numbers of the DeotPDF windows running now, from the session markers in <paramref name="appFolder"/>
+    /// (<c>deot</c> finds the windows it can reach this way, MCP_LIVE_PLAN 8.4).
+    /// </summary>
+    public static IReadOnlyList<int> RunningWindows(string appFolder)
+    {
+        string folder = Path.Combine(appFolder, "sessions");
+        var result = new List<int>();
+        if (!Directory.Exists(folder)) return result;
+        foreach (string file in Directory.EnumerateFiles(folder, "*.json"))
+        {
+            Marker? marker;
+            try { marker = JsonSerializer.Deserialize(File.ReadAllText(file), BackupJson.Default.Marker); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or InvalidOperationException) { continue; }
+            if (marker is not null && Running(marker) && !result.Contains(marker.ProcessId)) result.Add(marker.ProcessId);
+        }
+        return result;
+    }
+
     /// <summary>Normal end: the marker is removed.</summary>
     public void End()
     {

@@ -192,6 +192,12 @@
         "type": "Project",
         "dependencies": {
           "ModelContextProtocol.Core": "[2.3.0, )",
+          "PdfNotes.Commands": "[1.2.1, )"
+        }
+      },
+      "pdfnotes.commands": {
+        "type": "Project",
+        "dependencies": {
           "PdfNotes.Core": "[1.2.1, )",
           "PdfNotes.Editor": "[1.2.1, )",
           "PdfNotes.Pdf": "[1.2.1, )",

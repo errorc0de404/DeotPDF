@@ -41,6 +41,8 @@ internal sealed class ManualTime : TimeProvider
 /// <summary>A canvas that records what it was asked; what is "in view" is decided by the test.</summary>
 internal sealed class FakeViewport : IDocumentViewport
 {
+    public PdfNotes.Core.Geometry.Rect2? VisiblePart(int pageIndex) => pageIndex == CurrentPageIndex ? new(0, 0, 100, 100) : null;
+
     public int CurrentPageIndex { get; set; }
     public int PageCount { get; set; } = 3;
     public double Zoom { get; set; } = 1;

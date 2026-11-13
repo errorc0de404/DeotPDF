@@ -35,6 +35,7 @@ public sealed partial class MainWindow : Window, IViewHost
         {
             View.Shown();
             if (!OperatingSystem.IsWindows()) ListenForActivation();
+            if (View.ViewModel.LiveLink.Available) ListenForAiClients();
         };
         Closing += WindowClosing;
         Closed += (_, _) => View.Detach();
@@ -99,6 +100,16 @@ public sealed partial class MainWindow : Window, IViewHost
     {
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Activate();
+    }
+
+    // ----- AI clients reach the open document through deot (MCP_LIVE_PLAN) -----
+
+    private readonly CancellationTokenSource liveStop = new();
+
+    private void ListenForAiClients()
+    {
+        _ = LiveLink.Listen(View.ViewModel.LiveLink.HandleAsync, liveStop.Token);
+        Closed += (_, _) => liveStop.Cancel();
     }
 
     // ----- placement (spec 24.1, D13h) -----

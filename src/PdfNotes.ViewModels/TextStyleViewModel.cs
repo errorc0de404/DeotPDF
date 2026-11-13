@@ -89,6 +89,9 @@ public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialo
 
     private bool Editing => editor?.IsEditing == true;
 
+    /// <summary>True while a text box is being edited (an AI write waits for it, MCP_LIVE_PLAN 4).</summary>
+    public bool IsEditingText => Editing;
+
     /// <summary>While a box is edited, Undo and Redo are its own steps (true); otherwise the document's (false).</summary>
     public bool UndoInEditor(bool redo)
     {

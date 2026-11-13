@@ -95,7 +95,7 @@ public static class ApplyCommand
     private static JsonObject Load(string path)
     {
         string text;
-        if (path == "-") text = Console.In.ReadToEnd();
+        if (path == "-") text = CliLive.Current?.StandardInput ?? Console.In.ReadToEnd();
         else
         {
             string full = CliPaths.Full(path);

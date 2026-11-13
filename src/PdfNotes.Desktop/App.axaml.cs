@@ -34,7 +34,7 @@ public sealed class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // The composition root (R4g): the app's services, and how a window's view models are put together.
-            var app = new AppServices(settings, DisplayName, s => s.Save(file), folder) { Texts = Strings.Current };
+            var app = new AppServices(settings, DisplayName, s => s.Save(file), folder) { Texts = Strings.Current, LiveCommands = new Platform.DesktopLiveCommands() };
             var window = new MainWindow(app, compose: MainViewModels.Create);
             desktop.MainWindow = window;
             CatchCrashes(window);

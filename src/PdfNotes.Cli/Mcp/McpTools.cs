@@ -30,7 +30,44 @@ public static class McpTools
         foreach (string command in Reading) list.Add(FromSchema(command, readOnly: command != "render"));
         list.Add(FromSchema("page export", readOnly: false));
         list.Add(Apply());
+        list.AddRange(LiveTools());
         return list;
+    }
+
+    /// <summary>Fields every tool that reads or writes a document gets: the document open in DeotPDF instead of a file (MCP_LIVE_PLAN).</summary>
+    public static readonly string[] LiveFields = ["live", "doc"];
+
+    private static void AddLiveFields(JsonObject input, JsonObject fields)
+    {
+        fields["live"] = new JsonObject
+        {
+            ["type"] = "boolean",
+            ["description"] = "work on the document the user has open in DeotPDF instead of a file (leave out pdf; the user is asked once to allow it; writes are applied in the window as one Undo step and not saved)",
+        };
+        fields["doc"] = new JsonObject { ["type"] = "string", ["description"] = "with live: the document id from live_docs when several DeotPDF windows are open" };
+        if (input["required"] is JsonArray required)
+            input["required"] = new JsonArray([.. required.Select(r => r!.GetValue<string>()).Where(r => r != "pdf").Select(r => (JsonNode)r)]);
+    }
+
+    private static IEnumerable<Entry> LiveTools()
+    {
+        JsonObject Doc() => new() { ["type"] = "string", ["description"] = "the document id from live_docs when several DeotPDF windows are open" };
+        JsonObject Place() => new()
+        {
+            ["doc"] = Doc(),
+            ["page"] = new JsonObject { ["type"] = new JsonArray("integer", "string"), ["description"] = "page number from 1 or page ID" },
+            ["rect"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "number" }, ["minItems"] = 4, ["maxItems"] = 4, ["description"] = "[x, y, w, h] in page points (optional)" },
+        };
+        Entry Live(string command, string description, JsonObject fields, string[] required, bool readOnly = true)
+        {
+            var schema = new JsonObject { ["type"] = "object", ["properties"] = fields };
+            if (required.Length > 0) schema["required"] = new JsonArray([.. required.Select(r => (JsonNode)r)]);
+            return Make(command, description, schema, fields, readOnly);
+        }
+        yield return Live("live docs", "The documents open in DeotPDF windows now (doc id, name, path, unsaved changes, page count, whether AI access is on and what this client may do). Other tools take live: true (and doc when several are open) to work on one of them.", new JsonObject(), []);
+        yield return Live("live context", "What the user is looking at in DeotPDF: current page, visible part of each page in page points, zoom, the PDF text they selected (text, characters, quads) and the annotations they selected. Use it when the user says 'this' or 'here'; render with live and view gives the picture.", new JsonObject { ["doc"] = Doc() }, []);
+        yield return Live("live goto", "Scrolls the user's DeotPDF view to a page (and rectangle).", Place(), ["page"]);
+        yield return Live("live flash", "Scrolls to a place and marks it for a moment so the user sees what you mean (nothing is written).", Place(), ["page"]);
     }
 
     private static Entry FromSchema(string command, bool readOnly)
@@ -45,7 +82,9 @@ public static class McpTools
             // The PNG comes back as an image; a path is only needed to keep the file.
             input["required"] = new JsonArray("pdf");
             fields["out"] = new JsonObject { ["type"] = "string", ["description"] = "PNG to keep (optional; the image is returned either way)" };
+            fields["view"] = new JsonObject { ["type"] = "boolean", ["description"] = "with live: exactly the part of the page the user sees now (no page or region)" };
         }
+        if (command is not ("schema" or "fonts" or "page export")) AddLiveFields(input, fields);
         string summary = CliApp.Commands.First(c => c.Name == command).Summary;
         return Make(command, $"{summary}. {usage}", input, fields, readOnly);
     }
@@ -71,6 +110,7 @@ public static class McpTools
         foreach (var (key, value) in given)
             if (key is not ("pdf" or "opsFile" or "appFolder")) fields[key] = value?.DeepClone();
         var schema = new JsonObject { ["type"] = "object", ["required"] = new JsonArray("pdf", "plan"), ["properties"] = fields };
+        AddLiveFields(schema, fields);
         string summary = CliApp.Commands.First(c => c.Name == "apply").Summary;
         return Make("apply", $"{summary}. Give out, or dryRun to only see the result. {usage[rules..]}", schema, fields, readOnly: false);
     }
@@ -135,7 +175,7 @@ public static class McpTools
         var options = new List<string>();
         foreach (var (key, element) in arguments ?? new Dictionary<string, JsonElement>())
         {
-            if (skip?.Contains(key) == true) continue;
+            if (skip?.Contains(key) == true || LiveFields.Contains(key)) continue;
             if (tool.Fields[key] is not JsonObject field)
                 throw CliException.Invalid($"{tool.Name} has no field \"{key}\".", new JsonObject { ["field"] = key });
             var value = JsonSerializer.SerializeToNode(element);

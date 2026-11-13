@@ -20,6 +20,7 @@ public sealed class LayerTests
         (typeof(PdfNotes.Render.Skia.SkiaAnnotationPainter).Assembly, 3),
         (typeof(PdfNotes.TextEditor.TextEditorModel).Assembly, 2),
         (typeof(PdfNotes.Editor.Services.AppSettings).Assembly, 4),
+        (typeof(PdfNotes.Cli.CliLive).Assembly, 5), // deot's commands: the desktop app runs them for AI clients (MCP_LIVE_PLAN)
         (typeof(PdfNotes.ViewModels.MainViewModel).Assembly, 5),
         (typeof(PdfNotes.TextEditor.Avalonia.TextBoxEditor).Assembly, 5),
         (typeof(PdfNotes.UI.Views.MainView).Assembly, 6),

@@ -27,6 +27,9 @@ public sealed record AppServices(AppSettings Settings, string AppName, Action<Ap
 
     /// <summary>The UI texts of the language in use.</summary>
     public Texts Texts { get; init; } = Texts.Korean;
+
+    /// <summary>Runs deot's commands on the open document for AI clients (desktop only; null: no live link).</summary>
+    public ILiveCommands? LiveCommands { get; init; }
 }
 
 /// <summary>
@@ -115,6 +118,7 @@ public static class MainViewModels
         main.ToolStyles = new ToolStylesViewModel(main);
         main.ToolBar = new ToolBarViewModel(main);
         main.Backup = new BackupViewModel(main, screen.Dialogs, app.Time, app.SettingsFolder);
+        main.LiveLink = new LiveLinkViewModel(main, app.LiveCommands, screen.Viewport, screen.Ui, app.Time);
         main.Assembled();
         return main;
     }

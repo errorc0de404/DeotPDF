@@ -78,6 +78,7 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
     public RibbonViewModel Ribbon { get; internal set; } = null!;
     public RecentViewModel Recent { get; internal set; } = null!;
     public UpdateViewModel Update { get; internal set; } = null!;
+    public LiveLinkViewModel LiveLink { get; internal set; } = null!;
     public LoadingViewModel Loading { get; internal set; } = null!;
     public OutlineViewModel Outline { get; internal set; } = null!;
     public ForeignViewModel Foreign { get; internal set; } = null!;
@@ -283,6 +284,7 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
     void IDocumentHost.DocumentReplaced(OpenDocument? previous, OpenDocument next)
     {
         next.Session.StateChanged += SessionStateChanged;
+        next.Session.Filter = PdfNotes.Core.Commands.Authorship.ForUserEdit; // the user's edits make AI writing theirs (MCP_LIVE_PLAN 5)
         followed = (next, next.Session.Current.Pages, next.Sources.Imported.Count);
         DocumentShown?.Invoke(previous, next);
         // Off the UI thread: closing the old engines waits for the page PDFium is still rendering for it.

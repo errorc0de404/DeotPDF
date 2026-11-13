@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using PdfNotes.Cli.Commands;
 
 namespace PdfNotes.Cli.Mcp;
 
@@ -27,7 +28,11 @@ public sealed class DeotMcpServer : IDisposable
         "A workflow that works well: info, render with grid for an overview, then per page layout, find, ink with blocks and space; " +
         "measure text before placing it; put every edit in one apply plan with source keys, run it with dryRun and previews, add guards, " +
         "and always apply the full plan to the original file so re-runs replace instead of duplicate. " +
-        "The schema tool lists every command, error code and an op's fields (e.g. command \"add text\" for add.text).";
+        "The schema tool lists every command, error code and an op's fields (e.g. command \"add text\" for add.text). " +
+        "When the user is studying with the PDF open in DeotPDF, work on that open document instead of a file: live_docs lists it, " +
+        "live_context tells what they see and selected, render with live and view shows it, other tools take live: true (no pdf), " +
+        "an apply with live is applied in their window at once as one Undo step (not saved), and live_flash points at a place. " +
+        "The user is asked once to allow access; LIVE_CONSENT_TIMEOUT means ask them to answer the bar in DeotPDF and try again.";
 
     private readonly IReadOnlyList<string> roots;
     private readonly string scratch = Path.Combine(Path.GetTempPath(), "deot-mcp", Guid.NewGuid().ToString("N"));
@@ -103,14 +108,16 @@ public sealed class DeotMcpServer : IDisposable
         var call = request.Params ?? throw new McpProtocolException("Missing tool call.", McpErrorCode.InvalidParams);
         var tool = McpTools.Find(call.Name) ?? throw new McpProtocolException($"Unknown tool '{call.Name}'.", McpErrorCode.InvalidParams);
         var arguments = call.Arguments is null ? null : new Dictionary<string, JsonElement>(call.Arguments);
+        string client = request.Server.ClientInfo?.Title is { Length: > 0 } title ? title : request.Server.ClientInfo?.Name ?? "AI";
         await gate.WaitAsync(cancel);
-        try { return Call(tool, arguments); }
+        try { return await Task.Run(() => Call(tool, arguments, client), cancel); }
         finally { gate.Release(); }
     }
 
     /// <summary>Runs one tool call with the roots as the allowed folders.</summary>
-    public CallToolResult Call(McpTools.Entry tool, IReadOnlyDictionary<string, JsonElement>? arguments)
+    public CallToolResult Call(McpTools.Entry tool, IReadOnlyDictionary<string, JsonElement>? arguments, string client = "AI")
     {
+        if (tool.Command.StartsWith("live ", StringComparison.Ordinal) || Flag(arguments, "live")) return CallLive(tool, arguments, client);
         Directory.CreateDirectory(scratch);
         var images = new List<string>();
         string? planFile = null;
@@ -183,6 +190,63 @@ public sealed class DeotMcpServer : IDisposable
         if (Flag(arguments, "previews") && !arguments.ContainsKey("previewDir"))
             tokens.AddRange(["--preview-dir", Path.Combine(scratch, $"previews-{Guid.NewGuid():N}")]);
         return tokens;
+    }
+
+    /// <summary>A call on the document open in DeotPDF (MCP_LIVE_PLAN): sent to its window through <see cref="LiveClient"/>.</summary>
+    private CallToolResult CallLive(McpTools.Entry tool, IReadOnlyDictionary<string, JsonElement>? arguments, string client)
+    {
+        Directory.CreateDirectory(scratch);
+        CliPaths.Roots = roots;
+        try
+        {
+            string? doc = arguments?.TryGetValue("doc", out var d) == true && d.ValueKind == JsonValueKind.String ? d.GetString() : null;
+            if (arguments?.ContainsKey("pdf") == true) throw CliException.Invalid("Give pdf or live, not both.");
+            (int Exit, JsonObject Json) answer;
+            var images = new List<string>();
+            switch (tool.Command)
+            {
+                case "live docs":
+                    answer = (ExitCodes.Ok, LiveClient.Documents());
+                    break;
+                case "live context":
+                    answer = LiveClient.Send(doc, client, "context", []);
+                    break;
+                case "live goto" or "live flash":
+                {
+                    var place = new List<string> { "--page", arguments?.TryGetValue("page", out var p) == true ? ApplyCommand.Value(JsonSerializer.SerializeToNode(p)!) : "" };
+                    if (arguments?.TryGetValue("rect", out var r) == true) place.AddRange(["--rect", ApplyCommand.Value(JsonSerializer.SerializeToNode(r)!)]);
+                    answer = LiveClient.Send(doc, client, tool.Command["live ".Length..], place);
+                    break;
+                }
+                default:
+                {
+                    string? stdin = null;
+                    List<string> tokens;
+                    if (tool.Command == "apply")
+                    {
+                        if (arguments is null || !arguments.TryGetValue("plan", out var plan) || plan.ValueKind is not (JsonValueKind.Object or JsonValueKind.Array))
+                            throw CliException.Invalid("apply needs \"plan\": { \"ops\": [...] } or the list of ops.");
+                        tokens = McpTools.Tokens(tool, arguments, new HashSet<string> { "plan", "previews" });
+                        stdin = plan.GetRawText();
+                        tokens.InsertRange(1, [CliLive.Input, "-"]);
+                    }
+                    else
+                    {
+                        tokens = tool.Command == "render" ? RenderTokens(tool, arguments, images) : McpTools.Tokens(tool, arguments);
+                        if (tool.Command is not ("schema" or "fonts")) tokens.Insert(tool.Command.Split(' ').Length, CliLive.Input);
+                    }
+                    answer = LiveClient.Execute(doc, client, tokens, stdin);
+                    break;
+                }
+            }
+            var result = new CallToolResult { Content = [new TextContentBlock { Text = answer.Json.ToJsonString(CliJson.Compact) }], IsError = answer.Exit != ExitCodes.Ok };
+            if (answer.Exit == ExitCodes.Ok)
+                foreach (string png in images.Where(File.Exists))
+                    result.Content.Add(ImageContentBlock.FromBytes(File.ReadAllBytes(png), "image/png"));
+            return result;
+        }
+        catch (CliException e) { return Failure(CliJson.Error(e.Code, e.Message, e.Details)); }
+        finally { CliPaths.Roots = null; }
     }
 
     private static bool Flag(IReadOnlyDictionary<string, JsonElement>? arguments, string name) =>

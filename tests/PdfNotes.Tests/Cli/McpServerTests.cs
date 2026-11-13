@@ -74,19 +74,21 @@ public sealed class McpServerTests : IAsyncLifetime
     public async Task ListsReadingToolsApplyAndPageExportWithStandaloneSchemas()
     {
         var tools = await client.ListToolsAsync();
-        Assert.Equal(["schema", "info", "render", "text", "annot_list", "find", "layout", "ink", "space", "measure", "fonts", "check", "page_export", "apply"],
-            tools.Select(t => t.Name));
+        Assert.Equal(["schema", "info", "render", "text", "annot_list", "find", "layout", "ink", "space", "measure", "fonts", "check", "page_export", "apply",
+            "live_docs", "live_context", "live_goto", "live_flash"], tools.Select(t => t.Name));
         foreach (var tool in tools.Select(t => t.ProtocolTool))
         {
             string schema = tool.InputSchema.GetRawText();
             Assert.DoesNotContain("common.json", schema);
             Assert.DoesNotContain("appFolder", schema);
             Assert.Equal(tool.Name is not ("render" or "page_export" or "apply"), tool.Annotations!.ReadOnlyHint);
+            // Tools on a document also take the one open in DeotPDF (MCP_LIVE_PLAN): then pdf is left out.
+            Assert.Equal(tool.Name is not ("schema" or "fonts" or "page_export") && !tool.Name.StartsWith("live_", StringComparison.Ordinal), schema.Contains("\"live\""));
         }
         // check rules point into the tool's own definitions.
         var check = JsonNode.Parse(tools.Single(t => t.Name == "check").ProtocolTool.InputSchema.GetRawText())!;
         Assert.NotNull(check["$defs"]!["checkRule"]);
-        Assert.Equal(["pdf", "plan"], tools.Single(t => t.Name == "apply").ProtocolTool.InputSchema.GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(["plan"], tools.Single(t => t.Name == "apply").ProtocolTool.InputSchema.GetProperty("required").EnumerateArray().Select(e => e.GetString()));
     }
 
     [Fact]

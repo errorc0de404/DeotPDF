@@ -1,0 +1,170 @@
+using System.Text.Json.Nodes;
+using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using Avalonia.Threading;
+using PdfNotes.Core.Commands;
+using PdfNotes.Core.Models;
+using PdfNotes.Desktop.Platform;
+using PdfNotes.Editor.Platform;
+using PdfNotes.Editor.Services;
+using PdfNotes.Pdf.Prototype;
+using PdfNotes.ViewModels;
+
+namespace PdfNotes.Desktop.Tests;
+
+/// <summary>
+/// The live link (MCP_LIVE_PLAN): an AI client's requests through <see cref="LiveLinkViewModel"/> as the window's pipe
+/// hands them over — consent with the bar, reads of the open document, one Undo unit per write, permission steps, and
+/// the user's edit making AI writing theirs.
+/// </summary>
+public sealed class LiveLinkTests
+{
+    private static MainWindow Window(bool enabled = true)
+    {
+        var app = TestWindows.App(new AppSettings { LiveLink = enabled }, Headless.TempFolder()) with { LiveCommands = new DesktopLiveCommands() };
+        var window = new MainWindow(app, TestWindows.Dialogs) { Width = 1200, Height = 1000 };
+        window.Script.PromptOverride = (_, _) => Answer.Yes;
+        window.Script.MessageSink = _ => { };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return window;
+    }
+
+    private static async Task<MainWindow> Opened(bool enabled = true, int pages = 3)
+    {
+        string pdf = Path.Combine(Headless.TempFolder(), "live.pdf");
+        ProbeSamplePdf.Create(pdf, pages);
+        var w = Window(enabled);
+        Assert.True(await w.View.OpenFileAsync(pdf));
+        Dispatcher.UIThread.RunJobs();
+        return w;
+    }
+
+    private static Button Find(MainWindow w, string name) =>
+        w.GetLogicalDescendants().OfType<Button>().FirstOrDefault(c => c.Name == name) ?? w.View.FindControl<Button>(name) ?? throw new InvalidOperationException(name);
+
+    private static void Press(Button button)
+    {
+        if (button.Command is { } command && command.CanExecute(button.CommandParameter)) command.Execute(button.CommandParameter);
+    }
+
+    private static JsonObject Request(string op, params string[] args) => new()
+    {
+        ["op"] = op, ["client"] = "Claude", ["args"] = new JsonArray([.. args.Select(a => (JsonNode)a)]),
+    };
+
+    /// <summary>Sends a request and answers the bar with <paramref name="button"/> once it asks.</summary>
+    private static async Task<JsonObject> Ask(MainWindow w, JsonObject request, string? button = null)
+    {
+        var answer = w.View.ViewModel.LiveLink.HandleAsync(request);
+        if (button is not null)
+        {
+            Headless.Pump(() => w.View.ViewModel.LiveLink.IsAsking);
+            Press(Find(w, button));
+        }
+        Headless.Pump(() => answer.IsCompleted, 20_000);
+        return await answer;
+    }
+
+    private static string Code(JsonObject answer) => answer["result"]!["error"]!["code"]!.GetValue<string>();
+
+    [Fact]
+    public void ReadsAfterConsentAndAsksOncePerDocument() => Headless.Run(async () =>
+    {
+        var w = await Opened();
+        var live = w.View.ViewModel.LiveLink;
+        var info = await Ask(w, Request("command", "info", "@live"), "LiveReadButton");
+        Assert.True(info["ok"]!.GetValue<bool>(), info.ToJsonString());
+        Assert.Equal(3, info["result"]!["pageCount"]!.GetValue<int>());
+        Assert.True(live.IsConnected);
+        Assert.Contains("Claude", live.IndicatorText);
+
+        // The same client is not asked again for this document.
+        var context = await Ask(w, Request("context"));
+        Assert.True(context["ok"]!.GetValue<bool>(), context.ToJsonString());
+        Assert.Equal(1, context["result"]!["currentPage"]!["page"]!.GetValue<int>());
+        Assert.NotEmpty(context["result"]!["visible"]!.AsArray());
+        Assert.False(live.IsAsking);
+
+        // Read access does not write.
+        var write = await Ask(w, new JsonObject
+        {
+            ["op"] = "command", ["client"] = "Claude", ["args"] = new JsonArray("apply", "@live", "-"),
+            ["stdin"] = """[{ "op": "add.text", "page": 1, "rect": [50, 50, 120, 30], "text": "hi" }]""",
+        });
+        Assert.Equal("LIVE_PERMISSION", Code(write));
+
+        // Another file is another document: the client is asked again.
+        string other = Path.Combine(Headless.TempFolder(), "other.pdf");
+        ProbeSamplePdf.Create(other, 2);
+        Assert.True(await w.View.OpenFileAsync(other));
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(live.IsConnected);
+        var again = await Ask(w, Request("context"), "LiveDenyButton");
+        Assert.Equal("LIVE_CONSENT_DENIED", Code(again));
+    });
+
+    [Fact]
+    public void AWriteIsOneUndoUnitAndTheUsersEditMakesItTheirs() => Headless.Run(async () =>
+    {
+        var w = await Opened();
+        var session = w.View.Document!.Session;
+        int undo = session.UndoCount;
+        var answer = await Ask(w, new JsonObject
+        {
+            ["op"] = "command", ["client"] = "Claude", ["args"] = new JsonArray("apply", "@live", "-"),
+            ["stdin"] = """{ "ops": [{ "op": "add.text", "page": 1, "rect": [50, 50, 120, 30], "text": "hi" }, { "op": "add.text", "page": 2, "rect": [60, 60, 120, 30], "text": "there" }] }""",
+        }, "LiveAiWriteButton");
+        Assert.True(answer["ok"]!.GetValue<bool>(), answer.ToJsonString());
+        Assert.Equal(undo + 1, session.UndoCount);
+        Assert.Equal(Authorship.AiLabel, session.UndoLabel);
+        var model = session.Current;
+        var box = Assert.Single(model.Pages[0].Annotations.OfType<TextBoxAnnotation>());
+        Assert.Equal(AnnotationTag.AiAuthor, model.TagOf(box.Id)!.Author);
+        Assert.Single(model.Pages[1].Annotations.OfType<TextBoxAnnotation>());
+
+        // The user moves it: it is theirs now; Undo gives the tag back.
+        session.Execute(DocumentEdits.UpdateAnnotations(session.Current, [PdfNotes.Core.Geometry.AnnotationGeometry.Similarity(box, default, move: new PdfNotes.Core.Geometry.Point2(10, 0))], "undo.move"));
+        Assert.Null(session.Current.TagOf(box.Id));
+        session.Undo();
+        Assert.NotNull(session.Current.TagOf(box.Id));
+
+        // Ctrl+Z on the AI edit removes both boxes at once.
+        session.Undo();
+        Assert.Empty(session.Current.Pages[0].Annotations.OfType<TextBoxAnnotation>());
+        Assert.Empty(session.Current.Pages[1].Annotations.OfType<TextBoxAnnotation>());
+
+        // Page structure needs full editing.
+        var delete = await Ask(w, Request("command", "page", "delete", "@live", "-p", "3"));
+        Assert.Equal("LIVE_PERMISSION", Code(delete));
+        // Files of the window's own are not read for a client.
+        var image = await Ask(w, Request("command", "add", "image", "@live", "-p", "1", "--file", "x.png", "--rect", "0,0,10,10"));
+        Assert.Equal("LIVE_UNSUPPORTED", Code(image));
+    });
+
+    [Fact]
+    public void OffTellsTheUserAndTheClient() => Headless.Run(async () =>
+    {
+        var w = await Opened(enabled: false);
+        var live = w.View.ViewModel.LiveLink;
+        var answer = await Ask(w, Request("context"));
+        Assert.Equal("LIVE_DISABLED", Code(answer));
+        Assert.True(live.IsDisabledNotice);
+        Press(Find(w, "LiveEnableButton"));
+        Assert.True(w.View.ViewModel.Settings.LiveLink);
+        Assert.False(live.BarVisible);
+    });
+
+    [Fact]
+    public void RenderViewHandsThePngBack() => Headless.Run(async () =>
+    {
+        var w = await Opened();
+        string png = Path.Combine(Headless.TempFolder(), "asked.png");
+        var answer = await Ask(w, Request("command", "render", "@live", "--view", "-o", png), "LiveReadButton");
+        Assert.True(answer["ok"]!.GetValue<bool>(), answer.ToJsonString());
+        Assert.Equal(png, answer["result"]!["output"]!.GetValue<string>());
+        Assert.False(File.Exists(png)); // the window does not write where a client says; deot writes the bytes
+        Assert.NotEmpty(Convert.FromBase64String(answer["files"]!["out"]!.GetValue<string>()));
+        Assert.NotNull(answer["result"]!["region"]);
+    });
+}

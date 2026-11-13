@@ -19,13 +19,26 @@ public sealed class CliDocument : IDisposable
 {
     private readonly Dictionary<int, TextGlyph[]> glyphs = [];
 
-    private CliDocument(OpenDocument document, string path, string sourceHash, bool derivedPageIds)
+    private CliDocument(OpenDocument document, string path, string sourceHash, bool derivedPageIds, bool owned = true)
     {
         Document = document;
         Path = path;
         SourceHash = sourceHash;
         DerivedPageIds = derivedPageIds;
+        this.owned = owned;
     }
+
+    private readonly bool owned;
+
+    /// <summary>
+    /// A document a DeotPDF window has open (<see cref="CliLive"/>), not owned: disposing it leaves it open. Its "hash" is
+    /// <c>live:&lt;id&gt;:&lt;revision&gt;</c>; page IDs are the window's own.
+    /// </summary>
+    internal static CliDocument Live(OpenDocument document, string id) =>
+        new(document, CliLive.Input, $"live:{id}:{document.Session.Revision}", false, owned: false);
+
+    /// <summary>True for a document a DeotPDF window has open.</summary>
+    public bool IsLive => !owned;
 
     public OpenDocument Document { get; }
     public string Path { get; }
@@ -43,6 +56,8 @@ public sealed class CliDocument : IDisposable
 
     public static CliDocument Open(string path)
     {
+        if (path == CliLive.Input)
+            return CliLive.Current?.Document ?? throw CliException.Invalid("@live names a document open in DeotPDF; use --live.");
         string full = CliPaths.Full(path);
         if (!File.Exists(full)) throw new CliException("FILE_NOT_FOUND", $"The file {full} does not exist.", ExitCodes.InvalidInput, new JsonObject { ["path"] = full });
         byte[] bytes;
@@ -186,7 +201,7 @@ public sealed class CliDocument : IDisposable
         return length > 1e-12 ? new(v.X / length, v.Y / length) : new(1, 0);
     }
 
-    public void Dispose() => Document.Dispose();
+    public void Dispose() { if (owned) Document.Dispose(); }
 }
 
 /// <summary>A file as it was read once: it reads those bytes again and otherwise is the file (path, key, saving).</summary>

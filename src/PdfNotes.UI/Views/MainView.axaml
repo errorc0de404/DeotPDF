@@ -438,6 +438,11 @@
                         ToolTip.Tip="{l:T status.updateTip}" IsVisible="{Binding Update.IsAvailable}" Command="{Binding OpenUpdatePageCommand}">
                     <TextBlock x:Name="UpdateText" Foreground="{DynamicResource Accent}" Text="{Binding Update.AvailableText}" />
                 </Button>
+                <!-- AI clients with access to this document (MCP_LIVE_PLAN 2): pressing disconnects them -->
+                <Button x:Name="LiveIndicator" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Margin="12,0,0,0" Padding="6,2" Cursor="Hand"
+                        ToolTip.Tip="{l:T live.disconnectTip}" IsVisible="{Binding LiveLink.IsConnected}" Command="{Binding LiveLink.DisconnectCommand}">
+                    <TextBlock x:Name="LiveIndicatorText" Foreground="{DynamicResource Accent}" Text="{Binding LiveLink.IndicatorText}" />
+                </Button>
                 <TextBlock x:Name="NotesHiddenText" DockPanel.Dock="Right" Text="{l:T status.notesHidden}" VerticalAlignment="Center" Margin="12,0,0,0"
                            Foreground="{DynamicResource Accent}" IsVisible="{Binding Display.NotesHidden}" />
                 <!-- Zoom: a click opens the zoom menu (spec 4.4) -->
@@ -550,6 +555,21 @@
                         </Border>
                     </Canvas>
                 </Panel>
+            </Border>
+            <!-- An AI client asks for the open document (MCP_LIVE_PLAN 2): over the top of the pages, never blocking the pen -->
+            <Border x:Name="LiveBar" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,8,0,0" Padding="12,6" CornerRadius="6"
+                    Background="{DynamicResource Surface.Background}" BorderBrush="{DynamicResource Accent}" BorderThickness="1" BoxShadow="0 2 10 0 #33000000"
+                    IsVisible="{Binding LiveLink.BarVisible}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock x:Name="LiveAskText" VerticalAlignment="Center" Margin="0,0,8,0" Text="{Binding LiveLink.AskText}" IsVisible="{Binding LiveLink.IsAsking}" />
+                    <Button x:Name="LiveReadButton" Theme="{StaticResource ToolButton}" Padding="8,3" Command="{Binding LiveLink.GrantReadCommand}" IsVisible="{Binding LiveLink.IsAsking}"><TextBlock Text="{l:T live.read}" /></Button>
+                    <Button x:Name="LiveAiWriteButton" Theme="{StaticResource ToolButton}" Padding="8,3" Command="{Binding LiveLink.GrantAiWriteCommand}" IsVisible="{Binding LiveLink.IsAsking}"><TextBlock Text="{l:T live.aiWrite}" /></Button>
+                    <Button x:Name="LiveFullButton" Theme="{StaticResource ToolButton}" Padding="8,3" Command="{Binding LiveLink.GrantFullCommand}" IsVisible="{Binding LiveLink.IsAsking}"><TextBlock Text="{l:T live.fullEdit}" /></Button>
+                    <Button x:Name="LiveDenyButton" Theme="{StaticResource ToolButton}" Padding="8,3" Command="{Binding LiveLink.DenyCommand}" IsVisible="{Binding LiveLink.IsAsking}"><TextBlock Text="{l:T live.deny}" /></Button>
+                    <TextBlock x:Name="LiveDisabledText" VerticalAlignment="Center" Margin="0,0,8,0" Text="{Binding LiveLink.DisabledText}" IsVisible="{Binding LiveLink.IsDisabledNotice}" />
+                    <Button x:Name="LiveEnableButton" Theme="{StaticResource ToolButton}" Padding="8,3" Command="{Binding LiveLink.EnableCommand}" IsVisible="{Binding LiveLink.IsDisabledNotice}"><TextBlock Text="{l:T live.enable}" /></Button>
+                    <Button x:Name="LiveCloseButton" Theme="{StaticResource ToolButton}" Padding="8,3" Command="{Binding LiveLink.CloseDisabledCommand}" IsVisible="{Binding LiveLink.IsDisabledNotice}"><TextBlock Text="{l:T live.close}" /></Button>
+                </StackPanel>
             </Border>
             <!-- The page list handle (2026-10-14): on the list's right edge; with the list hidden only this shows at the left -->
             <Button x:Name="PagePanelHandle" Theme="{StaticResource PanelHandle}" HorizontalAlignment="Left" VerticalAlignment="Center"

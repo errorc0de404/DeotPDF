@@ -9,16 +9,10 @@
     <RootNamespace>PdfNotes.Cli</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../PdfNotes.Core/PdfNotes.Core.csproj" />
-    <ProjectReference Include="../PdfNotes.Editor/PdfNotes.Editor.csproj" />
-    <ProjectReference Include="../PdfNotes.Pdf/PdfNotes.Pdf.csproj" />
-    <ProjectReference Include="../PdfNotes.Text/PdfNotes.Text.csproj" />
-    <ProjectReference Include="../PdfNotes.Text.Skia/PdfNotes.Text.Skia.csproj" />
+    <!-- The commands themselves (shared with the desktop app's live link). -->
+    <ProjectReference Include="../PdfNotes.Commands/PdfNotes.Commands.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol.Core" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Schemas/*.json" LogicalName="PdfNotes.Cli.Schemas.%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

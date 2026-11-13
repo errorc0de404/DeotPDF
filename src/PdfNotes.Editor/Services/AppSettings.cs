@@ -167,6 +167,12 @@ public sealed class AppSettings
     /// <summary>Pen strokes follow pen pressure (spec 7.6, default on).</summary>
     public bool PenPressure { get; set; } = true;
 
+    /// <summary>
+    /// AI clients may reach the open document through <c>deot</c> (MCP_LIVE_PLAN 2), off by default. Each client still asks
+    /// once per document and run.
+    /// </summary>
+    public bool LiveLink { get; set; }
+
     /// <summary>Settings window 필기 (spec 5.3, 18.1, D14g): drag selections to another page in the continuous view, off by default.</summary>
     public bool PageDrag { get; set; }
 

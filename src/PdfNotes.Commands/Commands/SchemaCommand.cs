@@ -63,6 +63,18 @@ public static class SchemaCommand
         ("FILE_LOCKED", 3, "the input cannot be read (locked by another program)"),
         ("SAVE_FAILED", 4, "the output could not be written (3 when it is locked)"),
         ("INTERNAL", 4, "an unexpected error (details.type; the trace is on standard error)"),
+        // --live and live …: the document a DeotPDF window has open (MCP_LIVE_PLAN 7).
+        ("LIVE_NOT_RUNNING", 1, "--live: no DeotPDF window is running or can be reached"),
+        ("LIVE_DISABLED", 1, "--live: the user has not turned on AI tool access in DeotPDF (the window asks them to)"),
+        ("LIVE_DOC_AMBIGUOUS", 1, "--live: several DeotPDF windows are open; give --doc (details.documents)"),
+        ("LIVE_DOC_NOT_FOUND", 1, "--live: no window shows that document any more (closed, or another file was opened)"),
+        ("LIVE_CONSENT_DENIED", 1, "--live: the user refused access to the document"),
+        ("LIVE_CONSENT_TIMEOUT", 3, "--live: the user did not answer within a minute; the question stays on screen"),
+        ("LIVE_PERMISSION", 1, "--live: the user gave less access than this needs (details.needs, details.granted)"),
+        ("LIVE_BUSY", 3, "--live: the user is writing or editing text; try again in a moment"),
+        ("LIVE_UNSUPPORTED", 1, "--live: the command reads or writes files of its own (page export, page import, add image)"),
+        ("LIVE_CONFLICT", 1, "--live: the edit no longer fits the document"),
+        ("LIVE_NOTHING_IN_VIEW", 1, "--live --view: no page is in view"),
     ];
 
     public static string FileName(string command) => command.Replace(' ', '-');

@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/PdfNotes.Cli/PdfNotes.Cli.csproj" />
+    <Project Path="src/PdfNotes.Commands/PdfNotes.Commands.csproj" />
     <Project Path="src/PdfNotes.Core/PdfNotes.Core.csproj" />
     <Project Path="src/PdfNotes.Desktop/PdfNotes.Desktop.csproj" />
     <Project Path="src/PdfNotes.UI/PdfNotes.UI.csproj" />

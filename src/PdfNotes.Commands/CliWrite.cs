@@ -49,6 +49,7 @@ public sealed class CliWrite
     /// </summary>
     public static CliWrite Parse(CliArgs args, string input, string? preview = null, string? expectHash = null, string? batchId = null)
     {
+        if (input == CliLive.Input) return ParseLive(args, preview, expectHash, batchId);
         string full = CliPaths.Full(input);
         bool dryRun = args.Flag("--dry-run");
         string? output = args.Value("--out") is { } o ? CliPaths.Full(o) : null;
@@ -75,6 +76,25 @@ public sealed class CliWrite
         if (output is not null && !dryRun) options.RefuseShown(output);
         return options;
     }
+
+    /// <summary>
+    /// A live document (<see cref="CliLive"/>) is never written to a file: the window takes the operations. Output,
+    /// previews and Flatten have no meaning there.
+    /// </summary>
+    private static CliWrite ParseLive(CliArgs args, string? preview, string? expectHash, string? batchId)
+    {
+        foreach (string option in (string[])["--out", "--preview", "--flatten", "--overwrite", "--app-folder"])
+            if (args.Has(option) || (option == "--preview" && preview is not null))
+                throw CliException.Invalid($"A live document is changed in its window and not written to a file; leave out {option}.");
+        string? batch = args.Value("--batch-id") ?? batchId;
+        if (batch is not null && new AnnotationTag(AnnotationTag.AiAuthor, batch).Validate() is not null)
+            throw CliException.Invalid("--batch-id is empty, too long or has control characters.");
+        return new CliWrite(CliLive.Input, null, true, null, Either(args, "--expect-hash", expectHash, "expectHash"),
+            batch ?? $"live-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..6]}", false, AppSettings.Folder) { Live = true };
+    }
+
+    /// <summary>The input is a live document: <see cref="Finish"/> writes nothing and the result has <c>dryRun</c> false.</summary>
+    private bool Live { get; init; }
 
     private static string? Either(CliArgs args, string option, string? fromFile, string field)
     {
@@ -108,7 +128,7 @@ public sealed class CliWrite
     /// </summary>
     public void Finish(CliDocument doc, JsonObject result, IEnumerable<Guid> changedPages)
     {
-        result["dryRun"] = DryRun;
+        result["dryRun"] = DryRun && !Live;
         result["flatten"] = Flatten;
         result["output"] = null;
         result["outputHash"] = null;

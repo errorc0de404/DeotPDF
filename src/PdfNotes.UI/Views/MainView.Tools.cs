@@ -57,6 +57,7 @@ public sealed partial class MainView
         Canvas.LiveIds = LiveIds;
         Canvas.LiveFor = LiveFor;
         Canvas.MarksFor = MarksFor;
+        viewModel.LiveLink.Flashed += Flash;
         viewModel.ToolBar.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ToolBarViewModel.Current)) UseTool(viewModel.ToolBar.Current); };
         selectTool.SelectionChanged += (_, _) =>
         {
@@ -202,8 +203,25 @@ public sealed partial class MainView
     }
 
     /// <summary>Selection marks of a page: text selection, then the frame, handles or line handles.</summary>
+    /// <summary>A place an AI client points at (MCP_LIVE_PLAN 3, <c>live flash</c>): marked for a moment like the current search result.</summary>
+    private (int Page, Rect2 Rect)? flashed;
+    private DispatcherTimer? flashTimer;
+
+    private void Flash(int pageIndex, Rect2 rect)
+    {
+        flashed = (pageIndex, rect);
+        flashTimer?.Stop();
+        flashTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+        flashTimer.Tick += (_, _) => { flashTimer?.Stop(); flashed = null; Canvas.RefreshOverlays(); };
+        flashTimer.Start();
+        Canvas.RefreshOverlays();
+    }
+
     private PagePainter? MarksFor(int index, Page page, ViewTransform transform)
     {
+        var flash = flashed is { } fl && fl.Page == index
+            ? new Quad(new(fl.Rect.X, fl.Rect.Y), new(fl.Rect.X + fl.Rect.Width, fl.Rect.Y), new(fl.Rect.X, fl.Rect.Y + fl.Rect.Height), new(fl.Rect.X + fl.Rect.Width, fl.Rect.Y + fl.Rect.Height))
+            : (Quad?)null;
         var colors = Canvas.MarkColors;
         var quads = selectTool.TextSelectionPage == index ? selectTool.TextSelectionQuads(index).ToArray() : null;
         // Search results (spec 12): temporary marks inside the page, the current one outlined.
@@ -233,9 +251,10 @@ public sealed partial class MainView
             }
         }
         var drop = DropMarkOn(index);
-        if (quads is null && frame is null && hits.Count == 0 && drop is null) return null;
+        if (quads is null && frame is null && hits.Count == 0 && drop is null && flash is null) return null;
         return (canvas, _, _, t) =>
         {
+            if (flash is { } q) SkiaMarkPainter.PaintSearch(canvas, [], [q], t, colors);
             if (hits.Count > 0)
             {
                 canvas.Save();
