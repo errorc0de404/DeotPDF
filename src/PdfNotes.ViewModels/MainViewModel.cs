@@ -92,6 +92,7 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
     public ToolStylesViewModel ToolStyles { get; internal set; } = null!;
     public ToolBarViewModel ToolBar { get; internal set; } = null!;
     public SelectionViewModel Selection { get; internal set; } = null!;
+    public AiNotesViewModel AiNotes { get; internal set; } = null!;
     public TextStyleViewModel TextStyle { get; internal set; } = null!;
     public NoteCardViewModel NoteCard { get; internal set; } = null!;
 

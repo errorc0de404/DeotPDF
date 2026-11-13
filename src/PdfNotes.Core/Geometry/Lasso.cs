@@ -19,7 +19,8 @@ public static class Lasso
     public const double MinOverlapPt2 = 0.01;
 
     /// <summary>Unlocked annotations of <paramref name="page"/> with painted area inside the closed path, in stacking order.</summary>
-    public static IReadOnlyList<Guid> Select(Page page, IReadOnlyList<Point2> path, Func<TextBoxAnnotation, Rect2> textBounds)
+    /// <param name="skip">Annotations to pass over as if absent (hidden AI writing).</param>
+    public static IReadOnlyList<Guid> Select(Page page, IReadOnlyList<Point2> path, Func<TextBoxAnnotation, Rect2> textBounds, Func<Annotation, bool>? skip = null)
     {
         if (path.Count < 3) return [];
         var polygon = new PathD(path.Count);
@@ -29,7 +30,7 @@ public static class Lasso
         var selected = new List<Guid>();
         foreach (var annotation in page.Annotations)
         {
-            if (annotation.Locked || PaintedRegion(annotation, textBounds) is not { } region) continue;
+            if (annotation.Locked || skip?.Invoke(annotation) == true || PaintedRegion(annotation, textBounds) is not { } region) continue;
             var points = region.SelectMany(r => r).ToArray();
             if (points.Length == 0 || points.Max(p => p.x) < minX || points.Min(p => p.x) > maxX ||
                 points.Max(p => p.y) < minY || points.Min(p => p.y) > maxY) continue; // cannot overlap

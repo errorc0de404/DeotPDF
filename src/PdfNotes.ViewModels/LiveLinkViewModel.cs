@@ -64,6 +64,7 @@ public sealed class LiveLinkViewModel : ObservableObject
         EnableCommand = new(Enable);
         CloseDisabledCommand = new(() => DisabledClient = null);
         DisconnectCommand = new(Disconnect);
+        SetAccessCommand = new(name => { if (Enum.TryParse<LiveAccess>(name, out var access)) SetAccess(access); });
     }
 
     /// <summary>True when this app can be reached at all (desktop).</summary>
@@ -108,6 +109,30 @@ public sealed class LiveLinkViewModel : ObservableObject
     public Command EnableCommand { get; }
     public Command CloseDisabledCommand { get; }
     public Command DisconnectCommand { get; }
+
+    /// <summary>권한 바꾸기 (MCP_LIVE_PLAN 2): every connected client of this document gets this access (parameter: Read, AiWrite, FullEdit).</summary>
+    public Command<string> SetAccessCommand { get; }
+
+    /// <summary>The highest access a client has on this document (the AI tab's connection buttons show it).</summary>
+    public LiveAccess CurrentAccess
+    {
+        get
+        {
+            var session = main.Document?.Session.SessionId;
+            return granted.Where(g => g.Key.Session == session).Select(g => g.Value).DefaultIfEmpty(LiveAccess.None).Max();
+        }
+    }
+
+    public bool HasRead => CurrentAccess == LiveAccess.Read;
+    public bool HasAiWrite => CurrentAccess == LiveAccess.AiWrite;
+    public bool HasFullEdit => CurrentAccess == LiveAccess.FullEdit;
+
+    private void SetAccess(LiveAccess access)
+    {
+        var session = main.Document?.Session.SessionId;
+        foreach (var key in granted.Keys.Where(k => k.Session == session && granted[k] != LiveAccess.None).ToList()) granted[key] = access;
+        RefreshIndicator();
+    }
 
     private void Answer(LiveAccess access)
     {
@@ -159,6 +184,11 @@ public sealed class LiveLinkViewModel : ObservableObject
         var clients = granted.Where(g => g.Key.Session == session && g.Value != LiveAccess.None)
             .Select(g => $"{g.Key.Client} ({main.Texts.Get(AccessKey(g.Value))})").ToList();
         IndicatorText = clients.Count == 0 ? null : main.Texts.Format("live.connected", ("clients", string.Join(", ", clients)));
+        OnPropertyChanged(nameof(CurrentAccess));
+        OnPropertyChanged(nameof(HasRead));
+        OnPropertyChanged(nameof(HasAiWrite));
+        OnPropertyChanged(nameof(HasFullEdit));
+        main.AiNotes?.Refresh(); // the AI tab shows while a client is connected
     }
 
     private static string AccessKey(LiveAccess access) => access switch
@@ -432,9 +462,23 @@ public sealed class LiveLinkViewModel : ObservableObject
         var result = commands!.Run(doc, id, args, stdin);
         var response = Wrap(result);
         if (result.ExitCode != 0 || result.Operations.Count == 0) return response;
+        var before = doc.Session.Current;
         try { doc.Session.Execute(new EditCommand(Authorship.AiLabel, result.Operations)); }
         catch (EditConflictException e) { return Error("LIVE_CONFLICT", $"The edit no longer fits the document: {e.Message}"); }
-        main.Status = main.Texts.Format("live.applied", ("client", client));
+        string batch = response["result"]?["batchId"]?.GetValue<string>() ?? "";
+        var run = AiRun.From(batch, time.GetLocalNow(), client, before, result.Operations);
+        main.AiNotes?.Record(run);
+        string status = main.Texts.Format("live.applied", ("client", client));
+        if (main.AiNotes?.IsHidden == true && run.Created.Count > 0)
+        {
+            status += " " + main.Texts.Get("live.appliedHidden");
+            if (response["result"] is JsonObject r)
+            {
+                if (r["warnings"] is not JsonArray warnings) r["warnings"] = warnings = [];
+                warnings.Add(new JsonObject { ["code"] = "AI_NOTES_HIDDEN", ["message"] = "The user has hidden AI writing; what was added stays hidden until they show it again." });
+            }
+        }
+        main.Status = status;
         return response;
     }
 

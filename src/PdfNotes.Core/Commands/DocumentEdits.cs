@@ -41,10 +41,11 @@ public static class DocumentEdits
     }
 
     /// <summary>Deletes annotations (possibly on several pages) as one Undo unit and drops resources nobody references.</summary>
-    public static EditCommand DeleteAnnotations(DocumentModel model, IEnumerable<Guid> annotationIds, string label = "undo.delete")
+    /// <param name="includeLocked">Page-wide commands delete locked ones too (spec 5.2); otherwise a locked one is an error.</param>
+    public static EditCommand DeleteAnnotations(DocumentModel model, IEnumerable<Guid> annotationIds, string label = "undo.delete", bool includeLocked = false)
     {
         var locations = Locate(model, annotationIds);
-        if (locations.Any(l => l.Annotation.Locked)) throw new AnnotationLockedException();
+        if (!includeLocked && locations.Any(l => l.Annotation.Locked)) throw new AnnotationLockedException();
         var operations = new List<EditOperation>();
         // Remove from the highest index down so recorded indices stay valid; Undo re-inserts in reverse.
         foreach (var l in locations.OrderBy(l => l.PageIndex).ThenByDescending(l => l.AnnotationIndex))

@@ -40,7 +40,7 @@ public static class LiveClient
                 var options = rest.Skip(2).ToList();
                 return sub switch
                 {
-                    "docs" => (ExitCodes.Ok, Documents()),
+                    "docs" => (ExitCodes.Ok, Documents(client)),
                     "context" => Send(doc, client, "context", options),
                     "goto" or "flash" => Send(doc, client, sub, options),
                     "view" => Command(doc, client, ["render", .. options, "--view"]),
@@ -110,11 +110,11 @@ public static class LiveClient
         return (exit, (JsonObject)result.DeepClone(), answer["files"] as JsonObject);
     }
 
-    /// <summary><c>live docs</c>: every running window and the document it shows.</summary>
-    public static JsonObject Documents()
+    /// <summary><c>live docs</c>: every running window and the document it shows, with the access <paramref name="client"/> has there.</summary>
+    public static JsonObject Documents(string client)
     {
         var list = new JsonArray();
-        foreach (var (_, hello) in Hellos()) list.Add(Describe(hello));
+        foreach (var (_, hello) in Hellos(client)) list.Add(Describe(hello));
         return new JsonObject { ["ok"] = true, ["command"] = "live docs", ["documents"] = list };
     }
 
@@ -144,11 +144,11 @@ public static class LiveClient
         return hellos[0].Pid;
     }
 
-    private static List<(int Pid, JsonObject Hello)> Hellos()
+    private static List<(int Pid, JsonObject Hello)> Hellos(string? client = null)
     {
         var list = new List<(int, JsonObject)>();
         foreach (int pid in BackupStore.RunningWindows(AppSettings.Folder))
-            if (Ask(pid, new JsonObject { ["op"] = "hello" }, 2000) is { } hello) list.Add((pid, hello));
+            if (Ask(pid, new JsonObject { ["op"] = "hello", ["client"] = client }, 2000) is { } hello) list.Add((pid, hello));
         return list;
     }
 

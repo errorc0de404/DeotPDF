@@ -37,6 +37,9 @@ public sealed class EraserTool(ICanvasView view, Func<DocumentSession?> session,
         gesture is { } g && g.PageId == pageId ? g.Preview : null;
 
     /// <summary>The page of the gesture in progress (the only page with a <see cref="Preview"/>), or null.</summary>
+    /// <summary>Annotations this tool passes over (hidden AI writing).</summary>
+    public AnnotationMask Mask { get; set; } = AnnotationMask.None;
+
     public Guid? PreviewPageId => gesture?.PageId;
 
     public bool PointerDown(CanvasPointer pointer)
@@ -44,7 +47,7 @@ public sealed class EraserTool(ICanvasView view, Func<DocumentSession?> session,
         if (session() is not { } s || view.HitTestPage(pointer.Position) is not { } anchor) return false;
         pageIndex = anchor.PageIndex;
         gesture = new EraseGesture(s.Current, s.Current.Pages[pageIndex].Id, Mode, Diameter,
-            box => TextLayout.HighlightLines(box, TextLayout.Measure(box).Characters));
+            box => TextLayout.HighlightLines(box, TextLayout.Measure(box).Characters), a => Mask.Hides(s.Current, a));
         Extend(anchor.PagePoint);
         return true;
     }
@@ -79,7 +82,7 @@ public sealed class EraserTool(ICanvasView view, Func<DocumentSession?> session,
         if (position is { } p && view.HitTestPage(p) is { } anchor)
         {
             double tolerance = view.PageTransform(anchor.PageIndex).DipLengthToPoints(SelectTool.PickToleranceDip);
-            overLocked = session() is { } s && s.Current.Pages[anchor.PageIndex].Annotations.LastOrDefault(a =>
+            overLocked = session() is { } s && s.Current.Pages[anchor.PageIndex].Annotations.LastOrDefault(a => !Mask.Hides(s.Current, a) &&
                 AnnotationGeometry.Hit(a, anchor.PagePoint, tolerance, TextLayout.Bounds)) is { Locked: true };
             ShowCircle(anchor.PageIndex, anchor.PagePoint);
         }

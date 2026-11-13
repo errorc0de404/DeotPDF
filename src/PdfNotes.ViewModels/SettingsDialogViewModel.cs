@@ -9,7 +9,7 @@ public sealed record BackupValues(bool Enabled, int IntervalMinutes, BackupMode 
 
 /// <summary>Values of the settings window (spec 18.1).</summary>
 public sealed record SettingsValues(bool QuickErase, bool PageDrag, BackupValues Backup, DisplayValues? Display = null, string Language = Strings.BuiltInLanguage,
-    bool CheckUpdates = false, bool FingerDrawing = false, bool PenPressure = true);
+    bool CheckUpdates = false, bool FingerDrawing = false, bool PenPressure = true, bool LiveLink = false);
 
 /// <summary>What 정보 does (roadmap 1.1): check for a new version now, and open a web page.</summary>
 public sealed record AboutActions(Func<Task<UpdateResult>> Check, Action<string> Open);
@@ -81,6 +81,7 @@ public sealed class SettingsDialogViewModel : ObservableObject
         quickErase = current.QuickErase;
         pageDrag = current.PageDrag;
         fingerDrawing = current.FingerDrawing;
+        liveLink = current.LiveLink;
         penPressure = current.PenPressure;
         autoBackup = current.Backup.Enabled;
         intervalIndex = Math.Max(0, Array.IndexOf(AppSettings.BackupIntervals, current.Backup.IntervalMinutes));
@@ -129,10 +130,13 @@ public sealed class SettingsDialogViewModel : ObservableObject
 
     // ----- 필기 -----
 
-    private bool quickErase, pageDrag, fingerDrawing, penPressure;
+    private bool quickErase, pageDrag, fingerDrawing, penPressure, liveLink;
     public bool QuickErase { get => quickErase; set => SetProperty(ref quickErase, value); }
     public bool PageDrag { get => pageDrag; set => SetProperty(ref pageDrag, value); }
     public bool FingerDrawing { get => fingerDrawing; set => SetProperty(ref fingerDrawing, value); }
+
+    /// <summary>AI 도구 연결 (MCP_LIVE_PLAN 2): AI clients on this computer may ask for the open document.</summary>
+    public bool LiveLink { get => liveLink; set => SetProperty(ref liveLink, value); }
     public bool PenPressure { get => penPressure; set => SetProperty(ref penPressure, value); }
 
     // ----- 저장 -----
@@ -293,7 +297,7 @@ public sealed class SettingsDialogViewModel : ObservableObject
         int count = int.TryParse((Keep ?? "").Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out int n) ? n : 10;
         Result = new(QuickErase, PageDrag, new(AutoBackup, AppSettings.BackupIntervals[Math.Max(0, IntervalIndex)], mode, BackupFolder ?? "",
             Math.Clamp(count, AppSettings.MinBackupKeep, AppSettings.MaxBackupKeep)), Display,
-            packs[Math.Max(0, LanguageIndex)].Language, CheckUpdates, FingerDrawing, PenPressure);
+            packs[Math.Max(0, LanguageIndex)].Language, CheckUpdates, FingerDrawing, PenPressure, LiveLink);
         return true;
     }
 

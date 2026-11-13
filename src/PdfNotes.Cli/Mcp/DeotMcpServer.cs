@@ -206,7 +206,7 @@ public sealed class DeotMcpServer : IDisposable
             switch (tool.Command)
             {
                 case "live docs":
-                    answer = (ExitCodes.Ok, LiveClient.Documents());
+                    answer = (ExitCodes.Ok, LiveClient.Documents(client));
                     break;
                 case "live context":
                     answer = LiveClient.Send(doc, client, "context", []);

@@ -300,7 +300,7 @@ public sealed class PagesViewModel : ObservableObject
             // ScheduleThumbnails when a layout arrives), so each arriving layout does not draw it again.
             if (item.Image is not null && item.Rendered is null && !hidden && !TextReady(page)) continue;
             PageThumbnail? thumbnail;
-            try { thumbnail = await Thumbnails.RenderAsync(doc, model, page, ThumbnailWidth, hidden, cancel.Token); }
+            try { thumbnail = await Thumbnails.RenderAsync(doc, model, owner.AiNotes.Visible(model, page), ThumbnailWidth, hidden, cancel.Token); }
             catch (OperationCanceledException) { return; }
             if (thumbnail is null || cancel.IsCancellationRequested || !ReferenceEquals(Document, doc)) return;
             item.Image = thumbnail.Image;

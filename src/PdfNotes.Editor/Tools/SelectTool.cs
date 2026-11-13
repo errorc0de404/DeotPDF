@@ -81,7 +81,7 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
             if (model is null) return [];
             if (ReferenceEquals(selectedModel, model) && selectedVersion == idsVersion) return selected;
             var page = PageId is { } id && model.IndexOfPage(id) is >= 0 and var index ? model.Pages[index] : null;
-            selected = ids.Count == 0 ? [] : page is not null ? [.. page.Annotations.Where(a => ids.Contains(a.Id) && !a.Locked)] : [.. model.AllAnnotations.Where(a => ids.Contains(a.Id) && !a.Locked)];
+            selected = ids.Count == 0 ? [] : page is not null ? [.. page.Annotations.Where(a => ids.Contains(a.Id) && !a.Locked && !Mask.Hides(model, a))] : [.. model.AllAnnotations.Where(a => ids.Contains(a.Id) && !a.Locked && !Mask.Hides(model, a))];
             (selectedModel, selectedVersion) = (model, idsVersion);
             return selected;
         }
@@ -192,7 +192,7 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
     public void SetSelection(IEnumerable<Guid> values)
     {
         var current = session()?.Current;
-        var locations = values.Distinct().Select(id => current?.FindAnnotation(id)).Where(l => l is { Annotation.Locked: false }).ToArray();
+        var locations = values.Distinct().Select(id => current?.FindAnnotation(id)).Where(l => l is { Annotation.Locked: false } && !Mask.Hides(current!, l.Annotation)).ToArray();
         PageId = locations.FirstOrDefault()?.Page.Id;
         ids.Clear();
         foreach (var l in locations.Where(l => l!.Page.Id == PageId)) ids.Add(l!.Annotation.Id);
@@ -205,6 +205,9 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         var valid = SelectedAnnotations.Select(a => a.Id).ToHashSet();
         if (!ids.SetEquals(valid)) SetSelection(valid);
     }
+    /// <summary>Annotations this tool passes over (hidden AI writing).</summary>
+    public AnnotationMask Mask { get; set; } = AnnotationMask.None;
+
     /// <summary>Notes are hidden (spec 24.10): no annotation can be picked; PDF text selection still works.</summary>
     public bool IgnoreAnnotations { get; set; }
 
@@ -220,7 +223,7 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         for (int i = page.Annotations.Count - 1; i >= 0; i--)
         {
             var a = page.Annotations[i];
-            if ((includeLocked || !a.Locked) && AnnotationGeometry.Hit(a, anchor.PagePoint, tolerance, PdfNotes.Text.TextLayout.Bounds)) return a.Id;
+            if ((includeLocked || !a.Locked) && !Mask.Hides(s.Current, a) && AnnotationGeometry.Hit(a, anchor.PagePoint, tolerance, PdfNotes.Text.TextLayout.Bounds)) return a.Id;
         }
         return null;
     }
@@ -516,7 +519,7 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
             {
                 var model = current.Current;
                 Point2[] path = [rectStart, new(rectEnd.X, rectStart.Y), rectEnd, new(rectStart.X, rectEnd.Y)];
-                var hit = Lasso.Select(model.Pages[page], path, PdfNotes.Text.TextLayout.Bounds);
+                var hit = Lasso.Select(model.Pages[page], path, PdfNotes.Text.TextLayout.Bounds, a => Mask.Hides(model, a));
                 if (hit.Count > 0) SetSelection(PageId == model.Pages[page].Id ? ids.Concat(hit).ToList() : hit);
             }
             Released?.Invoke(this, false);

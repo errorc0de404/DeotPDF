@@ -70,6 +70,9 @@
                                      IsChecked="{Binding Ribbon.IsPage, Mode=OneWay}" Command="{Binding Ribbon.ShowCommand}" CommandParameter="Page" />
                         <RadioButton x:Name="ViewTabButton" Theme="{StaticResource RibbonTab}" GroupName="RibbonTabs" Content="{l:T tab.view}" Tag="View"
                                      IsChecked="{Binding Ribbon.IsView, Mode=OneWay}" Command="{Binding Ribbon.ShowCommand}" CommandParameter="View" />
+                        <!-- AI (MCP_LIVE_PLAN 6): only while an AI client is connected or the document has AI writing -->
+                        <RadioButton x:Name="AiTabButton" Theme="{StaticResource RibbonTab}" GroupName="RibbonTabs" Content="{l:T tab.ai}" Tag="Ai"
+                                     IsVisible="{Binding AiNotes.TabVisible}" IsChecked="{Binding Ribbon.IsAi, Mode=OneWay}" Command="{Binding Ribbon.ShowCommand}" CommandParameter="Ai" />
                     </StackPanel>
                 </DockPanel>
                 <StackPanel x:Name="TouchLeft" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
@@ -241,6 +244,43 @@
                         <Border Classes="sep" />
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.find}">
                             <Button x:Name="SearchButton" Theme="{StaticResource ToolButton}" Command="{Binding SearchCommand}" ToolTip.Tip="{l:T view.searchTip}"><th:IconLabel Glyph="Search" Text="{l:T view.search}" /></Button>
+                        </HeaderedContentControl>
+                    </StackPanel>
+                    <!-- AI (MCP_LIVE_PLAN 6): AI writing shown, hidden or outlined; erasing it; the work list; the connection -->
+                    <StackPanel x:Name="AiTab" Orientation="Horizontal" IsVisible="{Binding Ribbon.IsAi}">
+                        <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.aiView}">
+                            <StackPanel Orientation="Horizontal">
+                                <ToggleButton x:Name="AiShowButton" Theme="{StaticResource ToolButton}" Padding="8,3" IsChecked="{Binding AiNotes.IsShown, Mode=OneWay}" Command="{Binding AiNotes.ShowCommand}"><TextBlock Text="{l:T ai.show}" /></ToggleButton>
+                                <ToggleButton x:Name="AiHideButton" Theme="{StaticResource ToolButton}" Padding="8,3" IsChecked="{Binding AiNotes.IsHidden, Mode=OneWay}" Command="{Binding AiNotes.HideCommand}"><TextBlock Text="{l:T ai.hide}" /></ToggleButton>
+                                <ToggleButton x:Name="AiEmphasizeButton" Theme="{StaticResource ToolButton}" Padding="8,3" IsChecked="{Binding AiNotes.IsEmphasized, Mode=OneWay}" Command="{Binding AiNotes.EmphasizeCommand}"><TextBlock Text="{l:T ai.emphasize}" /></ToggleButton>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Border Classes="sep" />
+                        <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.aiErase}">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="AiErasePageButton" Theme="{StaticResource ToolButton}" Command="{Binding AiNotes.ErasePageCommand}" ToolTip.Tip="{l:T ai.erasePageTip}"><th:IconLabel Glyph="Eraser" Text="{l:T ai.erasePage}" /></Button>
+                                <Button x:Name="AiEraseAllButton" Theme="{StaticResource ToolButton}" Command="{Binding AiNotes.EraseAllCommand}" ToolTip.Tip="{l:T ai.eraseAllTip}"><th:IconLabel Glyph="ClearNotes" Text="{l:T ai.eraseAll}" /></Button>
+                                <Button x:Name="AiEraseLastButton" Theme="{StaticResource ToolButton}" Command="{Binding AiNotes.EraseLastCommand}" ToolTip.Tip="{l:T ai.eraseLastTip}"><th:IconLabel Glyph="Undo" Text="{l:T ai.eraseLast}" /></Button>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Border Classes="sep" />
+                        <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.aiWork}">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="AiSelectPageButton" Theme="{StaticResource ToolButton}" Command="{Binding AiNotes.SelectPageCommand}" ToolTip.Tip="{l:T ai.selectPageTip}"><th:IconLabel Glyph="Select" Text="{l:T ai.selectPage}" /></Button>
+                                <ToggleButton x:Name="AiHistoryButton" Theme="{StaticResource ToolButton}" IsChecked="{Binding AiNotes.PanelVisible, Mode=OneWay}" Command="{Binding AiNotes.TogglePanelCommand}" ToolTip.Tip="{l:T ai.historyTitle}"><th:IconLabel Glyph="Recent" Text="{l:T ai.history}" /></ToggleButton>
+                            </StackPanel>
+                        </HeaderedContentControl>
+                        <Border Classes="sep" />
+                        <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.aiConnection}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="AiNotConnectedText" VerticalAlignment="Center" Margin="6,0" Foreground="{DynamicResource Text.Muted}" Text="{l:T ai.notConnected}" IsVisible="{Binding !LiveLink.IsConnected}" />
+                                <StackPanel Orientation="Horizontal" IsVisible="{Binding LiveLink.IsConnected}">
+                                    <ToggleButton x:Name="AiAccessReadButton" Theme="{StaticResource ToolButton}" Padding="8,3" IsChecked="{Binding LiveLink.HasRead, Mode=OneWay}" Command="{Binding LiveLink.SetAccessCommand}" CommandParameter="Read"><TextBlock Text="{l:T live.read}" /></ToggleButton>
+                                    <ToggleButton x:Name="AiAccessWriteButton" Theme="{StaticResource ToolButton}" Padding="8,3" IsChecked="{Binding LiveLink.HasAiWrite, Mode=OneWay}" Command="{Binding LiveLink.SetAccessCommand}" CommandParameter="AiWrite"><TextBlock Text="{l:T live.aiWrite}" /></ToggleButton>
+                                    <ToggleButton x:Name="AiAccessFullButton" Theme="{StaticResource ToolButton}" Padding="8,3" IsChecked="{Binding LiveLink.HasFullEdit, Mode=OneWay}" Command="{Binding LiveLink.SetAccessCommand}" CommandParameter="FullEdit"><TextBlock Text="{l:T live.fullEdit}" /></ToggleButton>
+                                    <Button x:Name="AiDisconnectButton" Theme="{StaticResource ToolButton}" Padding="8,3" Command="{Binding LiveLink.DisconnectCommand}"><TextBlock Text="{l:T ai.disconnect}" /></Button>
+                                </StackPanel>
+                            </StackPanel>
                         </HeaderedContentControl>
                     </StackPanel>
                 </Panel>
@@ -440,9 +480,20 @@
                 </Button>
                 <!-- AI clients with access to this document (MCP_LIVE_PLAN 2): pressing disconnects them -->
                 <Button x:Name="LiveIndicator" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Margin="12,0,0,0" Padding="6,2" Cursor="Hand"
-                        ToolTip.Tip="{l:T live.disconnectTip}" IsVisible="{Binding LiveLink.IsConnected}" Command="{Binding LiveLink.DisconnectCommand}">
+                        ToolTip.Tip="{l:T live.menuTip}" IsVisible="{Binding LiveLink.IsConnected}">
+                    <Button.Flyout>
+                        <MenuFlyout Placement="TopEdgeAlignedRight">
+                            <MenuItem x:Name="LiveMenuRead" Header="{l:T live.read}" ToggleType="Radio" IsChecked="{Binding LiveLink.HasRead, Mode=OneWay}" Command="{Binding LiveLink.SetAccessCommand}" CommandParameter="Read" />
+                            <MenuItem x:Name="LiveMenuAiWrite" Header="{l:T live.aiWrite}" ToggleType="Radio" IsChecked="{Binding LiveLink.HasAiWrite, Mode=OneWay}" Command="{Binding LiveLink.SetAccessCommand}" CommandParameter="AiWrite" />
+                            <MenuItem x:Name="LiveMenuFull" Header="{l:T live.fullEdit}" ToggleType="Radio" IsChecked="{Binding LiveLink.HasFullEdit, Mode=OneWay}" Command="{Binding LiveLink.SetAccessCommand}" CommandParameter="FullEdit" />
+                            <Separator />
+                            <MenuItem x:Name="LiveMenuDisconnect" Header="{l:T ai.disconnect}" Command="{Binding LiveLink.DisconnectCommand}" />
+                        </MenuFlyout>
+                    </Button.Flyout>
                     <TextBlock x:Name="LiveIndicatorText" Foreground="{DynamicResource Accent}" Text="{Binding LiveLink.IndicatorText}" />
                 </Button>
+                <TextBlock x:Name="AiHiddenText" DockPanel.Dock="Right" Text="{l:T status.aiHidden}" VerticalAlignment="Center" Margin="12,0,0,0"
+                           Foreground="{DynamicResource Accent}" IsVisible="{Binding AiNotes.IsHidden}" />
                 <TextBlock x:Name="NotesHiddenText" DockPanel.Dock="Right" Text="{l:T status.notesHidden}" VerticalAlignment="Center" Margin="12,0,0,0"
                            Foreground="{DynamicResource Accent}" IsVisible="{Binding Display.NotesHidden}" />
                 <!-- Zoom: a click opens the zoom menu (spec 4.4) -->
@@ -536,6 +587,44 @@
                         </Canvas>
                     </Panel>
                 </Grid>
+            </DockPanel>
+        </Border>
+
+        <!-- AI work list (MCP_LIVE_PLAN 6.1): beside the document, open while writing; rows from the document's AI writing -->
+        <Border x:Name="AiPanel" DockPanel.Dock="Right" Width="236" Background="{DynamicResource Panel.Background}" BorderBrush="{DynamicResource Divider}" BorderThickness="1,0,0,0"
+                IsVisible="{Binding AiNotes.PanelVisible}">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="8,4,4,2">
+                    <Button x:Name="AiPanelCloseButton" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Padding="5,2" Command="{Binding AiNotes.TogglePanelCommand}"><th:AppIcon Glyph="Close" Size="12" /></Button>
+                    <TextBlock Text="{l:T ai.historyTitle}" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" />
+                </DockPanel>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="8,4,8,8" Spacing="6">
+                    <Button x:Name="AiEraseCheckedButton" Padding="10,3" Command="{Binding AiNotes.EraseCheckedCommand}" Content="{l:T ai.erase}" />
+                    <Button x:Name="AiAdoptCheckedButton" Padding="10,3" Command="{Binding AiNotes.AdoptCheckedCommand}" Content="{l:T ai.adopt}" />
+                </StackPanel>
+                <Panel>
+                    <TextBlock x:Name="AiEmptyText" Margin="12,8" Foreground="{DynamicResource Text.Muted}" Text="{l:T ai.empty}" IsVisible="{Binding AiNotes.ItemsEmpty}" />
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="AiItems" ItemsSource="{Binding AiNotes.Items}" Margin="4,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AiWorkItem">
+                                    <DockPanel Margin="0,2">
+                                        <CheckBox DockPanel.Dock="Left" VerticalAlignment="Center" Margin="4,0,0,0" IsChecked="{Binding IsChecked, Mode=TwoWay}" />
+                                        <Button Theme="{StaticResource ToolButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="6,3" Command="{Binding GoCommand}">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <TextBlock Text="&#x26A0;" Foreground="{DynamicResource Accent}" IsVisible="{Binding Warning}" />
+                                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Text.Muted}" FontSize="{DynamicResource FontSize.Caption}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Panel>
             </DockPanel>
         </Border>
 

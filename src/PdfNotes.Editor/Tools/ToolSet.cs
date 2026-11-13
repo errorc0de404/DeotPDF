@@ -22,7 +22,8 @@ public sealed record ToolSources(
     Func<ShapeKind> ShapeKind,
     Func<ShapeStyle> Shape,
     Func<double> StrokeEraserPt,
-    Func<double> AreaEraserPt);
+    Func<double> AreaEraserPt,
+    Func<bool>? AiNotesHidden = null);
 
 /// <summary>What the text and note tools hand back to the window (it owns the text editor and the note cards).</summary>
 public sealed record ToolActions(
@@ -80,6 +81,9 @@ public sealed class ToolSet
             SelectFrom(ToolKind.FreeHighlight));
         StrokeEraser = new EraserTool(canvas, session, sources.StrokeEraserPt, EraserMode.Stroke);
         AreaEraser = new EraserTool(canvas, session, sources.AreaEraserPt, EraserMode.Area);
+        // Hidden AI writing is passed over by every tool that picks annotations (MCP_LIVE_PLAN 6).
+        var mask = new AnnotationMask(sources.AiNotesHidden ?? (() => false));
+        Select.Mask = Highlighter.Mask = StrokeEraser.Mask = AreaEraser.Mask = mask;
 
         Lasso.Selected += (_, _) => later(() =>
         {

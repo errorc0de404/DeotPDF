@@ -3,7 +3,7 @@ using PdfNotes.Editor.Services;
 namespace PdfNotes.ViewModels;
 
 /// <summary>Tabs of the top ribbon (spec 3.2 D13 implementation default). <see cref="Home"/> is the tab named 필기 (2026-10-14).</summary>
-public enum RibbonTab { File, Home, Page, View }
+public enum RibbonTab { File, Home, Page, View, Ai }
 
 /// <summary>The visible ribbon tab (P1 V2). Changing it never changes the current tool or the keyboard focus.</summary>
 public sealed class RibbonViewModel(AppSettings settings) : ObservableObject
@@ -20,6 +20,7 @@ public sealed class RibbonViewModel(AppSettings settings) : ObservableObject
             OnPropertyChanged(nameof(IsHome));
             OnPropertyChanged(nameof(IsPage));
             OnPropertyChanged(nameof(IsView));
+            OnPropertyChanged(nameof(IsAi));
             OnPropertyChanged(nameof(HomeShown));
         }
     }
@@ -28,6 +29,7 @@ public sealed class RibbonViewModel(AppSettings settings) : ObservableObject
     public bool IsHome => current == RibbonTab.Home;
     public bool IsPage => current == RibbonTab.Page;
     public bool IsView => current == RibbonTab.View;
+    public bool IsAi => current == RibbonTab.Ai;
 
     /// <summary>The 필기 commands are on screen: their tab is shown, or always in the touch layout.</summary>
     public bool HomeShown => current == RibbonTab.Home || PanelsFloat;

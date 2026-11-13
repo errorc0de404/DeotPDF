@@ -86,7 +86,7 @@ public sealed class LassoTool(ICanvasView view, Func<DocumentSession?> session, 
         if (session() is not { } s || s.Current.IndexOfPage(target) is not (>= 0 and var index)) return;
         IEnumerable<Guid> chosen = click
             ? selection.Pick(pointer.Position) is { } id ? [id] : []
-            : Lasso.Select(s.Current.Pages[index], points, PdfNotes.Text.TextLayout.Bounds);
+            : Lasso.Select(s.Current.Pages[index], points, PdfNotes.Text.TextLayout.Bounds, a => selection.Mask.Hides(s.Current, a));
         if (additive && selection.PageId == target) chosen = selection.SelectedIds.Concat(chosen).ToArray();
         selection.SetSelection(chosen);
         if (selection.SelectedIds.Count > 0) Selected?.Invoke(this, EventArgs.Empty);

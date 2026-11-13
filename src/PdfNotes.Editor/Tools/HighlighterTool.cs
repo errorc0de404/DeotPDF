@@ -82,11 +82,14 @@ public sealed class HighlighterTool(ICanvasView view, Func<DocumentSession?> ses
         if (markup()) text.PointerHover(position, modifiers);
     }
 
+    /// <summary>Annotations this tool passes over (hidden AI writing).</summary>
+    public AnnotationMask Mask { get; set; } = AnnotationMask.None;
+
     /// <summary>The topmost unlocked highlighter result under a viewport point (free highlight stroke, glyph highlight or markup).</summary>
     private Guid? ExistingAt(Point2 viewportPoint)
     {
         if (session() is not { } s || view.HitTestPage(viewportPoint) is not { } at) return null;
-        return s.Current.Pages[at.PageIndex].Annotations.LastOrDefault(a => !a.Locked && a is FreeHighlightStroke or PdfTextHighlight or PdfTextMarkup &&
+        return s.Current.Pages[at.PageIndex].Annotations.LastOrDefault(a => !a.Locked && !Mask.Hides(s.Current, a) && a is FreeHighlightStroke or PdfTextHighlight or PdfTextMarkup &&
             AnnotationGeometry.Hit(a, at.PagePoint, 0))?.Id;
     }
 }

@@ -45,6 +45,7 @@
                     <CheckBox x:Name="PageDragBox" Content="{l:T settings.pageDrag}" IsChecked="{Binding PageDrag}" />
                     <CheckBox x:Name="PenPressureBox" Content="{l:T settings.penPressure}" IsChecked="{Binding PenPressure}" />
                     <CheckBox x:Name="FingerDrawingBox" Content="{l:T settings.fingerDrawing}" IsChecked="{Binding FingerDrawing}" />
+                    <CheckBox x:Name="LiveLinkBox" Content="{l:T settings.liveLink}" IsChecked="{Binding LiveLink}" />
                 </StackPanel>
                 <!-- 저장 (spec 18.2) -->
                 <StackPanel Classes="section" IsVisible="{Binding IsSave}">

@@ -36,19 +36,19 @@ public sealed class EraseGesture
 
     /// <param name="boxHighlights">Laid-out highlight rectangles of a text box (local points); without it text box highlights are not erased.</param>
     public EraseGesture(DocumentModel model, Guid pageId, EraserMode mode, double diameterPt,
-        Func<TextBoxAnnotation, IEnumerable<(TextHighlightRange Highlight, Rect2[] Lines)>>? boxHighlights = null)
+        Func<TextBoxAnnotation, IEnumerable<(TextHighlightRange Highlight, Rect2[] Lines)>>? boxHighlights = null, Func<Annotation, bool>? skip = null)
     {
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
         if (!double.IsFinite(diameterPt) || diameterPt <= 0) throw new ArgumentOutOfRangeException(nameof(diameterPt));
         page = model.GetPage(pageId);
         Mode = mode;
         Radius = diameterPt / 2;
-        foreach (var stroke in page.Annotations.OfType<StrokeAnnotation>().Where(s => !s.Locked))
+        foreach (var stroke in page.Annotations.OfType<StrokeAnnotation>().Where(s => !s.Locked && skip?.Invoke(s) != true))
             candidates.Add((stroke, stroke.Transform.Invert(), AnnotationGeometry.Bounds([stroke])));
-        foreach (var mark in page.Annotations.Where(a => a is PdfTextHighlight or PdfTextMarkup && !a.Locked))
+        foreach (var mark in page.Annotations.Where(a => a is PdfTextHighlight or PdfTextMarkup && !a.Locked && skip?.Invoke(a) != true))
             if (Lasso.PaintedRegion(mark) is { Count: > 0 } region) marks.Add((mark, region, RegionBounds(region)));
         if (boxHighlights is null) return;
-        foreach (var box in page.Annotations.OfType<TextBoxAnnotation>().Where(b => !b.Locked && !b.Highlights.IsEmpty))
+        foreach (var box in page.Annotations.OfType<TextBoxAnnotation>().Where(b => !b.Locked && !b.Highlights.IsEmpty && skip?.Invoke(b) != true))
         {
             var ranges = boxHighlights(box).Select(h => (h.Highlight, StrokeRegion.Transform(
                 [.. h.Lines.Select(r => new PathD { new(r.X, r.Y), new(r.X + r.Width, r.Y), new(r.X + r.Width, r.Y + r.Height), new(r.X, r.Y + r.Height) })],

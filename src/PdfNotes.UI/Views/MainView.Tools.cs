@@ -44,7 +44,8 @@ public sealed partial class MainView
             new(viewModel.PageGlyphs, () => settings.PageDrag && Canvas.Mode == ViewMode.Continuous,
                 () => styles.Pen, () => settings.PenPressure, () => styles.Highlighter, () => settings.HighlighterSnap, () => styles.TextHighlightStyle,
                 () => styles.MarkKind is { } k ? (k, styles.MarkupStyle) : null, () => styles.Line, () => styles.LineOptions,
-                () => settings.ShapeKind, () => styles.Shape, () => settings.StrokeEraserPt, () => settings.AreaEraserPt),
+                () => settings.ShapeKind, () => styles.Shape, () => settings.StrokeEraserPt, () => settings.AreaEraserPt,
+                () => viewModel.AiNotes.IsHidden),
             new(BeginNewTextAtClick, SelectTextAt, CreateNote, SelectNoteAt),
             SetTool, ReturnAfterAutoSelect, action => Dispatcher.UIThread.Post(action), changed => TextBoxReleased(null, changed));
         styles.Attach(selectTool);
@@ -58,6 +59,7 @@ public sealed partial class MainView
         Canvas.LiveFor = LiveFor;
         Canvas.MarksFor = MarksFor;
         viewModel.LiveLink.Flashed += Flash;
+        viewModel.AiNotes.Flashed += Flash;
         viewModel.ToolBar.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ToolBarViewModel.Current)) UseTool(viewModel.ToolBar.Current); };
         selectTool.SelectionChanged += (_, _) =>
         {
@@ -124,7 +126,8 @@ public sealed partial class MainView
     {
         if (Document is null || Canvas.HitTestPage(pointer.Position) is not { } anchor) return false;
         var page = Document.Session.Current.Pages[anchor.PageIndex];
-        if (page.Annotations.OfType<StickyNote>().LastOrDefault(n => AnnotationGeometry.Hit(n, anchor.PagePoint, 0)) is not { Locked: false } note) return false;
+        var model = Document.Session.Current;
+        if (page.Annotations.OfType<StickyNote>().LastOrDefault(n => !viewModel.AiNotes.Hides(model, n) && AnnotationGeometry.Hit(n, anchor.PagePoint, 0)) is not { Locked: false } note) return false;
         SetTool(ToolKind.Select);
         tools.Return = ToolKind.Note;
         selectTool.Select(note.Id);
@@ -141,9 +144,13 @@ public sealed partial class MainView
     private PagePainter? OverlayFor(int index, Page page, ViewTransform transform, IReadOnlyCollection<Guid> live)
     {
         if (viewModel.Display.NotesHidden || Document is not { } doc) return null;
+        var model = doc.Session.Current;
+        var ai = viewModel.AiNotes;
         var shown = new List<Annotation>(page.Annotations.Count);
         foreach (var original in page.Annotations)
-            if (original.Id != EditingTextId && !live.Contains(original.Id)) shown.Add(original);
+            if (original.Id != EditingTextId && !live.Contains(original.Id) && !ai.Hides(model, original)) shown.Add(original);
+        // 강조 (MCP_LIVE_PLAN 6): AI writing gets a halo, strokes underneath and the rest outlined on top.
+        var halos = ai.IsEmphasized && !model.Tags.IsEmpty ? shown.Where(a => Authorship.IsAi(model, a.Id)).ToList() : null;
         // A new sticky note is drawn while its card is open (it joins the document when closed with text).
         if (viewModel.NoteCard is { IsNew: true, Note: { } open } card && card.PageId == page.Id) shown.Add(open);
         var resources = doc.Session.Current.Resources;
@@ -157,7 +164,9 @@ public sealed partial class MainView
         }
         return (canvas, _, _, t) =>
         {
+            if (halos is not null) foreach (var a in halos) if (SkiaAiHalo.Under(a)) SkiaAiHalo.Paint(canvas, a, t, PdfNotes.Text.TextLayout.Bounds);
             foreach (var a in shown) SkiaAnnotationPainter.Paint(canvas, a, t, id => resources.GetValueOrDefault(id));
+            if (halos is not null) foreach (var a in halos) if (!SkiaAiHalo.Under(a)) SkiaAiHalo.Paint(canvas, a, t, PdfNotes.Text.TextLayout.Bounds);
             if (editFrame is { } f)
             {
                 var m = f.Transform.Then(t.PageToDip);
