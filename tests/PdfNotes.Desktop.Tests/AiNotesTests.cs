@@ -214,6 +214,35 @@ public sealed class AiNotesTests
         Assert.Single(session.Current.Tags);
     }
 
+    /// <summary>강조 (MCP_LIVE_PLAN 6): a soft glow in the chosen color around AI writing — tinted just outside it, clean farther away.</summary>
+    [Fact]
+    public void TheHaloGlowsAroundAiWriting()
+    {
+        var setup = new PageSetup(300, 200, 0, PageSource.Generated, PageBackground.Blank);
+        var transform = new PdfNotes.Core.Geometry.ViewTransform(setup.Frame, 1, 1, default);
+        var note = new StickyNote(Guid.NewGuid(), false, PdfNotes.Core.Geometry.Affine.Translation(60, 60), "n", new RgbColor(255, 213, 79));
+        var stroke = new InkStroke(Guid.NewGuid(), false, PdfNotes.Core.Geometry.Affine.Identity, [new(150, 120), new(260, 120)], 3, new RgbColor(0, 0, 0), 1);
+        using var surface = SkiaSharp.SKSurface.Create(new SkiaSharp.SKImageInfo(300, 200));
+        var canvas = surface.Canvas;
+        canvas.Clear(SkiaSharp.SKColors.White);
+        var color = PdfNotes.Render.Skia.SkiaAiHalo.DefaultColor;
+        foreach (Annotation a in (Annotation[])[note, stroke]) PdfNotes.Render.Skia.SkiaAiHalo.PaintGlow(canvas, a, transform, color);
+        foreach (Annotation a in (Annotation[])[note, stroke]) PdfNotes.Render.Skia.SkiaAiHalo.PaintEdge(canvas, a, transform, color);
+        using var image = surface.Snapshot();
+        using var pixels = SkiaSharp.SKBitmap.FromImage(image);
+        if (Environment.GetEnvironmentVariable("DEOT_TEST_SHOTS") is { Length: > 0 } folder)
+        {
+            using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+            File.WriteAllBytes(Path.Combine(folder, "halo.png"), data.ToArray());
+        }
+        static bool Tinted(SkiaSharp.SKColor c) => c.Blue < 235 && c.Red > 235; // yellow over white takes the blue out
+        // The view draws 4/3 DIP per point: the note's icon starts at (80, 80), the stroke runs along y = 160.
+        Assert.True(Tinted(pixels.GetPixel(76, 93)));   // 4 px left of the note
+        Assert.True(Tinted(pixels.GetPixel(270, 165))); // just under the stroke
+        Assert.Equal(SkiaSharp.SKColors.White, pixels.GetPixel(20, 20));
+        Assert.Equal(SkiaSharp.SKColors.White, pixels.GetPixel(100, 190));
+    }
+
     [Fact]
     public void ARunCountsWhatOnlyUndoTakesBack()
     {
