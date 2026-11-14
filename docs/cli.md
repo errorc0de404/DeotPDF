@@ -221,6 +221,39 @@ Small things learned the hard way:
 - To find a spot for a small badge next to something, try `space -p 3 --size 15,15 --within <area around the target> --gap 1 --cell 1`.
 - Long words wrap by character, so text never overflows sideways. Height is the thing to watch (`measure --height` or the `textOverflow` rule).
 
+## Working on the open document (`--live`, experimental)
+
+Every command so far reads a file and writes a new one. With `--live` it works on **the document that is open in a DeotPDF window** instead. Reads see the document as it is right now, unsaved changes included, and writes show up in the window at once. It is meant for studying with an AI assistant next to the PDF: "write a short explanation of this part here". It works with the Windows, macOS and Linux app, and it is still experimental, so details may change.
+
+Turn it on in DeotPDF first: Settings › Notes › `AI tool access` (off by default). The first request then shows a bar above the document, and the user picks `Read only`, `AI writing`, `Full editing` or `Deny`. They aren't asked again until they close the document or open another file.
+
+```powershell
+deot live docs                              # open windows and documents (doc id, name, access)
+deot live context                           # current page, visible area, zoom, selected text and annotations
+deot live view -o view.png                  # the part on screen as a PNG (same as render --live --view)
+deot text --live -p 3                       # read commands: leave out the input PDF, add --live
+deot find --live --text "cell membrane"
+deot apply --live plan.json                 # writes appear in the window; one undo takes them back
+deot add text --live -p 3 --rect 400,60,180,0 --text "**Key point**"
+deot live goto -p 12                        # scroll the user's view to page 12
+deot live flash -p 12 --rect 80,200,300,60  # mark a place for a moment (writes nothing)
+```
+
+Things to know:
+
+- With several windows open, pick one with `--doc <id>`. Without it you get `LIVE_DOC_AMBIGUOUS` and the list of documents.
+- Writes take no `-o`, `--preview` or `--flatten`. `deot` never saves: the document becomes modified and saving is up to the user. `--dry-run` works and leaves the window untouched.
+- What you can do depends on the access given. `AI writing` lets you add, change and delete annotations made by `deot`, and add blank pages. Touching the user's own notes (`--allow-untagged`) or deleting, rotating and moving pages needs `Full editing`. Otherwise you get `LIVE_PERMISSION`, with the step you need in `details.needs`.
+- If the user doesn't answer within 60 seconds you get `LIVE_CONSENT_TIMEOUT` (exit code 3). The bar stays up, so try again a little later. While the user is drawing a stroke or typing, a write waits up to 10 seconds and then returns `LIVE_BUSY` (3).
+- Commands that read or write other files, such as `page import`, `page export` and `add image`, aren't accepted on an open document (`LIVE_UNSUPPORTED`). For the same reason `--text @file` and `--style file` don't work; pass the content inline.
+- Page IDs stay the same only while that window has the document open. Don't mix them with page IDs from a file command. Page numbers are fine.
+- `sourceHash` looks like `live:<doc>:<revision>` and changes with every edit. You can pass it to `--expect-hash`.
+- The name in the question bar comes from the `DEOT_CLIENT` environment variable (`deot` if unset). Over MCP it is the name the client reports.
+
+In DeotPDF, notes written by `deot` count as AI notes. An `AI` tab appears on the ribbon where the user can hide them all, give them a colored glow, or erase them. Once the user chooses `Make mine` on a note it is theirs, and `deot` can't change it without `--allow-untagged`.
+
+Only programs running on the same PC as the same user can connect. Within that, DeotPDF can't tell programs apart, so the user decides who gets in at the question bar.
+
 ## MCP server
 
 `deot mcp` runs the same commands as an [MCP](https://modelcontextprotocol.io) server over standard input and output, so Claude Desktop, Claude Code and other MCP clients can call them as tools.
@@ -256,6 +289,7 @@ The tools:
 - **Writing** goes through `apply`. Instead of a file, pass the plan itself as `plan` (an object with `ops`, or just the list of ops). One edit is a plan with one op. Add `previews: true` to get the changed pages back as images, with or without `dryRun`.
 - `page_export` is there too, since `apply` can't do what it does.
 - `render` returns the PNG as an image. `out` is optional and only needed if you want to keep the file.
+- To work on the document open in DeotPDF, pass `live: true` instead of `pdf` (and `doc` when several windows are open). The read tools and `apply` take it. `render` with `view: true` returns the part the user is looking at. There are also `live_docs`, `live_context`, `live_goto` and `live_flash`. See [Working on the open document](#working-on-the-open-document---live-experimental) above.
 
 The text of every result is exactly the JSON the command prints, and a failed command comes back with `isError`. The commands and their output are the same as on the command line, so the rest of this guide applies as is. For an op's fields, call `schema` with that command (`{"command": "add text"}`).
 
@@ -296,5 +330,16 @@ The text of every result is exactly the JSON the command prints, and a failed co
 | `FILE_LOCKED` | 3 | Another program is holding the input |
 | `SAVE_FAILED` | 4 | Writing the output failed (3 if it was a lock) |
 | `INTERNAL` | 4 | Something unexpected. `details.type` and a stack trace on standard error |
+| `LIVE_NOT_RUNNING` | 1 | `--live`: no DeotPDF window is running or can be reached |
+| `LIVE_DISABLED` | 1 | `--live`: `AI tool access` is off in DeotPDF (the window asks the user to turn it on) |
+| `LIVE_DOC_AMBIGUOUS` | 1 | `--live`: several windows are open and `--doc` is missing (`details.documents`) |
+| `LIVE_DOC_NOT_FOUND` | 1 | `--live`: no window shows that document (it was closed, or another file was opened) |
+| `LIVE_CONSENT_DENIED` | 1 | `--live`: the user refused |
+| `LIVE_PERMISSION` | 1 | `--live`: the access given isn't enough (`details.needs`, `details.granted`) |
+| `LIVE_UNSUPPORTED` | 1 | `--live`: a command or option that doesn't work on an open document |
+| `LIVE_CONFLICT` | 1 | `--live`: the document changed meanwhile and the edit no longer fits |
+| `LIVE_NOTHING_IN_VIEW` | 1 | `--live --view`: no page is on screen |
+| `LIVE_CONSENT_TIMEOUT` | 3 | `--live`: the user didn't answer within a minute. The question stays on screen |
+| `LIVE_BUSY` | 3 | `--live`: the user is drawing or typing. Try again in a moment |
 
-Warnings that can appear in successful results: `FONT_NOT_INSTALLED`, `FONT_FALLBACK`, `MISSING_GLYPH`, and `PAGE_OVERFLOW` / `TEXT_OVERFLOW` when you passed `--overflow allow`.
+Warnings that can appear in successful results: `FONT_NOT_INSTALLED`, `FONT_FALLBACK`, `MISSING_GLYPH`, `AI_NOTES_HIDDEN` (`--live`: the user has AI notes hidden, so what you just wrote isn't visible), and `PAGE_OVERFLOW` / `TEXT_OVERFLOW` when you passed `--overflow allow`.

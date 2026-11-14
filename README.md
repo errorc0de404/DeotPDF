@@ -98,6 +98,8 @@ It also runs as an MCP server, so Claude Desktop, Claude Code and other MCP clie
 claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\Lectures
 ```
 
+**Working with an AI assistant side by side (experimental).** Turn on Settings › Notes › `AI tool access`, and an assistant that has `deot` (through MCP or the command line) can read the document you have open and write notes into it while you study. DeotPDF asks before letting it in, and you choose between read only, writing its own notes, or full editing. What the assistant writes is kept apart as AI notes: you can hide, highlight or erase them from the `AI` tab, or keep the ones you like as your own. Nothing is sent anywhere by DeotPDF itself. It only accepts connections from programs on your own PC, and the assistant is whatever you already run. The assistant never saves the file. Saving stays with you.
+
 The full guide is in [docs/cli.md](docs/cli.md).
 
 ### Build from source
@@ -248,6 +250,8 @@ MCP 서버로도 띄울 수 있어서 Claude Desktop, Claude Code 같은 MCP 클
 ```powershell
 claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\Lectures
 ```
+
+**AI와 나란히 놓고 쓰기 (실험 기능).** 설정 › 필기 › `AI 도구 연결`을 켜면, `deot`를 쓸 수 있는 AI(MCP나 명령줄)가 지금 열어 둔 문서를 읽고 거기에 바로 필기를 적어 줍니다. 공부하다가 "이 부분 설명 좀 적어 줘" 하는 식으로 쓸 수 있습니다. 연결할 때마다 덧PDF가 먼저 물어보고, 읽기만 / AI 필기 쓰기 / 전체 편집 중에서 고릅니다. AI가 쓴 것은 AI 필기로 따로 구분돼서 `AI` 탭에서 한꺼번에 숨기거나 강조하거나 지울 수 있고, 마음에 드는 것만 내 필기로 남길 수도 있습니다. 덧PDF가 어디로 뭔가를 보내는 것은 아닙니다. 내 PC 안의 프로그램이 붙는 것만 받고, AI는 쓰던 프로그램을 그대로 씁니다. AI는 파일을 저장하지 않습니다. 저장은 직접 합니다.
 
 자세한 내용은 [docs/cli.ko.md](docs/cli.ko.md)에 있습니다.
 

@@ -221,6 +221,39 @@ deot check 결과.pdf --rules '[{"rule": "overlapRegions", "regions": [[0,0,960,
 - 어떤 대상 옆에 작은 번호 표시를 둘 자리는 `space -p 3 --size 15,15 --within <대상 주변> --gap 1 --cell 1`로 찾으면 잘 나옵니다.
 - 긴 단어도 글자 단위로 줄바꿈되기 때문에 옆으로 넘치는 일은 없습니다. 신경 쓸 것은 높이입니다(`measure --height`나 `textOverflow` 규칙).
 
+## 열린 문서에 바로 쓰기 (`--live`, 실험 기능)
+
+지금까지의 명령은 모두 파일을 읽고 새 파일을 씁니다. `--live`를 붙이면 파일 대신 **덧PDF 창에 지금 열려 있는 문서**를 다룹니다. 읽기는 저장하기 전 상태를 그대로 보고, 쓰기는 창에 바로 나타납니다. 공부하면서 옆에 AI를 띄워 놓고 "이 부분 설명 좀 적어 줘" 하는 식으로 쓰려고 만든 기능입니다. 윈도우·맥·리눅스 앱에서 되고, 아직 실험 단계라 동작이 바뀔 수 있습니다.
+
+먼저 덧PDF에서 설정 › 필기 › `AI 도구 연결`을 켭니다(기본은 꺼짐). 그 뒤 처음 요청이 오면 문서 위에 막대가 뜨고, 사용자가 `읽기만`, `AI 필기 쓰기`, `전체 편집`, `거절` 중 하나를 고릅니다. 한 번 고르면 그 문서를 닫거나 다른 파일을 열 때까지 다시 묻지 않습니다.
+
+```powershell
+deot live docs                              # 떠 있는 창과 문서 (doc ID, 이름, 권한)
+deot live context                           # 지금 보는 페이지, 보이는 영역, 배율, 선택한 글자·주석
+deot live view -o view.png                  # 지금 보이는 부분을 PNG로 (render --live --view와 같음)
+deot text --live -p 3                       # 읽기 명령은 입력 PDF 자리를 비우고 --live
+deot find --live --text "세포막"
+deot apply --live plan.json                 # 쓰기: 창에 바로 반영, 실행 취소 한 번으로 되돌아감
+deot add text --live -p 3 --rect 400,60,180,0 --text "**핵심**"
+deot live goto -p 12                        # 사용자의 화면을 12쪽으로
+deot live flash -p 12 --rect 80,200,300,60  # 그 자리를 잠깐 표시 (아무것도 쓰지 않음)
+```
+
+알아 둘 것:
+
+- 창이 여러 개면 `--doc <ID>`로 고릅니다. 안 주면 `LIVE_DOC_AMBIGUOUS`가 문서 목록과 함께 돌아옵니다.
+- 쓰기에는 `-o`, `--preview`, `--flatten`을 붙이지 않습니다. `deot`는 저장하지 않습니다. 문서에 변경 표시만 생기고 저장은 사용자가 합니다. `--dry-run`은 되고, 이때는 창에 아무것도 반영하지 않습니다.
+- 권한에 따라 되는 일이 다릅니다. `AI 필기 쓰기`는 `deot`가 만든 주석을 추가·수정·삭제하고 빈 페이지를 넣을 수 있습니다. 사람이 쓴 필기를 건드리거나(`--allow-untagged`) 페이지를 지우고 돌리고 옮기려면 `전체 편집`이 필요합니다. 모자라면 `LIVE_PERMISSION`이고 `details.needs`에 필요한 단계가 들어 있습니다.
+- 사용자가 60초 안에 답하지 않으면 `LIVE_CONSENT_TIMEOUT`(종료 코드 3)입니다. 막대는 그대로 떠 있으니 조금 뒤에 다시 시도하면 됩니다. 사용자가 획을 긋거나 글을 입력하는 중이면 최대 10초 기다렸다가 `LIVE_BUSY`(3)를 냅니다.
+- `page import`, `page export`, `add image`처럼 다른 파일을 읽거나 쓰는 명령은 열린 문서에서 받지 않습니다(`LIVE_UNSUPPORTED`). 같은 이유로 `--text @파일`, `--style 파일`도 안 되니 내용을 인자로 직접 주세요.
+- 페이지 ID는 그 창이 문서를 열고 있는 동안에만 같습니다. 파일을 대상으로 한 명령에서 받은 페이지 ID와 섞어 쓰지 마세요. 페이지 번호는 그대로 통합니다.
+- `sourceHash`는 `live:<문서>:<리비전>` 꼴이고 문서가 바뀔 때마다 달라집니다. `--expect-hash`에 그대로 쓸 수 있습니다.
+- 질문 막대에 보이는 이름은 환경 변수 `DEOT_CLIENT`로 정합니다(없으면 `deot`). MCP에서는 클라이언트가 알려 준 이름을 씁니다.
+
+덧PDF 쪽에서는 `deot`가 쓴 필기를 AI 필기로 구분합니다. 리본에 `AI` 탭이 생겨서 한꺼번에 숨기거나, 둘레에 색을 둘러 강조하거나, 지울 수 있습니다. 사용자가 `내 필기로`를 누른 필기는 그때부터 사람 필기라서 `deot`가 `--allow-untagged` 없이는 고치지 못합니다.
+
+같은 PC에서 같은 사용자로 실행한 프로그램만 연결할 수 있습니다. 다만 그 안에서는 프로그램을 가려내지 못하므로, 누가 연결하려는지는 질문 막대에서 사용자가 확인합니다.
+
 ## MCP 서버
 
 `deot mcp`는 같은 명령들을 표준 입출력 [MCP](https://modelcontextprotocol.io) 서버로 띄웁니다. Claude Desktop, Claude Code 같은 MCP 클라이언트에서 도구로 부를 수 있습니다.
@@ -256,6 +289,7 @@ Claude Desktop(`claude_desktop_config.json`):
 - **쓰기**는 `apply` 하나로 합니다. 계획 파일 대신 계획 자체를 `plan`에 넣습니다(`ops`가 있는 객체나 작업 목록). 하나만 고칠 때도 작업이 하나인 계획으로 보냅니다. `previews: true`를 주면 바뀐 페이지를 이미지로 돌려받습니다. `dryRun`과 같이 써도 됩니다.
 - `apply`로는 할 수 없는 `page_export`도 따로 있습니다.
 - `render`는 PNG를 이미지로 돌려줍니다. `out`은 파일을 남기고 싶을 때만 주면 됩니다.
+- 덧PDF에 열린 문서를 다룰 때는 `pdf` 대신 `live: true`를 줍니다(창이 여러 개면 `doc`도). 읽기 도구와 `apply`에서 됩니다. `render`에 `view: true`를 같이 주면 사용자가 지금 보는 부분이 돌아옵니다. 따로 `live_docs`, `live_context`, `live_goto`, `live_flash` 도구가 있습니다. 자세한 것은 위의 [열린 문서에 바로 쓰기](#열린-문서에-바로-쓰기---live-실험-기능)를 보세요.
 
 결과 텍스트는 명령이 찍는 JSON 그대로이고, 실패하면 `isError`가 붙습니다. 명령과 출력은 명령줄과 똑같아서 이 문서의 나머지 내용이 그대로 통합니다. 작업 필드가 궁금하면 그 명령으로 `schema`를 부르세요(`{"command": "add text"}`).
 
@@ -296,5 +330,16 @@ Claude Desktop(`claude_desktop_config.json`):
 | `FILE_LOCKED` | 3 | 다른 프로그램이 입력 파일을 잡고 있음 |
 | `SAVE_FAILED` | 4 | 출력 파일 쓰기 실패(잠김 때문이면 3) |
 | `INTERNAL` | 4 | 예상 못 한 오류. `details.type`과 표준 오류의 추적 정보를 보세요 |
+| `LIVE_NOT_RUNNING` | 1 | `--live`: 떠 있는 덧PDF 창이 없거나 연결할 수 없음 |
+| `LIVE_DISABLED` | 1 | `--live`: 덧PDF에서 `AI 도구 연결`이 꺼져 있음(창이 사용자에게 켤지 묻습니다) |
+| `LIVE_DOC_AMBIGUOUS` | 1 | `--live`: 창이 여러 개인데 `--doc`이 없음(`details.documents`) |
+| `LIVE_DOC_NOT_FOUND` | 1 | `--live`: 그 문서를 보여 주는 창이 없음(닫았거나 다른 파일을 열었음) |
+| `LIVE_CONSENT_DENIED` | 1 | `--live`: 사용자가 거절함 |
+| `LIVE_PERMISSION` | 1 | `--live`: 받은 권한이 모자람(`details.needs`, `details.granted`) |
+| `LIVE_UNSUPPORTED` | 1 | `--live`: 열린 문서에서는 안 되는 명령이나 옵션 |
+| `LIVE_CONFLICT` | 1 | `--live`: 그사이 문서가 바뀌어 편집이 맞지 않음 |
+| `LIVE_NOTHING_IN_VIEW` | 1 | `--live --view`: 화면에 보이는 페이지가 없음 |
+| `LIVE_CONSENT_TIMEOUT` | 3 | `--live`: 사용자가 1분 안에 답하지 않음. 질문은 화면에 남아 있습니다 |
+| `LIVE_BUSY` | 3 | `--live`: 사용자가 필기나 글 입력 중. 잠시 뒤 다시 시도하세요 |
 
-성공 결과에 붙을 수 있는 경고: `FONT_NOT_INSTALLED`, `FONT_FALLBACK`, `MISSING_GLYPH`, 그리고 `--overflow allow`를 줬을 때의 `PAGE_OVERFLOW`, `TEXT_OVERFLOW`.
+성공 결과에 붙을 수 있는 경고: `FONT_NOT_INSTALLED`, `FONT_FALLBACK`, `MISSING_GLYPH`, `AI_NOTES_HIDDEN`(`--live`: 사용자가 AI 필기를 숨겨 둔 상태라 방금 쓴 것이 보이지 않음), 그리고 `--overflow allow`를 줬을 때의 `PAGE_OVERFLOW`, `TEXT_OVERFLOW`.
