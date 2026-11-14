@@ -93,6 +93,32 @@ public static class WindowActivation
         catch (Exception e) when (e is IOException or TimeoutException or UnauthorizedAccessException) { return false; }
     }
 
+    /// <summary>
+    /// Flashes the window's taskbar button until it comes to the front (a question waits there while the user is in
+    /// another program). Windows only: macOS and Linux have no call for it that Avalonia reaches.
+    /// </summary>
+    public static void Flash(nint window)
+    {
+        if (!OperatingSystem.IsWindows() || window == 0) return;
+        const uint tray = 2, untilForeground = 12; // FLASHW_TRAY, FLASHW_TIMERNOFG
+        var info = new FlashInfo { Size = (uint)Marshal.SizeOf<FlashInfo>(), Window = window, Flags = tray | untilForeground, Count = uint.MaxValue };
+        FlashWindowEx(ref info);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FlashInfo
+    {
+        public uint Size;
+        public nint Window;
+        public uint Flags;
+        public uint Count;
+        public uint Timeout;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool FlashWindowEx(ref FlashInfo info);
+
     private static void BringWindow(nint window)
     {
         if (!OperatingSystem.IsWindows()) return;

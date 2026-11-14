@@ -427,6 +427,8 @@
     "live.disconnected": "AI 연결을 끊었습니다",
     "live.disconnectConfirm": "AI 연결을 끊을까요? 다시 연결하려면 AI가 요청할 때 한 번 더 허용해야 합니다.",
     "live.applied": "{client}의 편집을 적용했습니다 (Ctrl+Z로 되돌리기)",
+    "live.added": "{client}이(가) 필기 {count}개를 추가했습니다 ({pages})",
+    "live.undoWritten": "되돌리기",
     "undo.ai": "AI 편집",
     "tab.ai": "AI",
     "group.aiView": "AI 필기",

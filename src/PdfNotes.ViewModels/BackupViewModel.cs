@@ -17,6 +17,9 @@ public interface IWindowCoordinator
 
     /// <summary>Another window shows <paramref name="path"/>: bring it forward and return true (spec 4.6).</summary>
     bool ShowOpenElsewhere(string path);
+
+    /// <summary>Something waits for the user in this window while they may be in another (an AI client asks for access): the taskbar button flashes.</summary>
+    void RequestAttention() { }
 }
 
 /// <summary>

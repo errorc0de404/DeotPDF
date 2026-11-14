@@ -63,6 +63,10 @@ public sealed class LiveLinkViewModel : ObservableObject
         this.ui = ui;
         this.time = time;
         main.DocumentShown += (_, _) => DocumentChanged();
+        // The notice of a write lasts as long as the status line says it.
+        main.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.Status) && written is not null && main.Status != writtenStatus) Written = null; };
+        ShowWrittenCommand = new(() => { if (written is { } run) main.AiNotes?.Show(run); });
+        UndoWrittenCommand = new(() => { if (written is { } run) main.AiNotes?.Erase(run); });
         GrantReadCommand = new(() => Answer(LiveAccess.Read));
         GrantAiWriteCommand = new(() => Answer(LiveAccess.AiWrite));
         GrantFullCommand = new(() => Answer(LiveAccess.FullEdit));
@@ -108,6 +112,27 @@ public sealed class LiveLinkViewModel : ObservableObject
 
     public bool IsConnected => indicatorText is not null;
 
+    // ----- after a write: [보기] [되돌리기] beside the status line (MCP_LIVE_PLAN 4) -----
+
+    private AiRun? written;
+    private string? writtenStatus;
+
+    /// <summary>The request the status line tells of now (it added writing), or null.</summary>
+    private AiRun? Written
+    {
+        get => written;
+        set { if (!ReferenceEquals(written, value)) { written = value; OnPropertyChanged(nameof(HasWritten)); } }
+    }
+
+    /// <summary>True while the status line tells of writing an AI client just added: the two buttons show.</summary>
+    public bool HasWritten => written is not null;
+
+    /// <summary>보기: goes to what the request wrote.</summary>
+    public Command ShowWrittenCommand { get; }
+
+    /// <summary>되돌리기: erases what the request added (the AI tab's "마지막 작업" for this request).</summary>
+    public Command UndoWrittenCommand { get; }
+
     public Command GrantReadCommand { get; }
     public Command GrantAiWriteCommand { get; }
     public Command GrantFullCommand { get; }
@@ -151,7 +176,12 @@ public sealed class LiveLinkViewModel : ObservableObject
         RefreshIndicator();
     }
 
-    private void ShowNext() => AskingClient = pending.Count > 0 ? pending[0].Client : null;
+    private void ShowNext()
+    {
+        string? before = askingClient;
+        AskingClient = pending.Count > 0 ? pending[0].Client : null;
+        if (askingClient is not null && before is null) main.Window.RequestAttention(); // the window may be behind the AI client's
+    }
 
     private void Enable()
     {
@@ -185,6 +215,7 @@ public sealed class LiveLinkViewModel : ObservableObject
             pending.Remove(p);
             p.Answer.TrySetResult(LiveAccess.None);
         }
+        Written = null;
         ShowNext();
         RefreshIndicator();
     }
@@ -237,6 +268,7 @@ public sealed class LiveLinkViewModel : ObservableObject
             return Error("LIVE_DOC_NOT_FOUND", $"The document {wanted} is no longer open here (a different file was opened).", new JsonObject { ["doc"] = id });
         if (!main.Settings.LiveLink)
         {
+            if (disabledClient is null) main.Window.RequestAttention();
             DisabledClient = client;
             return Error("LIVE_DISABLED", "The user has not turned on AI tool access in DeotPDF. They were asked to turn it on; try again after they do.");
         }
@@ -324,6 +356,9 @@ public sealed class LiveLinkViewModel : ObservableObject
         try
         {
             var result = await Task.Run(() => commands!.Run(doc, id, args, stdin));
+            // A file opened meanwhile closed the document under the command: whatever it reported (an error from the
+            // closed PDF, or an answer about a document that is no longer there), the client is told that.
+            if (!ReferenceEquals(main.Document, doc)) return Error("LIVE_DOC_NOT_FOUND", "The document was closed while the command ran.");
             var response = Wrap(result);
             if (temp is not null && File.Exists(temp))
             {
@@ -486,7 +521,9 @@ public sealed class LiveLinkViewModel : ObservableObject
         string batch = response["result"]?["batchId"]?.GetValue<string>() ?? "";
         var run = AiRun.From(batch, time.GetLocalNow(), client, before, result.Operations);
         main.AiNotes?.Record(run);
-        string status = main.Texts.Format("live.applied", ("client", client));
+        var places = main.AiNotes?.Places(run) ?? [];
+        string status = places.Count == 0 ? main.Texts.Format("live.applied", ("client", client))
+            : main.Texts.Format("live.added", ("client", client), ("count", places.Sum(p => p.Count)), ("pages", Pages([.. places.Select(p => p.Page + 1)])));
         if (main.AiNotes?.IsHidden == true && run.Created.Count > 0)
         {
             status += " " + main.Texts.Get("live.appliedHidden");
@@ -496,9 +533,18 @@ public sealed class LiveLinkViewModel : ObservableObject
                 warnings.Add(new JsonObject { ["code"] = "AI_NOTES_HIDDEN", ["message"] = "The user has hidden AI writing; what was added stays hidden until they show it again." });
             }
         }
+        Written = null;
         main.Status = status;
+        if (places.Count > 0)
+        {
+            writtenStatus = status;
+            Written = run;
+            main.AiNotes?.FlashInView(run);
+        }
         return response;
     }
+
+    private static string Pages(List<int> pages) => pages.Count <= 3 ? string.Join(", ", pages.Select(p => $"p.{p}")) : $"p.{pages[0]}–{pages[^1]}";
 
     private bool Busy() => viewport.IsToolActive || main.TextStyle.IsEditingText || main.IsBusy || main.Workflow.IsConfirming;
 

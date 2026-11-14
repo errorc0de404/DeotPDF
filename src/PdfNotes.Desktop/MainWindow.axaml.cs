@@ -51,6 +51,7 @@ public sealed partial class MainWindow : Window, IViewHost
 
     long IViewHost.WindowId => WindowActivation.WindowId(this);
     void IViewHost.Bring(long windowId) => WindowActivation.Bring(windowId);
+    void IViewHost.RequestAttention() { if (!IsActive) WindowActivation.Flash(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero); }
     bool IViewHost.ShowTouchKeyboard() => TouchKeyboard.Show(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
 
     // ----- closing (spec 18) -----

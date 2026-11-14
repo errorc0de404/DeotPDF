@@ -427,6 +427,8 @@
     "live.disconnected": "AI clients disconnected",
     "live.disconnectConfirm": "Disconnect the AI? It has to ask again and you have to allow it once more.",
     "live.applied": "Applied the edit from {client} (Ctrl+Z to undo)",
+    "live.added": "{client} added {count} notes ({pages})",
+    "live.undoWritten": "Undo",
     "undo.ai": "AI edit",
     "tab.ai": "AI",
     "group.aiView": "AI writing",

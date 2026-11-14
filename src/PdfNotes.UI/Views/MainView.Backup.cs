@@ -51,6 +51,8 @@ public sealed partial class MainView
     bool IWindowCoordinator.InputPending =>
         Canvas.IsToolActive || dialogs.IsOpen || HasDialogCard || buttonDown || editSession?.Model.IsComposing == true; // the canvas's first-key composition is the session's too
 
+    void IWindowCoordinator.RequestAttention() => host.RequestAttention();
+
     /// <summary>Tells the other windows which file this one shows (spec 4.6).</summary>
     private void ShowingFile()
     {

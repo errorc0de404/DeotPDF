@@ -58,6 +58,8 @@ public static class LiveClient
             return Command(doc, client, rest);
         }
         catch (CliException e) { return (e.ExitCode, CliJson.Error(e.Code, e.Message, e.Details)); }
+        // Every way out prints JSON: a caller that reads only standard output still learns what went wrong.
+        catch (Exception e) { return (ExitCodes.Internal, CliJson.Error("INTERNAL", e.Message, new JsonObject { ["type"] = e.GetType().Name })); }
     }
 
     /// <summary>A command line without its input PDF: <c>@live</c> takes its place, a plan file is sent as standard input and a PNG comes back as bytes.</summary>
@@ -73,7 +75,14 @@ public static class LiveClient
             int plan = words + 1;
             if (plan >= args.Count || args[plan].StartsWith('-') && args[plan] != "-")
                 throw CliException.Invalid("Give the operations file: deot apply --live <ops.json> (- reads standard input).");
-            stdin = args[plan] == "-" ? Console.In.ReadToEnd() : File.ReadAllText(CliPaths.Full(args[plan]), Encoding.UTF8);
+            if (args[plan] == "-") stdin = Console.In.ReadToEnd();
+            else
+            {
+                string full = CliPaths.Full(args[plan]);
+                if (!File.Exists(full)) throw new CliException("FILE_NOT_FOUND", $"The operations file {full} does not exist.", ExitCodes.InvalidInput, new JsonObject { ["path"] = full });
+                try { stdin = File.ReadAllText(full, Encoding.UTF8); }
+                catch (IOException e) { throw new CliException("FILE_LOCKED", $"The file cannot be read: {e.Message}", ExitCodes.Locked, new JsonObject { ["path"] = full }); }
+            }
             args[plan] = "-";
         }
         return Execute(doc, client, args, stdin);

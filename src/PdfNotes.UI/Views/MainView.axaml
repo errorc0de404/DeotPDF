@@ -511,7 +511,18 @@
                 <Button x:Name="ZoomButton" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Margin="12,0,0,0" Padding="6,2" Cursor="Hand" ToolTip.Tip="{l:T view.zoom}" Command="{Binding Navigation.ZoomMenuCommand}">
                     <TextBlock x:Name="ZoomText" MinWidth="36" TextAlignment="Right" Foreground="{DynamicResource Text.Secondary}" Text="{Binding Navigation.ZoomText}" />
                 </Button>
-                <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="16,0" Foreground="{DynamicResource Text.Muted}" TextTrimming="CharacterEllipsis" Text="{Binding Status}" />
+                <!-- The notice, and after an AI client wrote: 보기 goes there, 되돌리기 erases what it added (MCP_LIVE_PLAN 4) -->
+                <DockPanel HorizontalAlignment="Left" Margin="16,0" LastChildFill="True">
+                    <Button x:Name="LiveUndoWrittenButton" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Padding="6,2" Cursor="Hand"
+                            IsVisible="{Binding LiveLink.HasWritten}" Command="{Binding LiveLink.UndoWrittenCommand}">
+                        <TextBlock Foreground="{DynamicResource Accent}" Text="{l:T live.undoWritten}" />
+                    </Button>
+                    <Button x:Name="LiveShowWrittenButton" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Margin="8,0,0,0" Padding="6,2" Cursor="Hand"
+                            IsVisible="{Binding LiveLink.HasWritten}" Command="{Binding LiveLink.ShowWrittenCommand}">
+                        <TextBlock Foreground="{DynamicResource Accent}" Text="{l:T ai.show}" />
+                    </Button>
+                    <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" TextTrimming="CharacterEllipsis" Text="{Binding Status}" />
+                </DockPanel>
             </DockPanel>
         </Border>
 

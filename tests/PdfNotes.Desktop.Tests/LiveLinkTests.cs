@@ -218,4 +218,100 @@ public sealed class LiveLinkTests
         Assert.NotEmpty(Convert.FromBase64String(answer["files"]!["out"]!.GetValue<string>()));
         Assert.NotNull(answer["result"]!["region"]);
     });
+
+    /// <summary>After a request added writing, the status line says where and offers 보기 and 되돌리기 (MCP_LIVE_PLAN 4).</summary>
+    [Fact]
+    public void AfterAWriteTheStatusLineShowsAndUndoesIt() => Headless.Run(async () =>
+    {
+        var w = await Opened();
+        var vm = w.View.ViewModel;
+        var session = w.View.Document!.Session;
+        int undo = session.UndoCount;
+        JsonObject Two() => new()
+        {
+            ["op"] = "command", ["client"] = "Claude", ["args"] = new JsonArray("apply", "@live", "-"),
+            ["stdin"] = """[{ "op": "add.text", "page": 1, "rect": [50, 50, 120, 30], "text": "hi" }, { "op": "add.text", "page": 2, "rect": [60, 60, 120, 30], "text": "there" }]""",
+        };
+        Assert.False(vm.LiveLink.HasWritten);
+        var answer = await Ask(w, Two(), "LiveAiWriteButton");
+        Assert.True(answer["ok"]!.GetValue<bool>(), answer.ToJsonString());
+        Assert.True(vm.LiveLink.HasWritten);
+        Assert.Contains("p.1, p.2", vm.Status);
+        Assert.Contains("Claude", vm.Status);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(Find(w, "LiveShowWrittenButton").IsVisible);
+
+        // 보기 goes there and the notice stays; 되돌리기 erases what the request added as a new Undo unit.
+        Press(Find(w, "LiveShowWrittenButton"));
+        Assert.True(vm.LiveLink.HasWritten);
+        Press(Find(w, "LiveUndoWrittenButton"));
+        Assert.Empty(session.Current.Pages[0].Annotations);
+        Assert.Empty(session.Current.Pages[1].Annotations);
+        Assert.Equal(undo + 2, session.UndoCount);
+        Assert.False(vm.LiveLink.HasWritten);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(Find(w, "LiveShowWrittenButton").IsVisible);
+
+        // Another notice in the status line ends it too, and so does a request that added nothing.
+        await Ask(w, Two());
+        Assert.True(vm.LiveLink.HasWritten);
+        vm.Status = "x";
+        Assert.False(vm.LiveLink.HasWritten);
+    });
+
+    /// <summary>Holds a command at its start until the test lets it go (a file is opened meanwhile).</summary>
+    private sealed class HeldCommands(ILiveCommands inner) : ILiveCommands
+    {
+        public ManualResetEventSlim Entered { get; } = new(false);
+        public ManualResetEventSlim Go { get; } = new(true);
+        public string ScratchFolder => inner.ScratchFolder;
+        public LiveCommandInfo Inspect(IReadOnlyList<string> tokens, string? stdin) => inner.Inspect(tokens, stdin);
+
+        public LiveCommandResult Run(OpenDocument document, string id, IReadOnlyList<string> tokens, string? stdin)
+        {
+            Entered.Set();
+            Go.Wait();
+            return inner.Run(document, id, tokens, stdin);
+        }
+    }
+
+    /// <summary>A read runs off the UI thread: a file opened meanwhile closes its document, and the client is told so (review 13).</summary>
+    [Fact]
+    public void AReadOfADocumentClosedMeanwhileSaysSo() => Headless.Run(async () =>
+    {
+        var held = new HeldCommands(new DesktopLiveCommands());
+        var app = TestWindows.App(new AppSettings { LiveLink = true }, Headless.TempFolder()) with { LiveCommands = held };
+        var w = new MainWindow(app, TestWindows.Dialogs) { Width = 1200, Height = 1000 };
+        w.Script.PromptOverride = (_, _) => Answer.Yes;
+        w.Script.MessageSink = _ => { };
+        w.Show();
+        string pdf = Path.Combine(Headless.TempFolder(), "live.pdf"), other = Path.Combine(Headless.TempFolder(), "other.pdf");
+        ProbeSamplePdf.Create(pdf, 3);
+        ProbeSamplePdf.Create(other, 2);
+        Assert.True(await w.View.OpenFileAsync(pdf));
+        Dispatcher.UIThread.RunJobs();
+        Assert.True((await Ask(w, Request("command", "info", "@live"), "LiveReadButton"))["ok"]!.GetValue<bool>());
+
+        foreach (string[] command in new[] { new[] { "text", "@live", "-p", "1" }, ["render", "@live", "-p", "1", "-o", "x.png"], ["annot", "list", "@live"] })
+        {
+            if (w.View.Document?.FilePath != pdf)
+            {
+                Assert.True(await w.View.OpenFileAsync(pdf));
+                Dispatcher.UIThread.RunJobs();
+                held.Go.Set();
+                Assert.True((await Ask(w, Request("command", "info", "@live"), "LiveReadButton"))["ok"]!.GetValue<bool>());
+            }
+            held.Entered.Reset();
+            held.Go.Reset();
+            var answer = w.View.ViewModel.LiveLink.HandleAsync(Request("command", command));
+            Headless.Pump(() => held.Entered.IsSet);
+            Assert.True(await w.View.OpenFileAsync(other)); // the first document is closed under the command
+            Dispatcher.UIThread.RunJobs();
+            held.Go.Set();
+            Headless.Pump(() => answer.IsCompleted, 20_000);
+            var result = await answer;
+            Assert.False(result["ok"]!.GetValue<bool>(), string.Join(' ', command) + ": " + result.ToJsonString());
+            Assert.Equal("LIVE_DOC_NOT_FOUND", Code(result));
+        }
+    });
 }

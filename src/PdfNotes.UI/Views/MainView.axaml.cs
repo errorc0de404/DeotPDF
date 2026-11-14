@@ -30,6 +30,9 @@ public interface IViewHost
 
     /// <summary>Shows the system's touch keyboard for a text box started with a finger; true when it was asked to show.</summary>
     bool ShowTouchKeyboard();
+
+    /// <summary>Draws the user's eye to this window when it is not the active one (the taskbar button flashes).</summary>
+    void RequestAttention() { }
 }
 
 /// <summary>A screen without other windows or a touch keyboard to ask for (tests; Android shows its keyboard itself).</summary>

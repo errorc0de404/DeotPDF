@@ -319,8 +319,13 @@ public sealed class AiNotesViewModel : ObservableObject
     /// </summary>
     public void EraseLast()
     {
-        if (runs.Count == 0 || main.Document is null) return;
-        var run = runs[^1];
+        if (runs.Count > 0) Erase(runs[^1]);
+    }
+
+    /// <summary>Erases what <paramref name="run"/> added (the status bar's 되돌리기 after a request, and <see cref="EraseLast"/>).</summary>
+    public void Erase(AiRun run)
+    {
+        if (!runs.Contains(run) || main.Document is null) return;
         int count = 0;
         bool erased = Execute(model =>
         {
@@ -334,6 +339,44 @@ public sealed class AiNotesViewModel : ObservableObject
         main.Status = text;
         runs.Remove(run);
         Refresh();
+    }
+
+    /// <summary>Where the writing <paramref name="run"/> made is now: each page (index) with its bounds and how many are still AI writing.</summary>
+    public IReadOnlyList<(int Page, Rect2 Bounds, int Count)> Places(AiRun run)
+    {
+        var list = new List<(int, Rect2, int)>();
+        if (main.Document?.Session.Current is not { } model) return list;
+        var ids = run.Created.ToHashSet();
+        for (int i = 0; i < model.Pages.Count; i++)
+        {
+            var made = model.Pages[i].Annotations.Where(a => ids.Contains(a.Id) && Authorship.IsAi(model, a.Id)).ToList();
+            if (made.Count > 0) list.Add((i, AnnotationGeometry.Bounds(made, PdfNotes.Text.TextLayout.Bounds), made.Count));
+        }
+        return list;
+    }
+
+    /// <summary>보기: goes to the first place <paramref name="run"/> wrote and marks it for a moment (hidden AI writing shows again).</summary>
+    public void Show(AiRun run)
+    {
+        var places = Places(run);
+        if (places.Count == 0) { main.Status = main.Texts.Get("ai.nothingAdded"); return; }
+        if (view == AiNotesView.Hidden) SetView(AiNotesView.Shown);
+        var (page, bounds, _) = places[0];
+        viewport.ScrollToPagePoint(page, new Point2(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2));
+        Flashed?.Invoke(page, bounds);
+    }
+
+    /// <summary>Marks for a moment what <paramref name="run"/> wrote on a page in view (the screen does not move).</summary>
+    public void FlashInView(AiRun run)
+    {
+        if (view == AiNotesView.Hidden) return;
+        foreach (var (page, bounds, _) in Places(run))
+        {
+            if (viewport.VisiblePart(page) is not { } part) continue;
+            if (bounds.X > part.X + part.Width || bounds.X + bounds.Width < part.X || bounds.Y > part.Y + part.Height || bounds.Y + bounds.Height < part.Y) continue;
+            Flashed?.Invoke(page, bounds);
+            return;
+        }
     }
 
     // ----- the work list (MCP_LIVE_PLAN 6.1) -----
