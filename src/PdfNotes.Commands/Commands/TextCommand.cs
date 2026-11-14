@@ -4,8 +4,9 @@ using PdfNotes.Core.Geometry;
 namespace PdfNotes.Cli.Commands;
 
 /// <summary>
-/// <c>text &lt;pdf&gt; -p &lt;page&gt; [--fields chars,words,lines]</c> (cli_plan 4.3, 3.4): the PDF text layer of one page.
-/// Character numbers start at 0 and ranges are <c>{start, end}</c> with the end excluded. No OCR.
+/// <c>text &lt;pdf&gt; -p &lt;page&gt; [--fields chars,words,lines] [--region x,y,w,h]</c> (cli_plan 4.3, 3.4): the PDF text
+/// layer of one page, or of the part of it that touches a rectangle. Character numbers start at 0 (of the whole page also
+/// with <c>--region</c>) and ranges are <c>{start, end}</c> with the end excluded. No OCR.
 /// </summary>
 public static class TextCommand
 {
@@ -13,7 +14,14 @@ public static class TextCommand
 
     public static JsonObject Run(IReadOnlyList<string> tokens)
     {
-        var args = CliArgs.Parse(tokens, ["--page", "--fields"], []);
+        var args = CliArgs.Parse(tokens, ["--page", "--fields", "--region"], []);
+        Rect2? region = args.Value("--region") is { } r ? CliArgs.ParseRect(r, "--region") : null;
+        bool Inside(Quad q)
+        {
+            if (region is not { } box) return true;
+            Point2[] c = [q.UpperLeft, q.UpperRight, q.LowerLeft, q.LowerRight];
+            return c.Max(p => p.X) > box.X && c.Min(p => p.X) < box.X + box.Width && c.Max(p => p.Y) > box.Y && c.Min(p => p.Y) < box.Y + box.Height;
+        }
         var fields = (args.Value("--fields") ?? string.Join(',', AllFields)).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         if (fields.Length == 0 || fields.Except(AllFields).Any())
             throw CliException.Invalid($"--fields takes {string.Join(", ", AllFields)}.");
@@ -27,14 +35,14 @@ public static class TextCommand
         result["hasText"] = glyphs.Any(g => !g.IsEmpty);
         result["charCount"] = glyphs.Length;
         if (fields.Contains("chars"))
-            result["chars"] = CliJson.Array(glyphs.Select((g, i) => (JsonNode?)new JsonObject
+            result["chars"] = CliJson.Array(glyphs.Select((g, i) => (g, i)).Where(c => region is null || (!c.g.IsEmpty && Inside(c.g.Box))).Select(c => (JsonNode?)new JsonObject
             {
-                ["index"] = i,
-                ["text"] = g.Text,
-                ["quad"] = g.IsEmpty ? null : CliJson.Quad(g.Box),
+                ["index"] = c.i,
+                ["text"] = c.g.Text,
+                ["quad"] = c.g.IsEmpty ? null : CliJson.Quad(c.g.Box),
             }));
         if (fields.Contains("words"))
-            result["words"] = CliJson.Array(Words(glyphs).Select(w => (JsonNode?)new JsonObject
+            result["words"] = CliJson.Array(Words(glyphs).Where(w => region is null || TextSelection.LineQuads(glyphs, w.Start, w.End).Any(Inside)).Select(w => (JsonNode?)new JsonObject
             {
                 ["start"] = w.Start,
                 ["end"] = w.End,
@@ -42,7 +50,7 @@ public static class TextCommand
                 ["quads"] = CliJson.Quads(TextSelection.LineQuads(glyphs, w.Start, w.End)),
             }));
         if (fields.Contains("lines"))
-            result["lines"] = CliJson.Array(TextSelection.LineRuns(glyphs, 0, glyphs.Length).Select(l => (JsonNode?)new JsonObject
+            result["lines"] = CliJson.Array(TextSelection.LineRuns(glyphs, 0, glyphs.Length).Where(l => Inside(l.Quad)).Select(l => (JsonNode?)new JsonObject
             {
                 ["start"] = l.Start,
                 ["end"] = l.End,

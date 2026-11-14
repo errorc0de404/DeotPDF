@@ -93,8 +93,18 @@ internal static class PageContentWriter
         var added = at is int index ? document.Pages.Insert(index, page) : document.AddPage(page);
         if (page.Elements.ContainsKey("/UserUnit") && !added.Elements.ContainsKey("/UserUnit"))
             added.Elements.SetReal("/UserUnit", page.Elements.GetReal("/UserUnit"));
+        // PDFsharp writes a page box with three decimals, which moves a box like ReportLab's A4 (595.2756 x 841.8898) by up
+        // to 0.0005 pt: the copy would no longer have the page geometry it was read with.
+        foreach (string key in BoxKeys)
+            if (page.Elements.ContainsKey(key) && added.Elements.ContainsKey(key))
+            {
+                var box = page.Elements.GetRectangle(key);
+                added.Elements[key] = new PdfArray(document, new[] { box.X1, box.Y1, box.X2, box.Y2 }.Select(v => (PdfItem)AnnotationAppearance.Real(v)).ToArray());
+            }
         return added;
     }
+
+    private static readonly string[] BoxKeys = ["/MediaBox", "/CropBox", "/BleedBox", "/TrimBox", "/ArtBox"];
 
     internal static void RemoveMetadata(PdfDocument document)
     {

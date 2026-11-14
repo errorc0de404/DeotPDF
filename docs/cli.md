@@ -65,8 +65,8 @@ Messages are always in English. Successful results may carry `warnings`, for exa
 |---|---|---|
 | Read | `info <pdf>` | Pages, sizes, rotation, whether there's a text layer, annotation counts, `sourceHash` |
 | | `render <pdf> -p <page> -o <png>` | Render a page or a `--region` to PNG. `--pages 1-8 --grid` makes a contact sheet. `--annotations all\|none\|tagged\|...` picks what to draw, `--overlay` draws boxes on the PNG only |
-| | `text <pdf> -p <page>` | Characters, words and lines with their quads |
-| | `annot list <pdf>` | Annotations with kind, bounds, style, text and tags. Filter with `-p`, `--kind`, `--tag`, `--batch-id`, `--source-key`, `--group-key` |
+| | `text <pdf> -p <page>` | Characters, words and lines with their quads. The character list is long; to just read a page, pass `--fields lines`. `--region x,y,w,h` keeps what touches that rectangle |
+| | `annot list <pdf>` | Annotations with kind, bounds, style, text and tags. Filter with `-p`, `--kind`, `--tag`, `--batch-id`, `--source-key`, `--group-key` (`--tag untagged` is the user's own writing). `--near-text` adds the text line each annotation lies on or nearest to (`nearText`) |
 | Query | `find <pdf> --text <phrase>` | Where a phrase occurs. Ignores case, spacing, line breaks and hyphenation. `--within x,y,w,h` narrows it, `--fuzzy` allows near matches |
 | | `layout <pdf> -p <page>` | Lines grouped into paragraphs and list items, with their character ranges and bullet/number markers |
 | | `ink <pdf> -p <page>` | How much of each grid cell is drawn on. `--blocks` returns connected blobs (figures, diagrams) |
@@ -220,6 +220,8 @@ Small things learned the hard way:
 - If a slide has no margin, `page.resize` with `"mode": "clip", "anchor": "left"` adds space on the right without moving anything. The matrix is the identity, so existing coordinates still work.
 - To find a spot for a small badge next to something, try `space -p 3 --size 15,15 --within <area around the target> --gap 1 --cell 1`.
 - Long words wrap by character, so text never overflows sideways. Height is the thing to watch (`measure --height` or the `textOverflow` rule).
+- For an explanation longer than a line, a note (`add note`) works better than a text box. Only an icon goes on the page, so you don't have to find free space and nothing gets covered; the user opens it when they want it. Put the icon in the margin beside the line it explains, and keep text boxes for short labels.
+- To read the answers a user marked in a workbook, or the questions they jotted down, use `annot list --tag untagged --near-text`. Each mark comes with the line it sits on.
 
 ## Working on the open document (`--live`, experimental)
 
@@ -242,8 +244,8 @@ deot live flash -p 12 --rect 80,200,300,60  # mark a place for a moment (writes 
 Things to know:
 
 - With several windows open, pick one with `--doc <id>`. Without it you get `LIVE_DOC_AMBIGUOUS` and the list of documents.
-- Writes take no `-o`, `--preview` or `--flatten`. `deot` never saves: the document becomes modified and saving is up to the user. `--dry-run` works and leaves the window untouched.
-- What you can do depends on the access given. `AI writing` lets you add, change and delete annotations made by `deot`, and add blank pages. Touching the user's own notes (`--allow-untagged`) or deleting, rotating and moving pages needs `Full editing`. Otherwise you get `LIVE_PERMISSION`, with the step you need in `details.needs`.
+- Writes take no `-o`, `--preview` or `--flatten`. `deot` never saves: the document becomes modified and saving is up to the user. While `live docs` reports `dirty`, the file on disk doesn't have what the user sees yet, so don't read or write that file separately; use `--live`. `--dry-run` works and leaves the window untouched.
+- What you can do depends on the access given. `AI writing` lets you add, change and delete annotations made by `deot`, and add blank pages. Touching the user's own notes (`--allow-untagged`) or deleting, rotating and moving pages needs `Full editing`. If the user gave read-only access and you try to write, the window asks them once more. If that still isn't enough you get `LIVE_PERMISSION`, with the step you need in `details.needs`. It won't ask the same thing twice, so ask the user to raise the access in the AI tab.
 - If the user doesn't answer within 60 seconds you get `LIVE_CONSENT_TIMEOUT` (exit code 3). The bar stays up, so try again a little later. While the user is drawing a stroke or typing, a write waits up to 10 seconds and then returns `LIVE_BUSY` (3).
 - Commands that read or write other files, such as `page import`, `page export` and `add image`, aren't accepted on an open document (`LIVE_UNSUPPORTED`). For the same reason `--text @file` and `--style file` don't work; pass the content inline.
 - Page IDs stay the same only while that window has the document open. Don't mix them with page IDs from a file command. Page numbers are fine.

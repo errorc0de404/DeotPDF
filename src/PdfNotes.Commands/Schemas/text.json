@@ -1,12 +1,13 @@
 {
   "input": {
     "type": "object",
-    "description": "deot text <pdf> -p <page> [--fields chars,words,lines]",
+    "description": "deot text <pdf> -p <page> [--fields chars,words,lines] [--region x,y,w,h]. chars is long (one entry per character): for reading, ask for --fields lines. --region keeps what touches the rectangle; numbers stay those of the whole page.",
     "required": ["pdf", "page"],
     "properties": {
       "pdf": { "type": "string" },
       "page": { "type": "string", "description": "1-based number or page ID" },
-      "fields": { "type": "string", "description": "comma list of chars, words, lines (default all)" }
+      "fields": { "type": "string", "description": "comma list of chars, words, lines (default all)" },
+      "region": { "type": "string", "description": "canonical x,y,w,h" }
     }
   },
   "output": {

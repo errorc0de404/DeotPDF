@@ -411,6 +411,7 @@
     "undo.addAnnotation": "Add annotation",
     "undo.addBlankPage": "Add blank page",
     "live.ask": "{client} wants to access this document",
+    "live.askMore": "{client} asks for {access} access (now: {current})",
     "live.read": "Read only",
     "live.aiWrite": "AI writing",
     "live.fullEdit": "Full editing",

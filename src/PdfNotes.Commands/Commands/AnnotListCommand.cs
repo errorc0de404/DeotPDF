@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
@@ -7,8 +8,10 @@ namespace PdfNotes.Cli.Commands;
 
 /// <summary>
 /// <c>annot list &lt;pdf&gt; [-p &lt;page&gt;] [--kind &lt;kind&gt;] [--tag tagged|untagged] [--author a] [--batch-id id]
-/// [--source-key key] [--group-key key]</c> (cli_plan 4.3): annotations in stacking order (z 0 = bottom) with their tags
+/// [--source-key key] [--group-key key] [--near-text]</c> (cli_plan 4.3): annotations in stacking order (z 0 = bottom) with their tags
 /// (schema v7: author, batchId, sourceKey, groupKey; null for the user's own writing and other apps' annotations).
+/// <c>--near-text</c> adds the PDF text line each one lies on or nearest to (which answer a mark is on, which question a
+/// note sits beside).
 /// </summary>
 public static class AnnotListCommand
 {
@@ -16,7 +19,8 @@ public static class AnnotListCommand
 
     public static JsonObject Run(IReadOnlyList<string> tokens)
     {
-        var args = CliArgs.Parse(tokens, ["--page", "--kind", "--tag", "--author", "--batch-id", "--source-key", "--group-key"], []);
+        var args = CliArgs.Parse(tokens, ["--page", "--kind", "--tag", "--author", "--batch-id", "--source-key", "--group-key"], ["--near-text"]);
+        bool near = args.Flag("--near-text");
         string? kind = args.Value("--kind");
         if (kind is not null && !Kinds.Contains(kind)) throw CliException.Invalid($"--kind takes {string.Join(", ", Kinds)}.");
         var tagged = args.Value("--tag") switch
@@ -33,13 +37,59 @@ public static class AnnotListCommand
         var pages = args.Value("--page") is { } page ? [doc.ResolvePage(page)] : doc.Model.Pages.ToList();
         var items = new JsonArray();
         foreach (var p in pages)
+        {
+            TextGlyph[]? glyphs = null;
+            ImmutableArray<(int Start, int End, Quad Quad)> lines = default;
             for (int z = 0; z < p.Annotations.Count; z++)
-                if ((kind is null || KindName(p.Annotations[z]) == kind) && Wanted(doc.Model.TagOf(p.Annotations[z].Id)))
-                    items.Add(Describe(doc, p, p.Annotations[z], z));
+            {
+                if ((kind is not null && KindName(p.Annotations[z]) != kind) || !Wanted(doc.Model.TagOf(p.Annotations[z].Id))) continue;
+                var item = Describe(doc, p, p.Annotations[z], z);
+                if (near)
+                {
+                    if (glyphs is null)
+                    {
+                        glyphs = doc.Glyphs(p);
+                        lines = TextSelection.LineRuns(glyphs, 0, glyphs.Length);
+                    }
+                    item["nearText"] = NearText(glyphs, lines, Bounds(p.Annotations[z]));
+                }
+                items.Add(item);
+            }
+        }
         var result = CliJson.Result("annot list", doc.SourceHash);
         result["count"] = items.Count;
         result["annotations"] = items;
         return result;
+    }
+
+    /// <summary>
+    /// The text line of the page nearest to <paramref name="bounds"/> (distance 0 when they overlap; of several the one
+    /// overlapping most, then the first), or null on a page without text.
+    /// </summary>
+    private static JsonObject? NearText(IReadOnlyList<TextGlyph> glyphs, ImmutableArray<(int Start, int End, Quad Quad)> lines, Rect2 bounds)
+    {
+        (int Start, int End, Quad Quad)? best = null;
+        double bestDistance = double.MaxValue, bestOverlap = -1;
+        foreach (var line in lines)
+        {
+            Point2[] c = [line.Quad.UpperLeft, line.Quad.UpperRight, line.Quad.LowerLeft, line.Quad.LowerRight];
+            double left = c.Min(p => p.X), right = c.Max(p => p.X), top = c.Min(p => p.Y), bottom = c.Max(p => p.Y);
+            double dx = Math.Max(0, Math.Max(left - (bounds.X + bounds.Width), bounds.X - right));
+            double dy = Math.Max(0, Math.Max(top - (bounds.Y + bounds.Height), bounds.Y - bottom));
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+            double overlap = distance > 0 ? 0
+                : Math.Max(0, Math.Min(right, bounds.X + bounds.Width) - Math.Max(left, bounds.X)) * Math.Max(0, Math.Min(bottom, bounds.Y + bounds.Height) - Math.Max(top, bounds.Y));
+            if (distance < bestDistance - 1e-9 || (Math.Abs(distance - bestDistance) <= 1e-9 && overlap > bestOverlap + 1e-9))
+                (best, bestDistance, bestOverlap) = (line, distance, overlap);
+        }
+        return best is not { } found ? null : new JsonObject
+        {
+            ["start"] = found.Start,
+            ["end"] = found.End,
+            ["text"] = TextSelection.TextOf(glyphs, found.Start, found.End),
+            ["quad"] = CliJson.Quad(found.Quad),
+            ["distance"] = CliJson.Num(bestDistance),
+        };
     }
 
     public static JsonObject? Tags(AnnotationTag? tag) => tag is null ? null : new JsonObject

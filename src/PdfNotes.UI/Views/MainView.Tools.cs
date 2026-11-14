@@ -264,7 +264,7 @@ public sealed partial class MainView
         if (quads is null && frame is null && hits.Count == 0 && drop is null && flash is null) return null;
         return (canvas, _, _, t) =>
         {
-            if (flash is { } q) SkiaMarkPainter.PaintSearch(canvas, [], [q], t, colors);
+            if (flash is { } q) SkiaMarkPainter.PaintFlash(canvas, q, t, colors);
             if (hits.Count > 0)
             {
                 canvas.Save();

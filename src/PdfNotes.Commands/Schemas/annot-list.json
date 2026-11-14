@@ -1,7 +1,7 @@
 {
   "input": {
     "type": "object",
-    "description": "deot annot list <pdf> [-p <page>] [--kind text|mark|highlight-stroke|line|shape|ink|image|note] [--tag tagged|untagged] [--author <a>] [--batch-id <id>] [--source-key <key>] [--group-key <key>]",
+    "description": "deot annot list <pdf> [-p <page>] [--kind text|mark|highlight-stroke|line|shape|ink|image|note] [--tag tagged|untagged] [--author <a>] [--batch-id <id>] [--source-key <key>] [--group-key <key>] [--near-text]. --tag untagged is the user's own writing (and other apps' annotations). --near-text adds nearText to each: the PDF text line it lies on or nearest to {start, end, text, quad, distance} (null on a page without text) - which answer a mark is on, which question a note sits beside.",
     "required": [
       "pdf"
     ],
@@ -32,6 +32,9 @@
       },
       "groupKey": {
         "type": "string"
+      },
+      "nearText": {
+        "type": "boolean"
       }
     }
   },

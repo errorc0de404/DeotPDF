@@ -411,6 +411,7 @@
     "undo.addAnnotation": "주석 추가",
     "undo.addBlankPage": "빈 페이지 추가",
     "live.ask": "{client}이(가) 이 문서에 접근하려고 합니다",
+    "live.askMore": "{client}이(가) {access} 권한을 요청합니다 (지금: {current})",
     "live.read": "읽기만",
     "live.aiWrite": "AI 필기 쓰기",
     "live.fullEdit": "전체 편집",

@@ -238,6 +238,34 @@ public sealed class CliReadTests : IDisposable
         Assert.Empty(scan["lines"]!.AsArray());
     }
 
+    /// <summary>MCP_LIVE_PLAN 15 Q1: the text of a part of the page, and the text line a mark or note belongs to.</summary>
+    [Fact]
+    public void ARegionKeepsTheTextThatTouchesItAndNearTextNamesTheLineBesideANote()
+    {
+        const string wanted = "English words and numbers 0123456789";
+        var line = CliRunner.Ok("text", sample, "-p", "1", "--fields", "lines")["lines"]!.AsArray().Single(l => l!["text"]!.GetValue<string>() == wanted)!;
+        var quad = line["quad"]!.AsArray().Select(p => (X: p![0]!.GetValue<double>(), Y: p[1]!.GetValue<double>())).ToList();
+        double left = quad.Min(p => p.X), right = quad.Max(p => p.X), top = quad.Min(p => p.Y), bottom = quad.Max(p => p.Y);
+        string N(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+
+        var part = CliRunner.Ok("text", sample, "-p", "1", "--region", $"{N(left + 1)},{N(top + 1)},{N(right - left - 2)},{N(bottom - top - 2)}");
+        Assert.Equal([wanted], part["lines"]!.AsArray().Select(l => l!["text"]!.GetValue<string>()));
+        var chars = part["chars"]!.AsArray();
+        Assert.Equal(line["start"]!.GetValue<int>(), chars[0]!["index"]!.GetValue<int>()); // numbers of the whole page
+        Assert.True(chars.Count <= wanted.Length);
+        Assert.All(part["words"]!.AsArray(), w => Assert.Contains(w!["text"]!.GetValue<string>(), wanted));
+
+        string noted = Path.Combine(folder, "noted.pdf");
+        CliRunner.Ok("add", "note", sample, "-p", "1", "--at", $"{N(right + 12)},{N(top)}", "--text", "why?", "-o", noted);
+        var note = CliRunner.Ok("annot", "list", noted, "--near-text")["annotations"]!.AsArray().Single()!;
+        Assert.Equal(wanted, note["nearText"]!["text"]!.GetValue<string>());
+        Assert.Equal(line["start"]!.GetValue<int>(), note["nearText"]!["start"]!.GetValue<int>());
+        Assert.True(note["nearText"]!["distance"]!.GetValue<double>() > 0);
+        Assert.Null(CliRunner.Ok("annot", "list", noted)["annotations"]![0]!["nearText"]);
+        // The user's own writing only: nothing here is theirs (the note is deot's).
+        Assert.Equal(0, CliRunner.Ok("annot", "list", noted, "--tag", "untagged")["count"]!.GetValue<int>());
+    }
+
     [Fact]
     public void RotatedLineQuadsFollowTheShownText()
     {

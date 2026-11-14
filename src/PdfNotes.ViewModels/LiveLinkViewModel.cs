@@ -51,8 +51,11 @@ public sealed class LiveLinkViewModel : ObservableObject
     private readonly IEditorDialogs dialogs;
     private readonly Dictionary<(Guid Session, string Client), LiveAccess> granted = [];
     private readonly List<Pending> pending = [];
+    /// <summary>The most a client asked for beyond what it has and did not get: it is not asked for that again (MCP_LIVE_PLAN 15 P1).</summary>
+    private readonly Dictionary<(Guid Session, string Client), LiveAccess> refused = [];
 
-    private sealed record Pending(Guid Session, string Client, TaskCompletionSource<LiveAccess> Answer);
+    /// <summary>A question on the bar. <paramref name="More"/>: the access a client that already has some asks for.</summary>
+    private sealed record Pending(Guid Session, string Client, LiveAccess? More, TaskCompletionSource<LiveAccess> Answer);
 
     public LiveLinkViewModel(MainViewModel main, ILiveCommands? commands, IDocumentViewport viewport, IUiThread ui, TimeProvider time, IEditorDialogs dialogs)
     {
@@ -94,7 +97,10 @@ public sealed class LiveLinkViewModel : ObservableObject
     }
 
     public bool IsAsking => askingClient is not null;
-    public string AskText => askingClient is null ? "" : main.Texts.Format("live.ask", ("client", askingClient));
+    public string AskText => pending.Count == 0 ? ""
+        : pending[0].More is { } more && granted.TryGetValue((pending[0].Session, pending[0].Client), out var has)
+            ? main.Texts.Format("live.askMore", ("client", pending[0].Client), ("access", main.Texts.Get(AccessKey(more))), ("current", main.Texts.Get(AccessKey(has))))
+            : main.Texts.Format("live.ask", ("client", pending[0].Client));
 
     /// <summary>A client that asked while the live link is off (the bar offers to turn it on).</summary>
     public string? DisabledClient
@@ -161,7 +167,12 @@ public sealed class LiveLinkViewModel : ObservableObject
     private void SetAccess(LiveAccess access)
     {
         var session = main.Document?.Session.SessionId;
-        foreach (var key in granted.Keys.Where(k => k.Session == session && granted[k] != LiveAccess.None).ToList()) granted[key] = access;
+        // What the user sets here is what they want: a client that needs more is refused without a question.
+        foreach (var key in granted.Keys.Where(k => k.Session == session && granted[k] != LiveAccess.None).ToList())
+        {
+            granted[key] = access;
+            refused[key] = LiveAccess.FullEdit;
+        }
         RefreshIndicator();
     }
 
@@ -170,7 +181,14 @@ public sealed class LiveLinkViewModel : ObservableObject
         if (pending.Count == 0) return;
         var first = pending[0];
         pending.RemoveAt(0);
-        granted[(first.Session, first.Client)] = access;
+        var key = (first.Session, first.Client);
+        if (first.More is { } more && granted.TryGetValue(key, out var had) && access < more)
+        {
+            // Asked for more and not given it: the client keeps what it had (거절 does not disconnect it) and is not asked again.
+            if (more > refused.GetValueOrDefault(key)) refused[key] = more;
+            if (access == LiveAccess.None) access = had;
+        }
+        granted[key] = access;
         first.Answer.TrySetResult(access);
         ShowNext();
         RefreshIndicator();
@@ -180,6 +198,7 @@ public sealed class LiveLinkViewModel : ObservableObject
     {
         string? before = askingClient;
         AskingClient = pending.Count > 0 ? pending[0].Client : null;
+        OnPropertyChanged(nameof(AskText)); // the same client may ask for more next
         if (askingClient is not null && before is null) main.Window.RequestAttention(); // the window may be behind the AI client's
     }
 
@@ -202,6 +221,7 @@ public sealed class LiveLinkViewModel : ObservableObject
         if (!ReferenceEquals(main.Document, doc)) return;
         var session = doc.Session.SessionId;
         foreach (var key in granted.Keys.Where(k => k.Session == session).ToList()) granted.Remove(key);
+        foreach (var key in refused.Keys.Where(k => k.Session == session).ToList()) refused.Remove(key);
         RefreshIndicator();
         main.Status = main.Texts.Get("live.disconnected");
     }
@@ -287,12 +307,11 @@ public sealed class LiveLinkViewModel : ObservableObject
         }
         else if (op is not ("context" or "goto" or "flash")) return Error("INVALID_ARGUMENT", $"Unknown request '{op}'.");
 
-        var access = await AccessAsync(doc, client);
+        var access = await AccessAsync(doc, client, needs);
         if (access == null) return Error("LIVE_CONSENT_TIMEOUT", "The user did not answer within a minute. The question stays on screen; try again.");
         if (access == LiveAccess.None) return Error("LIVE_CONSENT_DENIED", "The user refused access to this document.");
         if (access < needs)
-            return Error("LIVE_PERMISSION", $"This needs '{Name(needs)}' access; the user gave '{Name(access.Value)}'.",
-                new JsonObject { ["needs"] = Name(needs), ["granted"] = Name(access.Value) });
+            return Refused(needs, access.Value);
         if (!ReferenceEquals(main.Document, doc)) return Error("LIVE_DOC_NOT_FOUND", "A different file was opened meanwhile.");
 
         return op switch
@@ -323,21 +342,28 @@ public sealed class LiveLinkViewModel : ObservableObject
         };
     }
 
-    /// <summary>The access <paramref name="client"/> has on <paramref name="doc"/>, asking with the bar when it has none yet; null when nobody answered in time.</summary>
-    private async Task<LiveAccess?> AccessAsync(OpenDocument doc, string client)
+    /// <summary>The access <paramref name="client"/> has on <paramref name="doc"/>, asking with the bar when it has none yet, or once when it has less than
+    /// <paramref name="needs"/> (the user picked 읽기만 and the client now wants to write); null when nobody answered in time.</summary>
+    private async Task<LiveAccess?> AccessAsync(OpenDocument doc, string client, LiveAccess needs)
     {
         var key = (doc.Session.SessionId, client);
-        if (granted.TryGetValue(key, out var given)) return given;
+        bool has = granted.TryGetValue(key, out var given);
+        // A refusal stands, and so does a "no" to more: asking each time would nag.
+        if (has && (given == LiveAccess.None || given >= needs || refused.GetValueOrDefault(key) >= needs)) return given;
         var waiting = pending.FirstOrDefault(p => p.Session == key.SessionId && p.Client == client);
         if (waiting is null)
         {
-            waiting = new Pending(key.SessionId, client, new(TaskCreationOptions.RunContinuationsAsynchronously));
+            waiting = new Pending(key.SessionId, client, has ? needs : null, new(TaskCreationOptions.RunContinuationsAsynchronously));
             pending.Add(waiting);
             ShowNext();
         }
         var answered = await Task.WhenAny(waiting.Answer.Task, Task.Delay(ConsentWait, time));
         return answered == waiting.Answer.Task ? waiting.Answer.Task.Result : null;
     }
+
+    private static JsonObject Refused(LiveAccess needs, LiveAccess has) =>
+        Error("LIVE_PERMISSION", $"This needs '{Name(needs)}' access; the user gave '{Name(has)}'. Only the user can raise it: in DeotPDF's AI tab, or by answering when the document asks.",
+            new JsonObject { ["needs"] = Name(needs), ["granted"] = Name(has) });
 
     // ----- reading -----
 
@@ -509,8 +535,7 @@ public sealed class LiveLinkViewModel : ObservableObject
         // The user may have disconnected or lowered the access while this waited.
         var now = granted.GetValueOrDefault((doc.Session.SessionId, client), LiveAccess.None);
         if (now < needs)
-            return Error("LIVE_PERMISSION", $"This needs '{Name(needs)}' access; the user gave '{Name(now)}'.",
-                new JsonObject { ["needs"] = Name(needs), ["granted"] = Name(now) });
+            return Refused(needs, now);
         // On the UI thread from the copy to the commit, so no edit of the user's comes in between.
         var result = commands!.Run(doc, id, args, stdin);
         var response = Wrap(result);

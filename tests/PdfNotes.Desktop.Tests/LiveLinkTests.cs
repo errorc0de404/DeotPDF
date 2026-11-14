@@ -86,13 +86,24 @@ public sealed class LiveLinkTests
         Assert.NotEmpty(context["result"]!["visible"]!.AsArray());
         Assert.False(live.IsAsking);
 
-        // Read access does not write.
-        var write = await Ask(w, new JsonObject
+        // Read access does not write. The client is asked about once (MCP_LIVE_PLAN 15 P1): 거절 keeps read access,
+        // and the next write is refused without a question.
+        JsonObject Write() => new()
         {
             ["op"] = "command", ["client"] = "Claude", ["args"] = new JsonArray("apply", "@live", "-"),
             ["stdin"] = """[{ "op": "add.text", "page": 1, "rect": [50, 50, 120, 30], "text": "hi" }]""",
-        });
-        Assert.Equal("LIVE_PERMISSION", Code(write));
+        };
+        var asking = live.HandleAsync(Write());
+        Headless.Pump(() => live.IsAsking);
+        var texts = w.View.ViewModel.Texts;
+        Assert.Equal(texts.Format("live.askMore", ("client", "Claude"), ("access", texts.Get("live.accessAiWrite")), ("current", texts.Get("live.accessRead"))), live.AskText);
+        Press(Find(w, "LiveDenyButton"));
+        Headless.Pump(() => asking.IsCompleted, 20_000);
+        Assert.Equal("LIVE_PERMISSION", Code(await asking));
+        Assert.True(live.HasRead);
+        Assert.Equal("LIVE_PERMISSION", Code(await Ask(w, Write())));
+        Assert.False(live.IsAsking);
+        Assert.True((await Ask(w, Request("context")))["ok"]!.GetValue<bool>()); // reading goes on
 
         // Another file is another document: the client is asked again.
         string other = Path.Combine(Headless.TempFolder(), "other.pdf");
@@ -142,11 +153,61 @@ public sealed class LiveLinkTests
         Assert.Empty(session.Current.Pages[1].Annotations.OfType<TextBoxAnnotation>());
 
         // Page structure needs full editing.
-        var delete = await Ask(w, Request("command", "page", "delete", "@live", "-p", "3"));
+        var delete = await Ask(w, Request("command", "page", "delete", "@live", "-p", "3"), "LiveDenyButton");
         Assert.Equal("LIVE_PERMISSION", Code(delete));
+        Assert.True(w.View.ViewModel.LiveLink.HasAiWrite);
         // Files of the window's own are not read for a client.
         var image = await Ask(w, Request("command", "add", "image", "@live", "-p", "1", "--file", "x.png", "--rect", "0,0,10,10"));
         Assert.Equal("LIVE_UNSUPPORTED", Code(image));
+    });
+
+    /// <summary>A client the user gave 읽기만 asks once when it wants to write; the answer is its new access (MCP_LIVE_PLAN 15 P1).</summary>
+    [Fact]
+    public void AClientWithReadAccessCanBeGivenMoreWhenItAsks() => Headless.Run(async () =>
+    {
+        var w = await Opened();
+        var live = w.View.ViewModel.LiveLink;
+        Assert.True((await Ask(w, Request("context"), "LiveReadButton"))["ok"]!.GetValue<bool>());
+        var write = await Ask(w, new JsonObject
+        {
+            ["op"] = "command", ["client"] = "Claude", ["args"] = new JsonArray("apply", "@live", "-"),
+            ["stdin"] = """[{ "op": "add.text", "page": 1, "rect": [50, 50, 120, 30], "text": "hi" }]""",
+        }, "LiveAiWriteButton");
+        Assert.True(write["ok"]!.GetValue<bool>(), write.ToJsonString());
+        Assert.True(live.HasAiWrite);
+        Assert.Single(w.View.Document!.Session.Current.Pages[0].Annotations.OfType<TextBoxAnnotation>());
+    });
+
+    /// <summary>MCP_LIVE_PLAN 15 M1: an explanation as a note — AI writing like any other, replaced by its source key, one Undo.</summary>
+    [Fact]
+    public void AnExplanationGoesInANoteThatIsAiWritingAndIsReplacedByItsKey() => Headless.Run(async () =>
+    {
+        var w = await Opened();
+        var session = w.View.Document!.Session;
+        string longText = string.Join("\n", Enumerable.Range(1, 12).Select(i => $"{i}. " + new string('가', 60)));
+        JsonObject Note(string text) => new()
+        {
+            ["op"] = "command", ["client"] = "Claude", ["args"] = new JsonArray("apply", "@live", "-"),
+            ["stdin"] = new JsonObject { ["ops"] = new JsonArray(new JsonObject { ["op"] = "add.note", ["page"] = 1, ["at"] = new JsonArray(560, 120), ["text"] = text, ["sourceKey"] = "q3/why" }) }.ToJsonString(),
+        };
+        var first = await Ask(w, Note(longText), "LiveAiWriteButton");
+        Assert.True(first["ok"]!.GetValue<bool>(), first.ToJsonString());
+        var note = Assert.Single(session.Current.Pages[0].Annotations.OfType<StickyNote>());
+        Assert.Equal(longText, note.Text); // every line, however long
+        Assert.True(Authorship.IsAi(session.Current, note.Id));
+
+        var again = await Ask(w, Note("shorter"));
+        Assert.True(again["ok"]!.GetValue<bool>(), again.ToJsonString());
+        var replaced = Assert.Single(session.Current.Pages[0].Annotations.OfType<StickyNote>());
+        Assert.Equal(note.Id, replaced.Id);
+        Assert.Equal("shorter", replaced.Text);
+
+        // A page of text the client reads by lines; the user's own writing with the line it is on.
+        var listed = await Ask(w, Request("command", "annot", "list", "@live", "--tag", "untagged", "--near-text"));
+        Assert.Equal(0, listed["result"]!["count"]!.GetValue<int>());
+        session.Undo();
+        session.Undo();
+        Assert.Empty(session.Current.Pages[0].Annotations.OfType<StickyNote>());
     });
 
     /// <summary>What a client must not get around (review 2026-11-13): the plan's defaults, a plan or text file, a dry run.</summary>
@@ -167,7 +228,7 @@ public sealed class LiveLinkTests
         var mine = new StickyNote(Guid.NewGuid(), false, PdfNotes.Core.Geometry.Affine.Translation(10, 10), "mine", new RgbColor(255, 213, 79));
         session.Execute(DocumentEdits.AddAnnotation(session.Current, session.Current.Pages[0].Id, mine));
         string steal = $$"""{ "defaults": { "annot.delete": { "allowUntagged": true } }, "ops": [{ "op": "annot.delete", "id": "{{mine.Id}}" }] }""";
-        Assert.Equal("LIVE_PERMISSION", Code(await Ask(w, Apply(steal))));
+        Assert.Equal("LIVE_PERMISSION", Code(await Ask(w, Apply(steal), "LiveDenyButton")));
         Assert.NotNull(session.Current.FindAnnotation(mine.Id));
 
         // The plan comes on standard input, never from a file the window would open; the input is exactly @live.

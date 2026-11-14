@@ -29,10 +29,17 @@ public sealed class DeotMcpServer : IDisposable
         "measure text before placing it; put every edit in one apply plan with source keys, run it with dryRun and previews, add guards, " +
         "and always apply the full plan to the original file so re-runs replace instead of duplicate. " +
         "The schema tool lists every command, error code and an op's fields (e.g. command \"add text\" for add.text). " +
+        "To read a page ask text for fields lines (chars is one entry per character); annot_list with tag untagged and nearText " +
+        "gives the user's own marks and notes with the text line each is on. " +
+        "An explanation longer than a line goes in a note (add.note: an icon the user opens and closes, so it needs no free space " +
+        "and hides nothing; put the icon in the margin beside what it explains); keep text boxes for short labels. " +
         "When the user is studying with the PDF open in DeotPDF, work on that open document instead of a file: live_docs lists it, " +
         "live_context tells what they see and selected, render with live and view shows it, other tools take live: true (no pdf), " +
         "an apply with live is applied in their window at once as one Undo step (not saved), and live_flash points at a place. " +
-        "The user is asked once to allow access; LIVE_CONSENT_TIMEOUT means ask them to answer the bar in DeotPDF and try again.";
+        "The user is asked once to allow access; LIVE_CONSENT_TIMEOUT means ask them to answer the bar in DeotPDF and try again. " +
+        "LIVE_PERMISSION means they gave less than the request needs: they were asked once more and kept it, and only they can raise it (AI tab). " +
+        "deot never saves the open document: while live_docs says dirty, the file on disk lacks what the user sees, so read and write with live " +
+        "and leave saving to the user.";
 
     private readonly IReadOnlyList<string> roots;
     private readonly string scratch = Path.Combine(Path.GetTempPath(), "deot-mcp", Guid.NewGuid().ToString("N"));

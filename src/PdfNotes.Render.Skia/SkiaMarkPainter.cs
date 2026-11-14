@@ -193,4 +193,21 @@ public static class SkiaMarkPainter
         using var edge = Stroke(colors.SearchCurrentEdge, 1);
         canvas.DrawPath(now, edge);
     }
+
+    /// <summary>
+    /// A place pointed at for a moment (<c>live flash</c>, writing an AI client just added): the color of the current
+    /// search result but mostly see-through, since it often lies over a whole box of text the user wants to read at once.
+    /// </summary>
+    public static void PaintFlash(SKCanvas canvas, Quad place, ViewTransform transform, MarkColors? colors = null)
+    {
+        colors ??= MarkColors.Default;
+        using var path = new SKPath { FillType = SKPathFillType.Winding };
+        path.AddPoly([.. TextSelection.Ring(place).Select(transform.PageToDip.Transform).Select(P)], close: true);
+        using (var fill = Fill(colors.SearchCurrent.WithAlpha(FlashAlpha))) canvas.DrawPath(path, fill);
+        using var edge = Stroke(colors.SearchCurrentEdge.WithAlpha(0xA0), 1);
+        canvas.DrawPath(path, edge);
+    }
+
+    /// <summary>The fill of <see cref="PaintFlash"/>: about 20% (the current search result is 50%).</summary>
+    public const byte FlashAlpha = 0x34;
 }

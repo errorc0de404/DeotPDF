@@ -111,6 +111,49 @@ public sealed class PageExportPdfTests : IDisposable
         EditablePdfWriter.Verify(EditablePdfWriter.Write(null, null, notesOnly), notesOnly);
     }
 
+    /// <summary>A one-page PDF written by hand, so the page box keeps the digits given (PDFsharp would round them).</summary>
+    private string RawPdf(string name, string mediaBox)
+    {
+        string[] objects =
+        [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [ 3 0 R ] /Count 1 >>",
+            $"<< /Type /Page /Parent 2 0 R /MediaBox [ {mediaBox} ] /Resources << >> /Contents 4 0 R >>",
+            "<< /Length 0 >>\nstream\n\nendstream",
+        ];
+        var text = new System.Text.StringBuilder("%PDF-1.4\n");
+        var offsets = new List<int>();
+        for (int i = 0; i < objects.Length; i++)
+        {
+            offsets.Add(text.Length);
+            text.Append(System.Globalization.CultureInfo.InvariantCulture, $"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+        }
+        int xref = text.Length;
+        text.Append(System.Globalization.CultureInfo.InvariantCulture, $"xref\n0 {objects.Length + 1}\n0000000000 65535 f \n");
+        foreach (int offset in offsets) text.Append(System.Globalization.CultureInfo.InvariantCulture, $"{offset:D10} 00000 n \n");
+        text.Append(System.Globalization.CultureInfo.InvariantCulture, $"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        string path = Path.Combine(folder, name);
+        File.WriteAllText(path, text.ToString(), System.Text.Encoding.ASCII);
+        return path;
+    }
+
+    [Fact]
+    public void APageBoxWithMoreDigitsThanPdfSharpWritesStillExportsAndImports()
+    {
+        // ReportLab writes A4 as 595.2756 x 841.8898; PDFsharp writes three decimals, so the copy differs by under 0.001 pt.
+        using var main = PdfSourceDocument.Open(RawPdf("a4.pdf", "0 0 595.2756 841.8898"));
+        using var sources = new DocumentSources(main, ownsMain: false);
+        var model = main.CreateModel();
+        var (subset, pdf) = sources.Subset(model, [model.Pages[0].Id]);
+        using (pdf)
+        {
+            byte[] saved = EditablePdfWriter.Write(null, null, subset, [pdf!]);
+            EditablePdfWriter.Verify(saved, subset);
+        }
+        using var import = PdfPageImport.Build(main, [0], firstSourceIndex: 1).Pdf;
+        Assert.NotNull(import);
+    }
+
     [Fact]
     public void LinksToPagesLeftOutAreDropped()
     {
