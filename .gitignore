@@ -8,17 +8,14 @@ TestResults/
 *.log
 .local/
 work/
+.claude/
 __pycache__/
 *.pyc
 # Local dev notes, not part of the public repo
 AGENTS.md
-개발환경_구축결과.md
 # Development checks (app-driving harness, verification scripts)
-tools/PdfNotes.Probe/
-tools/PdfNotes.EditorTrial/
 tools/PdfNotes.DesktopProbe/
 tools/*.py
-!tools/compile-shader.py
 !tools/make-linebreak-data.py
 tools/pdfjs-render.mjs
 tools/run-real-probes.ps1

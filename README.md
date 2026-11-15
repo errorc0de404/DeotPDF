@@ -116,7 +116,7 @@ dotnet test PdfNotes.slnx -c Release --no-build
 dotnet run --project src/PdfNotes.Desktop -c Release -- path/to/file.pdf
 ```
 
-The lock files cover Windows, macOS and Linux, so `dotnet restore --locked-mode` works on each.
+The lock files cover Windows, macOS and Linux, so `dotnet restore --locked-mode` works on each. The Android app is a separate solution (`PdfNotes.Android.slnx`, needs the Android workload). [CONTRIBUTING.md](CONTRIBUTING.md) has the layout of the code and the rules it follows.
 
 To build the release packages for one system (they land in `artifacts/release`), use PowerShell:
 
@@ -271,7 +271,7 @@ dotnet test PdfNotes.slnx -c Release --no-build
 dotnet run --project src/PdfNotes.Desktop -c Release -- 열고싶은파일.pdf
 ```
 
-잠금 파일에 윈도우·맥·리눅스가 모두 들어 있어서 어느 OS에서든 `dotnet restore --locked-mode`가 됩니다.
+잠금 파일에 윈도우·맥·리눅스가 모두 들어 있어서 어느 OS에서든 `dotnet restore --locked-mode`가 됩니다. 안드로이드 앱은 솔루션이 따로 있습니다(`PdfNotes.Android.slnx`, 안드로이드 워크로드 필요). 코드 구조와 지켜야 할 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md)에 적어 두었습니다.
 
 배포용 패키지는 PowerShell로 만듭니다(`artifacts/release`에 생김).
 

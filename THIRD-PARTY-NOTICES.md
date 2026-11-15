@@ -5,7 +5,7 @@ DeotPDF itself is licensed under GPL-3.0 (see [LICENSE](LICENSE)). It ships with
 | Component | Version | Used for | License |
 |---|---|---|---|
 | [PDFium](https://pdfium.googlesource.com/pdfium/) | 156.0.8076 | Rendering pages, extracting text | BSD-3-Clause / Apache-2.0, plus the licenses of the libraries it bundles (FreeType, ICU, libjpeg-turbo, libpng, zlib, OpenJPEG, Little CMS, AGG, Abseil, fast_float, simdutf, LLVM libc). Full texts in [`third_party/PDFium/licenses`](third_party/PDFium/licenses) |
-| [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) (`bblanchon.PDFium.Win32`, `.Linux`, `.macOS`) | 156.0.8076 | Prebuilt PDFium library for each system | Packaging: Apache-2.0 (NuGet) / MIT ([`third_party/PDFium/LICENSE`](third_party/PDFium/LICENSE)) |
+| [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) (`bblanchon.PDFium.Win32`, `.Linux`, `.macOS`, `.Android`) | 156.0.8076 | Prebuilt PDFium library for each system | Packaging: Apache-2.0 (NuGet) / MIT ([`third_party/PDFium/LICENSE`](third_party/PDFium/LICENSE)) |
 | [PDFsharp](https://github.com/empira/PDFsharp) | 6.2.4 | Reading and writing PDF objects | MIT, © empira Software GmbH |
 | [Clipper2](https://github.com/AngusJohnson/Clipper2) | 1.5.4 | Polygon clipping for the eraser and lasso | Boost Software License 1.0, © Angus Johnson ([`third_party/Clipper2/License.txt`](third_party/Clipper2/License.txt)) |
 | [.NET](https://github.com/dotnet/runtime) | 10.0 | Runtime (included in the portable, macOS and Linux packages) | MIT, © .NET Foundation and Contributors |
