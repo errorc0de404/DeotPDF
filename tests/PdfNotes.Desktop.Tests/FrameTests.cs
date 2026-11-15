@@ -628,6 +628,35 @@ public sealed class FrameTests
     });
 
     [Fact]
+    public void APinnedNoteCardFollowsItsPageWhenAPageIsAddedInFront() => Headless.Run(() =>
+    {
+        // The cards hear of the change before the canvas has the new page (review 2026-11-15: placing them threw).
+        var w = Window();
+        var cards = w.View.ViewModel.NoteCard;
+        w.View.SetTool(ToolKind.Note);
+        Click(w, new(200, 200));
+        w.View.NoteTextBox!.Text = "kept\r\nopen";
+        cards.Active!.PinCommand.Execute();
+        w.View.CloseNote();
+        var session = w.View.Document!.Session;
+        int last = session.Current.Pages.Count - 1;
+        var page = session.Current.Pages[last];
+        var card = Assert.Single(cards.Cards);
+        session.Execute(PdfNotes.Core.Commands.DocumentEdits.InsertPage(session.Current, 0, page.Setup));
+        Settle(w);
+        Assert.Same(card, Assert.Single(cards.Cards));
+        Assert.Equal("kept\nopen", Assert.IsType<StickyNote>(session.Current.FindAnnotation(card.Id)!.Annotation).Text);
+        // A card with line breaks is not written again by every later Commit.
+        int steps = session.UndoCount;
+        w.View.CloseNote();
+        Assert.Equal(steps, session.UndoCount);
+        session.Undo();
+        Settle(w);
+        Assert.Single(cards.Cards);
+        w.Close();
+    });
+
+    [Fact]
     public void ANoteCardIsDraggedByItsBandAndSizedByItsCorner() => Headless.Run(() =>
     {
         var w = Window();

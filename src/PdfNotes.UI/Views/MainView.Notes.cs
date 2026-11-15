@@ -65,9 +65,12 @@ public sealed partial class MainView
             if (CardOf(e.Source) is not { } card) return;
             Dispatcher.UIThread.Post(() =>
             {
-                if (ReferenceEquals(noteState.Active, card) && NoteCards.ContainerFromItem(card) is not { IsKeyboardFocusWithin: true }) noteState.Finish(card);
+                // Not only the card being typed in: a save or a ribbon button ends the typing while the keyboard stays in a pinned card.
+                if (noteState.Cards.Contains(card) && NoteCards.ContainerFromItem(card) is not { IsKeyboardFocusWithin: true }) noteState.Finish(card);
             });
         });
+        // 보기 › 메모 펼치기 shows whether cards are pinned, also after a press that found no note to open.
+        ExpandNotesButton.Click += (_, _) => Dispatcher.UIThread.Post(() => ExpandNotesButton.SetCurrentValue(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty, noteState.HasPinned));
         NoteCards.AddHandler(PointerPressedEvent, NotePointerPressed);
         NoteCards.AddHandler(PointerMovedEvent, NotePointerMoved);
         NoteCards.AddHandler(PointerReleasedEvent, (_, e) => { if (noteDrag is not null) { noteDrag = null; e.Pointer.Capture(null); e.Handled = true; } });
@@ -124,6 +127,9 @@ public sealed partial class MainView
                 if (NoteCards.ContainerFromItem(card) is not { } container) continue;
                 int index = model.IndexOfPage(card.PageId);
                 if (index < 0) { container.IsVisible = false; continue; }
+                // The cards hear of a document change before the canvas has its pages (a page added in front of a pinned
+                // card's page): this card waits for the call that follows the layout.
+                if (index >= Canvas.PageCount) continue;
                 var toDip = Canvas.PageTransform(index).PageToDip;
                 var icon = IconBox(card.Note, toDip);
                 double w = card.Width, h = container.Bounds.Height > 0 ? container.Bounds.Height : NoteCardItem.MinHeight;
@@ -141,7 +147,7 @@ public sealed partial class MainView
                     y = Math.Clamp(icon.Y, 0, Math.Max(0, height - 100));
                 }
                 bool inView = icon.Right > 0 && icon.X < width && icon.Bottom > 0 && icon.Y < height;
-                container.IsVisible = inView || ReferenceEquals(card, noteState.Active);
+                container.IsVisible = inView || ReferenceEquals(card, noteState.Active) || container.IsKeyboardFocusWithin;
                 Avalonia.Controls.Canvas.SetLeft(container, x);
                 Avalonia.Controls.Canvas.SetTop(container, y);
                 if (!container.IsVisible || card.Offset is null) continue;

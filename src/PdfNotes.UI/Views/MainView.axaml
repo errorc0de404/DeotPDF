@@ -687,7 +687,7 @@
                                                     </DockPanel>
                                                 </Border>
                                                 <TextBox AcceptsReturn="True" AcceptsTab="False" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="6,0,6,4"
-                                                         VerticalContentAlignment="Top" Text="{Binding Text, Mode=TwoWay}" />
+                                                         VerticalContentAlignment="Top" IsReadOnly="{Binding IsLocked}" Text="{Binding Text, Mode=TwoWay}" />
                                             </DockPanel>
                                             <!-- The corner: dragged to size the card -->
                                             <Border Classes="noteGrip" Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomRightCorner">

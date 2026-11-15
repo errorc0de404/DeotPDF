@@ -36,6 +36,13 @@ dotnet publish src/PdfNotes.Cli/PdfNotes.Cli.csproj -c Release -r $Rid --self-co
 if ($LASTEXITCODE -ne 0) { throw "publish failed" }
 Get-ChildItem $server -Filter *.pdb | Remove-Item
 if (-not $windows -and [Environment]::OSVersion.Platform -ne "Win32NT") { chmod +x (Join-Path $server $exe) }
+# Apple silicon runs only signed code: ad hoc, like the app (no developer ID, decision 18).
+if (-not $windows -and (Get-Command codesign -ErrorAction SilentlyContinue)) {
+    Get-ChildItem $server -File | Where-Object { $_.Name -eq $exe -or $_.Extension -eq ".dylib" } | ForEach-Object {
+        codesign --force --sign - $_.FullName
+        if ($LASTEXITCODE -ne 0) { throw "codesign failed: $($_.Name)" }
+    }
+}
 
 $manifest = [IO.File]::ReadAllText("$root/packaging/mcpb/manifest.json").Replace("{VERSION}", $Version).Replace("{EXE}", $exe).Replace("{PLATFORM}", $platform)
 [IO.File]::WriteAllText((Join-Path $top "manifest.json"), $manifest, (New-Object Text.UTF8Encoding $false))

@@ -45,6 +45,7 @@ public sealed class NoteCardItem : ObservableObject
             var before = note;
             note = value;
             if (before.Color != value.Color) OnPropertyChanged(nameof(Color));
+            if (before.Locked != value.Locked) OnPropertyChanged(nameof(IsLocked));
         }
     }
 
@@ -57,6 +58,9 @@ public sealed class NoteCardItem : ObservableObject
     internal string Committed { get; set; }
 
     public string Text { get => text; set => SetProperty(ref text, value ?? ""); }
+
+    /// <summary>A locked note is read in its card, not typed in (its text is never written).</summary>
+    public bool IsLocked => note.Locked;
 
     /// <summary>The note's color: the card's top edge.</summary>
     public RgbColor Color => note.Color;
@@ -222,7 +226,7 @@ public sealed class NoteCardViewModel : ObservableObject
         if (Cards.Count == 0) return;
         if (active is { } typing) Finish(typing);
         foreach (var card in Cards.ToList())
-            if (Cards.Contains(card) && card.Text != card.Committed) End(card);
+            if (Cards.Contains(card) && Normalized(card.Text) != card.Committed) End(card);
     }
 
     /// <summary>Commits and closes every card: the notes are hidden, another document is shown.</summary>
@@ -297,8 +301,7 @@ public sealed class NoteCardViewModel : ObservableObject
     /// <summary>Puts the card's text into the document: a new note with text is added, an existing one updated or deleted when empty.</summary>
     private Guid? Write(NoteCardItem card)
     {
-        string text = card.Text.Replace("\r\n", "\n", StringComparison.Ordinal);
-        if (text.Length > ModelLimits.MaxTextLength) text = text[..ModelLimits.MaxTextLength];
+        string text = Normalized(card.Text);
         if (owner.Document is not { } doc || doc.Session.Current.IndexOfPage(card.PageId) < 0) { Drop(card); return null; }
         var edited = card.Note with { Text = text };
         if (card.IsNew)
@@ -324,6 +327,13 @@ public sealed class NoteCardViewModel : ObservableObject
             }
         }
         return null;
+    }
+
+    /// <summary>The card's text as a note holds it: line feeds only, within the length limit.</summary>
+    private static string Normalized(string text)
+    {
+        text = text.Replace("\r\n", "\n", StringComparison.Ordinal);
+        return text.Length > ModelLimits.MaxTextLength ? text[..ModelLimits.MaxTextLength] : text;
     }
 
     /// <summary>An empty note's card closes even when pinned (the note itself is gone or was never added).</summary>
