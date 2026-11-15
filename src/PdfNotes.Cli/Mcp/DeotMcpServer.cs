@@ -55,17 +55,33 @@ public sealed class DeotMcpServer : IDisposable
         this.log = log;
     }
 
-    public static int Run(IReadOnlyList<string> args)
+    /// <summary>
+    /// The folders of <c>--root</c>. One <c>--root</c> may be followed by several folders: a Claude Desktop extension's
+    /// folder list arrives that way (packaging/mcpb). Null with the argument that is not understood.
+    /// </summary>
+    public static IReadOnlyList<string>? Roots(IReadOnlyList<string> args, out string? unknown)
     {
+        unknown = null;
         var roots = new List<string>();
         for (int i = 0; i < args.Count; i++)
         {
-            if (args[i] == "--root" && i + 1 < args.Count) roots.Add(args[++i]);
-            else
+            if (args[i] != "--root" || i + 1 >= args.Count)
             {
-                Console.Error.WriteLine($"deot mcp: unknown argument {args[i]}. {Usage}");
-                return ExitCodes.InvalidInput;
+                unknown = args[i];
+                return null;
             }
+            do roots.Add(args[++i]);
+            while (i + 1 < args.Count && !args[i + 1].StartsWith("--", StringComparison.Ordinal));
+        }
+        return roots;
+    }
+
+    public static int Run(IReadOnlyList<string> args)
+    {
+        if (Roots(args, out string? unknown) is not { } roots)
+        {
+            Console.Error.WriteLine($"deot mcp: unknown argument {unknown}. {Usage}");
+            return ExitCodes.InvalidInput;
         }
         if (roots.Count == 0)
         {
@@ -84,7 +100,7 @@ public sealed class DeotMcpServer : IDisposable
         return ExitCodes.Ok;
     }
 
-    private const string Usage = "Usage: deot mcp --root <folder> [--root <folder>]...";
+    private const string Usage = "Usage: deot mcp --root <folder> [<folder>]... [--root <folder>]...";
 
     public McpServerOptions Options() => new()
     {

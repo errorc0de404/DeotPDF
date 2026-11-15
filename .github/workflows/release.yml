@@ -1,5 +1,6 @@
 # Builds the release packages on GitHub-hosted runners.
-# - windows: the two Windows zips (needs the .NET runtime / portable), signed when SignPath is set up.
+# - windows: the two Windows zips (needs the .NET runtime / portable), signed when SignPath is set up, and the
+#   Claude Desktop extension (.mcpb, tools/package-mcpb.ps1; macOS ones come from the desktop job).
 # - desktop: Linux (tar.gz) and macOS (Apple silicon and Intel zips), each on the system it is for (file modes, ad hoc
 #   codesign). All of them by tools/package-release.ps1: the app and the deot CLI.
 # - Manual run (Actions tab): builds and uploads the packages as workflow artifacts.
@@ -92,12 +93,18 @@ jobs:
         shell: pwsh
         run: ./tools/package-release.ps1 -Rid win-x64 -Version ${{ needs.version.outputs.version }} -Stage zip
 
+      # The Claude Desktop extension: its own self-contained deot (not signed by the step above).
+      - name: Extension (.mcpb)
+        shell: pwsh
+        run: ./tools/package-mcpb.ps1 -Rid win-x64 -Version ${{ needs.version.outputs.version }}
+
       - name: Upload zips
         uses: actions/upload-artifact@v7
         with:
           name: DeotPDF-${{ needs.version.outputs.version }}
           path: |
             artifacts/release/*.zip
+            artifacts/release/*.mcpb
             artifacts/release/SHA256SUMS-*.txt
           if-no-files-found: error
 
@@ -128,6 +135,11 @@ jobs:
         shell: pwsh
         run: ./tools/package-release.ps1 -Rid ${{ matrix.rid }} -Version ${{ needs.version.outputs.version }}
 
+      - name: Extension (.mcpb)
+        if: startsWith(matrix.rid, 'osx-')
+        shell: pwsh
+        run: ./tools/package-mcpb.ps1 -Rid ${{ matrix.rid }} -Version ${{ needs.version.outputs.version }}
+
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
@@ -135,6 +147,7 @@ jobs:
           path: |
             artifacts/release/*.tar.gz
             artifacts/release/*.zip
+            artifacts/release/*.mcpb
             artifacts/release/SHA256SUMS-*.txt
           if-no-files-found: error
 
@@ -162,5 +175,5 @@ jobs:
           Get-ChildItem artifacts/release -Filter "SHA256SUMS-$v*.txt" | Where-Object Name -ne "SHA256SUMS-$v.all.txt" | Remove-Item
           Move-Item "artifacts/release/SHA256SUMS-$v.all.txt" "artifacts/release/SHA256SUMS-$v.txt"
           $notes = "SHA256`n`n``````n$($sums -join "`n")`n``````"
-          $files = @(Get-ChildItem artifacts/release -File | Where-Object { $_.Name -match '\.(zip|tar\.gz)$' }).FullName + "artifacts/release/SHA256SUMS-$v.txt"
+          $files = @(Get-ChildItem artifacts/release -File | Where-Object { $_.Name -match '\.(zip|tar\.gz|mcpb)$' }).FullName + "artifacts/release/SHA256SUMS-$v.txt"
           gh release create "v$v" @files --draft --title "DeotPDF $v" --notes $notes

@@ -261,10 +261,10 @@ Only programs running on the same PC as the same user can connect. Within that, 
 `deot mcp` runs the same commands as an [MCP](https://modelcontextprotocol.io) server over standard input and output, so Claude Desktop, Claude Code and other MCP clients can call them as tools.
 
 ```powershell
-deot mcp --root C:\Users\me\Lectures [--root <another folder>]
+deot mcp --root C:\Users\me\Lectures [<another folder>]...
 ```
 
-`--root` is required. The server only reads and writes files inside these folders, and a relative path starts at the first one. Anything outside is refused with `PATH_NOT_ALLOWED`.
+`--root` is required. The server only reads and writes files inside these folders, and a relative path starts at the first one. Anything outside is refused with `PATH_NOT_ALLOWED`. Several folders can follow one `--root`, or each can have its own.
 
 Claude Code:
 
@@ -272,14 +272,16 @@ Claude Code:
 claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\Lectures
 ```
 
-Claude Desktop (`claude_desktop_config.json`):
+Claude Desktop: the easy way is the extension file. Download `DeotPDF-<version>-win-x64.mcpb` (or the macOS one) from the [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) page, open it (or drag it onto Settings > Extensions), and pick the PDF folders when it asks. It carries its own `deot`, so DeotPDF does not have to be installed for working on files. Writing into a document open in DeotPDF does need the app, with `AI tool access` turned on in its settings.
+
+Or by hand, in `claude_desktop_config.json`, with the `deot` that came with the app:
 
 ```json
 {
   "mcpServers": {
     "deot": {
-      "command": "C:\Tools\DeotPDF\deot.exe",
-      "args": ["mcp", "--root", "C:\Users\me\Lectures"]
+      "command": "C:\\Tools\\DeotPDF\\deot.exe",
+      "args": ["mcp", "--root", "C:\\Users\\me\\Lectures"]
     }
   }
 }

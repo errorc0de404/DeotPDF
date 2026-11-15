@@ -1,0 +1,63 @@
+{
+  "manifest_version": "0.3",
+  "name": "deotpdf",
+  "display_name": "DeotPDF",
+  "version": "{VERSION}",
+  "description": "Read PDFs and write notes on them that DeotPDF opens as its own: in files, or in the document you have open in DeotPDF.",
+  "long_description": "deot is the command line of [DeotPDF](https://github.com/errorc0de404/DeotPDF), a PDF note-taking app, as a set of tools.\n\n- **Read**: page sizes, text with positions, existing annotations, empty space, a rendered page.\n- **Write**: text boxes, highlights, lines, shapes, pen strokes, images and sticky notes, as real annotations DeotPDF can edit afterwards. The input PDF is never changed; the result goes to a new file.\n- **Live**: with a document open in DeotPDF, Claude can look at what you see and write into it directly. DeotPDF asks you first, every edit is one Undo step, and nothing is saved until you save.\n\nFiles are limited to the folders you choose below. Nothing is sent anywhere: the tools run on this computer.",
+  "author": {
+    "name": "Eunseok Kim",
+    "url": "https://github.com/errorc0de404"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/errorc0de404/DeotPDF"
+  },
+  "homepage": "https://github.com/errorc0de404/DeotPDF",
+  "documentation": "https://github.com/errorc0de404/DeotPDF/blob/main/docs/cli.md",
+  "support": "https://github.com/errorc0de404/DeotPDF/issues",
+  "icon": "icon.png",
+  "license": "GPL-3.0-only",
+  "keywords": ["pdf", "annotations", "notes", "study", "highlight"],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/{EXE}",
+    "mcp_config": {
+      "command": "${__dirname}/server/{EXE}",
+      "args": ["mcp", "--root", "${user_config.folders}"],
+      "env": {}
+    }
+  },
+  "tools": [
+    { "name": "schema", "description": "JSON schemas of command inputs and outputs" },
+    { "name": "info", "description": "Pages, sizes, rotation, text layer, annotation counts and file hash" },
+    { "name": "render", "description": "Page, region or page grid as PNG with page-to-pixel matrices" },
+    { "name": "text", "description": "PDF text layer: characters, words and lines with quads" },
+    { "name": "annot_list", "description": "Annotations with kind, bounds, style, text and tags" },
+    { "name": "find", "description": "Phrase candidates in the text layer with characters, quads and context" },
+    { "name": "layout", "description": "Text lines grouped into paragraph and list blocks" },
+    { "name": "ink", "description": "Ink fraction per grid cell and connected ink blocks of the rendered page" },
+    { "name": "space", "description": "Empty rectangle candidates avoiding ink and given areas" },
+    { "name": "measure", "description": "Text box size, lines, fonts and missing glyphs from the app's text engine" },
+    { "name": "fonts", "description": "Font families the text engine accepts" },
+    { "name": "check", "description": "Geometric checks of annotations by rules: regions, overlaps, page edges, text" },
+    { "name": "page_export", "description": "Writes some pages as a PDF of their own" },
+    { "name": "apply", "description": "Runs a list of writing operations atomically and writes once" },
+    { "name": "live_docs", "description": "The documents open in DeotPDF windows now" },
+    { "name": "live_context", "description": "What the user is looking at in DeotPDF: page, visible part, selection" },
+    { "name": "live_goto", "description": "Scrolls the user's DeotPDF view to a page" },
+    { "name": "live_flash", "description": "Scrolls to a place and marks it for a moment" }
+  ],
+  "user_config": {
+    "folders": {
+      "type": "directory",
+      "title": "PDF folders",
+      "description": "deot reads and writes PDFs only inside these folders. Relative paths start in the first one. A document open in DeotPDF does not need its folder here.",
+      "multiple": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "platforms": ["{PLATFORM}"]
+  }
+}

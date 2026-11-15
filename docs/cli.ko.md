@@ -261,10 +261,10 @@ deot live flash -p 12 --rect 80,200,300,60  # 그 자리를 잠깐 표시 (아�
 `deot mcp`는 같은 명령들을 표준 입출력 [MCP](https://modelcontextprotocol.io) 서버로 띄웁니다. Claude Desktop, Claude Code 같은 MCP 클라이언트에서 도구로 부를 수 있습니다.
 
 ```powershell
-deot mcp --root C:\Users\me\강의 [--root <다른 폴더>]
+deot mcp --root C:\Users\me\강의 [<다른 폴더>]...
 ```
 
-`--root`는 꼭 줘야 합니다. 서버는 이 폴더 안의 파일만 읽고 쓰며, 상대 경로는 첫 번째 폴더에서 시작합니다. 밖의 경로는 `PATH_NOT_ALLOWED`로 거절합니다.
+`--root`는 꼭 줘야 합니다. 서버는 이 폴더 안의 파일만 읽고 쓰며, 상대 경로는 첫 번째 폴더에서 시작합니다. 밖의 경로는 `PATH_NOT_ALLOWED`로 거절합니다. 폴더가 여럿이면 `--root` 하나 뒤에 이어 적어도 되고, 폴더마다 `--root`를 붙여도 됩니다.
 
 Claude Code:
 
@@ -272,14 +272,16 @@ Claude Code:
 claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\강의
 ```
 
-Claude Desktop(`claude_desktop_config.json`):
+Claude Desktop은 확장 파일로 넣는 것이 쉽습니다. [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) 페이지에서 `DeotPDF-<버전>-win-x64.mcpb`(맥은 macOS용)를 받아 열거나 설정 > 확장 프로그램 창에 끌어다 놓고, 묻는 창에서 PDF 폴더를 고르면 됩니다. `deot`가 파일 안에 들어 있어서, 파일만 다룰 때는 덧PDF를 설치하지 않아도 됩니다. 덧PDF에 열린 문서에 바로 쓰려면 앱이 있어야 하고, 설정에서 `AI 도구 연결`을 켜 둬야 합니다.
+
+직접 등록하려면 `claude_desktop_config.json`에 앱과 같이 온 `deot`를 적습니다.
 
 ```json
 {
   "mcpServers": {
     "deot": {
-      "command": "C:\Tools\DeotPDF\deot.exe",
-      "args": ["mcp", "--root", "C:\Users\me\강의"]
+      "command": "C:\\Tools\\DeotPDF\\deot.exe",
+      "args": ["mcp", "--root", "C:\\Users\\me\\강의"]
     }
   }
 }

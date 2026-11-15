@@ -197,4 +197,31 @@ public sealed class McpServerTests : IAsyncLifetime
         var unknown = await Call("info", new { pdf = sample, appFolder = outside });
         Assert.Equal("INVALID_ARGUMENT", Json(unknown)["error"]!["code"]!.GetValue<string>());
     }
+
+    [Fact]
+    public void RootsMayFollowOneFlagOrEachTheirOwn()
+    {
+        // A Claude Desktop extension's folder list comes as several arguments after one --root (packaging/mcpb).
+        Assert.Equal(["a", "b", "c"], DeotMcpServer.Roots(["--root", "a", "b", "--root", "c"], out _));
+        Assert.Equal(["a"], DeotMcpServer.Roots(["--root", "a"], out _));
+        Assert.Empty(DeotMcpServer.Roots([], out _)!);
+        Assert.Null(DeotMcpServer.Roots(["--root", "a", "--verbose"], out string? unknown));
+        Assert.Equal("--verbose", unknown);
+        Assert.Null(DeotMcpServer.Roots(["a"], out unknown));
+        Assert.Equal("a", unknown);
+        Assert.Null(DeotMcpServer.Roots(["--root"], out unknown));
+    }
+
+    [Fact]
+    public async Task TheClaudeDesktopExtensionListsTheServersTools()
+    {
+        // packaging/mcpb/manifest.json names the tools for the extension's install window: the same ones, in the same order.
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "PdfNotes.slnx"))) dir = dir.Parent;
+        Assert.NotNull(dir);
+        var manifest = JsonNode.Parse(File.ReadAllText(Path.Combine(dir!.FullName, "packaging", "mcpb", "manifest.json")))!;
+        var tools = await client.ListToolsAsync();
+        Assert.Equal(tools.Select(t => t.Name), manifest["tools"]!.AsArray().Select(t => t!["name"]!.GetValue<string>()));
+        Assert.Equal(["mcp", "--root", "${user_config.folders}"], manifest["server"]!["mcp_config"]!["args"]!.AsArray().Select(a => a!.GetValue<string>()));
+    }
 }
