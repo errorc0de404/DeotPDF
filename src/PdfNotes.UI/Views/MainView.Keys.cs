@@ -86,7 +86,7 @@ public sealed partial class MainView
         };
         if (e.Handled) return;
         if (IsEditingText && HandleTextKey(e)) return;
-        if (IsEditingText || IsFieldFocused || NoteText.IsFocused) return; // their own keys
+        if (IsEditingText || IsFieldFocused || NoteCards.IsKeyboardFocusWithin) return; // their own keys
         // The page list keeps its own keys (Delete, Ctrl+C/V/A, moving between rows); Undo, Esc and Space still work there.
         if (PageScroller.IsKeyboardFocusWithin && (e.Key is Key.Delete or Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown ||
             mods == EditorModifiers.Control && e.Key is Key.C or Key.V or Key.A or Key.X)) return;

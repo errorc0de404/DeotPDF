@@ -573,6 +573,118 @@ public sealed class FrameTests
     });
 
     [Fact]
+    public void PinnedNoteCardsStayOpenAndFollowTheirIcons() => Headless.Run(() =>
+    {
+        var w = Window();
+        var cards = w.View.ViewModel.NoteCard;
+        w.View.SetTool(ToolKind.Note);
+        Click(w, new(200, 200));
+        w.View.NoteTextBox!.Text = "first";
+        cards.Active!.PinCommand.Execute();
+        w.View.CloseNote();
+        var first = Assert.IsType<StickyNote>(Assert.Single(Annotations(w)));
+        Assert.Single(cards.Cards); // pinned: typing ended, the card stays
+        Assert.True(Find<ToggleButton>(w, "ExpandNotesButton").IsChecked);
+
+        // A second note opens beside the pinned card.
+        w.View.SetTool(ToolKind.Note);
+        Click(w, new(200, 400));
+        Assert.Equal(2, cards.Cards.Count);
+        w.View.NoteTextBox!.Text = "second";
+        w.View.CloseNote();
+        Assert.Equal(2, Annotations(w).Count);
+        var card = Assert.Single(cards.Cards);
+        Assert.Equal(first.Id, card.Id);
+
+        // The card sits right of its icon and follows it through a zoom.
+        Settle(w);
+        var items = Find<ItemsControl>(w, "NoteCards");
+        var container = items.ContainerFromItem(card)!;
+        var icon = At(w, new(first.Transform.OffsetX + StickyNote.IconPt, first.Transform.OffsetY));
+        var layer = Find<Panel>(w, "NoteLayer");
+        var origin = layer.TranslatePoint(default, w)!.Value;
+        Assert.Equal(icon.X + 6 - origin.X, Avalonia.Controls.Canvas.GetLeft(container), 1);
+        Assert.Equal(icon.Y - origin.Y, Avalonia.Controls.Canvas.GetTop(container), 1);
+        Assert.Empty(Find<NoteLinks>(w, "NoteLinkLayer").Segments);
+
+        // Dragged away (a distance in page points): a line joins it to the icon, and it keeps the distance when zoomed.
+        card.Offset = new Point2(120, 60);
+        w.View.DocumentCanvas.SetZoom(2);
+        Settle(w);
+        var moved = At(w, new(first.Transform.OffsetX + 120, first.Transform.OffsetY + 60));
+        origin = layer.TranslatePoint(default, w)!.Value;
+        Assert.Equal(moved.X - origin.X, Avalonia.Controls.Canvas.GetLeft(container), 1);
+        Assert.Equal(moved.Y - origin.Y, Avalonia.Controls.Canvas.GetTop(container), 1);
+        Assert.Single(Find<NoteLinks>(w, "NoteLinkLayer").Segments);
+
+        // None of it is an edit: the Undo count is the two notes, and closing leaves the document as it is.
+        int steps = w.View.Document!.Session.UndoCount;
+        card.Resize(300, 200);
+        card.CloseCommand.Execute();
+        Assert.Empty(cards.Cards);
+        Assert.Equal(steps, w.View.Document.Session.UndoCount);
+        Assert.Equal(2, Annotations(w).Count);
+        w.Close();
+    });
+
+    [Fact]
+    public void ANoteCardIsDraggedByItsBandAndSizedByItsCorner() => Headless.Run(() =>
+    {
+        var w = Window();
+        var cards = w.View.ViewModel.NoteCard;
+        w.View.SetTool(ToolKind.Note);
+        Click(w, new(200, 200));
+        w.View.NoteTextBox!.Text = "card";
+        var card = cards.Active!;
+        card.PinCommand.Execute();
+        Settle(w);
+        var container = Find<ItemsControl>(w, "NoteCards").ContainerFromItem(card)!;
+        Control Part(string name) => container.GetVisualDescendants().OfType<Control>().First(c => c.Classes.Contains(name));
+        Point Middle(Control c) => c.TranslatePoint(new Point(c.Bounds.Width / 2, c.Bounds.Height / 2), w)!.Value;
+        void DragBy(Point from, double dx, double dy)
+        {
+            w.MouseDown(from, MouseButton.Left);
+            for (int i = 1; i <= 4; i++) w.MouseMove(new Point(from.X + dx * i / 4, from.Y + dy * i / 4));
+            w.MouseUp(new Point(from.X + dx, from.Y + dy), MouseButton.Left);
+            Settle(w);
+        }
+
+        // The band: the card moves with the pointer and remembers a distance from its icon.
+        double left = Avalonia.Controls.Canvas.GetLeft(container), top = Avalonia.Controls.Canvas.GetTop(container);
+        DragBy(new Point(Middle(Part("noteBand")).X - 40, Middle(Part("noteBand")).Y), 150, 90);
+        Assert.NotNull(card.Offset);
+        Assert.Equal(left + 150, Avalonia.Controls.Canvas.GetLeft(container), 1);
+        Assert.Equal(top + 90, Avalonia.Controls.Canvas.GetTop(container), 1);
+        Assert.Single(Find<NoteLinks>(w, "NoteLinkLayer").Segments);
+        Assert.Same(card, Assert.Single(cards.Cards)); // dragging neither closes the card nor ends its typing
+
+        // The corner: 160-480 by 80-600 DIP.
+        DragBy(Middle(Part("noteGrip")), 60, 40);
+        Assert.Equal(NoteCardItem.DefaultWidth + 60, card.Width, 1);
+        Assert.False(double.IsNaN(card.Height));
+        DragBy(Middle(Part("noteGrip")), 900, 900);
+        Assert.Equal((NoteCardItem.MaxWidth, NoteCardItem.MaxSizedHeight), (card.Width, card.Height));
+
+        // The band pressed twice: back beside the icon.
+        var band = new Point(Middle(Part("noteBand")).X - 40, Middle(Part("noteBand")).Y);
+        w.MouseDown(band, MouseButton.Left);
+        w.MouseUp(band, MouseButton.Left);
+        w.MouseDown(band, MouseButton.Left);
+        w.MouseUp(band, MouseButton.Left);
+        Settle(w);
+        Assert.Null(card.Offset);
+        Assert.Empty(Find<NoteLinks>(w, "NoteLinkLayer").Segments);
+        Assert.Equal(left, Avalonia.Controls.Canvas.GetLeft(container), 1);
+
+        // The close button of the band.
+        var close = container.GetVisualDescendants().OfType<Button>().First(b => b is not ToggleButton);
+        Press(close);
+        Assert.Empty(cards.Cards);
+        Assert.IsType<StickyNote>(Assert.Single(Annotations(w)));
+        w.Close();
+    });
+
+    [Fact]
     public void HidingNotesAndInsertingAnImage() => Headless.Run(() =>
     {
         var w = Window();

@@ -239,7 +239,10 @@
                         </HeaderedContentControl>
                         <Border Classes="sep" />
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.show}">
-                            <ToggleButton x:Name="HideNotesButton" Theme="{StaticResource ToolButton}" IsChecked="{Binding Display.NotesHidden, Mode=OneWay}" Command="{Binding HideNotesCommand}" ToolTip.Tip="{l:T view.hideNotes}"><th:IconLabel Glyph="Hide" Text="{l:T view.hideNotes}" /></ToggleButton>
+                            <StackPanel Orientation="Horizontal">
+                                <ToggleButton x:Name="HideNotesButton" Theme="{StaticResource ToolButton}" IsChecked="{Binding Display.NotesHidden, Mode=OneWay}" Command="{Binding HideNotesCommand}" ToolTip.Tip="{l:T view.hideNotes}"><th:IconLabel Glyph="Hide" Text="{l:T view.hideNotes}" /></ToggleButton>
+                                <ToggleButton x:Name="ExpandNotesButton" Theme="{StaticResource ToolButton}" IsChecked="{Binding NoteCard.HasPinned, Mode=OneWay}" Command="{Binding NoteCard.ExpandCommand}" ToolTip.Tip="{l:T view.expandNotes}"><th:IconLabel Glyph="Note" Text="{l:T view.expandNotes}" /></ToggleButton>
+                            </StackPanel>
                         </HeaderedContentControl>
                         <Border Classes="sep" />
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.find}">
@@ -658,13 +661,44 @@
                     <!-- Controls over the pages: the text box editor (A4); it never covers the scroll bars. -->
                     <Canvas x:Name="TextLayer" Margin="0,0,12,12" ClipToBounds="True" />
                     <!-- The open sticky note card (spec 24.9): kept beside its icon by the window -->
-                    <Canvas x:Name="NoteLayer" Margin="0,0,12,12" ClipToBounds="True">
-                        <Border x:Name="NoteCard" Width="220" BorderThickness="1,4,1,1" CornerRadius="3" BoxShadow="0 1 8 0 #33000000" Background="{DynamicResource Surface.Background}"
-                                IsVisible="{Binding NoteCard.IsOpen}" BorderBrush="{Binding NoteCard.Color, Converter={x:Static th:Converters.ColorBrush}}">
-                            <TextBox x:Name="NoteText" AcceptsReturn="True" AcceptsTab="False" TextWrapping="Wrap" MinHeight="80" MaxHeight="240" BorderThickness="0"
-                                     Background="Transparent" Padding="6,4,6,4" Text="{Binding NoteCard.Text, Mode=TwoWay}" />
-                        </Border>
-                    </Canvas>
+                    <Panel x:Name="NoteLayer" Margin="0,0,12,12" ClipToBounds="True">
+                        <v:NoteLinks x:Name="NoteLinkLayer" IsHitTestVisible="False" />
+                        <ItemsControl x:Name="NoteCards" ItemsSource="{Binding NoteCard.Cards}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><Canvas /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:NoteCardItem">
+                                    <Border Width="{Binding Width}" Height="{Binding Height}" MinHeight="80" MaxHeight="{Binding MaxHeight}" BorderThickness="1,4,1,1" CornerRadius="3"
+                                            BoxShadow="0 1 8 0 #33000000" Background="{DynamicResource Surface.Background}" BorderBrush="{Binding Color, Converter={x:Static th:Converters.ColorBrush}}">
+                                        <Panel>
+                                            <DockPanel>
+                                                <!-- The band: dragged to move the card, pressed twice to put it back -->
+                                                <Border Classes="noteBand" DockPanel.Dock="Top" Height="20" Background="Transparent" Cursor="SizeAll">
+                                                    <DockPanel LastChildFill="False">
+                                                        <TextBlock DockPanel.Dock="Left" Text="AI" IsVisible="{Binding IsAi}" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold"
+                                                                   FontSize="{DynamicResource FontSize.Caption}" Foreground="{DynamicResource Text.Muted}" />
+                                                        <Button DockPanel.Dock="Right" Padding="3" Margin="0" Theme="{StaticResource ToolButton}" Focusable="False" Cursor="Arrow" Command="{Binding CloseCommand}" ToolTip.Tip="{l:T note.close}">
+                                                            <th:AppIcon Glyph="Close" Size="10" />
+                                                        </Button>
+                                                        <ToggleButton DockPanel.Dock="Right" Padding="3" Margin="0" Theme="{StaticResource ToolButton}" Focusable="False" Cursor="Arrow" IsChecked="{Binding IsPinned, Mode=OneWay}" Command="{Binding PinCommand}" ToolTip.Tip="{l:T note.pin}">
+                                                            <th:AppIcon Outline="M5.5,2 L10.5,2 L10.5,7 L13,10 L3,10 L5.5,7 Z M8,10 L8,14.5" Size="12" />
+                                                        </ToggleButton>
+                                                    </DockPanel>
+                                                </Border>
+                                                <TextBox AcceptsReturn="True" AcceptsTab="False" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="6,0,6,4"
+                                                         VerticalContentAlignment="Top" Text="{Binding Text, Mode=TwoWay}" />
+                                            </DockPanel>
+                                            <!-- The corner: dragged to size the card -->
+                                            <Border Classes="noteGrip" Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomRightCorner">
+                                                <Path Data="M4,12 L12,4 M8,12 L12,8" Stroke="{DynamicResource Text.Muted}" StrokeThickness="1" />
+                                            </Border>
+                                        </Panel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Panel>
                 </Panel>
             </Border>
             <!-- An AI client asks for the open document (MCP_LIVE_PLAN 2): over the top of the pages, never blocking the pen -->

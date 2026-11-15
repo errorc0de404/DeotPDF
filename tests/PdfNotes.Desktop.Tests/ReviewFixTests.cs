@@ -331,7 +331,7 @@ public sealed class ReviewFixTests
         Assert.Equal(new Thickness(0), Find<Avalonia.Controls.Canvas>(w, "TextLayer").Margin);
         w.View.DocumentCanvas.SetZoom(3);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(12, Find<Avalonia.Controls.Canvas>(w, "NoteLayer").Margin.Right);
+        Assert.Equal(12, Find<Panel>(w, "NoteLayer").Margin.Right);
         w.Close();
     });
 }

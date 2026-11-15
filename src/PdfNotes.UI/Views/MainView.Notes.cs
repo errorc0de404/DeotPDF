@@ -28,24 +28,58 @@ public sealed partial class MainView
 {
     private NoteCardViewModel noteState => viewModel.NoteCard;
 
+    /// <summary>The note being typed in (null: none).</summary>
     public StickyNote? OpenNoteAnnotation => noteState.Note;
-    public TextBox? NoteTextBox => noteState.IsOpen ? NoteText : null;
+
+    /// <summary>The text box of the card being typed in.</summary>
+    public TextBox? NoteTextBox => noteState.Active is { } card ? NoteBox(card) : null;
 
     private void InitializeNotes()
     {
-        Canvas.ViewChanged += (_, _) => PositionNoteCard();
+        Canvas.ViewChanged += (_, _) => PositionNoteCards();
+        NoteLayer.SizeChanged += (_, _) => PositionNoteCards();
+        // Cards opened, closed, moved with their notes: placed now, and again once a new card has its size.
+        noteState.LayoutChanged += () =>
+        {
+            PositionNoteCards();
+            Dispatcher.UIThread.Post(PositionNoteCards, DispatcherPriority.Loaded);
+        };
         // A click on a sticky note with the selection tool opens it (spec 24.9); a drag only moved it.
         selectTool.Released += (_, changed) =>
         {
             if (!changed && selectTool.SelectedAnnotations is [StickyNote note] && selectTool.PageId is { } notePage)
                 Dispatcher.UIThread.Post(() => OpenNote(note, notePage, isNew: false));
         };
-        // The card (bound to NoteCardViewModel, R4e) closes with Esc or when the keyboard leaves it.
-        NoteText.KeyDown += (_, e) => { if (e.Key == Key.Escape) { CloseNote(); Canvas.Focus(); e.Handled = true; } };
-        NoteText.LostFocus += (_, _) => Dispatcher.UIThread.Post(() => { if (noteState.IsOpen && !NoteCard.IsKeyboardFocusWithin) CloseNote(); });
+        // The cards are a template over NoteCardViewModel.Cards; their keys, focus and drags are handled here for all of them.
+        // Typing ends with Esc or when the keyboard leaves the card: a pinned card stays open, any other closes.
+        NoteCards.AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key != Key.Escape || CardOf(e.Source) is not { } card) return;
+            noteState.Finish(card);
+            Canvas.Focus();
+            e.Handled = true;
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        NoteCards.AddHandler(GotFocusEvent, (_, e) => { if (CardOf(e.Source) is { } card) noteState.Activate(card); });
+        NoteCards.AddHandler(LostFocusEvent, (_, e) =>
+        {
+            if (CardOf(e.Source) is not { } card) return;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (ReferenceEquals(noteState.Active, card) && NoteCards.ContainerFromItem(card) is not { IsKeyboardFocusWithin: true }) noteState.Finish(card);
+            });
+        });
+        NoteCards.AddHandler(PointerPressedEvent, NotePointerPressed);
+        NoteCards.AddHandler(PointerMovedEvent, NotePointerMoved);
+        NoteCards.AddHandler(PointerReleasedEvent, (_, e) => { if (noteDrag is not null) { noteDrag = null; e.Pointer.Capture(null); e.Handled = true; } });
+        NoteCards.AddHandler(PointerCaptureLostEvent, (_, _) => noteDrag = null);
     }
 
     // ----- sticky note cards -----
+
+    private static NoteCardItem? CardOf(object? source) => (source as StyledElement)?.DataContext as NoteCardItem;
+
+    private TextBox? NoteBox(NoteCardItem card) =>
+        NoteCards.ContainerFromItem(card) is { } container ? Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(container).OfType<TextBox>().FirstOrDefault() : null;
 
     /// <summary>The note tool's click: an icon centered on the point, opened for typing (not in the document yet).</summary>
     private void CreateNote(int pageIndex, Point2 point)
@@ -53,30 +87,144 @@ public sealed partial class MainView
         if (noteState.Create(pageIndex, point) is { } note && Document is { } doc) OpenNote(note, doc.Session.Current.Pages[pageIndex].Id, isNew: true);
     }
 
+    /// <summary>Opens the note's card for typing; the card typed in before ends (a pinned one stays open).</summary>
     public void OpenNote(StickyNote note, Guid pageId, bool isNew)
     {
-        CloseNote();
-        if (!noteState.Open(note, pageId, isNew)) return;
-        NoteCard.UpdateLayout();
-        PositionNoteCard();
+        if (!noteState.Open(note, pageId, isNew) || noteState.Active is not { } card) return;
+        NoteCards.UpdateLayout();
+        PositionNoteCards();
         Canvas.RefreshOverlays(); // a new note's icon is drawn while it is open
-        NoteText.Focus();
-        NoteText.CaretIndex = NoteText.Text?.Length ?? 0;
+        if (NoteBox(card) is not { } box) return;
+        box.Focus();
+        box.CaretIndex = box.Text?.Length ?? 0;
     }
 
-    /// <summary>Keeps the card beside its icon (right of it, inside the document area) while the view scrolls or zooms.</summary>
-    private void PositionNoteCard()
+    /// <summary>The note icon on the screen: the box around it in the note layer's DIPs.</summary>
+    private static Rect IconBox(StickyNote note, Affine pageToDip)
     {
-        if (noteState.Note is not { } open || noteState.PageIndex is not (>= 0 and var index)) return;
-        var corner = Canvas.PageTransform(index).PageToDip.Transform(new Point2(open.Transform.OffsetX + StickyNote.IconPt, open.Transform.OffsetY));
-        double x = Math.Clamp(corner.X + 6, 0, Math.Max(0, NoteLayer.Bounds.Width - NoteCard.Width));
-        double y = Math.Clamp(corner.Y, 0, Math.Max(0, NoteLayer.Bounds.Height - 100));
-        Avalonia.Controls.Canvas.SetLeft(NoteCard, x);
-        Avalonia.Controls.Canvas.SetTop(NoteCard, y);
+        var corners = AnnotationGeometry.Corners(new(0, 0, StickyNote.IconPt, StickyNote.IconPt), note.Transform.Then(pageToDip));
+        double left = corners.Min(p => p.X), top = corners.Min(p => p.Y);
+        return new Rect(left, top, corners.Max(p => p.X) - left, corners.Max(p => p.Y) - top);
     }
 
-    /// <summary>Commits the open note: a new one with text is added, an existing one updated or deleted when empty.</summary>
+    /// <summary>
+    /// Keeps every card with its icon while the view scrolls or zooms: beside it (right, or left when the right has no
+    /// room, inside the document area), or where the user dragged it — a distance from the icon in page points, joined to
+    /// the icon by a thin line. A card whose icon is out of view is not shown, except the one being typed in.
+    /// </summary>
+    private void PositionNoteCards()
+    {
+        var links = new List<(Point From, Point To)>();
+        if (Document is { } doc)
+        {
+            var model = doc.Session.Current;
+            double width = NoteLayer.Bounds.Width, height = NoteLayer.Bounds.Height;
+            foreach (var card in noteState.Cards)
+            {
+                if (NoteCards.ContainerFromItem(card) is not { } container) continue;
+                int index = model.IndexOfPage(card.PageId);
+                if (index < 0) { container.IsVisible = false; continue; }
+                var toDip = Canvas.PageTransform(index).PageToDip;
+                var icon = IconBox(card.Note, toDip);
+                double w = card.Width, h = container.Bounds.Height > 0 ? container.Bounds.Height : NoteCardItem.MinHeight;
+                double x, y;
+                if (card.Offset is { } offset)
+                {
+                    var at = toDip.Transform(new Point2(card.Note.Transform.OffsetX + offset.X, card.Note.Transform.OffsetY + offset.Y));
+                    (x, y) = (at.X, at.Y);
+                }
+                else
+                {
+                    x = icon.Right + 6;
+                    if (x + w > width && icon.X - 6 - w >= 0) x = icon.X - 6 - w;
+                    x = Math.Clamp(x, 0, Math.Max(0, width - w));
+                    y = Math.Clamp(icon.Y, 0, Math.Max(0, height - 100));
+                }
+                bool inView = icon.Right > 0 && icon.X < width && icon.Bottom > 0 && icon.Y < height;
+                container.IsVisible = inView || ReferenceEquals(card, noteState.Active);
+                Avalonia.Controls.Canvas.SetLeft(container, x);
+                Avalonia.Controls.Canvas.SetTop(container, y);
+                if (!container.IsVisible || card.Offset is null) continue;
+                var rect = new Rect(x, y, w, h);
+                if (rect.Intersects(icon.Inflate(2))) continue; // still touching its icon
+                // From the card's nearest point to the icon's edge (the line never crosses the icon).
+                var near = new Point(Math.Clamp(icon.Center.X, rect.X, rect.Right), Math.Clamp(icon.Center.Y, rect.Y, rect.Bottom));
+                links.Add((new Point(Math.Clamp(near.X, icon.X, icon.Right), Math.Clamp(near.Y, icon.Y, icon.Bottom)), near));
+            }
+        }
+        NoteLinkLayer.Show(links);
+    }
+
+    // The band moves the card, the corner sizes it (spec 24.9). X and Y: the card's place, or its size, when the drag began.
+    private (NoteCardItem Card, Point Start, double X, double Y, bool Sizing, bool Moved)? noteDrag;
+
+    private void NotePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        Control? part = null;
+        for (var v = e.Source as Visual; v is not null && !ReferenceEquals(v, NoteCards); v = Avalonia.VisualTree.VisualExtensions.GetVisualParent(v))
+            if (v is Control c && (c.Classes.Contains("noteBand") || c.Classes.Contains("noteGrip"))) { part = c; break; }
+        if (part?.DataContext is not NoteCardItem card || NoteCards.ContainerFromItem(card) is not { } container) return;
+        if (!e.GetCurrentPoint(NoteLayer).Properties.IsLeftButtonPressed) return;
+        e.Handled = true;
+        bool sizing = part.Classes.Contains("noteGrip");
+        if (!sizing && e.ClickCount == 2) // back beside the icon
+        {
+            card.Offset = null;
+            PositionNoteCards();
+            return;
+        }
+        noteDrag = sizing
+            ? (card, e.GetPosition(NoteLayer), card.Width, container.Bounds.Height, true, false)
+            : (card, e.GetPosition(NoteLayer), Avalonia.Controls.Canvas.GetLeft(container), Avalonia.Controls.Canvas.GetTop(container), false, false);
+        e.Pointer.Capture(part);
+    }
+
+    private void NotePointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (noteDrag is not { } drag || Document is not { } doc) return;
+        var p = e.GetPosition(NoteLayer);
+        double dx = p.X - drag.Start.X, dy = p.Y - drag.Start.Y;
+        if (!drag.Moved && Math.Abs(dx) < 3 && Math.Abs(dy) < 3) return; // a press, not a drag
+        noteDrag = drag with { Moved = true };
+        e.Handled = true;
+        var card = drag.Card;
+        if (drag.Sizing) card.Resize(drag.X + dx, drag.Y + dy);
+        else if (doc.Session.Current.IndexOfPage(card.PageId) is >= 0 and var index)
+        {
+            // The band stays within reach: the card never leaves the document area whole.
+            double x = Math.Clamp(drag.X + dx, 40 - card.Width, Math.Max(0, NoteLayer.Bounds.Width - 40));
+            double y = Math.Clamp(drag.Y + dy, 0, Math.Max(0, NoteLayer.Bounds.Height - 24));
+            var at = Canvas.PageTransform(index).DipToPage.Transform(new Point2(x, y));
+            card.Offset = new Point2(at.X - card.Note.Transform.OffsetX, at.Y - card.Note.Transform.OffsetY);
+        }
+        PositionNoteCards();
+        if (drag.Sizing) Dispatcher.UIThread.Post(PositionNoteCards, DispatcherPriority.Loaded); // the line follows the new size
+    }
+
+    /// <summary>Ends the typing (a new note with text is added, an existing one updated or deleted when empty); pinned cards stay open.</summary>
     public void CloseNote() => noteState.Commit();
+
+    /// <summary>
+    /// A small AI mark at the lower right of an AI note's icon (spec 24.9): on the screen only, drawn as strokes so it
+    /// needs no font. The saved note looks like any other.
+    /// </summary>
+    private static void PaintAiBadge(SKCanvas canvas, StickyNote note, ViewTransform t)
+    {
+        var icon = IconBox(note, t.PageToDip);
+        float h = Math.Max(8, (float)icon.Height * 0.5f), w = h * 1.3f;
+        var box = SKRect.Create((float)icon.Right - w * 0.6f, (float)icon.Bottom - h * 0.6f, w, h);
+        using var fill = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Fill, Color = new SKColor(0x33, 0x33, 0x33) };
+        using var edge = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1, Color = SKColors.White };
+        using var ink = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = Math.Max(1, h * 0.11f), Color = SKColors.White, StrokeCap = SKStrokeCap.Round, StrokeJoin = SKStrokeJoin.Round };
+        canvas.DrawRoundRect(box, h * 0.25f, h * 0.25f, fill);
+        canvas.DrawRoundRect(box, h * 0.25f, h * 0.25f, edge);
+        float top = box.Top + h * 0.24f, bottom = box.Bottom - h * 0.24f, left = box.Left + w * 0.2f, mid = box.Left + w * 0.42f, right = box.Left + w * 0.64f, bar = bottom - (bottom - top) * 0.33f;
+        using var letters = new SKPath();
+        letters.MoveTo(left, bottom); letters.LineTo(mid, top); letters.LineTo(right, bottom); // A
+        letters.MoveTo(left + (mid - left) * 0.33f, bar); letters.LineTo(right - (right - mid) * 0.33f, bar);
+        letters.MoveTo(box.Left + w * 0.8f, top); letters.LineTo(box.Left + w * 0.8f, bottom); // I
+        canvas.DrawPath(letters, ink);
+    }
 
     // ----- hide the notes (spec 24.10) -----
 

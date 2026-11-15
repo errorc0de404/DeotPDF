@@ -78,7 +78,8 @@ public sealed partial class MainViewModel
     {
         if (Display.NotesHidden == hidden) return;
         Editing.FinishTextEditing();
-        NoteCard.Commit();
+        if (hidden) NoteCard.CloseAll(); // hidden notes show no cards (spec 24.9)
+        else NoteCard.Commit();
         Editing.CancelTool();
         Display.NotesHidden = hidden;
         if (hidden) { ToolBar.SetTool(ToolKind.Select); Selection.Attached?.Select(null); }

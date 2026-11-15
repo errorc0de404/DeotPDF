@@ -277,7 +277,7 @@ public sealed partial class MainViewModel : ObservableObject, IDocumentHost
     void IDocumentHost.DocumentLeaving(OpenDocument? previous)
     {
         DocumentLeaving?.Invoke(previous);
-        NoteCard.Commit(); // an open sticky note is finished first (spec 24.9)
+        NoteCard.CloseAll(); // open sticky notes are finished first, and their cards go with the document (spec 24.9)
         if (Display.NotesHidden) SetNotesHidden(false); // a new or opened document shows its notes (spec 24.10)
         if (previous is not null) previous.Session.StateChanged -= SessionStateChanged;
     }

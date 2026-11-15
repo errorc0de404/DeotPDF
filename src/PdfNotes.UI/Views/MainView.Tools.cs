@@ -153,7 +153,10 @@ public sealed partial class MainView
         var halos = ai.IsEmphasized && !model.Tags.IsEmpty ? shown.Where(a => Authorship.IsAi(model, a.Id)).ToList() : null;
         var haloColor = new SKColor(ai.HaloColor.R, ai.HaloColor.G, ai.HaloColor.B);
         // A new sticky note is drawn while its card is open (it joins the document when closed with text).
-        if (viewModel.NoteCard is { IsNew: true, Note: { } open } card && card.PageId == page.Id) shown.Add(open);
+        foreach (var card in viewModel.NoteCard.Cards)
+            if (card.IsNew && card.PageId == page.Id) shown.Add(card.Note);
+        // AI notes carry a small mark on the screen (spec 24.9).
+        List<StickyNote> aiNotes = model.Tags.IsEmpty ? [] : [.. shown.OfType<StickyNote>().Where(n => Authorship.IsAi(model, n.Id))];
         var resources = doc.Session.Current.Resources;
         // The box being edited has its edit frame: a thin frame with a white halo when the box has no
         // border of its own, so it shows on dark pages too (D13c); a real border is the box's and the editor draws it.
@@ -168,6 +171,7 @@ public sealed partial class MainView
             if (halos is not null) foreach (var a in halos) SkiaAiHalo.PaintGlow(canvas, a, t, haloColor, PdfNotes.Text.TextLayout.Bounds);
             foreach (var a in shown) SkiaAnnotationPainter.Paint(canvas, a, t, id => resources.GetValueOrDefault(id));
             if (halos is not null) foreach (var a in halos) SkiaAiHalo.PaintEdge(canvas, a, t, haloColor, PdfNotes.Text.TextLayout.Bounds);
+            foreach (var note in aiNotes) PaintAiBadge(canvas, note, t);
             if (editFrame is { } f)
             {
                 var m = f.Transform.Then(t.PageToDip);
