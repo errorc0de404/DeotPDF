@@ -190,7 +190,7 @@ public static class EditablePdfReader
                         form?.Stream is not null && annot.Elements.GetString(EditablePdfKeys.AppearanceHash) == AnnotationAppearance.Hash(form) &&
                         SearchableText.Verified(document.Pages[p], annot, nameId.Value);
                 }
-                catch (Exception e) when (e is InvalidDataException or InvalidOperationException or InvalidCastException or ArgumentException or NotSupportedException) { }
+                catch (Exception e) when (e is InvalidDataException or InvalidOperationException or InvalidCastException or ArgumentException or NotSupportedException or NotImplementedException) { }
                 result.Add(new(p, i, nameId, envelope, verified));
             }
         }
@@ -205,7 +205,7 @@ public static class EditablePdfReader
             var bytes = dictionary.Stream.UnfilteredValue;
             return bytes.Length <= limit ? bytes : null;
         }
-        catch (Exception e) when (e is InvalidOperationException or InvalidDataException or ArgumentException or NotSupportedException)
+        catch (Exception e) when (e is InvalidOperationException or InvalidDataException or ArgumentException or NotSupportedException or NotImplementedException)
         {
             return null;
         }

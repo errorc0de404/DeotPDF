@@ -52,7 +52,7 @@ internal static class PageContentWriter
             return document.Pages.Cast<PdfPage>().All(p => p.Elements.GetString(BackgroundHashKey) is { } stored &&
                 (stored == BackgroundHash(p) || stored == BackgroundHash(p, legacy: true)));
         }
-        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or ArgumentException or NotSupportedException) { return false; }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or ArgumentException or NotSupportedException or NotImplementedException) { return false; }
     }
     internal static byte[]? Original(PdfDocument document)
     {
@@ -63,7 +63,7 @@ internal static class PageContentWriter
             byte[] bytes = entry.Stream.UnfilteredValue;
             return bytes.Length <= 512 * 1024 * 1024 && Convert.ToHexString(SHA256.HashData(bytes)) == document.Internals.Catalog.Elements.GetString(OriginalHashKey) ? bytes : null;
         }
-        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or InvalidCastException or ArgumentException or NotSupportedException) { return null; }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or InvalidCastException or ArgumentException or NotSupportedException or NotImplementedException) { return null; }
     }
     internal static void StoreOriginal(PdfDocument document, byte[] bytes)
     {

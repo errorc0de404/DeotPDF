@@ -109,7 +109,7 @@ internal static class SearchableText
                 page.Resources.Elements.GetDictionary("/XObject")?.Elements.GetDictionary(name)?.Reference == form?.Reference &&
                 Encoding.ASCII.GetString(layer.Stream.UnfilteredValue) == "q " + name + " Do Q\n";
         }
-        catch (Exception e) when (e is InvalidOperationException or InvalidCastException or ArgumentException or InvalidDataException or NotSupportedException) { return false; }
+        catch (Exception e) when (e is InvalidOperationException or InvalidCastException or ArgumentException or InvalidDataException or NotSupportedException or NotImplementedException) { return false; }
     }
 
     internal static void Remove(PdfPage page, PdfDictionary annotation)
@@ -148,7 +148,15 @@ internal static class SearchableText
                 if (dictionary.Stream is { } stream)
                 {
                     if (stream.Length > 64 * 1024 * 1024) throw new InvalidDataException("Text stream exceeds limit.");
-                    byte[] bytes = stream.UnfilteredValue;
+                    byte[] bytes;
+                    try { bytes = stream.UnfilteredValue; }
+                    catch (Exception e) when (background && e is InvalidOperationException or NotImplementedException or NotSupportedException)
+                    {
+                        // A filter PDFsharp cannot decode (a CCITT fax or JBIG2 image of a scanned page): it writes such a
+                        // stream back as it is, so the stored bytes stand for the content. Saving these PDFs threw before.
+                        bytes = stream.Value;
+                        code.Append("raw:");
+                    }
                     if (bytes.Length > 64 * 1024 * 1024) throw new InvalidDataException("Decoded text stream exceeds limit.");
                     code.Append(Convert.ToHexString(SHA256.HashData(bytes)));
                 }
