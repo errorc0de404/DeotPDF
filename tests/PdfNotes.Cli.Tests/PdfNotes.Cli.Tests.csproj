@@ -26,5 +26,6 @@
     <Compile Include="../PdfNotes.Tests/Pdf/*.cs" Exclude="../PdfNotes.Tests/Pdf/ImagePdfTests.cs;../PdfNotes.Tests/Pdf/SaveCompatibilityTests.cs;../PdfNotes.Tests/Pdf/TextPdfTests.cs" Link="Pdf/%(Filename)%(Extension)" />
     <Compile Include="../PdfNotes.Tests/Core/TestModels.cs;../PdfNotes.Tests/Core/ShapeTests.cs;../PdfNotes.Tests/Core/TextEditingTests.cs" Link="Core/%(Filename)%(Extension)" />
     <Compile Include="../PdfNotes.Tests/TextEngine/LineBreakerTests.cs" Link="TextEngine/LineBreakerTests.cs" />
+    <Compile Include="../PdfNotes.Tests/TestFolders.cs" Link="TestFolders.cs" />
   </ItemGroup>
 </Project>
