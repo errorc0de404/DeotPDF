@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace PdfNotes.Tests.App;
 
-/// <summary>D12 (spec 18.2): automatic backup timing, file names, files kept per document, recovery after an abnormal end.</summary>
+/// <summary>D12 (spec 18.2): automatic backup timing, file names, how many backups are kept in all, recovery after an abnormal end.</summary>
 public sealed class AutoBackupTests : IDisposable
 {
     private readonly string folder = Path.Combine(Path.GetTempPath(), "PdfNotes-tests", Guid.NewGuid().ToString("N"));
@@ -51,7 +51,7 @@ public sealed class AutoBackupTests : IDisposable
     }
 
     [Fact]
-    public void OnlyTheNewestBackupsOfEachDocumentAreKept()
+    public void TheNewestBackupsAreKeptInAll()
     {
         var store = new BackupStore(folder, () => now);
         string a = BackupStore.DocumentKey(@"C:\docs\a.pdf");
@@ -63,10 +63,12 @@ public sealed class AutoBackupTests : IDisposable
             now = now.AddMinutes(5);
             string file = store.NewFile(folder, @"C:\docs\a.pdf"); File.WriteAllText(file, "pdf"); store.Added(a, file, keep: 3); written.Add(file);
         }
-        now = now.AddMinutes(1);
-        string other = store.NewFile(folder, @"D:\other\a.pdf"); File.WriteAllText(other, "pdf"); store.Added(b, other, keep: 3);
         Assert.Equal(written.Skip(2), store.Backups(a).Select(e => e.File));
         Assert.All(written.Take(2), f => Assert.False(File.Exists(f)));
+        // The count is for all backups together (spec 18.2, 2026-11-16): another document's backup takes the oldest of a's.
+        now = now.AddMinutes(1);
+        string other = store.NewFile(folder, @"D:\other\a.pdf"); File.WriteAllText(other, "pdf"); store.Added(b, other, keep: 3);
+        Assert.Equal(written.Skip(3), store.Backups(a).Select(e => e.File));
         Assert.Equal([other], store.Backups(b).Select(e => e.File));
         Assert.True(File.Exists(unrelated)); // files the app did not write are never removed
         Assert.Equal(BackupStore.NewNotesKey, BackupStore.DocumentKey(null)); // every never-saved note is one group (D14g)
@@ -74,7 +76,7 @@ public sealed class AutoBackupTests : IDisposable
     }
 
     [Fact]
-    public void NewNoteAndCrashBackupsAreKeptPerGroupAndAnOldSessionGroupJoinsTheNewNotes()
+    public void NewNoteAndCrashBackupsCountWithTheRestAndAnOldSessionGroupJoinsTheNewNotes()
     {
         var store = new BackupStore(folder, () => now);
         // A backup of a never-saved note from before D14g, listed under its own session.
@@ -97,7 +99,32 @@ public sealed class AutoBackupTests : IDisposable
         }
         Assert.Equal(crashes.Skip(1), store.Backups(BackupStore.CrashKey).Select(e => e.File));
         Assert.False(File.Exists(Path.ChangeExtension(crashes[0], ".txt"))); // the error text went with its crash backup
-        Assert.Equal(notes.Skip(1), store.Backups(BackupStore.NewNotesKey).Select(e => e.File)); // groups do not count each other
+        Assert.Empty(store.Backups(BackupStore.NewNotesKey)); // all groups count together: the newer crash backups took their places
+    }
+
+    [Fact]
+    public void ABackupAWindowStillOffersForRecoveryIsNotDeletedByAnotherWindow()
+    {
+        // Window B's newest backup since its last save is what it would recover after a crash; window A's backups must
+        // not delete it even when it is the oldest.
+        var b = new BackupStore(folder, () => now);
+        b.Start();
+        string kept = b.NewFile(folder, @"C:\docs\b.pdf"); File.WriteAllText(kept, "pdf");
+        b.Added(BackupStore.DocumentKey(@"C:\docs\b.pdf"), kept, keep: 2);
+        b.SetRecoverable(new("b.pdf", kept, now));
+        var a = new BackupStore(folder, () => now);
+        var written = new List<string>();
+        for (int i = 0; i < 4; i++)
+        {
+            now = now.AddMinutes(5);
+            string file = a.NewFile(folder, @"C:\docs\a.pdf"); File.WriteAllText(file, "pdf"); a.Added(BackupStore.DocumentKey(@"C:\docs\a.pdf"), file, keep: 2); written.Add(file);
+        }
+        Assert.True(File.Exists(kept));
+        Assert.Equal(written.Skip(2), a.Backups(BackupStore.DocumentKey(@"C:\docs\a.pdf")).Select(e => e.File));
+        b.End();
+        now = now.AddMinutes(5);
+        string last = a.NewFile(folder, @"C:\docs\a.pdf"); File.WriteAllText(last, "pdf"); a.Added(BackupStore.DocumentKey(@"C:\docs\a.pdf"), last, keep: 2);
+        Assert.False(File.Exists(kept)); // B ended normally: its backup counts like any other
     }
 
     [Fact]

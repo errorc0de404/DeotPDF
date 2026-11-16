@@ -98,18 +98,43 @@ public sealed partial class BackupStore
     /// <summary>Before D14g each never-saved note had its own group ("session:…"); they all count as the new notes now.</summary>
     private static string Group(string key) => key.StartsWith("session:", StringComparison.Ordinal) ? NewNotesKey : key;
 
-    /// <summary>Records a written backup and deletes the oldest backups of its group beyond <paramref name="keep"/> (at least the newest stays).</summary>
+    /// <summary>
+    /// Records a written backup under its <paramref name="group"/> and deletes the oldest backups beyond
+    /// <paramref name="keep"/> in all (spec 18.2): every document, the new notes and the crash backups count together.
+    /// The backup just written stays, and so does any backup a window still offers for recovery (the newest since its
+    /// last save, in its session marker): another window's backups must not take that away.
+    /// </summary>
     public void Added(string group, string file, int keep)
     {
         var entries = ReadIndex().Where(e => File.Exists(e.File) && !FilePaths.Same(e.File, file)).ToList();
         entries.Add(new(group, Path.GetFullPath(file), clock()));
-        var own = entries.Where(e => Group(e.Document) == group).OrderByDescending(e => e.Created).ToList();
-        foreach (var old in own.Skip(Math.Max(1, keep)))
+        var needed = RecoverableFiles();
+        var all = entries.OrderByDescending(e => e.Created).ToList();
+        foreach (var old in all.Skip(Math.Max(1, keep)))
         {
+            if (FilePaths.Same(old.File, file) || needed.Any(f => FilePaths.Same(f, old.File))) continue;
             try { Delete(old.File); entries.Remove(old); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { } // retried with the next backup
         }
         WriteJson(IndexPath, entries);
+    }
+
+    /// <summary>The backups the session markers name for recovery: this window's, other running windows', and those of windows that ended abnormally and have not been offered yet.</summary>
+    private List<string> RecoverableFiles()
+    {
+        var files = new List<string>();
+        if (recoverable is { } own) files.Add(own.File);
+        string folder = Path.Combine(appFolder, "sessions");
+        if (!Directory.Exists(folder)) return files;
+        foreach (string marker in Directory.EnumerateFiles(folder, "*.json"))
+        {
+            try
+            {
+                if (JsonSerializer.Deserialize(File.ReadAllText(marker), BackupJson.Default.Marker) is { Recoverable: { } r }) files.Add(r.File);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or InvalidOperationException) { }
+        }
+        return files;
     }
 
     public IReadOnlyList<Entry> Backups(string group) => ReadIndex().Where(e => Group(e.Document) == group && File.Exists(e.File)).OrderBy(e => e.Created).ToList();
