@@ -1,5 +1,85 @@
 # Changelog
 
+## 1.3.0 (2026-11-16)
+
+An AI assistant on the same PC can read and write the document open in DeotPDF (experimental, off by default). Sticky notes can stay open side by side.
+
+**New**
+- AI tool access (Settings › Notes › `AI tool access`, off by default). A program on the same PC that runs `deot` can read the open document and write into it. DeotPDF asks first; access is read only, AI writing, or full editing. Each AI write is one undo step and is not saved until you save.
+- `AI` tab: show, hide or outline AI writing, erase it by page, all or the last request, select it, and a list of AI work with "Make mine".
+- After an AI write the status bar shows where it wrote, with Show and Undo. A refused AI client can be let ask again from the status bar.
+- Sticky note cards: pin several open at once (View › Open notes pins every note on the page), resize from the corner, drag by the top band (a line joins a moved card to its icon). Notes written by an AI carry a small `AI` mark. None of this is saved or undone.
+- Claude Desktop extension: `DeotPDF-1.3.0-win-x64.mcpb` and the macOS ones. It includes its own `deot` and asks for the PDF folders.
+
+**`deot` and MCP**
+- `--live` on every command that reads or writes a document works on the document open in DeotPDF, with `--doc <id>` when several are open. New commands `deot live docs|context|view|goto|flash`; `DEOT_CLIENT` names the client. MCP tools `live_docs`, `live_context`, `live_goto`, `live_flash`; document tools take `live` and `doc`, `render` takes `view`.
+- New options: `text --region x,y,w,h`, `annot list --near-text`.
+- New error codes: `LIVE_NOT_RUNNING`, `LIVE_DISABLED`, `LIVE_DOC_AMBIGUOUS`, `LIVE_DOC_NOT_FOUND`, `LIVE_CONSENT_DENIED`, `LIVE_PERMISSION`, `LIVE_UNSUPPORTED`, `LIVE_CONFLICT`, `LIVE_NOTHING_IN_VIEW` (exit 1), `LIVE_CONSENT_TIMEOUT`, `LIVE_BUSY` (exit 3), `PAGE_NOT_TRANSFORMABLE` (exit 2). New warning `AI_NOTES_HIDDEN`.
+- `deot mcp --root` takes several folders after one `--root`.
+- `render --out` must be a `.png` file.
+- `page shrink` and `page resize` refuse pages whose annotations from other apps can't move with the content (`PAGE_NOT_TRANSFORMABLE`), as the app does.
+
+**Changed**
+- Saving is faster: unchanged annotations keep their appearance and unchanged pages are written once.
+- Converting other apps' annotations is all or nothing per source PDF.
+- Touch: a finger drags a scroll bar from where it lands.
+- The theme option is named "Use system setting".
+
+**Fixed**
+- PDFs with CCITT fax or JBIG2 images (common in scans) could not be saved.
+- PDFs with deeply nested forms could not be saved.
+- A save that failed while replacing the file (network folders, sync tools) could leave the document under no name. The original is now restored.
+- One setting value this version doesn't know (for example from a newer version) reset all settings, and the next save wrote the defaults over recent files, positions and favorites.
+- Hidden AI writing was still hit by the text highlighter, the text tool and search.
+- Search did not find a word wrapped to the next line without a space.
+- Delete removed the selected annotation while the outline or the ribbon had the keyboard.
+- Backspace after Korean input was sometimes ignored.
+- macOS and Linux: saving keeps the file mode, follows symbolic links, and works where the file system refuses `chmod`.
+- `deot`: a range of two page IDs, `--expect-hash` checked against the bytes actually read, the same ID twice in `annot delete`.
+- Pen hold menu: lifting the pen no longer presses a menu item.
+
+File format: unchanged. Settings: `liveLink` and `aiHaloColor` added; older versions keep them.
+
+**한국어**
+
+같은 PC의 AI가 덧PDF에 열린 문서를 읽고 쓸 수 있습니다(실험 기능, 기본은 꺼짐). 메모 카드를 여러 장 펼쳐 둘 수 있습니다.
+
+**새 기능**
+- AI 도구 연결(설정 › 필기 › `AI 도구 연결`, 기본은 꺼짐). 같은 PC에서 `deot`를 쓰는 프로그램이 열린 문서를 읽고 필기를 씁니다. 연결 전에 덧PDF가 묻고, 권한은 읽기만 / AI 필기 쓰기 / 전체 편집. AI가 한 번 쓴 것은 실행 취소 한 단계이고, 직접 저장하기 전에는 저장되지 않습니다.
+- `AI` 탭: AI 필기 보기·숨기기·강조, 페이지·전체·마지막 요청 단위로 지우기, 선택, AI 작업 목록과 `내 필기로`.
+- AI가 쓴 뒤 상태 표시줄에 쓴 위치와 `보기`·`되돌리기`. 거절한 AI 클라이언트는 상태 표시줄에서 다시 묻게 할 수 있음.
+- 메모 카드: 여러 장 고정(보기 › 메모 펼치기는 그 페이지 메모 전부), 모서리로 크기 조절, 위쪽 띠로 옮기기(옮긴 카드는 아이콘과 선으로 이어짐). AI가 쓴 메모에 `AI` 표시. 모두 저장·실행 취소와 무관.
+- Claude Desktop 확장: `DeotPDF-1.3.0-win-x64.mcpb`와 macOS용. `deot`가 들어 있고 설치할 때 PDF 폴더를 고름.
+
+**`deot`와 MCP**
+- 문서를 읽고 쓰는 모든 명령에 `--live`(덧PDF에 열린 문서), 여러 개 열려 있으면 `--doc <id>`. 새 명령 `deot live docs|context|view|goto|flash`, 클라이언트 이름은 `DEOT_CLIENT`. MCP 도구 `live_docs`·`live_context`·`live_goto`·`live_flash`, 문서 도구에 `live`·`doc`, `render`에 `view`.
+- 새 옵션: `text --region x,y,w,h`, `annot list --near-text`.
+- 새 오류 코드: `LIVE_NOT_RUNNING`, `LIVE_DISABLED`, `LIVE_DOC_AMBIGUOUS`, `LIVE_DOC_NOT_FOUND`, `LIVE_CONSENT_DENIED`, `LIVE_PERMISSION`, `LIVE_UNSUPPORTED`, `LIVE_CONFLICT`, `LIVE_NOTHING_IN_VIEW`(종료 1), `LIVE_CONSENT_TIMEOUT`, `LIVE_BUSY`(종료 3), `PAGE_NOT_TRANSFORMABLE`(종료 2). 새 경고 `AI_NOTES_HIDDEN`.
+- `deot mcp --root` 하나 뒤에 폴더 여러 개.
+- `render --out`은 `.png` 파일만.
+- `page shrink`·`page resize`는 내용과 같이 옮길 수 없는 다른 프로그램 주석이 있는 페이지를 거절(`PAGE_NOT_TRANSFORMABLE`). 앱과 같은 검사.
+
+**바뀐 것**
+- 저장이 빨라짐: 바뀌지 않은 필기는 외형을 다시 만들지 않고, 바뀌지 않은 페이지는 한 번만 씀.
+- 다른 프로그램 주석 변환은 원본 PDF마다 전부 아니면 전무.
+- 터치: 스크롤바를 손가락이 닿은 자리에서부터 끌기.
+- 테마 항목 이름을 `시스템 설정 따르기`로.
+
+**고친 것**
+- CCITT 팩스·JBIG2 이미지가 든 PDF(스캔 문서에 흔함)가 저장되지 않던 것.
+- Form이 여러 겹 겹친 PDF가 저장되지 않던 것.
+- 파일 교체 중 저장이 실패하면(네트워크 폴더, 동기화 프로그램) 원래 이름에 파일이 남지 않을 수 있던 것. 이제 원본을 되돌림.
+- 이 버전이 모르는 설정 값 하나(새 버전이 쓴 값 등) 때문에 설정 전체가 초기화되고, 다음 저장 때 최근 문서·위치·즐겨찾기가 기본값으로 덮어써지던 것.
+- 숨긴 AI 필기가 글자 형광펜, 텍스트 도구, 검색에 걸리던 것.
+- 띄어쓰기 없이 다음 줄로 넘어간 낱말이 검색되지 않던 것.
+- 개요나 리본에 포커스가 있을 때 Delete가 선택한 필기를 지우던 것.
+- 한글 입력 뒤 Backspace가 가끔 먹지 않던 것.
+- 맥·리눅스: 저장할 때 파일 권한 유지, 심볼릭 링크 따라가기, `chmod`를 거부하는 파일 시스템에서도 저장.
+- `deot`: 페이지 ID 두 개로 쓴 범위, `--expect-hash`를 실제로 읽은 바이트로 확인, `annot delete`에 같은 ID 두 번.
+- 펜 홀드 메뉴: 펜을 뗄 때 메뉴 항목이 눌리지 않음.
+
+파일 형식: 변화 없음. 설정: `liveLink`, `aiHaloColor` 추가(예전 버전도 지우지 않음).
+
 ## 1.2.1 (2026-11-05)
 
 DeotPDF now runs on Windows, macOS and Linux. The app was rebuilt on Avalonia, and the text engine, the text box editor and `deot` are the same code on all three. Files, settings and backups carry over from 1.1. (There was no 1.2.0; the version number moved from 1.1 straight to 1.2.1.)
