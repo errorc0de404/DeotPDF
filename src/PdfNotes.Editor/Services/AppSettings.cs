@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using PdfNotes.Core.Models;
 using PdfNotes.Editor.Layout;
@@ -313,7 +314,7 @@ public sealed class AppSettings
         try
         {
             if (!File.Exists(path)) return new();
-            var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), Options) ?? new();
+            var settings = Read(File.ReadAllText(path));
             if (!Enum.IsDefined(settings.ViewMode)) settings.ViewMode = ViewMode.Continuous;
             settings.Pen ??= StyleSettings.From(StrokeStyle.DefaultPen);
             settings.Highlighter ??= StyleSettings.From(StrokeStyle.DefaultHighlighter);
@@ -356,6 +357,28 @@ public sealed class AppSettings
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or InvalidOperationException)
         {
             return new();
+        }
+    }
+
+    /// <summary>
+    /// The settings of a file's text. A value this version cannot read (a theme or tool name a newer version wrote) costs
+    /// that one setting, not all of them: the whole file used to fall back to the defaults, and the next save then wrote
+    /// those over the recent files, positions and favorites.
+    /// </summary>
+    private static AppSettings Read(string text)
+    {
+        try { return JsonSerializer.Deserialize<AppSettings>(text, Options) ?? new(); }
+        catch (JsonException) when (JsonNode.Parse(text) is JsonObject all)
+        {
+            var readable = new JsonObject();
+            foreach (var (key, value) in all)
+            {
+                var one = new JsonObject { [key] = value?.DeepClone() };
+                try { JsonSerializer.Deserialize<AppSettings>(one, Options); }
+                catch (Exception e) when (e is JsonException or NotSupportedException or InvalidOperationException) { continue; }
+                readable[key] = value?.DeepClone();
+            }
+            return JsonSerializer.Deserialize<AppSettings>(readable, Options) ?? new();
         }
     }
 

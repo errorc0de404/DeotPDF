@@ -180,6 +180,13 @@ public sealed class TextBoxEditor : Control
         e.Pointer.Capture(null);
     }
 
+    /// <summary>The caret stops blinking with the editor gone from the screen (no focus loss is raised for a removed control).</summary>
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        blink.Stop();
+    }
+
     protected override void OnGotFocus(FocusChangedEventArgs e) { base.OnGotFocus(e); Refresh(measure: false); }
 
     protected override void OnLostFocus(FocusChangedEventArgs e)

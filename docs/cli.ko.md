@@ -24,7 +24,7 @@ dotnet build PdfNotes.slnx -c Release
 dotnet run --project src/PdfNotes.Cli -c Release -- schema
 ```
 
-`deot schema`는 명령 목록, 종료 코드, 오류 코드를 보여 줍니다. `deot schema <명령>`(예: `deot schema add text`)은 그 명령의 옵션과 출력 JSON Schema를 보여 줍니다. 이 문서와 `deot schema`가 다르면 `deot schema`가 맞습니다.
+`deot schema`는 명령 목록, 종료 코드, 오류 코드를 보여 줍니다. `deot schema <명령>`(예: `deot schema add text`)은 그 명령의 옵션과 출력 JSON Schema를 보여 줍니다. 이 문서와 `deot schema`가 다르면 `deot schema`가 맞습니다. `deot live …` 명령은 여기에 나오지 않고, [아래](#열린-문서에-바로-쓰기---live-실험-기능)에 설명이 있습니다.
 
 ## 출력과 종료 코드
 
@@ -322,6 +322,7 @@ Claude Desktop은 확장 파일로 넣는 것이 쉽습니다. [Releases](https:
 | `NO_SPACE` | 2 | `space`가 빈 자리를 못 찾음 |
 | `REGION_OUTSIDE_PAGE` | 2 | `--region`이 페이지와 겹치지 않음 |
 | `PAGE_OVERFLOW` | 2 | 텍스트 상자가 페이지 밖으로 나감 |
+| `PAGE_NOT_TRANSFORMABLE` | 2 | `page shrink`·`page resize`: 내용과 같이 옮길 수 없는 다른 프로그램 주석이 있는 페이지 |
 | `TEXT_OVERFLOW` | 2 | `--no-auto-height`인데 글이 상자보다 김 |
 | `LAST_PAGE` | 2 | 페이지를 전부 지울 수는 없음 |
 | `SOURCE_KEY_KIND_MISMATCH` | 2 | 그 키는 다른 종류의 주석 것 |

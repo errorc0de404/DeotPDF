@@ -230,6 +230,13 @@ public sealed class LiveLinkTests
         string steal = $$"""{ "defaults": { "annot.delete": { "allowUntagged": true } }, "ops": [{ "op": "annot.delete", "id": "{{mine.Id}}" }] }""";
         Assert.Equal("LIVE_PERMISSION", Code(await Ask(w, Apply(steal), "LiveDenyButton")));
         Assert.NotNull(session.Current.FindAnnotation(mine.Id));
+        // However the field is spelled: apply turns AllowUntagged and allow-untagged into the same option (review 2026-11-16).
+        foreach (string field in new[] { "AllowUntagged", "allow-untagged", "allowUNTAGGED", "Allow-Untagged" })
+        {
+            string spelled = $$"""[{ "op": "annot.delete", "id": "{{mine.Id}}", "{{field}}": true }]""";
+            Assert.Equal("LIVE_PERMISSION", Code(await Ask(w, Apply(spelled)))); // refused without asking again: the user just said no to more
+            Assert.NotNull(session.Current.FindAnnotation(mine.Id));
+        }
 
         // The plan comes on standard input, never from a file the window would open; the input is exactly @live.
         string file = Path.Combine(Headless.TempFolder(), "plan.json");
@@ -252,6 +259,17 @@ public sealed class LiveLinkTests
         Assert.Equal(undo, session.UndoCount);
         Assert.Empty(session.Current.Pages[1].Annotations);
         Assert.NotEqual(hash, dry["result"]!["sourceHash"]!.GetValue<string>());
+
+        // An AI delete is undone like any edit: its tag came back before the annotation did, and Undo threw (review 2026-11-16).
+        var made = Guid.Parse(first["result"]!["ops"]![0]!["annotation"]!["id"]!.GetValue<string>());
+        var gone = await Ask(w, Apply($$"""[{ "op": "annot.delete", "id": "{{made}}" }]"""));
+        Assert.True(gone["ok"]!.GetValue<bool>(), gone.ToJsonString());
+        Assert.Null(session.Current.FindAnnotation(made));
+        Assert.True(session.Undo());
+        Assert.NotNull(session.Current.FindAnnotation(made));
+        Assert.True(Authorship.IsAi(session.Current, made));
+        Assert.True(session.Redo());
+        Assert.Null(session.Current.FindAnnotation(made));
     });
 
     [Fact]

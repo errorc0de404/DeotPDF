@@ -190,7 +190,7 @@ public static class EditablePdfReader
                         form?.Stream is not null && annot.Elements.GetString(EditablePdfKeys.AppearanceHash) == AnnotationAppearance.Hash(form) &&
                         SearchableText.Verified(document.Pages[p], annot, nameId.Value);
                 }
-                catch (Exception e) when (e is InvalidDataException or InvalidOperationException or InvalidCastException or ArgumentException or NotSupportedException or NotImplementedException) { }
+                catch (Exception e) when (e is InvalidDataException or InvalidOperationException or InvalidCastException or ArgumentException or NotSupportedException or NotImplementedException or NullReferenceException) { }
                 result.Add(new(p, i, nameId, envelope, verified));
             }
         }

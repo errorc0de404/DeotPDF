@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using PdfNotes.Core.Commands;
 using PdfNotes.Editor.Services;
@@ -46,7 +47,7 @@ public static class CliLive
             foreach (var op in plan ?? [])
             {
                 string name = op?["op"] is JsonValue n && n.TryGetValue(out string? s) ? s : "";
-                bool untagged = op?["allowUntagged"] is JsonValue v && v.TryGetValue(out bool b) && b;
+                bool untagged = op is JsonObject fields && fields.Any(IsAllowUntagged);
                 var needed = OpLevel(name.Replace('.', ' '), untagged);
                 if (needed > level) level = needed;
             }
@@ -55,9 +56,18 @@ public static class CliLive
         return IsWrite(command) ? OpLevel(command, args.Contains("--allow-untagged")) : LiveLevel.Read;
     }
 
+    /// <summary>
+    /// A field that <c>apply</c> turns into <c>--allow-untagged</c>. Judged by the same mapping <c>apply</c> uses
+    /// (<c>AllowUntagged</c> and <c>allow-untagged</c> become that option too), and anything but a plain false counts, so
+    /// no spelling gets the user's writing changed with the permission for AI writing only.
+    /// </summary>
+    private static bool IsAllowUntagged(KeyValuePair<string, JsonNode?> field) =>
+        string.Equals(Commands.ApplyCommand.Option(field.Key), "--allow-untagged", StringComparison.OrdinalIgnoreCase) &&
+        !(field.Value is JsonValue v && v.GetValueKind() == JsonValueKind.False);
+
     private static bool AllowsUntagged(JsonNode? node) => node switch
     {
-        JsonObject o => o.Any(p => p.Key == "allowUntagged" && p.Value is JsonValue v && v.TryGetValue(out bool b) && b || AllowsUntagged(p.Value)),
+        JsonObject o => o.Any(p => IsAllowUntagged(p) || AllowsUntagged(p.Value)),
         JsonArray a => a.Any(AllowsUntagged),
         _ => false,
     };

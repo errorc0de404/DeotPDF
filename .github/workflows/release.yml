@@ -49,7 +49,9 @@ jobs:
           global-json-file: global.json
 
       - name: Test
-        run: dotnet test tests/PdfNotes.Tests -c Release
+        run: |
+          dotnet test tests/PdfNotes.Tests -c Release
+          dotnet test tests/PdfNotes.Desktop.Tests -c Release
 
       - name: Build release folders
         shell: pwsh

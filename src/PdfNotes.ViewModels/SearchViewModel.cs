@@ -155,9 +155,11 @@ public sealed class SearchViewModel(MainViewModel owner) : ObservableObject
         IsSearching = true;
         var model = doc.Session.Current;
         var glyphs = owner.Glyphs;
+        // Hidden AI writing is not found (a hit would mark an empty place).
+        var searched = owner.AiNotes.IsHidden ? model with { Pages = [.. model.Pages.Select(p => owner.AiNotes.Visible(model, p))] } : model;
         try
         {
-            var found = await Task.Run(() => DocumentSearch.Run(model, glyphs.Glyphs, text, mine.Token, exact), mine.Token);
+            var found = await Task.Run(() => DocumentSearch.Run(searched, glyphs.Glyphs, text, mine.Token, exact), mine.Token);
             if (!ReferenceEquals(run, mine) || mine.IsCancellationRequested) return;
             IsSearching = false;
             Apply(found, keep ? previous : null);

@@ -93,7 +93,10 @@ public static class DocumentSearch
             // Characters cut off the paper entirely are not found; a gap they leave breaks words like a line end.
             var visible = TextLayout.Measure(box).Characters.Where(c => Visible(Corners(c.Bounds, box.Transform), paper)).ToArray();
             var found = TextSearch.Find(visible.Select(c => c.Text).ToArray(), query, i =>
-                visible[i].Line != visible[i - 1].Line || visible[i].Offset != visible[i - 1].Offset + visible[i - 1].Text.Length, matchCase);
+                // A wrapped line is not a word break by itself: a long word or Korean text broken between characters is
+                // still found as one. A hard line break or a line that wrapped at a space is.
+                visible[i].Offset != visible[i - 1].Offset + visible[i - 1].Text.Length ||
+                visible[i].Line != visible[i - 1].Line && visible[i - 1].Text is { Length: > 0 } before && char.IsWhiteSpace(before[^1]), matchCase);
             foreach (var (start, end) in found)
             {
                 var quads = visible[start..end].GroupBy(c => c.Line).Select(line =>

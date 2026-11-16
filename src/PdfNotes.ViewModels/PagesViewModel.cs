@@ -506,6 +506,7 @@ public sealed class PagesViewModel : ObservableObject
                 : PageTransforms.Shrink(m, ids, request.Percent, request.Alignment, request.FreePosition));
         }
         catch (ArgumentException) { dialogs.Tell(texts.Get("page.badTransform"), NoticeKind.Information); return false; }
+        catch (KeyNotFoundException) { return false; } // a page chosen in the window was deleted meanwhile (an AI client's write)
         catch (NotSupportedException error) { dialogs.Tell(texts.Get(error.Message), NoticeKind.Information); return false; } // Pdf reports a language pack key
     }
 
@@ -600,7 +601,7 @@ public sealed class PagesViewModel : ObservableObject
     /// </summary>
     public bool Paste()
     {
-        if (ForeignPages() is { } session) { LastForeignPaste = PasteForeignAsync(session); return true; }
+        if (ForeignPages() is { } session) { Fire.AndReport(LastForeignPaste = PasteForeignAsync(session)); return true; }
         if (Document is null || pageClipboard is not { } copied || !copied.CanPasteInto(Document.Session.Current)) return false;
         Guid[] ids = [];
         int at = ActivePageIndex + 1;

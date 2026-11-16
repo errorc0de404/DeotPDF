@@ -116,7 +116,7 @@ dotnet test PdfNotes.slnx -c Release --no-build
 dotnet run --project src/PdfNotes.Desktop -c Release -- path/to/file.pdf
 ```
 
-The lock files cover Windows, macOS and Linux, so `dotnet restore --locked-mode` works on each. The Android app is a separate solution (`PdfNotes.Android.slnx`, needs the Android workload). [CONTRIBUTING.md](CONTRIBUTING.md) has the layout of the code and the rules it follows.
+The lock files cover Windows, macOS and Linux, so `dotnet restore --locked-mode` works on each. The Android app is a separate solution (`PdfNotes.Android.slnx`, needs the Android workload); it is not part of the releases yet. [CONTRIBUTING.md](CONTRIBUTING.md) has the layout of the code and the rules it follows.
 
 To build the release packages for one system (they land in `artifacts/release`), use PowerShell:
 
@@ -130,7 +130,8 @@ Releases are built the same way by GitHub Actions (`.github/workflows/release.ym
 
 | Folder | What's in it |
 |---|---|
-| `src/PdfNotes.Desktop` | The app (Avalonia): windows, ribbon, canvas, dialogs |
+| `src/PdfNotes.Desktop` | The desktop app: its window and what it takes from the system |
+| `src/PdfNotes.UI` | The view (Avalonia) the desktop and Android apps share: ribbon, canvas, dialogs |
 | `src/PdfNotes.ViewModels` | What the windows show and do, without a UI library |
 | `src/PdfNotes.Editor` | Tools, sessions, settings, search, backups |
 | `src/PdfNotes.Core` | Document model, geometry, edit commands, undo/redo, serialization |
@@ -138,7 +139,8 @@ Releases are built the same way by GitHub Actions (`.github/workflows/release.ym
 | `src/PdfNotes.Text`, `src/PdfNotes.Text.Skia` | Text layout (Skia and HarfBuzz) shared by the screen, saved PDFs and the CLI |
 | `src/PdfNotes.TextEditor`, `src/PdfNotes.TextEditor.Avalonia` | The text box editor and its IME handling |
 | `src/PdfNotes.Render.Skia` | Drawing annotations on screen |
-| `src/PdfNotes.Cli` | The `deot` command-line tool |
+| `src/PdfNotes.Commands`, `src/PdfNotes.Cli` | The `deot` commands, and the command-line tool and MCP server that run them |
+| `src/PdfNotes.Android` | The Android tablet app (in progress, not in the releases yet) |
 | `tests/` | Unit and integration tests, and the app's window tests (Avalonia.Headless) |
 | `docs/` | CLI guide, and [the format of the editing data stored in PDFs](docs/file-format.md) (Korean) |
 
@@ -271,7 +273,7 @@ dotnet test PdfNotes.slnx -c Release --no-build
 dotnet run --project src/PdfNotes.Desktop -c Release -- 열고싶은파일.pdf
 ```
 
-잠금 파일에 윈도우·맥·리눅스가 모두 들어 있어서 어느 OS에서든 `dotnet restore --locked-mode`가 됩니다. 안드로이드 앱은 솔루션이 따로 있습니다(`PdfNotes.Android.slnx`, 안드로이드 워크로드 필요). 코드 구조와 지켜야 할 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md)에 적어 두었습니다.
+잠금 파일에 윈도우·맥·리눅스가 모두 들어 있어서 어느 OS에서든 `dotnet restore --locked-mode`가 됩니다. 안드로이드 앱은 솔루션이 따로 있고(`PdfNotes.Android.slnx`, 안드로이드 워크로드 필요), 아직 배포 파일에는 없습니다. 코드 구조와 지켜야 할 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md)에 적어 두었습니다.
 
 배포용 패키지는 PowerShell로 만듭니다(`artifacts/release`에 생김).
 

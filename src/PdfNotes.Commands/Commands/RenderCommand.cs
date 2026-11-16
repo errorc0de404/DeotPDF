@@ -27,6 +27,8 @@ public static class RenderCommand
         string output = CliPaths.Full(args.Required("--out"));
         if (FilePaths.Same(output, CliPaths.Full(input)))
             throw new CliException("SAME_AS_INPUT", "The output path is the input file.");
+        // render writes a PNG and nothing else: an --out naming another file would replace it with one.
+        if (!output.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) throw CliException.Invalid("--out is a .png file.");
         var filter = AnnotationFilter(args.Value("--annotations") ?? "all");
         if (args.Flag("--grid"))
         {

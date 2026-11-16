@@ -74,7 +74,10 @@ public static class LiveLink
                         : Error("INVALID_ARGUMENT", "A request is one JSON object per line.");
                 }
                 catch (JsonException e) { answer = Error("INVALID_ARGUMENT", $"The request is not JSON: {e.Message}"); }
-                await writer.WriteLineAsync(answer.ToJsonString());
+                // A client that sends requests and never reads the answers would hold this connection for good.
+                using var sending = CancellationTokenSource.CreateLinkedTokenSource(stop);
+                sending.CancelAfter(TimeSpan.FromSeconds(30));
+                await writer.WriteLineAsync(answer.ToJsonString().AsMemory(), sending.Token);
             }
         }
         catch (OperationCanceledException) { } // the window closes, or the client sent nothing in time

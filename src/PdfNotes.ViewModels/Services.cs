@@ -121,6 +121,7 @@ public static class MainViewModels
         main.LiveLink = new LiveLinkViewModel(main, app.LiveCommands, screen.Viewport, screen.Ui, app.Time, screen.Dialogs);
         main.AiNotes = new AiNotesViewModel(main, screen.Dialogs, screen.Viewport);
         main.AiNotes.ViewChanged += () => { main.NoteCard.Commit(); main.NoteCard.Sync(); }; // hidden AI notes show no cards (spec 24.9)
+        main.AiNotes.ViewChanged += () => main.Search.Schedule(keep: true); // and are not found
         main.Assembled();
         return main;
     }

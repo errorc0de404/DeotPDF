@@ -67,6 +67,21 @@ public sealed class SearchTests : IDisposable
     }
 
     [Fact]
+    public void AWordWrappedWithoutASpaceIsStillOneWord()
+    {
+        // A narrow box breaks a long word and Korean text between characters: the wrap is not a word break (review 2026-11-16).
+        var page = NewPageSpec.Default.CreateDocument().Pages[0];
+        var word = Box("abcdefghijklmnopqrstuvwxyz", 50, 100, width: 90);
+        var korean = Box("가나다라마바사아자차카타파하", 50, 300, width: 90);
+        var spaced = Box("alpha beta gamma delta", 50, 500, width: 90);
+        page = page with { Annotations = [word, korean, spaced] };
+        Assert.True(Assert.Single(DocumentSearch.SearchPage(page, [], "abcdefghijklmnopqrstuvwxyz")).Quads.Length > 1);
+        Assert.True(Assert.Single(DocumentSearch.SearchPage(page, [], "가나다라마바사아자차카타파하")).Quads.Length > 1);
+        Assert.Single(DocumentSearch.SearchPage(page, [], "alpha beta gamma delta")); // a wrap at a space is one space
+        Assert.Empty(DocumentSearch.SearchPage(page, [], "alphabeta"));
+    }
+
+    [Fact]
     public void PdfTextIsFoundInPageOrderAndFollowsPageTransforms()
     {
         string path = Path.Combine(folder, "source.pdf");

@@ -83,7 +83,7 @@ public sealed class HighlighterTool(ICanvasView view, Func<DocumentSession?> ses
     }
 
     /// <summary>Annotations this tool passes over (hidden AI writing).</summary>
-    public AnnotationMask Mask { get; set; } = AnnotationMask.None;
+    public AnnotationMask Mask { get => text.Mask; set => text.Mask = value; }
 
     /// <summary>The topmost unlocked highlighter result under a viewport point (free highlight stroke, glyph highlight or markup).</summary>
     private Guid? ExistingAt(Point2 viewportPoint)

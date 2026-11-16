@@ -238,6 +238,7 @@ public static class AnnotCommand
             foreach (string id in ids.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Distinct())
             {
                 var found = Find(doc, id);
+                if (targets.Any(t => t.Annotation.Id == found.Annotation.Id)) continue; // the same ID written twice, in another case or form
                 Protect(doc, found.Annotation, args);
                 targets.Add(found);
             }
@@ -260,14 +261,16 @@ public static class AnnotCommand
 
         var deleted = CliJson.Array(targets.Select(t => (JsonNode?)Ref(doc, t.Page, t.Annotation)));
         var operations = new List<EditOperation>();
+        var removed = targets.Select(t => t.Annotation.Id).ToHashSet();
+        // Tags first: Undo runs backwards and must put an annotation back before its tag (as Authorship.Erase does).
+        // After the removals, Undo of an AI delete in the open document threw.
+        foreach (var id in removed)
+            if (model.TagOf(id) is { } tag) operations.Add(new SetTagOperation(id, tag, null));
         foreach (var (page, a) in targets.OrderBy(t => model.IndexOfPage(t.Page.Id)).ThenByDescending(t => t.Page.IndexOf(t.Annotation.Id)))
             operations.Add(new RemoveAnnotationOperation(page.Id, page.IndexOf(a.Id), a));
-        var removed = targets.Select(t => t.Annotation.Id).ToHashSet();
         var stillUsed = model.AllAnnotations.Where(a => !removed.Contains(a.Id)).OfType<ImageAnnotation>().Select(i => i.ResourceId).ToHashSet();
         foreach (var resource in targets.Select(t => t.Annotation).OfType<ImageAnnotation>().Select(i => i.ResourceId).Distinct())
             if (!stillUsed.Contains(resource) && model.Resources.TryGetValue(resource, out var r)) operations.Add(new RemoveResourceOperation(r));
-        foreach (var id in removed)
-            if (model.TagOf(id) is { } tag) operations.Add(new SetTagOperation(id, tag, null));
         if (operations.Count > 0) doc.Document.Session.Execute(new EditCommand("undo.delete", operations));
         result["count"] = targets.Count;
         result["deleted"] = deleted;

@@ -130,9 +130,13 @@ internal static class SearchableText
     {
         var code = new StringBuilder(); int objects = 0;
         var active = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
+        // A page background nests deeper than a text layer (forms in forms, soft masks, fonts under them): at 20 saving
+        // such a PDF failed every time. The object count still bounds the walk.
+        int maxDepth = background ? 256 : 20;
+        var streams = background ? new Dictionary<PdfDictionary, string>(ReferenceEqualityComparer.Instance) : null;
         void Write(PdfItem item, int depth)
         {
-            if (++objects > 1_000_000 || depth > 20) throw new InvalidDataException("Text layer resource graph exceeds limits.");
+            if (++objects > 1_000_000 || depth > maxDepth) throw new InvalidDataException("Text layer resource graph exceeds limits.");
             if (item is PdfReference reference) { Write(reference.Value ?? throw new InvalidDataException("Missing text resource."), depth + 1); return; }
             if (item is PdfDictionary dictionary)
             {
@@ -145,8 +149,10 @@ internal static class SearchableText
                     if (background && (key is "/P" or "/Parent" or "/Prev" or "/Next" || key == "/XObject" && dictionary.Elements.GetDictionary(key)?.Elements.Count == 0)) continue;
                     code.Append(key).Append(':'); Write(dictionary.Elements[key] ?? throw new InvalidDataException("Missing text dictionary value."), depth + 1); code.Append(';');
                 }
-                if (dictionary.Stream is { } stream)
+                if (dictionary.Stream is not null && streams is not null && streams.TryGetValue(dictionary, out string? known)) code.Append(known);
+                else if (dictionary.Stream is { } stream)
                 {
+                    int from = code.Length;
                     if (stream.Length > 64 * 1024 * 1024) throw new InvalidDataException("Text stream exceeds limit.");
                     byte[] bytes;
                     try { bytes = stream.UnfilteredValue; }
@@ -159,6 +165,7 @@ internal static class SearchableText
                     }
                     if (bytes.Length > 64 * 1024 * 1024) throw new InvalidDataException("Decoded text stream exceeds limit.");
                     code.Append(Convert.ToHexString(SHA256.HashData(bytes)));
+                    streams?[dictionary] = code.ToString(from, code.Length - from); // a font or image many objects share: decoded once
                 }
                 code.Append('}'); if (background) active.Remove(dictionary); return;
             }

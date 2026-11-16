@@ -95,12 +95,26 @@ public static class PageCommand
         return before.Keys;
     });
 
+    /// <summary>
+    /// The pages' content can be moved: what the app checks before a shrink or resize. Without it a page with another
+    /// app's annotation across its edge was changed and then failed to draw and to save.
+    /// </summary>
+    private static void Placeable(CliDocument doc, IEnumerable<Page> pages)
+    {
+        try { PdfNotes.Pdf.Writing.PagePlacementValidation.Validate(doc.Document.Sources, pages.Select(p => p.Setup)); }
+        catch (Exception e) when (e is NotSupportedException or ArgumentException or InvalidDataException or InvalidOperationException)
+        {
+            throw new CliException("PAGE_NOT_TRANSFORMABLE", "A page holds annotations of another app that cannot be moved with its content.", ExitCodes.Unsatisfiable);
+        }
+    }
+
     public static readonly CliOp Shrink = Op("page shrink", "Shrinks page content with its annotations", ["--page", "--pages", "--scale", "--anchor"], [], (args, doc, result) =>
     {
         var pages = Targets(doc, args);
         double scale = args.Number("--scale", double.NaN, 0.01, 1);
         if (!args.Has("--scale")) throw CliException.Invalid("Option --scale is required (0.01–1, e.g. 0.8 for 80%).");
         var before = pages.ToDictionary(p => p.Id, p => p.Setup);
+        Placeable(doc, pages);
         var (command, changes) = PageTransforms.ShrinkWithChanges(doc.Model, before.Keys, scale * 100, Anchor(args));
         doc.Document.Session.Execute(command);
         result["pageTransforms"] = Transforms(doc, pages, before, changes);
@@ -118,6 +132,7 @@ public static class PageCommand
             _ => throw CliException.Invalid("--mode takes fit (shrink the content to fit) or clip (keep its size)."),
         };
         var before = pages.ToDictionary(p => p.Id, p => p.Setup);
+        Placeable(doc, pages);
         var (command, changes) = PageTransforms.ResizeWithChanges(doc.Model, before.Keys, Units.PointsToMillimeters(w), Units.PointsToMillimeters(h), mode, Anchor(args));
         doc.Document.Session.Execute(command);
         result["pageTransforms"] = Transforms(doc, pages, before, changes);

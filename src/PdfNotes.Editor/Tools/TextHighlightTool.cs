@@ -65,7 +65,7 @@ public sealed class TextHighlightTool(ICanvasView view, Func<DocumentSession?> s
         // stack copies of the word highlight until the text vanished under it (D09 leftover, "98%").
         if (pointer.ClickCount >= 3) return false;
         if (pointer.ClickCount == 2) return HighlightWord(page, at.PageIndex, at.PagePoint, boxTarget, tolerance);
-        pressed = page.Annotations.LastOrDefault(a => a is PdfTextHighlight { Locked: false } or PdfTextMarkup { Locked: false } && AnnotationGeometry.Hit(a, at.PagePoint, 0))?.Id;
+        pressed = page.Annotations.LastOrDefault(a => a is PdfTextHighlight { Locked: false } or PdfTextMarkup { Locked: false } && !Mask.Hides(s.Current, a) && AnnotationGeometry.Hit(a, at.PagePoint, 0))?.Id;
         if (boxTarget is { } target)
         {
             if (BoxCaret(target, at.PagePoint) is not { } c) return false;
@@ -204,8 +204,11 @@ public sealed class TextHighlightTool(ICanvasView view, Func<DocumentSession?> s
     }
 
     /// <summary>Topmost unlocked text box whose laid-out rectangle contains the page point.</summary>
-    private static TextBoxAnnotation? BoxAt(Page page, Point2 p) =>
-        page.Annotations.OfType<TextBoxAnnotation>().LastOrDefault(t => !t.Locked && !t.IsBlank && AnnotationGeometry.Hit(t, p, 0, TextLayout.Bounds));
+    /// <summary>Annotations this tool passes over (hidden AI writing).</summary>
+    public AnnotationMask Mask { get; set; } = AnnotationMask.None;
+
+    private TextBoxAnnotation? BoxAt(Page page, Point2 p) => session() is not { } s ? null :
+        page.Annotations.OfType<TextBoxAnnotation>().LastOrDefault(t => !t.Locked && !t.IsBlank && !Mask.Hides(s.Current, t) && AnnotationGeometry.Hit(t, p, 0, TextLayout.Bounds));
 
     /// <summary>Caret (UTF-16 offset) in the box nearest to a page point: before the closest character, or after it past its middle.</summary>
     private static int? BoxCaret(TextBoxAnnotation box, Point2 pagePoint)

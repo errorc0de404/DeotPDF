@@ -228,7 +228,7 @@ public sealed partial class MainView
         if (Document is null || Canvas.HitTestPage(pointer.Position) is not { } anchor) return false;
         var page = Document.Session.Current.Pages[anchor.PageIndex];
         double tolerance = Canvas.PageTransform(anchor.PageIndex).DipLengthToPoints(SelectTool.PickToleranceDip);
-        var box = page.Annotations.OfType<TextBoxAnnotation>().LastOrDefault(t => AnnotationGeometry.Hit(t, anchor.PagePoint, tolerance, TextLayout.Bounds));
+        var box = page.Annotations.OfType<TextBoxAnnotation>().LastOrDefault(t => !viewModel.AiNotes.Hides(Document.Session.Current, t) && AnnotationGeometry.Hit(t, anchor.PagePoint, tolerance, TextLayout.Bounds));
         if (box is null || box.Locked) return false;
         SetTool(ToolKind.Select);
         tools.Return = ToolKind.Text;

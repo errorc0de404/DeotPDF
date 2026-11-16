@@ -25,7 +25,9 @@ public static class SafeFileSaver
         if (!Directory.Exists(folder)) throw new SaveFailedException(SaveFailure.FolderMissing, "The target folder does not exist.");
         // macOS and Linux replace by renaming, which a read-only file does not stop (Windows refuses): refuse it first.
         if (File.Exists(target) && new FileInfo(target).IsReadOnly) throw new SaveFailedException(SaveFailure.AccessDenied, "The file is read-only.");
-        string temporary = Path.Combine(folder, $"~{Path.GetFileName(target)}.{Guid.NewGuid():N}.tmp");
+        // Short names: with the file's own name in them, a long Korean name went past the 255 bytes a name may have.
+        string id = Guid.NewGuid().ToString("N");
+        string temporary = Path.Combine(folder, $"~{id}.tmp"), backup = Path.Combine(folder, $"~{id}.bak");
         try
         {
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, FileOptions.WriteThrough))
@@ -46,7 +48,17 @@ public static class SafeFileSaver
                 try { File.SetUnixFileMode(temporary, File.GetUnixFileMode(target)); }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
             }
-            if (File.Exists(target)) File.Replace(temporary, target, null, ignoreMetadataErrors: true);
+            if (File.Exists(target))
+            {
+                // With a backup name the original is never gone: without one, a replace that fails half way (network
+                // shares, a file a sync tool holds) can leave neither the original nor the new file under the name.
+                try { File.Replace(temporary, target, backup, ignoreMetadataErrors: true); }
+                catch (IOException) when (!File.Exists(target) && File.Exists(backup))
+                {
+                    File.Move(backup, target); // the original back under its name; the save failed
+                    throw;
+                }
+            }
             else File.Move(temporary, target);
         }
         catch (SaveFailedException) { throw; }
@@ -56,6 +68,9 @@ public static class SafeFileSaver
         finally
         {
             try { if (File.Exists(temporary)) File.Delete(temporary); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            // The backup goes only while the file is there under its name.
+            try { if (File.Exists(backup) && File.Exists(target)) File.Delete(backup); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         }
     }

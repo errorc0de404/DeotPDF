@@ -24,7 +24,7 @@ dotnet build PdfNotes.slnx -c Release
 dotnet run --project src/PdfNotes.Cli -c Release -- schema
 ```
 
-`deot schema` lists every command, the exit codes and the error codes. `deot schema <command>` (for example `deot schema add text`) gives that command's options and a JSON Schema for its output. When this guide and `deot schema` disagree, `deot schema` is right.
+`deot schema` lists every command, the exit codes and the error codes. `deot schema <command>` (for example `deot schema add text`) gives that command's options and a JSON Schema for its output. When this guide and `deot schema` disagree, `deot schema` is right. The `deot live …` commands are not in it; they are described [below](#working-on-the-open-document---live-experimental).
 
 ## Output and exit codes
 
@@ -322,6 +322,7 @@ The text of every result is exactly the JSON the command prints, and a failed co
 | `NO_SPACE` | 2 | `space` found nothing |
 | `REGION_OUTSIDE_PAGE` | 2 | `--region` doesn't overlap the page |
 | `PAGE_OVERFLOW` | 2 | The text box would go past the page edge |
+| `PAGE_NOT_TRANSFORMABLE` | 2 | `page shrink` or `page resize` on a page with another app's annotations that cannot move with its content |
 | `TEXT_OVERFLOW` | 2 | With `--no-auto-height`, the text is taller than the box |
 | `LAST_PAGE` | 2 | Can't delete every page |
 | `SOURCE_KEY_KIND_MISMATCH` | 2 | That source key belongs to a different kind of annotation |

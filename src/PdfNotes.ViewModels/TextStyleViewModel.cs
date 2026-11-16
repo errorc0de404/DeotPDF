@@ -201,7 +201,7 @@ public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialo
     /// <summary>A typed size (pt, kept in the input range).</summary>
     public void SetSize(string text)
     {
-        if (double.TryParse(text, out double size) && double.IsFinite(size)) Format(r => r with { SizePt = TextEditing.InputSize(size) });
+        if (double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.CurrentCulture, out double size) && double.IsFinite(size)) Format(r => r with { SizePt = TextEditing.InputSize(size) });
     }
 
     /// <summary>A font name; a font this PC does not have is reported and the fallback font (TextLayout.FallbackFont) used instead.</summary>

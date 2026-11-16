@@ -536,6 +536,9 @@ public sealed class LiveLinkViewModel : ObservableObject
         var now = granted.GetValueOrDefault((doc.Session.SessionId, client), LiveAccess.None);
         if (now < needs)
             return Refused(needs, now);
+        // What the user typed in a note card goes into the document first: the write may change or delete that note, and
+        // the card would then show the document's text over theirs.
+        main.NoteCard.Commit();
         // On the UI thread from the copy to the commit, so no edit of the user's comes in between.
         var result = commands!.Run(doc, id, args, stdin);
         var response = Wrap(result);

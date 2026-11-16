@@ -121,24 +121,27 @@ internal static class PdfNavigation
             PruneTree(tree, Gone, 0);
     }
 
-    private static void Walk(PdfDictionary node, int depth, Action<string, PdfItem> visit)
+    // A node is visited once: a broken tree whose kids point back at it would otherwise be walked 2^32 times, at every save.
+    private static void Walk(PdfDictionary node, int depth, Action<string, PdfItem> visit, HashSet<PdfDictionary>? seen = null)
     {
-        if (depth > 32) return;
+        seen ??= new(ReferenceEqualityComparer.Instance);
+        if (depth > 32 || !seen.Add(node)) return;
         if (node.Elements.GetArray("/Names") is { } pairs)
             for (int i = 0; i + 1 < pairs.Elements.Count; i += 2)
                 if (pairs.Elements[i] is PdfString name) visit(name.Value, pairs.Elements[i + 1]);
         if (node.Elements.GetArray("/Kids") is { } kids)
-            foreach (var kid in kids.Elements) if (Resolve(kid) is { } child) Walk(child, depth + 1, visit);
+            foreach (var kid in kids.Elements) if (Resolve(kid) is { } child) Walk(child, depth + 1, visit, seen);
     }
 
-    private static void PruneTree(PdfDictionary node, Func<PdfItem, bool> gone, int depth)
+    private static void PruneTree(PdfDictionary node, Func<PdfItem, bool> gone, int depth, HashSet<PdfDictionary>? seen = null)
     {
-        if (depth > 32) return;
+        seen ??= new(ReferenceEqualityComparer.Instance);
+        if (depth > 32 || !seen.Add(node)) return;
         if (node.Elements.GetArray("/Names") is { } pairs)
             for (int i = pairs.Elements.Count - 2; i >= 0; i -= 2)
                 if (gone(pairs.Elements[i + 1])) { pairs.Elements.RemoveAt(i + 1); pairs.Elements.RemoveAt(i); }
         if (node.Elements.GetArray("/Kids") is { } kids)
-            foreach (var kid in kids.Elements) if (Resolve(kid) is { } child) PruneTree(child, gone, depth + 1);
+            foreach (var kid in kids.Elements) if (Resolve(kid) is { } child) PruneTree(child, gone, depth + 1, seen);
     }
 
     private static PdfDictionary? Resolve(PdfItem? item) => item switch

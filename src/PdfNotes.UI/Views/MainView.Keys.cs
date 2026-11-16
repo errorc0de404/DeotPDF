@@ -101,9 +101,9 @@ public sealed partial class MainView
         e.Handled = mods switch
         {
             EditorModifiers.None when e.Key == Key.Escape => Escape(),
-            EditorModifiers.None when e.Key == Key.Delete && selectTool.SelectedIds.Count > 0 => Run(viewModel.Selection.Delete),
+            EditorModifiers.None when e.Key == Key.Delete && selectTool.SelectedIds.Count > 0 && IsCanvasKeyboardFocus => Run(viewModel.Selection.Delete),
             EditorModifiers.None when e.Key == Key.Enter && Canvas.IsToolActive && Canvas.Tool is IMultiClickTool multi => Run(multi.Finish), // a free polygon in progress
-            EditorModifiers.None when e.Key == Key.Space => Run(() => { if (!repeat) Canvas.SetTemporaryHand(true); }),
+            EditorModifiers.None when e.Key == Key.Space && IsCanvasKeyboardFocus => Run(() => { if (!repeat) Canvas.SetTemporaryHand(true); }),
             EditorModifiers.Control when e.Key == Key.Z => Run(Undo),
             EditorModifiers.Control when e.Key == Key.Y => Run(Redo),
             EditorModifiers.Control | EditorModifiers.Shift when e.Key == Key.Z => Run(Redo),
