@@ -506,6 +506,11 @@
                     </Button.Flyout>
                     <TextBlock x:Name="LiveIndicatorText" Foreground="{DynamicResource Accent}" Text="{Binding LiveLink.IndicatorText}" />
                 </Button>
+                <!-- AI clients the user refused on this document: pressing lets them ask again (a slip on 거절 is taken back here) -->
+                <Button x:Name="LiveDeniedButton" DockPanel.Dock="Right" Theme="{StaticResource ToolButton}" Margin="12,0,0,0" Padding="6,2" Cursor="Hand"
+                        ToolTip.Tip="{l:T live.askAgainTip}" IsVisible="{Binding LiveLink.HasDenied}" Command="{Binding LiveLink.AskAgainCommand}">
+                    <TextBlock x:Name="LiveDeniedText" Foreground="{DynamicResource Text.Muted}" Text="{Binding LiveLink.DeniedText}" />
+                </Button>
                 <TextBlock x:Name="AiHiddenText" DockPanel.Dock="Right" Text="{l:T status.aiHidden}" VerticalAlignment="Center" Margin="12,0,0,0"
                            Foreground="{DynamicResource Accent}" IsVisible="{Binding AiNotes.IsHidden}" />
                 <TextBlock x:Name="NotesHiddenText" DockPanel.Dock="Right" Text="{l:T status.notesHidden}" VerticalAlignment="Center" Margin="12,0,0,0"

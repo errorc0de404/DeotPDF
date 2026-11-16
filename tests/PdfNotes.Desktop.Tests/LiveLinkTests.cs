@@ -113,6 +113,18 @@ public sealed class LiveLinkTests
         Assert.False(live.IsConnected);
         var again = await Ask(w, Request("context"), "LiveDenyButton");
         Assert.Equal("LIVE_CONSENT_DENIED", Code(again));
+
+        // A refusal stands, and the status bar says so: pressing it lets the client ask again (a slip on 거절 is taken back).
+        Assert.Equal("LIVE_CONSENT_DENIED", Code(await Ask(w, Request("context"))));
+        Assert.False(live.IsAsking);
+        var denied = Find(w, "LiveDeniedButton");
+        Assert.True(denied.IsVisible);
+        Assert.Equal(texts.Format("live.denied", ("clients", "Claude")), live.DeniedText);
+        Press(denied);
+        Assert.False(live.HasDenied);
+        Assert.True((await Ask(w, Request("context"), "LiveReadButton"))["ok"]!.GetValue<bool>());
+        Assert.True(live.IsConnected);
+        Assert.False(live.HasDenied);
     });
 
     [Fact]

@@ -118,6 +118,26 @@ public sealed class LiveLinkViewModel : ObservableObject
 
     public bool IsConnected => indicatorText is not null;
 
+    /// <summary>
+    /// "AI 요청 거절함 · Claude", or null: clients the user refused on this document. A refusal stands, so without this
+    /// a slip on 거절 could only be taken back by opening the file again (nothing else shows a refused client: the AI
+    /// tab appears only for connected ones). Pressing it forgets the refusal; the client's next request asks again.
+    /// </summary>
+    public string? DeniedText { get => deniedText; private set { if (SetProperty(ref deniedText, value)) OnPropertyChanged(nameof(HasDenied)); } }
+    private string? deniedText;
+
+    public bool HasDenied => deniedText is not null;
+
+    public Command AskAgainCommand => field ??= new(() =>
+    {
+        var session = main.Document?.Session.SessionId;
+        var denied = granted.Where(g => g.Key.Session == session && g.Value == LiveAccess.None).Select(g => g.Key).ToList();
+        if (denied.Count == 0) return;
+        foreach (var key in denied) { granted.Remove(key); refused.Remove(key); }
+        main.Status = main.Texts.Format("live.askAgain", ("clients", string.Join(", ", denied.Select(k => k.Client))));
+        RefreshIndicator();
+    });
+
     // ----- after a write: [보기] [되돌리기] beside the status line (MCP_LIVE_PLAN 4) -----
 
     private AiRun? written;
@@ -246,6 +266,8 @@ public sealed class LiveLinkViewModel : ObservableObject
         var clients = granted.Where(g => g.Key.Session == session && g.Value != LiveAccess.None)
             .Select(g => $"{g.Key.Client} ({main.Texts.Get(AccessKey(g.Value))})").ToList();
         IndicatorText = clients.Count == 0 ? null : main.Texts.Format("live.connected", ("clients", string.Join(", ", clients)));
+        var denied = granted.Where(g => g.Key.Session == session && g.Value == LiveAccess.None).Select(g => g.Key.Client).ToList();
+        DeniedText = denied.Count == 0 ? null : main.Texts.Format("live.denied", ("clients", string.Join(", ", denied)));
         OnPropertyChanged(nameof(CurrentAccess));
         OnPropertyChanged(nameof(HasRead));
         OnPropertyChanged(nameof(HasAiWrite));
