@@ -4,8 +4,6 @@
 
 `deot`는 덧PDF의 명령줄 버전입니다. PDF를 읽어서 페이지마다 무엇이 어디에 있는지 알려 주고, 형광 표시, 텍스트 상자, 선, 도형, 펜 획, 이미지, 메모를 써 넣습니다. 페이지 순서나 크기도 바꿀 수 있습니다. 앱과 같은 엔진으로 쓰기 때문에 결과물은 덧PDF에서 손으로 그린 것과 똑같이 보이고, 앱에서 이어서 고칠 수 있습니다.
 
-AI 에이전트나 스크립트가 쓰라고 만든 도구라서 동작 방식이 조금 독특합니다.
-
 - 모든 명령은 표준 출력에 **JSON 하나**만 찍습니다. 로그와 오류 추적은 표준 오류로 나갑니다.
 - 오류에는 **정해진 코드**(`AMBIGUOUS_MATCH`, `PAGE_OVERFLOW` 등)가 붙습니다. 메시지 문장 말고 코드로 판단하면 됩니다.
 - `deot`는 **대신 고르지 않습니다**. 찾는 문구가 두 군데 있으면 아무거나 고르지 않고 두 후보를 담은 오류를 돌려줍니다. 어디에 무엇을 둘지는 부르는 쪽이 정합니다.
@@ -48,7 +46,7 @@ dotnet run --project src/PdfNotes.Cli -c Release -- schema
 | 3 | 파일이 잠겨 있거나, 덧PDF에서 열려 있거나, 읽은 뒤에 바뀜 |
 | 4 | 내부 오류 |
 
-메시지는 항상 영어입니다. 성공한 결과에도 `warnings`가 붙을 수 있습니다. 예를 들어 글꼴이 설치되어 있지 않으면 `FONT_FALLBACK`이 붙습니다.
+성공한 결과에도 `warnings`가 붙을 수 있습니다. 예를 들어 글꼴이 설치되어 있지 않으면 `FONT_FALLBACK`이 붙습니다.
 
 ## 좌표와 번호
 
@@ -272,9 +270,9 @@ Claude Code:
 claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\강의
 ```
 
-Claude Desktop은 확장 파일로 넣는 것이 쉽습니다. [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) 페이지에서 `DeotPDF-<버전>-win-x64.mcpb`(맥은 macOS용)를 받아 열거나 설정 > 확장 프로그램 창에 끌어다 놓고, 묻는 창에서 PDF 폴더를 고르면 됩니다. `deot`가 파일 안에 들어 있어서, 파일만 다룰 때는 덧PDF를 설치하지 않아도 됩니다. 덧PDF에 열린 문서에 바로 쓰려면 앱이 있어야 하고, 설정에서 `AI 도구 연결`을 켜 둬야 합니다.
+Claude Desktop: [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) 페이지의 확장 파일 `DeotPDF-<버전>-win-x64.mcpb`(맥은 macOS용)를 설치하고 PDF 폴더를 고릅니다. `deot`가 들어 있어 파일만 다룰 때는 덧PDF 설치가 필요 없습니다. 덧PDF에 열린 문서에 쓰려면 앱에서 `AI 도구 연결`을 켜야 합니다.
 
-직접 등록하려면 `claude_desktop_config.json`에 앱과 같이 온 `deot`를 적습니다.
+직접 등록할 때는 `claude_desktop_config.json`에 앱의 `deot`를 적습니다.
 
 ```json
 {

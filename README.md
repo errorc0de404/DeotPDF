@@ -12,22 +12,22 @@
 
 ## English
 
-DeotPDF is a free, open-source PDF note-taking app for Windows 10 and 11, macOS and Linux. You open a PDF (lecture slides, a paper, a manual) and write on it with a pen, highlighter, text boxes, shapes and images, with a mouse and keyboard or a tablet pen. When you save, you get a normal PDF back. Other PDF viewers show your notes, and DeotPDF can still edit them the next time you open the file.
+DeotPDF is a free, open-source PDF note-taking app for Windows 10 and 11, macOS and Linux. You can add pen strokes, highlights, text boxes, shapes and images to a PDF with a mouse and keyboard or a tablet pen. Files are saved as normal PDFs: other viewers show the notes, and DeotPDF can edit them again.
 
 I built it because I wanted something between a heavy PDF editor and a plain viewer: it opens fast, doesn't need an account or an internet connection, and handles Korean text input properly.
 
-The name comes from the Korean prefix 덧 (*deot*), "added on top". The original PDF stays as it is and your notes go on a layer above it.
+(The name comes from the Korean prefix 덧 (*deot*), "added on top": the notes go on a layer over the original PDF.)
 
 ### What you can do
 
 **Writing and marking up**
-- Pen and freehand highlighter with adjustable color, width and opacity. A tablet pen draws with pressure, its eraser end erases, and a resting palm is ignored
-- Highlighter that snaps to the PDF's text: highlight, underline or strikeout exactly along the words
-- Text boxes with per-character formatting (font, size, color, bold/italic/underline/strikeout, background, border) and full Korean IME support
+- Pen and freehand highlighter (color, width, opacity). Tablet pen pressure, eraser end and palm rejection
+- Text highlighter: highlight, underline and strikeout aligned to the PDF's text
+- Text boxes: per-character font, size, color, bold, italic, underline and strikeout; background and border
 - Straight lines and Bézier curves with arrowheads and dash styles; rectangles, ellipses, triangles and polygons
 - Images (PNG, JPEG, BMP) from a file, drag and drop, or the clipboard
 - Sticky notes
-- Eraser that removes whole strokes or just the part you rub over. Holding the middle mouse button erases temporarily while you're using the pen.
+- Eraser: whole strokes or an area
 
 **Selecting and editing**
 - Click, Shift-click, rectangle or lasso selection; move, resize and rotate; lock items so they stay put
@@ -41,15 +41,15 @@ The name comes from the Korean prefix 덧 (*deot*), "added on top". The original
 - Import pages from other PDFs, merge several PDFs into one, export page ranges as separate files
 
 **Reading**
-- Search the PDF text and your own text boxes (Ctrl+F)
+- Search the PDF text and your own text boxes
 - Table of contents, internal links, recent files, remembers the page and zoom you were at
-- Light and dark themes, plus an inverted "dark page" mode for reading at night
+- Light and dark themes, inverted page colors
 - Korean and English interface
 
 **Saving**
 - Saves as a standard PDF. Your notes are written as regular PDF annotations, so Chrome, Edge, Firefox and other viewers show them.
 - Re-open the file in DeotPDF and everything is still editable
-- "Flatten" export merges the notes into the page for sharing or printing elsewhere. A flattened file can't be edited in DeotPDF anymore.
+- "Flatten" export merges the notes into the page; a flattened file can't be edited in DeotPDF anymore
 - Optional automatic backups and crash recovery
 
 ### Download and run
@@ -81,7 +81,7 @@ There's no installer yet; the macOS and Linux packages include the .NET runtime.
 
 Every package also contains `deot` (`deot.exe` on Windows, `DeotPDF.app/Contents/MacOS/deot` on macOS). It uses the same engine as the app, so whatever it writes looks and behaves exactly like something you drew yourself, and you can keep editing it in DeotPDF afterwards.
 
-It was made with AI agents in mind: every command prints a single JSON object, errors come with stable codes, and `deot schema` describes every command's input and output. For example:
+Every command is meant for AI agents: it prints a single JSON object, errors come with stable codes, and `deot schema` describes each command's input and output. For example:
 
 ```powershell
 deot info lecture.pdf                                   # pages, sizes, text layer, file hash
@@ -92,15 +92,15 @@ deot add text lecture.pdf -p 3 --rect 500,60,200,0 --text "**Key point**: see fi
 deot apply lecture.pdf plan.json --dry-run --preview-dir preview   # many edits at once, all or nothing
 ```
 
-It also runs as an MCP server, so Claude Desktop, Claude Code and other MCP clients can use it as a set of tools. Access is limited to the folders you allow:
+It also runs as an MCP server for Claude Desktop, Claude Code and other MCP clients. It only touches files in the folders you allow:
 
 ```powershell
 claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\Lectures
 ```
 
-For Claude Desktop there is an extension file (`.mcpb`) on the Releases page: open it and pick your PDF folders. See the [CLI guide](docs/cli.md#mcp-server).
+A Claude Desktop extension (`.mcpb`) is on the Releases page. See the [CLI guide](docs/cli.md#mcp-server).
 
-**Working with an AI assistant side by side (experimental).** Turn on Settings › Notes › `AI tool access`, and an assistant that has `deot` (through MCP or the command line) can read the document you have open and write notes into it while you study. DeotPDF asks before letting it in, and you choose between read only, writing its own notes, or full editing. What the assistant writes is kept apart as AI notes: you can hide, highlight or erase them from the `AI` tab, or keep the ones you like as your own. Nothing is sent anywhere by DeotPDF itself. It only accepts connections from programs on your own PC, and the assistant is whatever you already run. The assistant never saves the file. Saving stays with you.
+**Working with an AI assistant side by side (experimental).** Turn on Settings › Notes › `AI tool access`, and an assistant that has `deot` (through MCP or the command line) can read the document you have open and write notes into it while you study. DeotPDF asks before letting it in, and you choose between read only, writing its own notes, or full editing. What the assistant writes is kept apart as AI notes: you can hide, highlight or erase them from the `AI` tab, or keep the ones you like as your own. Only programs on the same PC can connect.
 
 The full guide is in [docs/cli.md](docs/cli.md).
 
@@ -155,13 +155,11 @@ Built with C#, .NET 10 and [Avalonia](https://avaloniaui.net). Text and drawing 
 
 ### FAQ
 
-**Is it free?** Yes. It's open source under GPL-3.0, with no ads, account or telemetry.
-
-**Does it work offline?** Yes. The only thing that goes online is the update check, which asks GitHub for the latest version number at most once a day. DeotPDF asks you before turning it on, and you can switch it off in Settings › About. Your files and notes never leave your PC.
+**Is it free?** Yes. It's open source under GPL-3.0, with no ads, account or telemetry. The internet is used only for the update check (once a day at most, can be turned off in Settings).
 
 **Will my notes show up in other PDF readers?** Yes. They're saved as standard PDF annotations with their own appearance, so Chrome, Edge, Firefox and most other readers display them.
 
-**Does it work on macOS or Linux?** Yes, since 1.2.1. Up to 1.1 it was Windows-only (the UI was WPF); the app was rebuilt on Avalonia so the same code runs on all three. Files, settings and backups carry over from 1.1.
+**Does it work on macOS or Linux?** Yes, since 1.2.1.
 
 **Can an AI agent use it?** Yes, through `deot`. See [docs/cli.md](docs/cli.md).
 
@@ -169,22 +167,22 @@ Built with C#, .NET 10 and [Avalonia](https://avaloniaui.net). Text and drawing 
 
 ## 한국어
 
-덧PDF(DeotPDF)는 윈도우 10·11, 맥, 리눅스에서 쓰는 무료 오픈소스 PDF 필기 프로그램입니다. 강의 자료, 논문, 매뉴얼 같은 PDF를 열어서 마우스·키보드나 태블릿 펜으로 펜, 형광펜, 텍스트 상자, 도형, 이미지를 얹을 수 있습니다. 저장하면 일반 PDF가 됩니다. 다른 PDF 뷰어에서도 필기가 그대로 보이고, 덧PDF로 다시 열면 이어서 고칠 수 있습니다.
+덧PDF(DeotPDF)는 윈도우 10·11, 맥, 리눅스에서 쓰는 무료 오픈소스 PDF 필기 프로그램입니다. PDF 파일에 마우스·키보드나 태블릿 펜으로 펜, 형광펜, 텍스트 상자, 도형, 이미지를 얹을 수 있습니다. 저장 형식은 일반 PDF이고, 다른 뷰어에서도 필기가 그대로 보이고, 덧PDF로 다시 열면 이어서 고칠 수 있습니다.
 
 무거운 PDF 편집기와 단순 뷰어 사이쯤 되는 프로그램이 필요해서 만들었습니다. 빨리 열리고, 계정이나 인터넷 연결이 필요 없고, 한글 입력이 제대로 되는 것을 목표로 했습니다.
 
-원본 PDF는 건드리지 않고 그 위에 필기를 한 겹 덧붙인다고 해서 덧PDF입니다.
+(원본 PDF는 건드리지 않고 그 위에 필기를 한 겹 덧붙인다고 해서 덧PDF입니다.)
 
 ### 주요 기능
 
 **필기와 표시**
-- 펜, 자유 형광펜 (색·굵기·투명도 조절). 태블릿 펜은 필압대로 굵기가 바뀌고, 펜 뒤쪽 지우개로 지울 수 있고, 화면에 손바닥을 대도 그려지지 않습니다
-- PDF 글자에 맞춰 붙는 형광펜: 글자 위에서 그으면 형광·밑줄·취소선이 글자 줄에 딱 맞게 들어갑니다
-- 텍스트 상자: 글자마다 글꼴·크기·색·굵게·기울임·밑줄·취소선을 따로 줄 수 있고, 배경과 테두리도 넣을 수 있습니다. 한글 입력도 문제없이 됩니다
+- 펜, 자유 형광펜 (색·굵기·투명도 조절). 태블릿 펜 필압 인식, 펜 뒤쪽 지우개, 손바닥 무시 지원
+- PDF 글자에 맞춰 붙는 형광펜: 글자에 맞춘 형광·밑줄·취소선
+- 텍스트 상자: 글자마다 글꼴·크기·색·굵게·기울임·밑줄·취소선 적용 가능, 배경과 테두리
 - 직선, 곡선(화살표·점선 포함), 사각형, 타원, 삼각형, 다각형
 - 이미지 넣기 (파일, 끌어다 놓기, 클립보드 붙여넣기)
 - 스티키 메모
-- 지우개: 획 통째로 지우기, 문지른 부분만 지우기. 펜을 쓰다가 마우스 가운데 버튼을 누르고 있으면 잠깐 지우개가 됩니다
+- 지우개: 획 통째로 지우기, 영역 지우기
 
 **선택과 편집**
 - 클릭, Shift 클릭, 사각형 선택, 올가미 선택. 옮기기, 크기 조절, 회전, 잠금
@@ -198,15 +196,15 @@ Built with C#, .NET 10 and [Avalonia](https://avaloniaui.net). Text and drawing 
 - 다른 PDF에서 페이지 가져오기, 여러 PDF 합치기, 원하는 범위만 따로 PDF로 내보내기
 
 **읽기**
-- PDF 본문과 내가 쓴 텍스트 상자에서 검색 (Ctrl+F)
+- PDF 본문과 내가 쓴 텍스트 상자에서 검색
 - 목차, PDF 안의 링크, 최근 문서, 마지막으로 보던 페이지·배율 기억
-- 밝은 테마·어두운 테마, 밤에 읽기 좋은 페이지 색 반전 모드
+- 밝은 테마·어두운 테마, 페이지 색 반전 모드
 - 한국어·영어 화면
 
 **저장**
 - 표준 PDF로 저장합니다. 필기는 일반 PDF 주석으로 들어가서 크롬, 엣지, 파이어폭스 같은 다른 뷰어에서도 보입니다
 - 덧PDF로 다시 열면 전부 다시 고칠 수 있습니다
-- '필기 합친 PDF(Flatten)'로 내보내면 필기가 페이지에 아예 합쳐져서, 공유하거나 다른 프로그램에서 인쇄하기 좋습니다. 대신 이렇게 내보낸 파일은 덧PDF에서 다시 고칠 수 없습니다
+- '필기 합친 PDF(Flatten)'로 내보내면 필기가 페이지에 아예 합쳐지며, 이 경우 덧PDF에서 다시 고칠 수 없습니다
 - 자동 백업, 비정상 종료 후 복구 (설정에서 켜고 끌 수 있습니다)
 
 ### 다운로드와 실행
@@ -238,7 +236,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\register-open-with.ps1
 
 모든 패키지에 `deot`도 들어 있습니다(윈도우는 `deot.exe`, 맥은 `DeotPDF.app/Contents/MacOS/deot`). 앱과 같은 엔진을 써서, `deot`로 넣은 필기도 앱에서 직접 그린 것과 똑같이 보이고 덧PDF에서 이어서 고칠 수 있습니다.
 
-처음부터 AI 에이전트가 쓰기 좋게 만들었습니다. 모든 명령이 JSON 하나를 출력하고, 오류에는 정해진 코드가 붙고, `deot schema`로 명령마다 입력과 출력 형식을 확인할 수 있습니다. 예를 들면 이런 식입니다.
+모든 명령은 AI 에이전트의 사용을 염두에 두었습니다. JSON 하나를 출력하고, 오류에는 정해진 코드가 붙고, `deot schema`로 명령마다 입력과 출력 형식을 확인할 수 있습니다. 예를 들면 이런 식입니다.
 
 ```powershell
 deot info 강의.pdf                                       # 페이지 수·크기·글자 층·파일 해시
@@ -249,15 +247,15 @@ deot add text 강의.pdf -p 3 --rect 500,60,200,0 --text "**핵심**: 그림 2 �
 deot apply 강의.pdf plan.json --dry-run --preview-dir 미리보기   # 여러 작업을 한 번에, 하나라도 실패하면 아무것도 안 씀
 ```
 
-MCP 서버로도 띄울 수 있어서 Claude Desktop, Claude Code 같은 MCP 클라이언트에서 도구로 바로 쓸 수 있습니다. 허락한 폴더 안의 파일만 다룹니다.
+MCP 서버도 지원하며 Claude Desktop, Claude Code 같은 MCP 클라이언트에서 도구로 바로 쓸 수 있습니다. 허락한 폴더 안의 파일만 다룹니다.
 
 ```powershell
 claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\Lectures
 ```
 
-Claude Desktop에는 Releases 페이지의 `.mcpb` 파일을 열어서 넣을 수 있습니다. 자세한 것은 [CLI 설명서](docs/cli.ko.md#mcp-서버)에 있습니다.
+Claude Desktop용 확장 파일(`.mcpb`)은 Releases 페이지에 있습니다. [CLI 설명서](docs/cli.ko.md#mcp-서버) 참고.
 
-**AI와 나란히 놓고 쓰기 (실험 기능).** 설정 › 필기 › `AI 도구 연결`을 켜면, `deot`를 쓸 수 있는 AI(MCP나 명령줄)가 지금 열어 둔 문서를 읽고 거기에 바로 필기를 적어 줍니다. 공부하다가 "이 부분 설명 좀 적어 줘" 하는 식으로 쓸 수 있습니다. 연결할 때마다 덧PDF가 먼저 물어보고, 읽기만 / AI 필기 쓰기 / 전체 편집 중에서 고릅니다. AI가 쓴 것은 AI 필기로 따로 구분돼서 `AI` 탭에서 한꺼번에 숨기거나 강조하거나 지울 수 있고, 마음에 드는 것만 내 필기로 남길 수도 있습니다. 덧PDF가 어디로 뭔가를 보내는 것은 아닙니다. 내 PC 안의 프로그램이 붙는 것만 받고, AI는 쓰던 프로그램을 그대로 씁니다. AI는 파일을 저장하지 않습니다. 저장은 직접 합니다.
+**AI와 나란히 놓고 쓰기 (실험 기능).** 설정 › 필기 › `AI 도구 연결`을 켜면, `deot`를 쓸 수 있는 AI(MCP나 명령줄)가 지금 열어 둔 문서를 읽고 거기에 바로 필기를 적어 줍니다. 공부하다가 "이 부분 설명 좀 적어 줘" 하는 식으로 쓸 수 있습니다. 연결할 때마다 덧PDF가 먼저 물어보고, 읽기만 / AI 필기 쓰기 / 전체 편집 중에서 고릅니다. AI가 쓴 것은 AI 필기로 따로 구분돼서 `AI` 탭에서 한꺼번에 숨기거나 강조하거나 지울 수 있고, 마음에 드는 것만 내 필기로 남길 수도 있습니다. 같은 PC의 프로그램만 연결할 수 있습니다.
 
 자세한 내용은 [docs/cli.ko.md](docs/cli.ko.md)에 있습니다.
 
@@ -290,13 +288,11 @@ pwsh tools/package-release.ps1 -Rid win-x64     # linux-x64, osx-arm64, osx-x64�
 
 ### 자주 묻는 질문
 
-**무료인가요?** 네. GPL-3.0 오픈소스이고 광고, 계정, 사용 통계 수집이 없습니다.
-
-**인터넷 없이 되나요?** 됩니다. 인터넷을 쓰는 건 업데이트 확인 하나뿐인데, 하루에 한 번까지 GitHub에서 최신 버전 번호만 받아 옵니다. 켤지는 처음 실행할 때 묻고, 설정 › 정보에서 끌 수 있습니다. 파일이나 필기 내용은 밖으로 나가지 않습니다.
+**무료인가요?** 네. GPL-3.0 오픈소스이고 광고, 계정, 사용 통계 수집이 없습니다. 인터넷은 업데이트 확인(하루 한 번, 설정에서 끌 수 있음)에만 씁니다.
 
 **다른 PDF 뷰어에서도 필기가 보이나요?** 보입니다. 표준 PDF 주석으로 저장하기 때문에 크롬, 엣지, 파이어폭스 등 대부분의 뷰어에서 그대로 보입니다.
 
-**맥이나 리눅스에서도 되나요?** 1.2.1부터 됩니다. 1.1까지는 화면이 WPF라 윈도우 전용이었는데, 화면을 Avalonia로 다시 만들어 같은 코드가 세 시스템에서 돌아갑니다. 파일, 설정, 백업은 1.1에서 그대로 이어집니다.
+**맥이나 리눅스에서도 되나요?** 네. 1.2.1부터 지원됩니다.
 
 **AI 에이전트가 PDF에 필기하게 할 수 있나요?** `deot`로 할 수 있습니다. [docs/cli.ko.md](docs/cli.ko.md)를 보세요.
 

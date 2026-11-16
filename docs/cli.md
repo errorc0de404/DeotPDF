@@ -4,8 +4,6 @@
 
 `deot` is the command-line side of DeotPDF. It reads a PDF, tells you what's on each page and where, and writes annotations: highlights, text boxes, lines, shapes, ink, images and sticky notes. It can also rearrange pages. Everything it writes uses the app's own engine, so the result looks the same as something drawn by hand in DeotPDF, and you can keep editing it there.
 
-It was built for AI agents and scripts, which is why it works the way it does:
-
 - Every command prints **one JSON object** to standard output. Logs and stack traces go to standard error.
 - Errors have **stable codes** (`AMBIGUOUS_MATCH`, `PAGE_OVERFLOW`, ...). Decide on the code, not the message.
 - `deot` **never decides for you**. If a phrase occurs twice, you get an error listing both, not a guess. Layout decisions (where a note goes, what to highlight) stay with the caller.
@@ -48,7 +46,7 @@ Failure:
 | 3 | The file is locked, open in DeotPDF, or changed since you read it |
 | 4 | Internal error |
 
-Messages are always in English. Successful results may carry `warnings`, for example `FONT_FALLBACK` when a font isn't installed.
+Successful results may carry `warnings`, for example `FONT_FALLBACK` when a font isn't installed.
 
 ## Coordinates and numbering
 
@@ -272,9 +270,9 @@ Claude Code:
 claude mcp add deot -- C:\Tools\DeotPDF\deot.exe mcp --root C:\Users\me\Lectures
 ```
 
-Claude Desktop: the easy way is the extension file. Download `DeotPDF-<version>-win-x64.mcpb` (or the macOS one) from the [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) page, open it (or drag it onto Settings > Extensions), and pick the PDF folders when it asks. It carries its own `deot`, so DeotPDF does not have to be installed for working on files. Writing into a document open in DeotPDF does need the app, with `AI tool access` turned on in its settings.
+Claude Desktop: install the extension file `DeotPDF-<version>-win-x64.mcpb` (or the macOS one) from the [Releases](https://github.com/errorc0de404/DeotPDF/releases/latest) page and pick the PDF folders. It includes its own `deot`, so working on files does not need DeotPDF installed. Writing into a document open in DeotPDF needs the app with `AI tool access` on.
 
-Or by hand, in `claude_desktop_config.json`, with the `deot` that came with the app:
+Or by hand in `claude_desktop_config.json`, with the `deot` from the app:
 
 ```json
 {
