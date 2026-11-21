@@ -344,8 +344,6 @@
                             </StackPanel>
                             <!-- The highlighter's kind (spec 9.1): highlight / underline / strikeout -->
                             <StackPanel x:Name="MarkKindPanel" Classes="field" IsVisible="{Binding ToolStyles.MarkKindShown}">
-                                <RadioButton x:Name="MarkHighlightButton" Theme="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T highlighter.kindHighlight}" Padding="6,3"
-                                             IsChecked="{Binding ToolStyles.IsMarkHighlight, Mode=OneWay}" Command="{Binding ToolStyles.MarkKindCommand}" CommandParameter="Highlight" />
                                 <RadioButton x:Name="MarkUnderlineButton" Theme="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T markup.underline}" Padding="6,3"
                                              IsChecked="{Binding ToolStyles.IsMarkUnderline, Mode=OneWay}" Command="{Binding ToolStyles.MarkKindCommand}" CommandParameter="Underline" />
                                 <RadioButton x:Name="MarkStrikeOutButton" Theme="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T text.strikeOut}" Padding="6,3"

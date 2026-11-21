@@ -53,18 +53,18 @@ public sealed class FavoritesViewModel : ObservableObject
     public string Tip(AppSettings.FavoriteSettings? slot, int index)
     {
         if (slot is null) return texts.Get("favorites.emptyTip");
-        string name = slot.Tool != ToolKind.FreeHighlight ? texts.Get("ribbon.pen") : slot.MarkKind switch
+        string name = slot.Tool switch
         {
-            TextMarkupKind.Underline => texts.Get("markup.underline"),
-            TextMarkupKind.StrikeOut => texts.Get("text.strikeOut"),
-            _ => texts.Get("ribbon.highlighter")
+            ToolKind.FreeHighlight => texts.Get("ribbon.highlighter"),
+            ToolKind.Markup => texts.Get(slot.MarkKind == TextMarkupKind.StrikeOut ? "text.strikeOut" : "markup.underline"),
+            _ => texts.Get("ribbon.pen")
         };
         return texts.Format("favorites.tip", ("name", name), ("width", Math.Round(slot.Style.WidthPt, 1)), ("key", index + 1));
     }
 
-    /// <summary>The annotation a favorite draws: ink (pen), free highlight, or a text mark (underline, strikeout).</summary>
+    /// <summary>The annotation a favorite draws: ink (pen), free highlight, or a text mark (underline, strikeout; the markup tool).</summary>
     public static AnnotationKind Kind(AppSettings.FavoriteSettings slot) =>
-        slot.Tool != ToolKind.FreeHighlight ? AnnotationKind.Ink : slot.MarkKind is null ? AnnotationKind.FreeHighlight : AnnotationKind.TextMarkup;
+        slot.Tool switch { ToolKind.FreeHighlight => AnnotationKind.FreeHighlight, ToolKind.Markup => AnnotationKind.TextMarkup, _ => AnnotationKind.Ink };
 }
 
 /// <summary>One favorite button: what it holds, its tip, and its click, 교체 and 지우기.</summary>

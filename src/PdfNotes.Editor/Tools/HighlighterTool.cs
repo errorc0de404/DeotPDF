@@ -7,10 +7,9 @@ using PdfNotes.Editor.Layout;
 namespace PdfNotes.Editor.Tools;
 
 /// <summary>
-/// The one highlighter (spec 9.1–9.2, D14g): free highlight strokes, glyph highlights and glyph underlines/strikeouts.
+/// The highlighter (spec 9.1–9.2, D14g): free highlight strokes and glyph highlights (underline/strikeout is <see cref="ToolKind.Markup"/>).
 /// The press decides once, by where it starts: passing over text later does not change it.
 /// <list type="bullet">
-/// <item>Underline/strikeout (<paramref name="markup"/> on): always <paramref name="text"/> in markup mode; away from text it makes nothing.</item>
 /// <item>Highlight with <paramref name="snap"/> on: a press on PDF glyphs or text box characters is <paramref name="text"/>; anything else, or Alt held, a free stroke.</item>
 /// <item>Highlight with snapping off: always a free stroke.</item>
 /// </list>
@@ -18,7 +17,7 @@ namespace PdfNotes.Editor.Tools;
 /// <paramref name="select"/> instead of drawing a dot (spec 5.4).
 /// </summary>
 public sealed class HighlighterTool(ICanvasView view, Func<DocumentSession?> session, StrokeTool stroke, TextHighlightTool text,
-    Func<bool> snap, Func<bool> markup, Action<Guid> select) : ICanvasTool, IHoverTool
+    Func<bool> snap, Action<Guid> select) : ICanvasTool, IHoverTool
 {
     private ICanvasTool? active;
     private bool overText;
@@ -27,15 +26,15 @@ public sealed class HighlighterTool(ICanvasView view, Func<DocumentSession?> ses
     private double reachDip;
 
     public StrokeTool Stroke => stroke;
-    public ToolCursor? Cursor => active is not null ? active.Cursor : overText ? ToolCursor.IBeam : markup() ? ToolCursor.Arrow : stroke.Cursor;
+    public ToolCursor? Cursor => active is not null ? active.Cursor : overText ? ToolCursor.IBeam : stroke.Cursor;
     public bool IsActive => active?.IsActive == true;
 
-    private bool OnText(CanvasPointer pointer) => markup() || snap() && !pointer.Modifiers.HasFlag(InputModifiers.Alt) && text.StartsOnText(pointer);
+    private bool OnText(CanvasPointer pointer) => snap() && !pointer.Modifiers.HasFlag(InputModifiers.Alt) && text.StartsOnText(pointer);
 
     public bool PointerDown(CanvasPointer pointer)
     {
         pressed = null;
-        if (markup() || OnText(pointer))
+        if (OnText(pointer))
         {
             active = text;
         }
@@ -78,8 +77,7 @@ public sealed class HighlighterTool(ICanvasView view, Func<DocumentSession?> ses
     /// <summary>Over text the highlighter will mark the cursor is an I-beam (Alt with snapping shows the pen: a free stroke).</summary>
     public void PointerHover(Point2? position, InputModifiers modifiers)
     {
-        overText = position is { } p && (markup() || snap() && !modifiers.HasFlag(InputModifiers.Alt)) && text.StartsOnText(new(p, modifiers));
-        if (markup()) text.PointerHover(position, modifiers);
+        overText = position is { } p && snap() && !modifiers.HasFlag(InputModifiers.Alt) && text.StartsOnText(new(p, modifiers));
     }
 
     /// <summary>Annotations this tool passes over (hidden AI writing).</summary>

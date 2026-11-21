@@ -114,6 +114,21 @@ public sealed class SettingsWindowTests : IDisposable
     }
 
     [Fact]
+    public void A13HighlighterMarkupSettingOpensAsTheMarkupTool()
+    {
+        string path = Path.Combine(folder, "settings.json");
+        File.WriteAllText(path, """
+            { "markKind": "Underline", "favorites": [
+                { "tool": "FreeHighlight", "markKind": "StrikeOut", "style": { "color": "#112233", "widthPt": 2, "transparency": 0 } },
+                { "tool": "FreeHighlight", "style": { "color": "#FFE600", "widthPt": 14, "transparency": 60 } }, null, null ] }
+            """);
+        var read = AppSettings.Load(path);
+        Assert.Equal(TextMarkupKind.Underline, read.MarkKind);
+        Assert.Equal((ToolKind.Markup, (TextMarkupKind?)TextMarkupKind.StrikeOut), (read.Favorites[0]!.Tool, read.Favorites[0]!.MarkKind));
+        Assert.Equal((ToolKind.FreeHighlight, (TextMarkupKind?)null), (read.Favorites[1]!.Tool, read.Favorites[1]!.MarkKind));
+    }
+
+    [Fact]
     public void AnOlderSettingsFileGetsTheDefaults()
     {
         string path = Path.Combine(folder, "settings.json");

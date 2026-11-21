@@ -191,7 +191,7 @@ public sealed class NavigationViewModelTests : IDisposable
 
         var pen = new AppSettings.FavoriteSettings { Tool = ToolKind.Pen, Style = new() { WidthPt = 2.04 } };
         favorites.Store(0, pen);
-        var underline = new AppSettings.FavoriteSettings { Tool = ToolKind.FreeHighlight, MarkKind = TextMarkupKind.Underline, Style = new() { WidthPt = 1.5 } };
+        var underline = new AppSettings.FavoriteSettings { Tool = ToolKind.Markup, MarkKind = TextMarkupKind.Underline, Style = new() { WidthPt = 1.5 } };
         favorites.Store(2, underline);
         Assert.Same(pen, favorites.Slots[0]);
         Assert.Equal(2, rebuilt);

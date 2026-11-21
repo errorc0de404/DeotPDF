@@ -16,7 +16,7 @@ public sealed record ToolSources(
     Func<StrokeStyle> Highlighter,
     Func<bool> HighlighterSnap,
     Func<TextHighlightStyle> TextHighlight,
-    Func<(TextMarkupKind Kind, StrokeStyle Style)?> Markup,
+    Func<(TextMarkupKind Kind, StrokeStyle Style)> Markup,
     Func<StrokeStyle> Line,
     Func<LineOptions> LineOptions,
     Func<ShapeKind> ShapeKind,
@@ -42,6 +42,9 @@ public sealed class ToolSet
     public SelectTool Select { get; }
     public StrokeTool Pen { get; }
     public HighlighterTool Highlighter { get; }
+
+    /// <summary>Underline and strikeout: the glyph tool in markup mode (always text; away from text it makes nothing).</summary>
+    public TextHighlightTool Markup { get; }
     public TextTool Text { get; }
     public NoteTool Note { get; }
     public LineTool Line { get; }
@@ -76,14 +79,14 @@ public sealed class ToolSet
         Lasso = new LassoTool(canvas, session, Select);
         Shape = new ShapeTool(canvas, session, Select, sources.ShapeKind, sources.Shape, SelectFrom(ToolKind.Shape));
         Note = new NoteTool(canvas, actions.NewNote, actions.SelectNote);
-        var highlighterText = new TextHighlightTool(canvas, session, sources.Glyphs, sources.TextHighlight, SelectFrom(ToolKind.FreeHighlight), sources.Markup);
-        Highlighter = new HighlighterTool(canvas, session, highlighterStroke, highlighterText, sources.HighlighterSnap, () => sources.Markup() is not null,
-            SelectFrom(ToolKind.FreeHighlight));
+        var highlighterText = new TextHighlightTool(canvas, session, sources.Glyphs, sources.TextHighlight, SelectFrom(ToolKind.FreeHighlight));
+        Highlighter = new HighlighterTool(canvas, session, highlighterStroke, highlighterText, sources.HighlighterSnap, SelectFrom(ToolKind.FreeHighlight));
+        Markup = new TextHighlightTool(canvas, session, sources.Glyphs, sources.TextHighlight, SelectFrom(ToolKind.Markup), () => sources.Markup());
         StrokeEraser = new EraserTool(canvas, session, sources.StrokeEraserPt, EraserMode.Stroke);
         AreaEraser = new EraserTool(canvas, session, sources.AreaEraserPt, EraserMode.Area);
         // Hidden AI writing is passed over by every tool that picks annotations (MCP_LIVE_PLAN 6).
         var mask = new AnnotationMask(sources.AiNotesHidden ?? (() => false));
-        Select.Mask = Highlighter.Mask = StrokeEraser.Mask = AreaEraser.Mask = mask;
+        Select.Mask = Highlighter.Mask = Markup.Mask = StrokeEraser.Mask = AreaEraser.Mask = mask;
 
         Lasso.Selected += (_, _) => later(() =>
         {
@@ -106,6 +109,7 @@ public sealed class ToolSet
         ToolKind.Select => Select,
         ToolKind.Pen => Pen,
         ToolKind.FreeHighlight => Highlighter,
+        ToolKind.Markup => Markup,
         ToolKind.Line => Line,
         ToolKind.Curve => Curve,
         ToolKind.Lasso => Lasso,

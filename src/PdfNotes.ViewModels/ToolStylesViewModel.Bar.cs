@@ -84,17 +84,16 @@ public sealed partial class ToolStylesViewModel
     // ----- the highlighter (spec 9.1) -----
 
     public bool MarkKindShown => Bar.MarkKindShown;
-    public bool IsMarkHighlight => markKind is null;
     public bool IsMarkUnderline => markKind == TextMarkupKind.Underline;
     public bool IsMarkStrikeOut => markKind == TextMarkupKind.StrikeOut;
 
-    /// <summary>`Highlight`, `Underline` or `StrikeOut`.</summary>
-    public Command<string> MarkKindCommand => field ??= new(tag => SetMarkKind(tag switch { "Underline" => TextMarkupKind.Underline, "StrikeOut" => TextMarkupKind.StrikeOut, _ => null }));
+    /// <summary>`Underline` or `StrikeOut`.</summary>
+    public Command<string> MarkKindCommand => field ??= new(tag => SetMarkKind(tag == "StrikeOut" ? TextMarkupKind.StrikeOut : TextMarkupKind.Underline));
 
     public bool HighlighterSnapShown => Bar.Highlighter;
     public bool HighlighterSnapOn => Settings.HighlighterSnap;
 
-    /// <summary>Underline and strikeout always go on text (spec 9.1): the toggle is off for them.</summary>
+    /// <summary>The snap toggle is the highlighter's (spec 9.1); the markup tool always goes on text.</summary>
     public bool HighlighterSnapEnabled => Bar.SnapEnabled;
 
     public Command HighlighterSnapCommand => field ??= new(() => SetHighlighterSnap(!Settings.HighlighterSnap));

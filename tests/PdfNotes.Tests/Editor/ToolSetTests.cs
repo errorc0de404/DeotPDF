@@ -29,7 +29,7 @@ public sealed class ToolSetTests
     private static ToolSet Make(DocumentSession session, ToolSwitch tools, Action returned, List<string>? order = null) =>
         new(new FakeCanvas(), () => session, tools,
             new(_ => [], () => false, () => StrokeStyle.DefaultPen, () => false, () => StrokeStyle.DefaultHighlighter, () => false,
-                () => TextHighlightStyle.Default, () => null, () => StrokeStyle.DefaultPen, () => LineOptions.Default,
+                () => TextHighlightStyle.Default, () => (TextMarkupKind.Underline, StrokeStyle.DefaultMarkup), () => StrokeStyle.DefaultPen, () => LineOptions.Default,
                 () => ShapeKind.Rectangle, () => ShapeStyle.Default, () => 4, () => 12),
             new((_, _, _) => { }, _ => false, (_, _) => { }, _ => false),
             _ => { }, () => { order?.Add("return"); returned(); }, action => action(), _ => order?.Add("window"));

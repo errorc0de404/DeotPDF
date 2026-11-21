@@ -43,7 +43,7 @@ public sealed partial class MainView
         toolSet = new ToolSet(Canvas, () => Document?.Session, tools,
             new(viewModel.PageGlyphs, () => settings.PageDrag && Canvas.Mode == ViewMode.Continuous,
                 () => styles.Pen, () => settings.PenPressure, () => styles.Highlighter, () => settings.HighlighterSnap, () => styles.TextHighlightStyle,
-                () => styles.MarkKind is { } k ? (k, styles.MarkupStyle) : null, () => styles.Line, () => styles.LineOptions,
+                () => (styles.MarkKind, styles.MarkupStyle), () => styles.Line, () => styles.LineOptions,
                 () => settings.ShapeKind, () => styles.Shape, () => settings.StrokeEraserPt, () => settings.AreaEraserPt,
                 () => viewModel.AiNotes.IsHidden),
             new(BeginNewTextAtClick, SelectTextAt, CreateNote, SelectNoteAt),
@@ -51,7 +51,7 @@ public sealed partial class MainView
         styles.Attach(selectTool);
         viewModel.Selection.Attach(selectTool, CheckImage);
         selectTool.SelectionChanged += (_, _) => Canvas.RefreshOverlays();
-        Canvas.MiddleButton = () => tools.Current is ToolKind.Pen or ToolKind.FreeHighlight ? (true, settings.QuickErase ? toolSet.AreaEraser : null) : (false, null);
+        Canvas.MiddleButton = () => tools.Current is ToolKind.Pen or ToolKind.FreeHighlight or ToolKind.Markup ? (true, settings.QuickErase ? toolSet.AreaEraser : null) : (false, null);
         Canvas.PenEraser = () => toolSet.Eraser(settings.Eraser);
         Canvas.TouchOptions = () => new PointerRouterOptions { FingerDrawing = settings.FingerDrawing };
         Canvas.OverlayFor = OverlayFor;
@@ -114,7 +114,7 @@ public sealed partial class MainView
     {
         ToolKind.Lasso => new AppIcon { Glyph = "Lasso" },
         ToolKind.Pen => new AppIcon { Glyph = "Pen" },
-        ToolKind.FreeHighlight => new AppIcon { Glyph = "Highlighter" },
+        ToolKind.FreeHighlight or ToolKind.Markup => new AppIcon { Glyph = "Highlighter" },
         ToolKind.StrokeEraser or ToolKind.AreaEraser => new AppIcon { Glyph = "Eraser" },
         ToolKind.Line or ToolKind.Curve => new AppIcon { Outline = AppIcon.ShapeOutline(kind, settings.ShapeKind) },
         _ => new AppIcon { Glyph = "Select" }

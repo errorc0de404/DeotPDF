@@ -41,7 +41,7 @@ public sealed partial class ToolStylesViewModel : ObservableObject
     private StrokeStyle pen, highlighter, line, underline, strikeOut;
     private ShapeStyle shape;
     private LineOptions lineOptions;
-    private TextMarkupKind? markKind;
+    private TextMarkupKind markKind;
     private bool highlighterAuto, shapeFillTarget = true;
     private List<RgbColor> userColors;
     private RgbColor noteColor = new(0xFF, 0xD5, 0x4F);
@@ -59,7 +59,7 @@ public sealed partial class ToolStylesViewModel : ObservableObject
         shape = s.Shape.ToStyle();
         underline = s.Underline?.ToStyle(StrokeStyle.DefaultMarkup, AnnotationKind.TextMarkup) ?? StrokeStyle.DefaultMarkup;
         strikeOut = s.StrikeOut?.ToStyle(StrokeStyle.DefaultMarkup, AnnotationKind.TextMarkup) ?? StrokeStyle.DefaultMarkup;
-        markKind = s.MarkKind;
+        markKind = s.MarkKind ?? TextMarkupKind.Underline;
         if (RgbColor.TryParse(s.NoteColor, out var savedNote)) noteColor = savedNote;
     }
 
@@ -90,8 +90,8 @@ public sealed partial class ToolStylesViewModel : ObservableObject
     public ShapeStyle Shape => shape;
     public RgbColor NoteColor => noteColor;
 
-    /// <summary>What the highlighter makes now (spec 9.1): null for highlights, or underline / strikeout.</summary>
-    public TextMarkupKind? MarkKind => markKind;
+    /// <summary>What the markup tool makes now (spec 9.1): underline or strikeout.</summary>
+    public TextMarkupKind MarkKind => markKind;
 
     /// <summary>The style of the current underline or strikeout kind (each kind remembers its own).</summary>
     public StrokeStyle MarkupStyle => markKind == TextMarkupKind.StrikeOut ? strikeOut : underline;
@@ -140,7 +140,8 @@ public sealed partial class ToolStylesViewModel : ObservableObject
     public (StrokeStyle Style, AnnotationKind Kind)? StyleTarget => Current switch
     {
         ToolKind.Pen => (pen, AnnotationKind.Ink),
-        ToolKind.FreeHighlight => markKind is null ? (highlighter, AnnotationKind.FreeHighlight) : (MarkupStyle, AnnotationKind.TextMarkup),
+        ToolKind.FreeHighlight => (highlighter, AnnotationKind.FreeHighlight),
+        ToolKind.Markup => (MarkupStyle, AnnotationKind.TextMarkup),
         ToolKind.Line or ToolKind.Curve => (SelectedLine is { } l ? StrokeStyle.Of(l) : line, AnnotationKind.Line),
         ToolKind.Note => (new StrokeStyle(noteColor, StrokeStyle.DefaultPen.WidthPt, 0), AnnotationKind.Note),
         ToolKind.Shape => (ShapeStroke(SelectedShape?.Style ?? shape), AnnotationKind.Shape),
@@ -164,7 +165,7 @@ public sealed partial class ToolStylesViewModel : ObservableObject
             var selected = StyleSelection;
             bool eraser = Current is ToolKind.StrokeEraser or ToolKind.AreaEraser;
             bool highlighterTool = Current == ToolKind.FreeHighlight;
-            bool highlight = highlighterTool && markKind is null || selected.Length > 0 && selected.All(a => a is PdfTextHighlight);
+            bool highlight = highlighterTool || selected.Length > 0 && selected.All(a => a is PdfTextHighlight);
             // A sticky note has a color only (spec 24.9); an area-eraser piece keeps its shape: its width is fixed.
             bool colorOnly = Current == ToolKind.Note || selected.Length > 0 && selected.All(a => a is StickyNote);
             bool fixedWidth = selected.Length > 0 && selected.All(a => a is StrokeAnnotation { IsOutlined: true });
@@ -172,7 +173,7 @@ public sealed partial class ToolStylesViewModel : ObservableObject
             // Automatic glyph height leaves no width to set on selected glyph highlights; the highlighter's width still
             // sets its free strokes (spec 9.1).
             bool widthEnabled = !fixedWidth && !colorOnly && !(highlight && !highlighterTool && autoChecked);
-            return new(target, eraser, StyleMixed, highlighterTool, highlighterTool, markKind is null, highlight, autoChecked,
+            return new(target, eraser, StyleMixed, highlighterTool, Current == ToolKind.Markup, highlighterTool, highlight, autoChecked,
                 !colorOnly, widthEnabled, OptionLines.Length > 0 || Current is ToolKind.Line or ToolKind.Curve, Current == ToolKind.Shape || OptionShapes.Length > 0);
         }
     }
@@ -242,11 +243,11 @@ public sealed partial class ToolStylesViewModel : ObservableObject
     {
         switch (Current)
         {
-            case ToolKind.FreeHighlight when markKind == TextMarkupKind.StrikeOut:
+            case ToolKind.Markup when markKind == TextMarkupKind.StrikeOut:
                 strikeOut = toolChange(strikeOut).ClampFor(AnnotationKind.TextMarkup);
                 Settings.StrikeOut = AppSettings.StyleSettings.From(strikeOut);
                 break;
-            case ToolKind.FreeHighlight when markKind == TextMarkupKind.Underline:
+            case ToolKind.Markup:
                 underline = toolChange(underline).ClampFor(AnnotationKind.TextMarkup);
                 Settings.Underline = AppSettings.StyleSettings.From(underline);
                 break;
@@ -310,7 +311,7 @@ public sealed partial class ToolStylesViewModel : ObservableObject
     /// <summary>Glyph highlight height: automatic (glyph height) or the width as the manual height.</summary>
     public void SetHighlightAuto(bool auto)
     {
-        if (Current == ToolKind.FreeHighlight && markKind is null)
+        if (Current == ToolKind.FreeHighlight)
         {
             highlighterAuto = auto;
             Settings.HighlighterAuto = auto;
@@ -324,8 +325,8 @@ public sealed partial class ToolStylesViewModel : ObservableObject
         Show();
     }
 
-    /// <summary>Chooses what the highlighter makes: a highlight, an underline or a strikeout. App setting.</summary>
-    public void SetMarkKind(TextMarkupKind? kind)
+    /// <summary>Chooses what the markup tool makes: an underline or a strikeout. App setting.</summary>
+    public void SetMarkKind(TextMarkupKind kind)
     {
         markKind = kind;
         Settings.MarkKind = kind;
@@ -447,24 +448,25 @@ public sealed partial class ToolStylesViewModel : ObservableObject
     /// <summary>Takes a favorite's style into its tool (the highlighter with its kind). The view then switches to <see cref="AppSettings.FavoriteSettings.Tool"/>.</summary>
     public void UseFavorite(AppSettings.FavoriteSettings favorite)
     {
-        if (favorite.Tool == ToolKind.FreeHighlight)
+        if (favorite.Tool == ToolKind.Markup)
         {
-            markKind = Settings.MarkKind = favorite.MarkKind;
-            switch (favorite.MarkKind)
+            markKind = favorite.MarkKind ?? TextMarkupKind.Underline;
+            Settings.MarkKind = markKind;
+            if (markKind == TextMarkupKind.StrikeOut)
             {
-                case TextMarkupKind.Underline:
-                    underline = favorite.Style.ToStyle(StrokeStyle.DefaultMarkup, AnnotationKind.TextMarkup);
-                    Settings.Underline = AppSettings.StyleSettings.From(underline);
-                    break;
-                case TextMarkupKind.StrikeOut:
-                    strikeOut = favorite.Style.ToStyle(StrokeStyle.DefaultMarkup, AnnotationKind.TextMarkup);
-                    Settings.StrikeOut = AppSettings.StyleSettings.From(strikeOut);
-                    break;
-                default:
-                    highlighter = favorite.Style.ToStyle(StrokeStyle.DefaultHighlighter, AnnotationKind.FreeHighlight);
-                    Settings.Highlighter = AppSettings.StyleSettings.From(highlighter);
-                    break;
+                strikeOut = favorite.Style.ToStyle(StrokeStyle.DefaultMarkup, AnnotationKind.TextMarkup);
+                Settings.StrikeOut = AppSettings.StyleSettings.From(strikeOut);
             }
+            else
+            {
+                underline = favorite.Style.ToStyle(StrokeStyle.DefaultMarkup, AnnotationKind.TextMarkup);
+                Settings.Underline = AppSettings.StyleSettings.From(underline);
+            }
+        }
+        else if (favorite.Tool == ToolKind.FreeHighlight)
+        {
+            highlighter = favorite.Style.ToStyle(StrokeStyle.DefaultHighlighter, AnnotationKind.FreeHighlight);
+            Settings.Highlighter = AppSettings.StyleSettings.From(highlighter);
         }
         else
         {
@@ -474,15 +476,11 @@ public sealed partial class ToolStylesViewModel : ObservableObject
         owner.SaveSettings();
     }
 
-    /// <summary>A favorite of the current highlighter settings (with its kind) when the highlighter is the tool, otherwise of the pen's.</summary>
-    public AppSettings.FavoriteSettings CurrentFavorite()
+    /// <summary>A favorite of the current settings of the highlighter or the markup tool (with its kind) when it is the tool, otherwise of the pen's.</summary>
+    public AppSettings.FavoriteSettings CurrentFavorite() => Current switch
     {
-        bool highlighterTool = Current == ToolKind.FreeHighlight;
-        return new()
-        {
-            Tool = highlighterTool ? ToolKind.FreeHighlight : ToolKind.Pen,
-            MarkKind = highlighterTool ? markKind : null,
-            Style = AppSettings.StyleSettings.From(!highlighterTool ? pen : markKind is null ? highlighter : MarkupStyle)
-        };
-    }
+        ToolKind.FreeHighlight => new() { Tool = ToolKind.FreeHighlight, Style = AppSettings.StyleSettings.From(highlighter) },
+        ToolKind.Markup => new() { Tool = ToolKind.Markup, MarkKind = markKind, Style = AppSettings.StyleSettings.From(MarkupStyle) },
+        _ => new() { Tool = ToolKind.Pen, Style = AppSettings.StyleSettings.From(pen) }
+    };
 }

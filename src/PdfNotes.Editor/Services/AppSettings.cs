@@ -211,10 +211,11 @@ public sealed class AppSettings
     public static string[] LanguageFoldersIn(string settingsFolder) => [Path.Combine(AppContext.BaseDirectory, "Languages"), Path.Combine(settingsFolder, "Languages")];
 
     /// <summary>
-    /// The highlighter kind (spec 9.1: null = highlight, underline or strikeout) and the underline and strikeout styles,
-    /// each remembered on its own (red 1.5pt opaque by default).
+    /// The markup tool's kind (spec 9.1, 1.4: underline or strikeout; null reads as underline, and 1.3 files that meant
+    /// the highlighter's highlight kind start as underline) and the underline and strikeout styles, each remembered on
+    /// its own (red 1.5pt opaque by default).
     /// </summary>
-    public TextMarkupKind? MarkKind { get; set; }
+    public TextMarkupKind? MarkKind { get; set; } = TextMarkupKind.Underline;
     public StyleSettings? Underline { get; set; }
     public StyleSettings? StrikeOut { get; set; }
 
@@ -237,7 +238,7 @@ public sealed class AppSettings
         null,
     ];
 
-    /// <summary>A favorite: the pen or the highlighter with its kind (spec 24.7, D14g: highlight, underline or strikeout) and style.</summary>
+    /// <summary>A favorite: the pen, the highlighter or the markup tool with its kind (spec 24.7; underline or strikeout only for the markup tool) and style.</summary>
     public sealed class FavoriteSettings
     {
         public ToolKind Tool { get; set; } = ToolKind.Pen;
@@ -323,12 +324,17 @@ public sealed class AppSettings
             settings.Underline ??= settings.Markup ?? StyleSettings.From(StrokeStyle.DefaultMarkup);
             settings.StrikeOut ??= settings.Markup ?? StyleSettings.From(StrokeStyle.DefaultMarkup);
             settings.Markup = null;
-            if (settings.MarkKind is { } mk && !Enum.IsDefined(mk)) settings.MarkKind = null;
+            if (settings.MarkKind is not { } mk || !Enum.IsDefined(mk)) settings.MarkKind = TextMarkupKind.Underline;
             if (!RgbColor.TryParse(settings.NoteColor ?? "", out _)) settings.NoteColor = "#FFD54F";
             settings.Favorites = Enumerable.Range(0, 4).Select(i => settings.Favorites is { } f && i < f.Length && f[i] is { Style: not null } slot &&
-                slot.Tool is ToolKind.Pen or ToolKind.FreeHighlight ? slot : null).ToArray();
+                slot.Tool is ToolKind.Pen or ToolKind.FreeHighlight or ToolKind.Markup ? slot : null).ToArray();
             foreach (var slot in settings.Favorites.OfType<FavoriteSettings>())
-                if (slot.Tool == ToolKind.Pen || slot.MarkKind is { } fk && !Enum.IsDefined(fk)) slot.MarkKind = null;
+            {
+                // 1.3 kept underline/strikeout in the highlighter: a highlighter slot with a markup kind is a markup slot now.
+                if (slot is { Tool: ToolKind.FreeHighlight, MarkKind: { } old } && Enum.IsDefined(old)) slot.Tool = ToolKind.Markup;
+                if (slot.Tool == ToolKind.Markup) slot.MarkKind = slot.MarkKind is { } mark && Enum.IsDefined(mark) ? mark : TextMarkupKind.Underline;
+                else slot.MarkKind = null;
+            }
             if (!double.IsFinite(settings.OutlineHeight) || settings.OutlineHeight < 60 || settings.OutlineHeight > 4000) settings.OutlineHeight = 220;
             settings.RecentFiles = (settings.RecentFiles ?? []).Where(p => p is { Length: > 0 and < 1024 } && IsAddress(p))
                 .Distinct(StringComparer.OrdinalIgnoreCase).Take(MaxRecentFiles).ToList();

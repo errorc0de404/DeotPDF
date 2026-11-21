@@ -3,7 +3,7 @@ using PdfNotes.Core.Models;
 namespace PdfNotes.Editor.Tools;
 
 /// <summary>Canvas tools (spec 4.3 ToolState).</summary>
-public enum ToolKind { Select, Pen, FreeHighlight, Text, Line, Curve, Lasso, StrokeEraser, AreaEraser, Shape, Note }
+public enum ToolKind { Select, Pen, FreeHighlight, Text, Line, Curve, Lasso, StrokeEraser, AreaEraser, Shape, Note, Markup }
 
 /// <summary>
 /// Paint settings of a freehand tool or a selected stroke. <see cref="TransparencyPercent"/> is the UI value

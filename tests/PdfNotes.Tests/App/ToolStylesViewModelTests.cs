@@ -93,19 +93,32 @@ public sealed class ToolStylesViewModelTests : IDisposable
         Assert.Empty(Styles.UserColors);
         Assert.Empty(settings.RecentColors);
 
-        Use(ToolKind.FreeHighlight);
+        Use(ToolKind.Markup);
         Styles.SetMarkKind(TextMarkupKind.Underline);
         Assert.Equal(AnnotationKind.TextMarkup, Styles.StyleTarget?.Kind);
         Styles.SetTransparency(40);
         Assert.Equal(40, Styles.MarkupStyle.TransparencyPercent, 6);
         Assert.NotEqual(40, Styles.Highlighter.TransparencyPercent, 6); // each kind remembers its own
         var favorite = Styles.CurrentFavorite();
-        Assert.Equal((ToolKind.FreeHighlight, TextMarkupKind.Underline), (favorite.Tool, favorite.MarkKind));
+        Assert.Equal((ToolKind.Markup, (TextMarkupKind?)TextMarkupKind.Underline), (favorite.Tool, favorite.MarkKind));
 
         Use(ToolKind.Pen);
         Styles.UseFavorite(favorite);
         Assert.Equal(TextMarkupKind.Underline, Styles.MarkKind);
         Assert.Equal(TextMarkupKind.Underline, settings.MarkKind);
+    }
+
+    [Fact]
+    public void HighlighterNeverMarksAndMarkupKeepsItsKind()
+    {
+        Use(ToolKind.FreeHighlight);
+        Assert.Equal(AnnotationKind.FreeHighlight, Styles.StyleTarget?.Kind);
+        Use(ToolKind.Markup);
+        Styles.SetMarkKind(TextMarkupKind.StrikeOut);
+        Use(ToolKind.FreeHighlight);
+        Assert.Equal(AnnotationKind.FreeHighlight, Styles.StyleTarget?.Kind);
+        Use(ToolKind.Markup);
+        Assert.Equal((TextMarkupKind.StrikeOut, AnnotationKind.TextMarkup), (Styles.MarkKind, Styles.StyleTarget!.Value.Kind));
     }
 
     [Fact]
