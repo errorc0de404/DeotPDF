@@ -41,18 +41,24 @@ public static class Strings
 {
     public const string BuiltInLanguage = Texts.BuiltInLanguage;
 
-    private static readonly Lazy<LanguagePack> BuiltIn = new(() =>
+    private static readonly Lazy<LanguagePack> BuiltIn = new(() => ReadBuiltIn("ko"));
+    private static readonly Lazy<LanguagePack> BuiltInEnglish = new(() => ReadBuiltIn("en"));
+
+    private static LanguagePack ReadBuiltIn(string language)
     {
-        using var stream = typeof(Strings).Assembly.GetManifestResourceStream("PdfNotes.Editor.Localization.ko.json")
-            ?? throw new InvalidOperationException("The built-in Korean pack is missing.");
+        using var stream = typeof(Strings).Assembly.GetManifestResourceStream($"PdfNotes.Editor.Localization.{language}.json")
+            ?? throw new InvalidOperationException($"The built-in {language} pack is missing.");
         using var reader = new StreamReader(stream, Encoding.UTF8);
         return LanguagePack.Parse(reader.ReadToEnd());
-    });
+    }
 
     private static readonly List<string> diagnostics = [];
 
     /// <summary>The built-in Korean pack.</summary>
     public static LanguagePack Korean => BuiltIn.Value;
+
+    /// <summary>The built-in English pack: used when no folder has an English pack (Android has no app folder).</summary>
+    public static LanguagePack English => BuiltInEnglish.Value;
 
     /// <summary>The language in use (<see cref="BuiltInLanguage"/> unless a pack was applied).</summary>
     public static string Language { get; private set; } = BuiltInLanguage;
@@ -151,7 +157,7 @@ public static class Strings
     }
 
     /// <summary>
-    /// The packs in <paramref name="folders"/> (<c>*.json</c>), Korean first. A later folder wins for the same language
+    /// The packs in <paramref name="folders"/> (<c>*.json</c>) and the built-in English, Korean first. A later folder wins for the same language
     /// (the app folder first, then the user's folder). Unreadable files are skipped and recorded in <see cref="Diagnostics"/>.
     /// </summary>
     public static IReadOnlyList<LanguagePack> Discover(IEnumerable<string> folders, ICollection<string>? problems = null)
@@ -168,6 +174,7 @@ public static class Strings
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { problems?.Add($"{file}: {e.Message}"); }
             }
         }
+        found.TryAdd(English.Language, English);
         found.Remove(BuiltInLanguage, out var externalKorean);
         return [externalKorean ?? Korean, .. found.Values.OrderBy(p => p.Name, StringComparer.CurrentCulture)];
     }

@@ -130,10 +130,19 @@ public sealed partial class LanguagePackTests(ITestOutputHelper output) : IDispo
     private static string WithoutStamps(string pdf) => Stamp().Replace(System.Text.Encoding.Latin1.GetString(File.ReadAllBytes(pdf)), "#");
 
     [Fact]
+    public void EnglishIsBuiltInWhenNoFolderHasIt()
+    {
+        var packs = Strings.Discover([Path.Combine(folder, "absent")]);
+        Assert.Equal(["ko", "en"], packs.Select(p => p.Language));
+        Strings.Apply("en", [Path.Combine(folder, "absent")]);
+        Assert.Equal("en", Strings.Language);
+        Assert.Equal("Saved", Strings.Get("status.saved"));
+    }
+
+    [Fact]
     public void TheShippedEnglishPackMatchesTheKoreanKeysAndPlaceholders()
     {
-        string file = Path.Combine(Path.GetDirectoryName(SourceRoot())!, "src", "PdfNotes.Desktop", "Languages", "en.json");
-        Strings.Use(LanguagePack.Parse(File.ReadAllText(file), file));
+        Strings.Use(Strings.English);
         Assert.Equal("en", Strings.Language);
         Assert.Equal("Saved", Strings.Get("status.saved"));
         Assert.DoesNotContain(Strings.Diagnostics, d => d.Contains("placeholders", StringComparison.Ordinal) || d.Contains("unknown key", StringComparison.Ordinal));
