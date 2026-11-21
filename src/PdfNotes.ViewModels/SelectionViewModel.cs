@@ -212,6 +212,7 @@ public sealed class SelectionViewModel(MainViewModel owner, IEditorDialogs dialo
     [
         (AnnotationCommand.Tool, "tool.select", ToolKind.Select), (AnnotationCommand.Tool, "tool.lasso", ToolKind.Lasso),
         (AnnotationCommand.Tool, "tool.pen", ToolKind.Pen), (AnnotationCommand.Tool, "ribbon.highlighter", ToolKind.FreeHighlight),
+        (AnnotationCommand.Tool, "tool.markup", ToolKind.Markup),
         (AnnotationCommand.Tool, "tool.strokeEraser", ToolKind.StrokeEraser), (AnnotationCommand.Tool, "tool.areaEraser", ToolKind.AreaEraser),
         (AnnotationCommand.Tool, "tool.line", ToolKind.Line), (AnnotationCommand.Tool, "tool.curve", ToolKind.Curve)
     ];

@@ -144,6 +144,17 @@
                                              IsChecked="{Binding ToolBar.Pen.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Pen.Command}" Classes.return="{Binding ToolBar.Pen.IsReturn}"><th:IconLabel Glyph="Pen" Text="{l:T ribbon.pen}" /></RadioButton>
                                 <RadioButton x:Name="HighlighterToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.highlighter}" Tag="FreeHighlight"
                                              IsChecked="{Binding ToolBar.Highlighter.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Highlighter.Command}" Classes.return="{Binding ToolBar.Highlighter.IsReturn}"><th:IconLabel Glyph="Highlighter" Text="{l:T ribbon.highlighter}" /></RadioButton>
+                                <!-- Underline & strikeout (spec 9.1): the icon is the text format glyph of the chosen kind -->
+                                <RadioButton x:Name="MarkupToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T tool.markup}" Tag="Markup"
+                                             IsChecked="{Binding ToolBar.Markup.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Markup.Command}" Classes.return="{Binding ToolBar.Markup.IsReturn}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Panel Width="16" Margin="0,0,6,0" VerticalAlignment="Center">
+                                            <TextBlock x:Name="MarkupUnderlineGlyph" Text="U" TextDecorations="Underline" HorizontalAlignment="Center" IsVisible="{Binding ToolStyles.IsMarkUnderline}" />
+                                            <TextBlock x:Name="MarkupStrikeGlyph" Text="S" TextDecorations="Strikethrough" HorizontalAlignment="Center" IsVisible="{Binding ToolStyles.IsMarkStrikeOut}" />
+                                        </Panel>
+                                        <TextBlock Text="{l:T tool.markup}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
                                 <RadioButton x:Name="EraserToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.eraser}" Tag="Eraser"
                                              IsChecked="{Binding ToolBar.Eraser.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Eraser.Command}" Classes.return="{Binding ToolBar.Eraser.IsReturn}"><th:IconLabel Glyph="Eraser" Text="{l:T ribbon.eraser}" /></RadioButton>
                             </StackPanel>
@@ -342,8 +353,8 @@
                                           ItemsSource="{Binding ToolStyles.BorderNames}" SelectedIndex="{Binding ToolStyles.ShapeBorderIndex, Mode=TwoWay}" />
                                 <Border Classes="sep" />
                             </StackPanel>
-                            <!-- The highlighter's kind (spec 9.1): highlight / underline / strikeout -->
-                            <StackPanel x:Name="MarkKindPanel" Classes="field" IsVisible="{Binding ToolStyles.MarkKindShown}">
+                            <!-- The underline & strikeout tool's kind (spec 9.1) -->
+                            <StackPanel x:Name="MarkupKindPanel" Classes="field" IsVisible="{Binding ToolStyles.MarkKindShown}">
                                 <RadioButton x:Name="MarkUnderlineButton" Theme="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T markup.underline}" Padding="6,3"
                                              IsChecked="{Binding ToolStyles.IsMarkUnderline, Mode=OneWay}" Command="{Binding ToolStyles.MarkKindCommand}" CommandParameter="Underline" />
                                 <RadioButton x:Name="MarkStrikeOutButton" Theme="{StaticResource ToolButton}" GroupName="MarkKind" Content="{l:T text.strikeOut}" Padding="6,3"

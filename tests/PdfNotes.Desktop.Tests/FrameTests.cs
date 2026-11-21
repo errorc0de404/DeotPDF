@@ -96,6 +96,7 @@ public sealed class FrameTests
         {
             case "Pen": w.View.SetTool(ToolKind.Pen); break;
             case "Highlighter": w.View.SetTool(ToolKind.FreeHighlight); break;
+            case "Markup": w.View.SetTool(ToolKind.Markup); break;
             case "Line": w.View.SetTool(ToolKind.Curve); break;
             case "Shape": w.View.SetTool(ToolKind.Shape); break;
             case "Eraser": w.View.SetTool(ToolKind.AreaEraser); break;
@@ -137,7 +138,7 @@ public sealed class FrameTests
                 }
             }
             if (width < 720) { w.Close(); continue; } // only the ribbon is checked as narrow as a portrait phone
-            foreach (var bar in new[] { "Pen", "Highlighter", "Line", "Shape", "Eraser", "Text" })
+            foreach (var bar in new[] { "Pen", "Highlighter", "Markup", "Line", "Shape", "Eraser", "Text" })
             {
                 ShowBar(w, bar);
                 var panel = bar switch
@@ -233,7 +234,7 @@ public sealed class FrameTests
     {
         var w = Window();
         double? top = null;
-        foreach (var bar in new[] { "Pen", "Highlighter", "Line", "Shape", "Eraser", "Text" })
+        foreach (var bar in new[] { "Pen", "Highlighter", "Markup", "Line", "Shape", "Eraser", "Text" })
         {
             ShowBar(w, bar);
             double y = w.View.DocumentCanvas.TranslatePoint(new Point(0, 0), w)!.Value.Y;
@@ -340,7 +341,7 @@ public sealed class FrameTests
     });
 
     [Fact]
-    public void LineAndShapeOptionsAndTheHighlighterKindsAreOnTheBar() => Headless.Run(() =>
+    public void LineAndShapeOptionsAndTheMarkupKindsAreOnTheBar() => Headless.Run(() =>
     {
         var w = Window();
         w.View.SetTool(ToolKind.Line);
@@ -353,12 +354,60 @@ public sealed class FrameTests
         Assert.True(Find<StackPanel>(w, "ShapeOptionsPanel").IsVisible);
         Find<ComboBox>(w, "ShapeBorderBox").SelectedIndex = 2; // dashed border
         Assert.True(w.View.ViewModel.ToolStyles.Shape.BorderEnabled);
+        // The highlighter has no kinds; the underline & strikeout tool has its own button next to it.
         w.View.SetTool(ToolKind.FreeHighlight);
         Settle(w);
-        Assert.True(Find<StackPanel>(w, "MarkKindPanel").IsVisible);
-        Press(Find<RadioButton>(w, "MarkUnderlineButton"));
-        Assert.Equal(TextMarkupKind.Underline, w.View.ViewModel.ToolStyles.MarkKind);
+        Assert.False(Find<StackPanel>(w, "MarkupKindPanel").IsVisible);
         Assert.True(Find<ToggleButton>(w, "HighlighterSnapButton").IsVisible);
+        Press(Find<RadioButton>(w, "MarkupToolButton"));
+        Settle(w);
+        Assert.Equal(ToolKind.Markup, w.View.ViewModel.Tools.Current);
+        Assert.True(Find<StackPanel>(w, "MarkupKindPanel").IsVisible);
+        Assert.False(Find<ToggleButton>(w, "HighlighterSnapButton").IsVisible);
+        Assert.True(Find<TextBlock>(w, "MarkupUnderlineGlyph").IsVisible); // the ribbon icon follows the kind
+        Assert.False(Find<TextBlock>(w, "MarkupStrikeGlyph").IsVisible);
+        Press(Find<RadioButton>(w, "MarkStrikeOutButton"));
+        Settle(w);
+        Assert.Equal(TextMarkupKind.StrikeOut, w.View.ViewModel.ToolStyles.MarkKind);
+        Assert.False(Find<TextBlock>(w, "MarkupUnderlineGlyph").IsVisible);
+        Assert.True(Find<TextBlock>(w, "MarkupStrikeGlyph").IsVisible);
+        Assert.Equal(Avalonia.Media.TextDecorations.Strikethrough, Find<TextBlock>(w, "MarkupStrikeGlyph").TextDecorations);
+        Press(Find<RadioButton>(w, "HighlighterToolButton"));
+        Settle(w);
+        Assert.Equal(ToolKind.FreeHighlight, w.View.ViewModel.Tools.Current);
+        Assert.False(Find<StackPanel>(w, "MarkupKindPanel").IsVisible);
+        w.Close();
+    });
+
+    [Fact]
+    public void TheQuickMenuListsUnderlineAndStrikeoutRightAfterTheHighlighter() => Headless.Run(() =>
+    {
+        var w = Window();
+        var entries = w.View.ViewModel.Selection.Menu(0, null, false)!.Entries;
+        int highlighter = entries.ToList().FindIndex(e => e.Tool == ToolKind.FreeHighlight);
+        Assert.True(highlighter >= 0);
+        Assert.Equal(ToolKind.Markup, entries[highlighter + 1].Tool);
+        Assert.Equal(PdfNotes.Editor.Localization.Strings.Get("tool.markup"), entries[highlighter + 1].Text);
+        w.Close();
+    });
+
+    [Fact]
+    public void TheMarkupToolShowsAnIBeamOverTextAndAnArrowElsewhere() => Headless.Run(() =>
+    {
+        var w = Window();
+        w.View.SetTool(ToolKind.Text);
+        Settle(w);
+        Click(w, new(100, 400));
+        w.KeyTextInput("abc");
+        Dispatcher.UIThread.RunJobs();
+        w.View.SetTool(ToolKind.Markup);
+        Settle(w);
+        w.MouseMove(At(w, new(500, 700)));
+        Assert.Equal(PdfNotes.Editor.Input.CursorShape.Arrow, w.View.DocumentCanvas.Tool!.Cursor!.Value.Shape);
+        w.MouseMove(At(w, new(110, 408)));
+        Assert.Equal(PdfNotes.Editor.Input.CursorShape.IBeam, w.View.DocumentCanvas.Tool!.Cursor!.Value.Shape);
+        w.MouseMove(At(w, new(500, 700)));
+        Assert.Equal(PdfNotes.Editor.Input.CursorShape.Arrow, w.View.DocumentCanvas.Tool!.Cursor!.Value.Shape);
         w.Close();
     });
 

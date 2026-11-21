@@ -387,6 +387,7 @@
     "tool.curve": "곡선",
     "tool.lasso": "올가미",
     "tool.line": "직선",
+    "tool.markup": "밑줄·취소선",
     "tool.pen": "그리기 펜",
     "tool.select": "선택",
     "tool.strokeEraser": "획 지우개",

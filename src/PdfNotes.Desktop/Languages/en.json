@@ -387,6 +387,7 @@
     "tool.curve": "Curve",
     "tool.lasso": "Lasso",
     "tool.line": "Line",
+    "tool.markup": "Underline & strikeout",
     "tool.pen": "Drawing pen",
     "tool.select": "Select",
     "tool.strokeEraser": "Stroke eraser",

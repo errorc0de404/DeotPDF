@@ -63,13 +63,14 @@ public sealed class ToolBarViewModel : ObservableObject
         Lasso = Button("Lasso", b => b.Current == ToolKind.Lasso, ToolKind.Lasso);
         Pen = Button("Pen", b => b.Current == ToolKind.Pen, ToolKind.Pen);
         Highlighter = Button("FreeHighlight", b => b.Current == ToolKind.FreeHighlight, ToolKind.FreeHighlight);
+        Markup = Button("Markup", b => b.Current == ToolKind.Markup, ToolKind.Markup);
         Eraser = Button("Eraser", b => b.EraserOn, ToolKind.StrokeEraser, ToolKind.AreaEraser);
         Text = Button("Text", b => b.Current == ToolKind.Text, ToolKind.Text);
         Shape = Button("ShapeGroup", b => b.ShapeGroup, ToolKind.Line, ToolKind.Curve, ToolKind.Shape);
         Note = Button("Note", b => b.Current == ToolKind.Note, ToolKind.Note);
         StrokeEraser = Button("StrokeEraser", b => b.Eraser == ToolKind.StrokeEraser);
         AreaEraser = Button("AreaEraser", b => b.Eraser == ToolKind.AreaEraser);
-        all = [Select, Lasso, Pen, Highlighter, Eraser, Text, Shape, Note, StrokeEraser, AreaEraser];
+        all = [Select, Lasso, Pen, Highlighter, Markup, Eraser, Text, Shape, Note, StrokeEraser, AreaEraser];
         owner.Tools.ReturnChanged += (_, _) => Refresh();
         Refresh();
     }
@@ -82,6 +83,7 @@ public sealed class ToolBarViewModel : ObservableObject
     public ToolButtonViewModel Lasso { get; }
     public ToolButtonViewModel Pen { get; }
     public ToolButtonViewModel Highlighter { get; }
+    public ToolButtonViewModel Markup { get; }
     public ToolButtonViewModel Eraser { get; }
     public ToolButtonViewModel Text { get; }
     public ToolButtonViewModel Shape { get; }

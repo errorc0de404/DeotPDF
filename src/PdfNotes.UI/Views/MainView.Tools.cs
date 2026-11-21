@@ -110,11 +110,12 @@ public sealed partial class MainView
     }
 
     /// <summary>The ribbon icon of a tool (the quick menu, 2026-10-15).</summary>
-    private AppIcon ToolIcon(ToolKind kind) => kind switch
+    private object ToolIcon(ToolKind kind) => kind switch
     {
         ToolKind.Lasso => new AppIcon { Glyph = "Lasso" },
         ToolKind.Pen => new AppIcon { Glyph = "Pen" },
-        ToolKind.FreeHighlight or ToolKind.Markup => new AppIcon { Glyph = "Highlighter" },
+        ToolKind.FreeHighlight => new AppIcon { Glyph = "Highlighter" },
+        ToolKind.Markup => new TextBlock { Text = styles.MarkKind == TextMarkupKind.StrikeOut ? "S" : "U", TextDecorations = styles.MarkKind == TextMarkupKind.StrikeOut ? Avalonia.Media.TextDecorations.Strikethrough : Avalonia.Media.TextDecorations.Underline, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, Width = 16 },
         ToolKind.StrokeEraser or ToolKind.AreaEraser => new AppIcon { Glyph = "Eraser" },
         ToolKind.Line or ToolKind.Curve => new AppIcon { Outline = AppIcon.ShapeOutline(kind, settings.ShapeKind) },
         _ => new AppIcon { Glyph = "Select" }
