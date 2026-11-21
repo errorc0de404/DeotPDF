@@ -32,6 +32,26 @@ public sealed partial class LanguagePackTests(ITestOutputHelper output) : IDispo
         return dir;
     }
 
+    [Theory]
+    [InlineData("ko-KR", "ko")]
+    [InlineData("en-US", "en")]
+    [InlineData("ja-JP", "en")]
+    [InlineData("", "en")]
+    public void AFirstStartFollowsTheSystemLanguage(string culture, string expected) =>
+        Assert.Equal(expected, PdfNotes.Editor.Services.AppSettings.DefaultLanguage(System.Globalization.CultureInfo.GetCultureInfo(culture)));
+
+    [Fact]
+    public void ASavedLanguageIsKeptWhateverTheSystem()
+    {
+        Directory.CreateDirectory(folder);
+        string path = Path.Combine(folder, "settings.json");
+        foreach (var saved in new[] { "ko", "en" })
+        {
+            File.WriteAllText(path, $$"""{"language":"{{saved}}"}""");
+            Assert.Equal(saved, PdfNotes.Editor.Services.AppSettings.Load(path).Language);
+        }
+    }
+
     [Fact]
     public void TheKoreanPackIsBuiltInWithValidPlaceholders()
     {

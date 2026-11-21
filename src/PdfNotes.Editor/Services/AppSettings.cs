@@ -197,8 +197,15 @@ public sealed class AppSettings
     /// <summary>Pen favorites group on the 필기 tab (spec 24.7), shown by default; the quick menu row stays either way.</summary>
     public bool ShowFavorites { get; set; } = true;
 
-    /// <summary>UI language pack (spec 18.1, D14e): the built-in Korean or a pack found in <see cref="LanguageFoldersIn"/>; read at start.</summary>
-    public string Language { get; set; } = PdfNotes.Editor.Localization.Texts.BuiltInLanguage;
+    /// <summary>
+    /// UI language pack (spec 18.1, D14e): the built-in Korean or a pack found in <see cref="LanguageFoldersIn"/>; read at
+    /// start. Without a saved value it follows the system UI language (<see cref="DefaultLanguage"/>).
+    /// </summary>
+    public string Language { get; set; } = DefaultLanguage(System.Globalization.CultureInfo.CurrentUICulture);
+
+    /// <summary>The language of a first start: Korean on a Korean system, English on any other.</summary>
+    public static string DefaultLanguage(System.Globalization.CultureInfo culture) =>
+        culture.TwoLetterISOLanguageName == PdfNotes.Editor.Localization.Texts.BuiltInLanguage ? PdfNotes.Editor.Localization.Texts.BuiltInLanguage : "en";
 
     /// <summary>
     /// Check for a new version at start (roadmap 1.1, <see cref="Services.UpdateCheck"/>): null until the user was asked
