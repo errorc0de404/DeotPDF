@@ -116,7 +116,8 @@ public sealed class ShapeRecognizerTests
         Assert.InRange(shape.Points[1].DistanceTo(tip), 0, 4);
     }
 
-    public static TheoryData<string> Handwriting => ["ㅇ", "0", "2", "S", "zigzag", "arc", "8"];
+    public static TheoryData<string> Handwriting =>
+        ["ㅇ", "0", "2", "S", "zigzag", "arc", "8", "u", "n", "ㅣ", "6", "9", "a", "D", "almost 0"];
 
     /// <summary>Glyph strokes about 40 pt high.</summary>
     private static List<Point2> Glyph(string name) => name switch
@@ -130,6 +131,16 @@ public sealed class ShapeRecognizerTests
         "zigzag" => Polyline(new(0, 0), new(8, 40), new(16, 0), new(24, 40), new(32, 0), new(40, 40)),
         "arc" => Arc(40, 40, 40, 40, 180, 360),
         "8" => [.. Arc(20, 10, 10, 10, 90, -270), .. Arc(20, 30, 10, 10, -90, 270).Skip(1)],
+        // Closed-path near misses: the mouth or gap is within 15 % of the stroke length.
+        "u" => [.. Polyline(new(10, 0), new(10, 32)), .. Arc(14, 32, 4, 8, 180, 0).Skip(1), .. Polyline(new(18, 32), new(18, 0)).Skip(1)],
+        "n" => [.. Polyline(new(10, 40), new(10, 8)), .. Arc(15, 8, 5, 8, 180, 360).Skip(1), .. Polyline(new(20, 8), new(20, 40)).Skip(1)],
+        "ㅣ" => Polyline(new(10, 0), new(10, 40), new(10, 0)),
+        "6" => [.. Arc(22, 28, 20, 28, -80, -180), .. Arc(14, 28, 12, 12, 180, -170).Skip(1)],
+        "9" => [.. Arc(14, 12, 12, 12, 0, -360), .. Polyline(new(26, 12), new(24, 40)).Skip(1)],
+        "a" => [.. Arc(14, 26, 12, 12, -30, -330), .. Polyline(new(14 + 12 * Math.Cos(Math.PI / 6), 26 + 12 * Math.Sin(Math.PI / 6)), new(26, 12), new(28, 40)).Skip(1)],
+        "D" => [.. Polyline(new(0, 0), new(0, 40)), .. Arc(0, 20, 22, 20, 90, -90).Skip(1)],
+        // A tall oval whose end stops short of its start by about 9 pt.
+        "almost 0" => Arc(12, 20, 10, 20, -90, 225),
         _ => throw new ArgumentOutOfRangeException(nameof(name)),
     };
 
@@ -139,6 +150,17 @@ public sealed class ShapeRecognizerTests
     {
         Assert.Null(Recognize(Glyph(glyph)));
         for (int seed = 10; seed < 20; seed++) Assert.Null(Recognize(Noisy(Glyph(glyph), seed)));
+    }
+
+    [Fact]
+    public void LongThinEllipseIsStillAnEllipse()
+    {
+        var shape = Recognize(Noisy(Arc(100, 100, 50, 15, -90, 270), 8));
+
+        Assert.NotNull(shape);
+        Assert.Equal(RecognizedKind.Ellipse, shape.Kind);
+        Assert.InRange(Math.Max(shape.Points[1].X, shape.Points[1].Y), 47, 53);
+        Assert.InRange(Math.Min(shape.Points[1].X, shape.Points[1].Y), 12, 18);
     }
 
     [Fact]
@@ -180,6 +202,27 @@ public sealed class ShapeRecognizerTests
         Point2 center = dragged.Points[0], half = dragged.Points[1];
         Assert.Equal(opposite.X, center.X - half.X * c + half.Y * s, 6);
         Assert.Equal(opposite.Y, center.Y - half.X * s - half.Y * c, 6);
+    }
+
+    [Fact]
+    public void DraggingATriangleTurnsAboutItsFarthestCorner()
+    {
+        Point2 fixedCorner = new(0, 60), grab = new(100, 0), third = new(0, 0);
+        var shape = new RecognizedShape(RecognizedKind.Triangle, [third, grab, fixedCorner], 0);
+        // Twice as far from the fixed corner and turned 90°.
+        Point2 to = new(fixedCorner.X - 2 * (grab.Y - fixedCorner.Y), fixedCorner.Y + 2 * (grab.X - fixedCorner.X));
+
+        var dragged = ShapeRecognizer.Dragged(shape, grab, to);
+
+        Assert.Equal(RecognizedKind.Triangle, dragged.Kind);
+        Assert.Equal(0, dragged.RotationRad);
+        Assert.Equal(fixedCorner.X, dragged.Points[2].X, 6);
+        Assert.Equal(fixedCorner.Y, dragged.Points[2].Y, 6);
+        Assert.Equal(to.X, dragged.Points[1].X, 6);
+        Assert.Equal(to.Y, dragged.Points[1].Y, 6);
+        // (0,0) is (0,−60) from the fixed corner: doubled and turned it lands at (120, 60).
+        Assert.Equal(120, dragged.Points[0].X, 6);
+        Assert.Equal(60, dragged.Points[0].Y, 6);
     }
 
     [Fact]

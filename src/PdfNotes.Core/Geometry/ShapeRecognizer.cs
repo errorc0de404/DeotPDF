@@ -52,6 +52,24 @@ public static class ShapeRecognizer
     /// <summary>The last share of the stroke searched for the point where a closed stroke meets its start.</summary>
     public const double OverdrawFraction = 0.25;
     private const int EllipseSamples = 180;
+    /// <summary>
+    /// An ellipse's short half axis is at least this many tolerances, at least this share of the long one, and the
+    /// gap where the stroke closes is at most this share of the short half axis — so a narrow u, n or retraced stroke
+    /// that happens to close within 15 % of its length stays handwriting.
+    /// </summary>
+    public const double EllipseMinHalfAxisTolerances = 2;
+    public const double EllipseMinAxisRatio = 0.2;
+    public const double EllipseMaxGapPerShortHalfAxis = 0.5;
+    /// <summary>
+    /// An ellipse's root-mean-square distance is at most this share of the tolerance: jitter scatters about the
+    /// outline, while a flat side (a D) stays off it all along.
+    /// </summary>
+    public const double EllipseMaxRmsPerTolerance = 0.4;
+    /// <summary>
+    /// A triangle corner moves from the drawn corner to where the side lines meet only this many tolerances (a
+    /// rounded pen corner); farther, the sides do not really meet there (a D's straight back and its curve).
+    /// </summary>
+    public const double TriangleCornerTolerances = 1.5;
 
     public static RecognizedShape? Recognize(IReadOnlyList<Point2> points, double minSize, double tolerance)
     {
@@ -70,17 +88,19 @@ public static class ShapeRecognizer
 
     /// <summary>
     /// Shape after the pen moves on from where it held (<paramref name="grab"/>) to <paramref name="to"/>. A line or
-    /// arrow keeps its start and ends at <paramref name="to"/>; other shapes keep the point opposite
-    /// <paramref name="grab"/> through their center and scale and turn about it.
+    /// arrow keeps its start and ends at <paramref name="to"/>; a rectangle or ellipse keeps the point opposite
+    /// <paramref name="grab"/> through its center, a triangle its corner farthest from <paramref name="grab"/>, and
+    /// scales and turns about it.
     /// </summary>
     public static RecognizedShape Dragged(RecognizedShape shape, Point2 grab, Point2 to)
     {
         ArgumentNullException.ThrowIfNull(shape);
         if (shape.Kind is RecognizedKind.Line or RecognizedKind.Arrow) return shape with { Points = [shape.Points[0], to] };
-        Point2 center = shape.Kind == RecognizedKind.Triangle
-            ? new((shape.Points[0].X + shape.Points[1].X + shape.Points[2].X) / 3, (shape.Points[0].Y + shape.Points[1].Y + shape.Points[2].Y) / 3)
-            : shape.Points[0];
-        Point2 anchor = new(2 * center.X - grab.X, 2 * center.Y - grab.Y);
+        Point2 center = shape.Points[0];
+        // A triangle turns about its corner farthest from the grab; a rectangle or ellipse about the point opposite it.
+        Point2 anchor = shape.Kind == RecognizedKind.Triangle
+            ? shape.Points.Aggregate((best, p) => p.DistanceTo(grab) > best.DistanceTo(grab) ? p : best)
+            : new(2 * center.X - grab.X, 2 * center.Y - grab.Y);
         double fromX = grab.X - anchor.X, fromY = grab.Y - anchor.Y, toX = to.X - anchor.X, toY = to.Y - anchor.Y;
         double from = Math.Sqrt(fromX * fromX + fromY * fromY);
         if (from < 1e-9) return shape;
@@ -158,14 +178,24 @@ public static class ShapeRecognizer
         var corners = Corners(loop, reach);
         RecognizedShape? cornered = corners?.Count switch
         {
-            3 => Triangle(loop, corners, reach),
+            3 => Triangle(loop, corners, reach, tolerance),
             4 when RightAngled(loop, corners) => Rectangle(points),
             _ => null,
         };
         // A corner count that does not fit still may be a round shape with jitter.
         if (Fits(cornered, points, tolerance)) return cornered;
         var ellipse = Ellipse(loop);
-        return Fits(ellipse, points, tolerance) ? ellipse : null;
+        return Fits(ellipse, points, tolerance) && Rounded(ellipse, loop, tolerance) ? ellipse : null;
+    }
+
+    private static bool Rounded(RecognizedShape ellipse, List<Point2> loop, double tolerance)
+    {
+        Func<Point2, double> distance = Outline(ellipse);
+        double shortHalf = Math.Min(ellipse.Points[1].X, ellipse.Points[1].Y), longHalf = Math.Max(ellipse.Points[1].X, ellipse.Points[1].Y);
+        return shortHalf >= EllipseMinHalfAxisTolerances * tolerance &&
+            shortHalf >= EllipseMinAxisRatio * longHalf &&
+            loop[0].DistanceTo(loop[^1]) <= EllipseMaxGapPerShortHalfAxis * shortHalf &&
+            Math.Sqrt(loop.Average(p => Math.Pow(distance(p), 2))) <= EllipseMaxRmsPerTolerance * tolerance;
     }
 
     private static bool Fits([NotNullWhen(true)] RecognizedShape? shape, IReadOnlyList<Point2> points, double tolerance)
@@ -258,8 +288,8 @@ public static class ShapeRecognizer
         return true;
     }
 
-    /// <summary>Corners where the side lines (fitted away from the rounded corners) meet; the raw corner when they do not.</summary>
-    private static RecognizedShape Triangle(List<Point2> loop, List<int> corners, double reach)
+    /// <summary>Corners where the side lines (fitted away from the rounded corners) meet; the drawn corner when they do not meet near it.</summary>
+    private static RecognizedShape Triangle(List<Point2> loop, List<int> corners, double reach, double tolerance)
     {
         int n = loop.Count;
         var sides = new (Point2 Origin, Point2 Direction)?[3];
@@ -278,7 +308,7 @@ public static class ShapeRecognizer
             var before = sides[(k + 2) % 3];
             var after = sides[k];
             Point2? meet = before is { } u && after is { } v ? Intersect(u.Origin, u.Direction, v.Origin, v.Direction) : null;
-            vertices[k] = meet is { } m && m.DistanceTo(raw) <= reach ? m : raw;
+            vertices[k] = meet is { } m && m.DistanceTo(raw) <= Math.Min(reach, TriangleCornerTolerances * tolerance) ? m : raw;
         }
         return new(RecognizedKind.Triangle, [.. vertices], 0);
     }
