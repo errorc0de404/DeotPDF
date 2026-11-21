@@ -243,58 +243,57 @@ public sealed class SelectionTextViewModelTests : IDisposable
     }
 
     [Fact]
-    public void PinnedNoteCardsStayOpenBesideTheOneTypedIn()
+    public void NoteCardsStayOpenUntilClosed()
     {
         var first = AddNote(100, "one");
         var second = AddNote(200, "two");
         var cards = model.NoteCard;
 
-        // A pinned card stays when another note is opened; the unpinned one closes when its typing ends.
+        // A card stays open when another note is opened and when its typing ends.
         Assert.True(cards.Open(first, PageId, asNew: false));
-        cards.Active!.PinCommand.Execute();
-        Assert.True(cards.HasPinned);
+        Assert.True(cards.HasOpen);
         Assert.True(cards.Open(second, PageId, asNew: false));
         Assert.Equal(2, cards.Cards.Count);
         Assert.Equal(second.Id, cards.Note!.Id);
         cards.End(cards.Active!);
-        Assert.Equal(first.Id, Assert.Single(cards.Cards).Id);
+        Assert.Equal(2, cards.Cards.Count);
         Assert.Null(cards.Note);
+        cards.Close(cards.CardFor(second.Id)!);
+        Assert.Equal(first.Id, Assert.Single(cards.Cards).Id);
 
-        // Text typed in a pinned card goes into the document before a save or an Undo, and the card stays (no Undo for the pin).
+        // Text typed in an open card goes into the document before a save or an Undo, and the card stays.
         int steps = Session.UndoCount;
-        var pinned = cards.Cards[0];
-        cards.Activate(pinned);
-        pinned.Text = "one more";
+        var open = cards.Cards[0];
+        cards.Activate(open);
+        open.Text = "one more";
         cards.Commit();
         Assert.Equal("one more", ((StickyNote)Session.Current.FindAnnotation(first.Id)!.Annotation).Text);
         Assert.Equal(steps + 1, Session.UndoCount);
-        Assert.Same(pinned, Assert.Single(cards.Cards));
+        Assert.Same(open, Assert.Single(cards.Cards));
 
         // An Undo rewrites the card; a deleted note takes its card along.
         Session.Undo();
-        Assert.Equal("one", pinned.Text);
+        Assert.Equal("one", open.Text);
         Session.Execute(DocumentEdits.DeleteAnnotations(Session.Current, [first.Id], "undo.deleteNote"));
         Assert.Empty(cards.Cards);
 
-        // 보기 > 메모 펼치기: every note of the page pinned open, then all closed.
+        // 보기 > 메모 펼치기: every note of the page opened, then all closed.
         cards.ExpandCommand.Execute();
         Assert.Equal(second.Id, Assert.Single(cards.Cards).Id);
-        Assert.True(cards.Cards[0].IsPinned);
         cards.ExpandCommand.Execute();
         Assert.Empty(cards.Cards);
-        Assert.False(cards.HasPinned);
+        Assert.False(cards.HasOpen);
 
-        // The pin pressed again closes the card; hiding the notes closes them all.
+        // The close button closes the card; hiding the notes closes them all.
         cards.Open(second, PageId, asNew: false);
         var card = cards.Active!;
-        card.PinCommand.Execute();
         card.Resize(1000, 10);
         Assert.Equal((NoteCardItem.MaxWidth, NoteCardItem.MinHeight), (card.Width, card.Height));
-        card.PinCommand.Execute();
+        card.CloseCommand.Execute();
         Assert.Empty(cards.Cards);
         cards.ExpandCommand.Execute();
         model.SetNotesHidden(true);
         Assert.Empty(cards.Cards);
-        Assert.Equal(steps + 1, Session.UndoCount); // of all this only deleting the note is a step: pins, sizes and cards are not
+        Assert.Equal(steps + 1, Session.UndoCount); // of all this only deleting the note is a step: sizes and cards are not
     }
 }

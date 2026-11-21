@@ -573,26 +573,27 @@ public sealed class FrameTests
     });
 
     [Fact]
-    public void PinnedNoteCardsStayOpenAndFollowTheirIcons() => Headless.Run(() =>
+    public void NoteCardsStayOpenAndFollowTheirIcons() => Headless.Run(() =>
     {
         var w = Window();
         var cards = w.View.ViewModel.NoteCard;
         w.View.SetTool(ToolKind.Note);
         Click(w, new(200, 200));
         w.View.NoteTextBox!.Text = "first";
-        cards.Active!.PinCommand.Execute();
         w.View.CloseNote();
         var first = Assert.IsType<StickyNote>(Assert.Single(Annotations(w)));
-        Assert.Single(cards.Cards); // pinned: typing ended, the card stays
+        Assert.Single(cards.Cards); // typing ended, the card stays
         Assert.True(Find<ToggleButton>(w, "ExpandNotesButton").IsChecked);
 
-        // A second note opens beside the pinned card.
+        // A second note opens beside the first card.
         w.View.SetTool(ToolKind.Note);
         Click(w, new(200, 400));
         Assert.Equal(2, cards.Cards.Count);
         w.View.NoteTextBox!.Text = "second";
         w.View.CloseNote();
         Assert.Equal(2, Annotations(w).Count);
+        Assert.Equal(2, cards.Cards.Count);
+        cards.Close(cards.Cards[1]);
         var card = Assert.Single(cards.Cards);
         Assert.Equal(first.Id, card.Id);
 
@@ -628,7 +629,7 @@ public sealed class FrameTests
     });
 
     [Fact]
-    public void APinnedNoteCardFollowsItsPageWhenAPageIsAddedInFront() => Headless.Run(() =>
+    public void AnOpenNoteCardFollowsItsPageWhenAPageIsAddedInFront() => Headless.Run(() =>
     {
         // The cards hear of the change before the canvas has the new page (review 2026-11-15: placing them threw).
         var w = Window();
@@ -636,7 +637,6 @@ public sealed class FrameTests
         w.View.SetTool(ToolKind.Note);
         Click(w, new(200, 200));
         w.View.NoteTextBox!.Text = "kept\r\nopen";
-        cards.Active!.PinCommand.Execute();
         w.View.CloseNote();
         var session = w.View.Document!.Session;
         int last = session.Current.Pages.Count - 1;
@@ -665,7 +665,6 @@ public sealed class FrameTests
         Click(w, new(200, 200));
         w.View.NoteTextBox!.Text = "card";
         var card = cards.Active!;
-        card.PinCommand.Execute();
         Settle(w);
         var container = Find<ItemsControl>(w, "NoteCards").ContainerFromItem(card)!;
         Control Part(string name) => container.GetVisualDescendants().OfType<Control>().First(c => c.Classes.Contains(name));

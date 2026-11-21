@@ -48,14 +48,20 @@ public sealed partial class MainView
         selectTool.Released += (_, changed) =>
         {
             if (!changed && selectTool.SelectedAnnotations is [StickyNote note] && selectTool.PageId is { } notePage)
-                Dispatcher.UIThread.Post(() => OpenNote(note, notePage, isNew: false));
+                Dispatcher.UIThread.Post(() =>
+                {
+                    // An icon whose card is open folds it; any other opens.
+                    if (noteState.CardFor(note.Id) is { } open) noteState.Close(open);
+                    else OpenNote(note, notePage, isNew: false);
+                });
         };
         // The cards are a template over NoteCardViewModel.Cards; their keys, focus and drags are handled here for all of them.
-        // Typing ends with Esc or when the keyboard leaves the card: a pinned card stays open, any other closes.
+        // Esc folds the card; when the keyboard leaves it, its typing ends and it stays open.
         NoteCards.AddHandler(KeyDownEvent, (_, e) =>
         {
             if (e.Key != Key.Escape || CardOf(e.Source) is not { } card) return;
             noteState.Finish(card);
+            noteState.Close(card);
             Canvas.Focus();
             e.Handled = true;
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
@@ -65,12 +71,12 @@ public sealed partial class MainView
             if (CardOf(e.Source) is not { } card) return;
             Dispatcher.UIThread.Post(() =>
             {
-                // Not only the card being typed in: a save or a ribbon button ends the typing while the keyboard stays in a pinned card.
+                // Not only the card being typed in: a save or a ribbon button ends the typing while the keyboard stays in the card.
                 if (noteState.Cards.Contains(card) && NoteCards.ContainerFromItem(card) is not { IsKeyboardFocusWithin: true }) noteState.Finish(card);
             });
         });
-        // 보기 › 메모 펼치기 shows whether cards are pinned, also after a press that found no note to open.
-        ExpandNotesButton.Click += (_, _) => Dispatcher.UIThread.Post(() => ExpandNotesButton.SetCurrentValue(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty, noteState.HasPinned));
+        // 보기 › 메모 펼치기 shows whether cards are open, also after a press that found no note to open.
+        ExpandNotesButton.Click += (_, _) => Dispatcher.UIThread.Post(() => ExpandNotesButton.SetCurrentValue(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty, noteState.HasOpen));
         NoteCards.AddHandler(PointerPressedEvent, NotePointerPressed);
         NoteCards.AddHandler(PointerMovedEvent, NotePointerMoved);
         NoteCards.AddHandler(PointerReleasedEvent, (_, e) => { if (noteDrag is not null) { noteDrag = null; e.Pointer.Capture(null); e.Handled = true; } });
@@ -90,7 +96,7 @@ public sealed partial class MainView
         if (noteState.Create(pageIndex, point) is { } note && Document is { } doc) OpenNote(note, doc.Session.Current.Pages[pageIndex].Id, isNew: true);
     }
 
-    /// <summary>Opens the note's card for typing; the card typed in before ends (a pinned one stays open).</summary>
+    /// <summary>Opens the note's card for typing; the card typed in before ends its typing and stays open.</summary>
     public void OpenNote(StickyNote note, Guid pageId, bool isNew)
     {
         if (!noteState.Open(note, pageId, isNew) || noteState.Active is not { } card) return;
@@ -207,7 +213,7 @@ public sealed partial class MainView
         if (drag.Sizing) Dispatcher.UIThread.Post(PositionNoteCards, DispatcherPriority.Loaded); // the line follows the new size
     }
 
-    /// <summary>Ends the typing (a new note with text is added, an existing one updated or deleted when empty); pinned cards stay open.</summary>
+    /// <summary>Ends the typing (a new note with text is added, an existing one updated or deleted when empty); the cards stay open.</summary>
     public void CloseNote() => noteState.Commit();
 
     /// <summary>

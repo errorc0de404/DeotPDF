@@ -38,6 +38,9 @@
         <Setter Property="Padding" Value="4,3" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        <!-- One line: no scroll bar when the line is taller than the field (the status bar's page box) -->
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Hidden" />
     </Style>
     <Style Selector="ComboBox.bar">
         <Setter Property="MinHeight" Value="0" />
@@ -61,6 +64,7 @@
     <!-- The status bar's page box is lower than the bars' fields -->
     <Style Selector="TextBox.bar.status">
         <Setter Property="Height" Value="22" />
+        <Setter Property="Padding" Value="4,1" />
     </Style>
     <!-- Smaller icons: the status bar's arrows, the ▾ of split buttons (the touch layout makes them larger) -->
     <Style Selector="th|AppIcon.small">

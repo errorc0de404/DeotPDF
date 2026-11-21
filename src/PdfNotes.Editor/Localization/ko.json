@@ -190,7 +190,6 @@
     "newPage.badBackground": "배경 종류가 올바르지 않습니다.",
     "newPage.sizeRange": "너비와 높이는 각각 {min}~{max}mm 사이의 숫자여야 합니다.",
     "note.close": "접기",
-    "note.pin": "고정",
     "notice.missingFont": "이 컴퓨터에 없는 글꼴은 대체 글꼴로 보여 줍니다. 글꼴 이름은 그대로 남지만 줄바꿈이 원래와 다를 수 있습니다.",
     "notice.readOnlyNotes": "필기 {count}개는 편집 정보를 확인할 수 없어 보기 전용으로 표시합니다.",
     "notice.restrictionDropped": "이 PDF의 편집 제한(인쇄·복사·수정 제한)은 저장하는 파일에 남지 않습니다.",

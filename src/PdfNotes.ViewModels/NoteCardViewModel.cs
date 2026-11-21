@@ -7,7 +7,7 @@ using PdfNotes.Editor.Tools;
 namespace PdfNotes.ViewModels;
 
 /// <summary>
-/// One open sticky note card (spec 24.9): its note, the text typed in it, and how the card is shown — pinned, its size,
+/// One open sticky note card (spec 24.9): its note, the text typed in it, and how the card is shown — its size and
 /// where the user dragged it. All of that is view state: not saved, not in Undo, forgotten with the document.
 /// </summary>
 public sealed class NoteCardItem : ObservableObject
@@ -19,7 +19,7 @@ public sealed class NoteCardItem : ObservableObject
 
     private StickyNote note;
     private string text;
-    private bool pinned, ai;
+    private bool ai;
     private double width = DefaultWidth, height = double.NaN;
     private Point2? offset;
 
@@ -30,7 +30,6 @@ public sealed class NoteCardItem : ObservableObject
         text = Committed = note.Text;
         PageId = pageId;
         IsNew = isNew;
-        PinCommand = new(() => cards.TogglePin(this));
         CloseCommand = new(() => cards.Close(this));
     }
 
@@ -65,9 +64,6 @@ public sealed class NoteCardItem : ObservableObject
     /// <summary>The note's color: the card's top edge.</summary>
     public RgbColor Color => note.Color;
 
-    /// <summary>A pinned card stays open when another note is opened or the keyboard leaves it.</summary>
-    public bool IsPinned { get => pinned; internal set => SetProperty(ref pinned, value); }
-
     /// <summary>The note is AI writing (spec 24.14): the card says so.</summary>
     public bool IsAi { get => ai; internal set => SetProperty(ref ai, value); }
 
@@ -84,7 +80,6 @@ public sealed class NoteCardItem : ObservableObject
     /// </summary>
     public Point2? Offset { get => offset; set => SetProperty(ref offset, value); }
 
-    public Command PinCommand { get; }
     public Command CloseCommand { get; }
 
     /// <summary>The corner drag: 160–480 by 80–600 DIP.</summary>
@@ -96,8 +91,8 @@ public sealed class NoteCardItem : ObservableObject
 }
 
 /// <summary>
-/// The open sticky note cards (spec 24.9; P1 V8). One card at most is typed in (<see cref="Active"/>); an unpinned card
-/// closes when its typing ends, pinned ones stay beside it. A new note is added only when its typing ends with text (one
+/// The open sticky note cards (spec 24.9; P1 V8). One card at most is typed in (<see cref="Active"/>); a card stays open
+/// after its typing ends until it is closed (its close button, Esc, its icon pressed again). A new note is added only when its typing ends with text (one
 /// Undo unit); an existing one is updated, or deleted when its text was cleared. The cards themselves are the view's.
 /// </summary>
 public sealed class NoteCardViewModel : ObservableObject
@@ -126,10 +121,10 @@ public sealed class NoteCardViewModel : ObservableObject
     /// <summary>The note being typed in (null when none is).</summary>
     public StickyNote? Note => active?.Note;
 
-    /// <summary>Some card is pinned (보기 › 메모 펼치기 is on).</summary>
-    public bool HasPinned => Cards.Any(c => c.IsPinned);
+    /// <summary>Some card is open (보기 › 메모 펼치기 is on).</summary>
+    public bool HasOpen => Cards.Count > 0;
 
-    /// <summary>보기 › 메모 펼치기: pins open every note of the current page; with pinned cards, closes them all.</summary>
+    /// <summary>보기 › 메모 펼치기: opens every note of the current page; with cards open, closes them all.</summary>
     public Command ExpandCommand { get; }
 
     private void Changed()
@@ -137,7 +132,7 @@ public sealed class NoteCardViewModel : ObservableObject
         OnPropertyChanged(nameof(Active));
         OnPropertyChanged(nameof(Note));
         OnPropertyChanged(nameof(IsOpen));
-        OnPropertyChanged(nameof(HasPinned));
+        OnPropertyChanged(nameof(HasOpen));
         LayoutChanged?.Invoke();
     }
 
@@ -180,15 +175,14 @@ public sealed class NoteCardViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Typing in <paramref name="card"/> ended (Esc, the keyboard left it): its text goes into the document. A pinned card
-    /// stays, any other closes. Returns the id of a note just added.
+    /// Typing in <paramref name="card"/> ended (the keyboard left it, a save): its text goes into the document and the card
+    /// stays open (an emptied note's card closes). Returns the id of a note just added.
     /// </summary>
     public Guid? End(NoteCardItem card)
     {
         if (!Cards.Contains(card)) return null;
         var added = Write(card);
         if (ReferenceEquals(active, card)) active = null;
-        if (!card.IsPinned) Cards.Remove(card);
         Changed();
         owner.Navigation.RefreshOverlays(); // a new note's icon was drawn by the view while it was open
         return added;
@@ -200,26 +194,21 @@ public sealed class NoteCardViewModel : ObservableObject
         if (End(card) is { } added) owner.Selection.Tool.Select(added);
     }
 
-    /// <summary>The card's close button, or its pin pressed again: the text is kept as when typing ends, and the card closes.</summary>
-    public void Close(NoteCardItem card)
+    /// <summary>The card's close button, Esc, its icon pressed again: the text is kept as when typing ends, and the card closes.</summary>
+    public Guid? Close(NoteCardItem card)
     {
-        card.IsPinned = false;
-        End(card);
+        if (!Cards.Contains(card)) return null;
+        var added = End(card);
+        if (Cards.Remove(card)) Changed();
+        return added;
     }
 
-    public void TogglePin(NoteCardItem card)
-    {
-        if (card.IsPinned) Close(card);
-        else
-        {
-            card.IsPinned = true;
-            Changed();
-        }
-    }
+    /// <summary>The card open for the note <paramref name="id"/> (null: none).</summary>
+    public NoteCardItem? CardFor(Guid id) => Cards.FirstOrDefault(c => c.Id == id);
 
     /// <summary>
     /// Before a save, an Undo, a tool change: the typing ends (a new note with text is added and selected) and what was
-    /// typed in any card is in the document. Pinned cards stay open.
+    /// typed in any card is in the document. The cards stay open.
     /// </summary>
     public void Commit()
     {
@@ -244,16 +233,15 @@ public sealed class NoteCardViewModel : ObservableObject
     {
         if (active is not { } card) return null;
         card.Text = text;
-        card.IsPinned = false;
-        return End(card);
+        return Close(card);
     }
 
     private void ToggleExpand()
     {
         owner.EndInput();
-        if (HasPinned)
+        if (HasOpen)
         {
-            foreach (var card in Cards.Where(c => c.IsPinned).ToList()) Close(card);
+            foreach (var card in Cards.ToList()) Close(card);
             return;
         }
         Commit();
@@ -263,7 +251,7 @@ public sealed class NoteCardViewModel : ObservableObject
         foreach (var note in page.Annotations.OfType<StickyNote>())
         {
             if (owner.AiNotes.Hides(model, note) || Cards.Any(c => c.Id == note.Id)) continue;
-            Cards.Add(new NoteCardItem(this, note, page.Id, isNew: false, Authorship.IsAi(model, note.Id)) { IsPinned = true });
+            Cards.Add(new NoteCardItem(this, note, page.Id, isNew: false, Authorship.IsAi(model, note.Id)));
         }
         Changed();
     }
@@ -336,7 +324,7 @@ public sealed class NoteCardViewModel : ObservableObject
         return text.Length > ModelLimits.MaxTextLength ? text[..ModelLimits.MaxTextLength] : text;
     }
 
-    /// <summary>An empty note's card closes even when pinned (the note itself is gone or was never added).</summary>
+    /// <summary>An empty note's card closes (the note itself is gone or was never added).</summary>
     private void Drop(NoteCardItem card)
     {
         Cards.Remove(card);

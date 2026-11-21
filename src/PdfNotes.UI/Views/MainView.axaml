@@ -241,7 +241,7 @@
                         <HeaderedContentControl Theme="{StaticResource RibbonGroup}" Header="{l:T group.show}">
                             <StackPanel Orientation="Horizontal">
                                 <ToggleButton x:Name="HideNotesButton" Theme="{StaticResource ToolButton}" IsChecked="{Binding Display.NotesHidden, Mode=OneWay}" Command="{Binding HideNotesCommand}" ToolTip.Tip="{l:T view.hideNotes}"><th:IconLabel Glyph="Hide" Text="{l:T view.hideNotes}" /></ToggleButton>
-                                <ToggleButton x:Name="ExpandNotesButton" Theme="{StaticResource ToolButton}" IsChecked="{Binding NoteCard.HasPinned, Mode=OneWay}" Command="{Binding NoteCard.ExpandCommand}" ToolTip.Tip="{l:T view.expandNotes}"><th:IconLabel Glyph="Note" Text="{l:T view.expandNotes}" /></ToggleButton>
+                                <ToggleButton x:Name="ExpandNotesButton" Theme="{StaticResource ToolButton}" IsChecked="{Binding NoteCard.HasOpen, Mode=OneWay}" Command="{Binding NoteCard.ExpandCommand}" ToolTip.Tip="{l:T view.expandNotes}"><th:IconLabel Glyph="Note" Text="{l:T view.expandNotes}" /></ToggleButton>
                             </StackPanel>
                         </HeaderedContentControl>
                         <Border Classes="sep" />
@@ -452,7 +452,7 @@
                                 <ToggleButton x:Name="TextBButton" Theme="{StaticResource ToolButton}" Width="27" ToolTip.Tip="{l:T text.bold}"
                                               IsChecked="{Binding TextStyle.IsBold, Mode=OneWay}" Command="{Binding TextStyle.FlagCommand}" CommandParameter="B"><TextBlock Text="B" FontWeight="Bold" /></ToggleButton>
                                 <ToggleButton x:Name="TextIButton" Theme="{StaticResource ToolButton}" Width="27" ToolTip.Tip="{l:T text.italic}"
-                                              IsChecked="{Binding TextStyle.IsItalic, Mode=OneWay}" Command="{Binding TextStyle.FlagCommand}" CommandParameter="I"><TextBlock Text="I" FontStyle="Italic" /></ToggleButton>
+                                              IsChecked="{Binding TextStyle.IsItalic, Mode=OneWay}" Command="{Binding TextStyle.FlagCommand}" CommandParameter="I"><TextBlock Text="I" FontStyle="Italic" Padding="0,0,2,0" /></ToggleButton>
                                 <ToggleButton x:Name="TextUButton" Theme="{StaticResource ToolButton}" Width="27" ToolTip.Tip="{l:T text.underline}"
                                               IsChecked="{Binding TextStyle.IsUnderline, Mode=OneWay}" Command="{Binding TextStyle.FlagCommand}" CommandParameter="U"><TextBlock Text="U" TextDecorations="Underline" /></ToggleButton>
                                 <ToggleButton x:Name="TextSButton" Theme="{StaticResource ToolButton}" Width="27" ToolTip.Tip="{l:T text.strikeOut}"
@@ -686,9 +686,6 @@
                                                         <Button DockPanel.Dock="Right" Padding="3" Margin="0" Theme="{StaticResource ToolButton}" Focusable="False" Cursor="Arrow" Command="{Binding CloseCommand}" ToolTip.Tip="{l:T note.close}">
                                                             <th:AppIcon Glyph="Close" Size="10" />
                                                         </Button>
-                                                        <ToggleButton DockPanel.Dock="Right" Padding="3" Margin="0" Theme="{StaticResource ToolButton}" Focusable="False" Cursor="Arrow" IsChecked="{Binding IsPinned, Mode=OneWay}" Command="{Binding PinCommand}" ToolTip.Tip="{l:T note.pin}">
-                                                            <th:AppIcon Outline="M5.5,2 L10.5,2 L10.5,7 L13,10 L3,10 L5.5,7 Z M8,10 L8,14.5" Size="12" />
-                                                        </ToggleButton>
                                                     </DockPanel>
                                                 </Border>
                                                 <TextBox AcceptsReturn="True" AcceptsTab="False" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="6,0,6,4"
