@@ -26,7 +26,7 @@ public sealed partial class MainView : IPageDialogs
         var display = viewModel.Display.Stored;
         var dialog = new SettingsDialog(new(settings.QuickErase, settings.PageDrag,
             new(settings.AutoBackup, settings.BackupIntervalMinutes, settings.BackupMode, settings.BackupFolderIn(appFolder), settings.BackupKeep), display,
-            settings.Language, settings.CheckUpdates == true, settings.FingerDrawing, settings.PenPressure, settings.LiveLink),
+            settings.Language, settings.CheckUpdates == true, settings.FingerDrawing, settings.PenPressure, settings.LiveLink, settings.ShapeRecognition),
             () => ConfirmAsync(Strings.Get("settings.backupInPlaceConfirm"), NoticeKind.Warning),
             PreviewDisplay, Strings.Discover(AppSettings.LanguageFoldersIn(appFolder)), new(viewModel.Backup.Store.Usage, viewModel.Backup.ClearAsync), new(viewModel.Update.CheckAsync, OpenWebPage));
         if (!await dialogs.ShowWindowAsync(dialog) || dialog.Result is not { } values) { PreviewDisplay(display); return false; } // cancel undoes the preview
@@ -35,6 +35,7 @@ public sealed partial class MainView : IPageDialogs
         settings.PageDrag = values.PageDrag;
         settings.FingerDrawing = values.FingerDrawing;
         settings.PenPressure = values.PenPressure;
+        settings.ShapeRecognition = values.ShapeRecognition;
         settings.LiveLink = values.LiveLink;
         settings.AutoBackup = values.Backup.Enabled;
         settings.BackupIntervalMinutes = values.Backup.IntervalMinutes;

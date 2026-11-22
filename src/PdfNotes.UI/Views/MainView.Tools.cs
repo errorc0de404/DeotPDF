@@ -45,9 +45,9 @@ public sealed partial class MainView
                 () => styles.Pen, () => settings.PenPressure, () => styles.Highlighter, () => settings.HighlighterSnap, () => styles.TextHighlightStyle,
                 () => (styles.MarkKind, styles.MarkupStyle), () => styles.Line, () => styles.LineOptions,
                 () => settings.ShapeKind, () => styles.Shape, () => settings.StrokeEraserPt, () => settings.AreaEraserPt,
-                () => viewModel.AiNotes.IsHidden),
+                () => viewModel.AiNotes.IsHidden, () => settings.ShapeRecognition),
             new(BeginNewTextAtClick, SelectTextAt, CreateNote, SelectNoteAt),
-            SetTool, ReturnAfterAutoSelect, action => Dispatcher.UIThread.Post(action), changed => TextBoxReleased(null, changed));
+            SetTool, ReturnAfterAutoSelect, action => Dispatcher.UIThread.Post(action), changed => TextBoxReleased(null, changed), time);
         styles.Attach(selectTool);
         viewModel.Selection.Attach(selectTool, CheckImage);
         selectTool.SelectionChanged += (_, _) => Canvas.RefreshOverlays();

@@ -26,9 +26,10 @@ namespace PdfNotes.Desktop.Tests;
 /// </summary>
 public sealed class FrameTests
 {
-    private static MainWindow Window(double width = 1200, double height = 1000, AppSettings? settings = null)
+    private static MainWindow Window(double width = 1200, double height = 1000, AppSettings? settings = null, TimeProvider? time = null)
     {
-        var window = new MainWindow(TestWindows.App(settings ?? new AppSettings(), Headless.TempFolder()), TestWindows.Dialogs) { Width = width, Height = height };
+        var app = TestWindows.App(settings ?? new AppSettings(), Headless.TempFolder());
+        var window = new MainWindow(time is null ? app : app with { Time = time }, TestWindows.Dialogs) { Width = width, Height = height };
         window.Script.PromptOverride = (_, buttons) => buttons == AskButtons.YesNo ? Answer.Yes : Answer.No; // yes to questions, never save on close
         window.Script.MessageSink = _ => { };
         window.View.EditorClipboard.InMemory = true;
@@ -963,6 +964,45 @@ public sealed class FrameTests
         w.Script.WindowOverride = window => { window.GetLogicalDescendants().OfType<CheckBox>().First(c => c.Name == "PageDragBox").IsChecked = false; return false; };
         Assert.False(w.View.ShowSettingsAsync().GetAwaiter().GetResult());
         Assert.True(settings.PageDrag);
+        w.Close();
+    });
+
+    /// <summary>1.4 plan 1.2: a stroke held at its end becomes a shape (two Undo steps); 필기 › 멈추면 도형으로 turns it off.</summary>
+    [Fact]
+    public void PenHoldMakesAShapeAndTheSettingTurnsItOff() => Headless.Run(() =>
+    {
+        var clock = new PdfNotes.TestSupport.ManualClock();
+        var settings = new AppSettings();
+        var w = Window(settings: settings, time: clock);
+        w.View.SetTool(ToolKind.Pen);
+        Settle(w);
+        var circle = Enumerable.Range(0, 61).Select(k => new Point2(250 + 60 * Math.Cos(2 * Math.PI * k / 60 - Math.PI / 2), 300 + 60 * Math.Sin(2 * Math.PI * k / 60 - Math.PI / 2))).ToArray();
+        void DrawAndHold()
+        {
+            w.MouseMove(At(w, circle[0]), RawInputModifiers.None);
+            w.MouseDown(At(w, circle[0]), MouseButton.Left, RawInputModifiers.None);
+            foreach (var p in circle.Skip(1)) w.MouseMove(At(w, p), RawInputModifiers.LeftMouseButton);
+            Dispatcher.UIThread.RunJobs();
+            clock.Advance(500);
+            Dispatcher.UIThread.RunJobs();
+            w.MouseUp(At(w, circle[^1]), MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        Assert.True(settings.ShapeRecognition);
+        DrawAndHold();
+        var shape = Assert.IsType<ShapeAnnotation>(Assert.Single(Annotations(w)));
+        Assert.Equal(ShapeKind.Ellipse, shape.ShapeKind);
+        w.Tap(Key.Z, RawInputModifiers.Control);
+        Assert.IsType<InkStroke>(Assert.Single(Annotations(w)));
+        w.Tap(Key.Z, RawInputModifiers.Control);
+        Assert.Empty(Annotations(w));
+
+        w.Script.WindowOverride = window => { ((SettingsDialog)window).Categories.SelectedIndex = 0; window.GetLogicalDescendants().OfType<CheckBox>().First(c => c.Name == "ShapeRecognitionBox").IsChecked = false; return true; };
+        Assert.True(w.View.ShowSettingsAsync().GetAwaiter().GetResult());
+        Assert.False(settings.ShapeRecognition);
+        DrawAndHold();
+        Assert.IsType<InkStroke>(Assert.Single(Annotations(w)));
         w.Close();
     });
 

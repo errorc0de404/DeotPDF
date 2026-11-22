@@ -1,6 +1,7 @@
 using PdfNotes.Core.Geometry;
 using PdfNotes.Editor.Input;
 using PdfNotes.Editor.Tools;
+using PdfNotes.TestSupport;
 using A = PdfNotes.Editor.Input.PointerAction;
 
 namespace PdfNotes.Tests.Editor;
@@ -8,15 +9,7 @@ namespace PdfNotes.Tests.Editor;
 /// <summary>P3 T3: the pen and touch decisions of spec 7.6, without a window (roadmap P3: no device to try them on).</summary>
 public sealed class PointerRouterTests
 {
-    private sealed class Clock : TimeProvider
-    {
-        public long Ticks;
-        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
-        public override long GetTimestamp() => Ticks;
-        public void Advance(int ms) => Ticks += TimeSpan.FromMilliseconds(ms).Ticks;
-    }
-
-    private readonly Clock clock = new();
+    private readonly ManualClock clock = new();
     private PointerRouterOptions options = new();
     private readonly PointerRouter router;
 

@@ -23,7 +23,8 @@ public sealed record ToolSources(
     Func<ShapeStyle> Shape,
     Func<double> StrokeEraserPt,
     Func<double> AreaEraserPt,
-    Func<bool>? AiNotesHidden = null);
+    Func<bool>? AiNotesHidden = null,
+    Func<bool>? ShapeRecognition = null);
 
 /// <summary>What the text and note tools hand back to the window (it owns the text editor and the note cards).</summary>
 public sealed record ToolActions(
@@ -63,16 +64,19 @@ public sealed class ToolSet
     /// <param name="returnAfterAutoSelect">Gives the tool back after an automatic switch to the selection tool.</param>
     /// <param name="later">Runs an action after the current input event (the UI thread's queue).</param>
     /// <param name="released">The window's part of a released selection drag (a text box starts editing), before the tool may come back.</param>
+    /// <param name="time">The clock of the pen and highlighter hold (1.4 plan 1.2; default the system clock).</param>
     public ToolSet(ICanvasView canvas, Func<DocumentSession?> session, ToolSwitch tools, ToolSources sources, ToolActions actions,
-        Action<ToolKind> setTool, Action returnAfterAutoSelect, Action<Action> later, Action<bool>? released = null)
+        Action<ToolKind> setTool, Action returnAfterAutoSelect, Action<Action> later, Action<bool>? released = null, TimeProvider? time = null)
     {
         this.tools = tools;
         this.setTool = setTool;
         this.returnAfterAutoSelect = returnAfterAutoSelect;
         this.later = later;
         Select = new SelectTool(canvas, session, sources.Glyphs) { AllowCrossPage = sources.AllowCrossPage };
-        Pen = new StrokeTool(canvas, session, sources.Pen, AnnotationKind.Ink, sources.PenPressure);
-        var highlighterStroke = new StrokeTool(canvas, session, sources.Highlighter, AnnotationKind.FreeHighlight);
+        // Held still at the end of a stroke, the pen and the highlighter make a shape (1.4 plan 1.2); the timer reports on the UI thread.
+        time ??= TimeProvider.System;
+        Pen = new StrokeTool(canvas, session, sources.Pen, AnnotationKind.Ink, sources.PenPressure, time, sources.ShapeRecognition, later);
+        var highlighterStroke = new StrokeTool(canvas, session, sources.Highlighter, AnnotationKind.FreeHighlight, null, time, sources.ShapeRecognition, later);
         Text = new TextTool(canvas, actions.NewText, actions.SelectText);
         Line = new LineTool(canvas, session, Select, sources.Line, sources.LineOptions, curve: false, SelectFrom(ToolKind.Line));
         Curve = new LineTool(canvas, session, Select, sources.Line, sources.LineOptions, curve: true, SelectFrom(ToolKind.Curve));

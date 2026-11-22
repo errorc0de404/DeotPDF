@@ -95,6 +95,21 @@ public static class DocumentEdits
         return new(label, operations, coalesceKey);
     }
 
+    /// <summary>
+    /// Puts <paramref name="replacement"/> (any kind, any id) where annotation <paramref name="oldId"/> is: the same page
+    /// and the same place in its stacking order, as one Undo unit (a held stroke made a shape, 1.4 plan 1.2). A locked
+    /// annotation cannot be replaced.
+    /// </summary>
+    public static EditCommand ReplaceAnnotation(DocumentModel model, Guid oldId, Annotation replacement, string label)
+    {
+        var location = model.FindAnnotation(oldId) ?? throw new KeyNotFoundException("Annotation does not exist.");
+        if (location.Annotation.Locked) throw new AnnotationLockedException();
+        if (location.Annotation.Id == replacement.Id)
+            return new(label, [new ReplaceAnnotationOperation(location.Page.Id, location.Annotation, replacement)]);
+        return new(label, [new RemoveAnnotationOperation(location.Page.Id, location.AnnotationIndex, location.Annotation),
+            new InsertAnnotationOperation(location.Page.Id, location.AnnotationIndex, replacement)]);
+    }
+
     /// <summary>Storage hygiene also removes locked app-owned blank text; external annotations are not in this model.</summary>
     public static EditCommand RemoveBlankTextBoxes(DocumentModel model) => new("undo.removeEmptyText",
         model.Pages.SelectMany(page => page.Annotations.Select((a, i) => (a, i)).Where(x => x.a is TextBoxAnnotation { IsBlank: true })

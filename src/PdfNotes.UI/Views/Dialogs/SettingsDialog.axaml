@@ -44,6 +44,7 @@
                     <CheckBox x:Name="QuickEraseBox" Content="{l:T settings.quickErase}" IsChecked="{Binding QuickErase}" />
                     <CheckBox x:Name="PageDragBox" Content="{l:T settings.pageDrag}" IsChecked="{Binding PageDrag}" />
                     <CheckBox x:Name="PenPressureBox" Content="{l:T settings.penPressure}" IsChecked="{Binding PenPressure}" />
+                    <CheckBox x:Name="ShapeRecognitionBox" Content="{l:T settings.shapeRecognition}" IsChecked="{Binding ShapeRecognition}" />
                     <CheckBox x:Name="FingerDrawingBox" Content="{l:T settings.fingerDrawing}" IsChecked="{Binding FingerDrawing}" />
                     <CheckBox x:Name="LiveLinkBox" Content="{l:T settings.liveLink}" IsChecked="{Binding LiveLink}" />
                 </StackPanel>

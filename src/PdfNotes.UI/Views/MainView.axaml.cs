@@ -57,6 +57,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
     private readonly DesktopClipboard clipboard;
     private PageRenderQueue<SKImage>? queue;
     private readonly string appFolder;
+    private readonly TimeProvider time; // the app's clock: the pen hold's timer (tests pass a manual one)
     private readonly IViewHost host;
     private TopLevel? topLevel;
 
@@ -73,6 +74,7 @@ public sealed partial class MainView : UserControl, IEditingSurface, IWindowCoor
         IDocumentLocations? locations = null)
     {
         appFolder = app.SettingsFolder;
+        time = app.Time;
         var settings = app.Settings;
         this.host = host ?? NoViewHost.Instance;
         InitializeComponent(); StartupMark?.Invoke("xaml");

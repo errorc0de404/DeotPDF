@@ -14,10 +14,32 @@ namespace PdfNotes.Editor.Tools;
 /// keeps the points; the page clips the display). The preview uses the same smoothing as the committed stroke and
 /// never touches the document; Esc, right button or lost capture discards it. A pen that reports pressure draws a pen
 /// stroke whose width follows it (spec 7.6) while <paramref name="usePressure"/> says so; the highlighter never does.
+/// <para>
+/// Held still at the end (spec 7.7, 1.4 plan 1.2): the pen, mouse or finger staying within <see cref="HoldRadiusDip"/>
+/// for <see cref="HoldTime"/> before it lifts turns the stroke into the shape <see cref="ShapeRecognizer"/> finds (the
+/// highlighter: a line only), shown at once; moving on stretches and turns it, and lifting commits the hand stroke and
+/// then the shape in its place as a second Undo unit. <paramref name="recognize"/> is the setting (null or no
+/// <paramref name="time"/>: never); <paramref name="post"/> runs the timer's callback on the UI thread (default inline).
+/// </para>
 /// </summary>
 public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session, Func<StrokeStyle> style, AnnotationKind kind,
-    Func<bool>? usePressure = null) : ICanvasTool, ICanvasPreview
+    Func<bool>? usePressure = null, TimeProvider? time = null, Func<bool>? recognize = null, Action<Action>? post = null) : ICanvasTool, ICanvasPreview
 {
+    /// <summary>How long the pen stays within <see cref="HoldRadiusDip"/> before the stroke becomes a shape (1.4 plan 1.2).</summary>
+    public static readonly TimeSpan HoldTime = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>The hold allows this much movement (screen DIP); farther starts it again from there.</summary>
+    public const double HoldRadiusDip = 3;
+
+    /// <summary>A stroke whose bounds are smaller than this on screen (DIP) is never a shape (handwriting).</summary>
+    public const double MinShapeDip = 24;
+
+    /// <summary>Recognition tolerance: this share of the longer side of the stroke's bounds (page points).</summary>
+    public const double ShapeToleranceFraction = 0.08;
+
+    /// <summary>A timer may fire this much early.</summary>
+    private static readonly TimeSpan HoldSlack = TimeSpan.FromMilliseconds(30);
+
     /// <summary>Input points closer than this (device pixels) to the previous one are skipped.</summary>
     public const double MinStepPixels = 0.75;
 
@@ -37,6 +59,12 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
     private int pageIndex = -1;
     private Guid pageId;
     private StrokeStyle current = StrokeStyle.DefaultPen;
+    private ITimer? holdTimer;
+    private long holdStart;
+    private Point2 holdAnchorDip;
+    private RecognizedShape? recognized; // the shape found at the hold, before any drag
+    private Point2 grab;                 // where the stroke was held (page points)
+    private Annotation? shape;           // what the stroke becomes (preview id Guid.Empty)
 
     public AnnotationKind Kind { get; } = kind is AnnotationKind.Ink or AnnotationKind.FreeHighlight
         ? kind : throw new ArgumentOutOfRangeException(nameof(kind));
@@ -63,12 +91,15 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
                     usePressure?.Invoke() == true;
         if (pressured) pressures.Add(Math.Clamp(pointer.Pressure!.Value, 0, 1));
         view.SetPreview(pageIndex, this);
+        StartHold(pointer.Position);
         return true;
     }
 
     public void PointerMove(CanvasPointer pointer)
     {
         if (!IsActive) return;
+        if (shape is not null) { Drag(pointer.Position); return; }
+        if (pointer.Position.DistanceTo(holdAnchorDip) > HoldRadiusDip) StartHold(pointer.Position);
         var transform = view.PageTransform(pageIndex);
         var p = transform.DipToPage.Transform(new(pointer.Position.X, pointer.Position.Y));
         if (p.DistanceTo(raw[^1]) < transform.DevicePixelLengthToPoints(MinStepPixels)) return;
@@ -100,9 +131,12 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
     public void PointerUp(CanvasPointer pointer)
     {
         if (!IsActive) return;
+        if (shape is not null) Drag(pointer.Position);
+        var made = shape is null ? null : shape with { Id = Guid.NewGuid() };
         var transform = view.PageTransform(pageIndex);
         var p = transform.DipToPage.Transform(new(pointer.Position.X, pointer.Position.Y));
-        if (p.DistanceTo(raw[^1]) >= transform.DevicePixelLengthToPoints(MinStepPixels))
+        // After recognition the pen moved the shape, not the stroke: the hand stroke ends where it was held.
+        if (made is null && p.DistanceTo(raw[^1]) >= transform.DevicePixelLengthToPoints(MinStepPixels))
         {
             raw.Add(p);
             AddPressure(pointer with { Pressure = null }); // a pen reports no pressure as it lifts: the end keeps the last one
@@ -118,8 +152,73 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
         Guid targetPage = pageId;
         Reset();
         if (session() is not { } s || s.Current.IndexOfPage(targetPage) < 0) return;
-        if (s.Execute(DocumentEdits.AddAnnotation(s.Current, targetPage, stroke, label: Kind == AnnotationKind.Ink ? "undo.pen" : "undo.highlighter")))
-            Committed?.Invoke(this, stroke);
+        if (!s.Execute(DocumentEdits.AddAnnotation(s.Current, targetPage, stroke, label: Kind == AnnotationKind.Ink ? "undo.pen" : "undo.highlighter"))) return;
+        Committed?.Invoke(this, stroke);
+        // The shape replaces the hand stroke as its own Undo unit: the first Undo gives the stroke back (1.4 plan 1.2).
+        if (made is not null && ModelValidator.ValidateAnnotation(made, _ => false) is null)
+            s.Execute(DocumentEdits.ReplaceAnnotation(s.Current, stroke.Id, made, "undo.recognizeShape"));
+    }
+
+    /// <summary>(Re)starts the hold at <paramref name="dip"/>: the stroke becomes a shape when the pen stays near it.</summary>
+    private void StartHold(Point2 dip)
+    {
+        holdAnchorDip = dip;
+        if (time is null || recognize?.Invoke() != true) return;
+        holdStart = time.GetTimestamp();
+        holdTimer ??= time.CreateTimer(_ => (post ?? (action => action()))(HoldElapsed), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        holdTimer.Change(HoldTime, Timeout.InfiniteTimeSpan);
+    }
+
+    private void StopHold() => holdTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+
+    /// <summary>The hold timer (on the UI thread): the stroke so far becomes a shape if it is one; otherwise nothing happens.</summary>
+    private void HoldElapsed()
+    {
+        if (!IsActive || shape is not null || time is null || recognize?.Invoke() != true) return;
+        if (time.GetElapsedTime(holdStart) < HoldTime - HoldSlack) return; // a callback from before the hold restarted
+        double minX = raw.Min(p => p.X), maxX = raw.Max(p => p.X), minY = raw.Min(p => p.Y), maxY = raw.Max(p => p.Y);
+        double tolerance = Math.Max(maxX - minX, maxY - minY) * ShapeToleranceFraction;
+        if (!(tolerance > 0)) return;
+        var found = ShapeRecognizer.Recognize(raw, view.PageTransform(pageIndex).DipLengthToPoints(MinShapeDip), tolerance);
+        if (found is null || Kind == AnnotationKind.FreeHighlight && found.Kind != RecognizedKind.Line) return;
+        recognized = found;
+        grab = raw[^1];
+        shape = ToAnnotation(found);
+        view.RefreshPreview();
+    }
+
+    /// <summary>After the hold the shape follows the pen: grabbed where it was held, stretched and turned (or the line's end moved).</summary>
+    private void Drag(Point2 dip)
+    {
+        var to = view.PageTransform(pageIndex).DipToPage.Transform(dip);
+        shape = ToAnnotation(ShapeRecognizer.Dragged(recognized!, grab, to));
+        view.RefreshPreview();
+    }
+
+    /// <summary>
+    /// The annotation of a recognised shape, as the line and shape tools make it: the pen's color, width and opacity as a
+    /// solid line or border, no fill, no pressure. The highlighter's line stays a two-point free highlight.
+    /// </summary>
+    private Annotation ToAnnotation(RecognizedShape found)
+    {
+        var p = found.Points;
+        if (Kind == AnnotationKind.FreeHighlight)
+            return new FreeHighlightStroke(Guid.Empty, false, Affine.Identity, [p[0], p[1]], current.WidthPt, current.Color, current.Opacity);
+        var border = new ShapeStyle(current.Color, 0, true, current.Color, current.WidthPt, current.Opacity, DashStyle.Solid);
+        switch (found.Kind)
+        {
+            case RecognizedKind.Line or RecognizedKind.Arrow:
+                return new LineAnnotation(Guid.Empty, false, Affine.Identity, LineKind.Straight, p[0], p[1], [], current.WidthPt, DashStyle.Solid,
+                    false, found.Kind == RecognizedKind.Arrow, current.Color, current.Opacity);
+            case RecognizedKind.Triangle:
+                return new ShapeAnnotation(Guid.Empty, false, Affine.Identity, ShapeKind.Polygon, default, [.. p], border);
+            default:
+                double halfWidth = Math.Abs(p[1].X), halfHeight = Math.Abs(p[1].Y);
+                double turn = Math.IEEERemainder(found.RotationRad, 2 * Math.PI);
+                return new ShapeAnnotation(Guid.Empty, false, Affine.Rigid(turn, p[0].X, p[0].Y),
+                    found.Kind == RecognizedKind.Ellipse ? ShapeKind.Ellipse : ShapeKind.Rectangle,
+                    new Rect2(-halfWidth, -halfHeight, 2 * halfWidth, 2 * halfHeight), [], border);
+        }
     }
 
     public void Cancel() => Reset();
@@ -132,6 +231,9 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
         settled = [];
         settledEnd = 0;
         pressured = false;
+        StopHold();
+        recognized = null;
+        shape = null;
         view.SetPreview(-1, null);
     }
 
@@ -164,6 +266,11 @@ public sealed class StrokeTool(ICanvasView view, Func<DocumentSession?> session,
     IEnumerable<CanvasMark> ICanvasPreview.Marks(int index, Page page, ViewTransform transform)
     {
         if (index != pageIndex || raw.Count == 0) yield break;
+        if (shape is not null)
+        {
+            yield return new AnnotationMark(shape); // drawn as the shape tool draws its preview
+            yield break;
+        }
         yield return new StrokeProgressMark(previewKey, settled, Piece(settledEnd, raw.Count - 1), current.Opacity);
     }
 }

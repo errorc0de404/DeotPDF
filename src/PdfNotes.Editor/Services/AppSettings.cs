@@ -168,6 +168,9 @@ public sealed class AppSettings
     /// <summary>Pen strokes follow pen pressure (spec 7.6, default on).</summary>
     public bool PenPressure { get; set; } = true;
 
+    /// <summary>The pen or highlighter held still at the end of a stroke makes it a shape (spec 7.7, default on).</summary>
+    public bool ShapeRecognition { get; set; } = true;
+
     /// <summary>
     /// AI clients may reach the open document through <c>deot</c> (MCP_LIVE_PLAN 2), off by default. Each client still asks
     /// once per document and run.
