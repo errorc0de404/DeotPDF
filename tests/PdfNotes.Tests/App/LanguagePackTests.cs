@@ -32,6 +32,26 @@ public sealed partial class LanguagePackTests(ITestOutputHelper output) : IDispo
         return dir;
     }
 
+    [Theory]
+    [InlineData("ko-KR", "ko")]
+    [InlineData("en-US", "en")]
+    [InlineData("ja-JP", "en")]
+    [InlineData("", "en")]
+    public void AFirstStartFollowsTheSystemLanguage(string culture, string expected) =>
+        Assert.Equal(expected, PdfNotes.Editor.Services.AppSettings.DefaultLanguage(System.Globalization.CultureInfo.GetCultureInfo(culture)));
+
+    [Fact]
+    public void ASavedLanguageIsKeptWhateverTheSystem()
+    {
+        Directory.CreateDirectory(folder);
+        string path = Path.Combine(folder, "settings.json");
+        foreach (var saved in new[] { "ko", "en" })
+        {
+            File.WriteAllText(path, $$"""{"language":"{{saved}}"}""");
+            Assert.Equal(saved, PdfNotes.Editor.Services.AppSettings.Load(path).Language);
+        }
+    }
+
     [Fact]
     public void TheKoreanPackIsBuiltInWithValidPlaceholders()
     {
@@ -110,10 +130,19 @@ public sealed partial class LanguagePackTests(ITestOutputHelper output) : IDispo
     private static string WithoutStamps(string pdf) => Stamp().Replace(System.Text.Encoding.Latin1.GetString(File.ReadAllBytes(pdf)), "#");
 
     [Fact]
+    public void EnglishIsBuiltInWhenNoFolderHasIt()
+    {
+        var packs = Strings.Discover([Path.Combine(folder, "absent")]);
+        Assert.Equal(["ko", "en"], packs.Select(p => p.Language));
+        Strings.Apply("en", [Path.Combine(folder, "absent")]);
+        Assert.Equal("en", Strings.Language);
+        Assert.Equal("Saved", Strings.Get("status.saved"));
+    }
+
+    [Fact]
     public void TheShippedEnglishPackMatchesTheKoreanKeysAndPlaceholders()
     {
-        string file = Path.Combine(Path.GetDirectoryName(SourceRoot())!, "src", "PdfNotes.Desktop", "Languages", "en.json");
-        Strings.Use(LanguagePack.Parse(File.ReadAllText(file), file));
+        Strings.Use(Strings.English);
         Assert.Equal("en", Strings.Language);
         Assert.Equal("Saved", Strings.Get("status.saved"));
         Assert.DoesNotContain(Strings.Diagnostics, d => d.Contains("placeholders", StringComparison.Ordinal) || d.Contains("unknown key", StringComparison.Ordinal));

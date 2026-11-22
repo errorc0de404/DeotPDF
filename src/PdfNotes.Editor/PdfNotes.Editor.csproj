@@ -9,5 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Localization\ko.json" LogicalName="PdfNotes.Editor.Localization.ko.json" />
+    <EmbeddedResource Include="Localization\en.json" LogicalName="PdfNotes.Editor.Localization.en.json" />
   </ItemGroup>
 </Project>

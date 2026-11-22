@@ -44,7 +44,7 @@ Rules:
 
 ## UI text
 
-Strings are in `src/PdfNotes.Editor/Localization/ko.json` and `src/PdfNotes.Desktop/Languages/en.json`, same keys in both. Korean literals in code fail `LanguagePackTests`. No explanatory captions or long tooltips in the UI.
+Strings are in `src/PdfNotes.Editor/Localization/ko.json` and `src/PdfNotes.Editor/Localization/en.json`, same keys in both. Korean literals in code fail `LanguagePackTests`. No explanatory captions or long tooltips in the UI.
 
 ## CLI
 

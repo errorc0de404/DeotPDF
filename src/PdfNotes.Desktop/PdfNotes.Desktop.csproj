@@ -24,6 +24,6 @@
   </ItemGroup>
   <ItemGroup>
     <!-- The language packs shipped next to the app (D14e: the app folder's Languages, then the settings folder's). -->
-    <None Include="Languages\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\PdfNotes.Editor\Localization\en.json" Link="Languages\en.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
