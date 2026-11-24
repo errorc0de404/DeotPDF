@@ -63,9 +63,9 @@ dotnet run --project src/PdfNotes.Cli -c Release -- schema
 |---|---|---|
 | 읽기 | `info <pdf>` | 페이지 수·크기·회전, 글자 층 유무, 주석 수, `sourceHash` |
 | | `render <pdf> -p <페이지> -o <png>` | 페이지나 `--region` 영역을 PNG로. `--pages 1-8 --grid`는 여러 쪽을 한 장에 모아 줍니다. `--annotations all\|none\|tagged\|...`로 그릴 주석을 고르고, `--overlay`는 PNG에만 상자를 그립니다 |
-| | `text <pdf> -p <페이지>` | 글자·단어·줄과 그 위치(사변형). 글자 단위는 길어서, 읽기만 할 때는 `--fields lines`를 주세요. `--region x,y,w,h`를 주면 그 영역에 걸친 것만 옵니다 |
-| | `annot list <pdf>` | 주석 종류·범위·스타일·글·태그. `-p`, `--kind`, `--tag`, `--batch-id`, `--source-key`, `--group-key`로 거를 수 있습니다(`--tag untagged`는 사람이 쓴 것만). `--near-text`를 주면 주석마다 걸쳐 있거나 가장 가까운 글자 줄(`nearText`)이 같이 옵니다 |
-| 찾기 | `find <pdf> --text <문구>` | 문구 위치. 대소문자, 띄어쓰기, 줄바꿈, 하이픈은 무시합니다. `--within x,y,w,h`로 범위를 좁히고 `--fuzzy`로 비슷한 것도 찾습니다 |
+| | `text <pdf> -p <페이지>` | 글자·단어·줄과 그 위치(사변형). 글자 단위는 길어서, 읽기만 할 때는 `--fields lines,tables`를 주세요. `tables`는 페이지의 표와 칸 글자(`cells[행][열]`)이고, 칸 글자는 텍스트 층에 없습니다. `--region x,y,w,h`를 주면 그 영역에 걸친 것만 옵니다 |
+| | `annot list <pdf>` | 주석 종류·범위·스타일·글·태그. `-p`, `--kind`, `--tag`, `--batch-id`, `--source-key`, `--group-key`로 거를 수 있습니다(`--tag untagged`는 사람이 쓴 것만). `--near-text`를 주면 주석마다 걸쳐 있거나 가장 가까운 글자 줄(`nearText`)이 같이 옵니다. 표는 `rows`, `columns`, `cells`, `columnWidths`, `rowHeights`(그려진 높이), `header`가 옵니다 |
+| 찾기 | `find <pdf> --text <문구>` | 문구 위치. 대소문자, 띄어쓰기, 줄바꿈, 하이픈은 무시합니다. `--within x,y,w,h`로 범위를 좁히고 `--fuzzy`로 비슷한 것도 찾습니다. `--include-annotations`는 텍스트 상자·메모·표 칸도 찾습니다(`annotationMatches`, 칸은 `row`·`column`) |
 | | `layout <pdf> -p <페이지>` | 줄을 문단과 목록 항목으로 묶어서 글자 범위, 글머리 기호·번호와 함께 돌려줍니다 |
 | | `ink <pdf> -p <페이지>` | 칸마다 잉크가 얼마나 있는지. `--blocks`는 그림·도표 같은 덩어리를 돌려줍니다 |
 | | `space <pdf> -p <페이지> --size w,h` | 잉크와 `--avoid` 영역을 피해 `w×h`가 들어가는 빈 자리. `--largest n`은 가장 큰 빈 자리를 찾습니다 |
@@ -84,7 +84,8 @@ dotnet run --project src/PdfNotes.Cli -c Release -- schema
 | | `add ink` | 주어진 점을 지나는 펜 획 |
 | | `add image` | PNG, JPEG, BMP |
 | | `add note` | 스티키 메모 |
-| 고치기 | `annot update` | 글, 스타일, 크기, 위치, 회전 바꾸기 |
+| | `add table` | 표. 왼쪽 위 모서리 `--x`, `--y`. 크기는 `--rows`, `--columns` 또는 `--cells`(`[["단어","뜻"],["apple","사과"]]`). `--column-widths`(pt, 16 이상, 기본 80), `--header false`(기본은 첫 행 굵게·회색 바탕). 행·열 1~100. 칸은 기본 글자 서식(Malgun Gothic 12pt), 행 높이 24pt이고 글자에 맞춰 커집니다 |
+| 고치기 | `annot update` | 글, 스타일, 크기, 위치, 회전 바꾸기(표는 위치·회전·배율만) |
 | | `annot delete` | ID, 배치, sourceKey, groupKey로 지우기 |
 | | `annot order` | 맨 앞으로, 맨 뒤로 등 |
 | | `annot lock` | 잠금, 잠금 해제 |
@@ -131,7 +132,7 @@ dotnet run --project src/PdfNotes.Cli -c Release -- schema
 
 `--style`은 상자 전체 설정입니다. `font`, `size`, `color`, `bold`, `italic`, `alignment`(`left`, `center`, `right`), `background`, `backgroundOpacity`, `border`, `borderColor`, `borderOpacity`, `highlightColor`, `highlightOpacity`를 쓸 수 있고, 안 준 값은 앱 기본값을 따릅니다.
 
-텍스트 상자는 글에 맞춰 아래로 늘어납니다. `h`를 `0`으로 주고 `deot`에 맡기면 되고, `--no-auto-height`를 붙이면 `h`를 한계로 보고 넘치면 `TEXT_OVERFLOW`를 냅니다. 상자가 페이지 밖으로 나가면 `PAGE_OVERFLOW`로 실패합니다. 그래도 쓰려면 `--overflow allow`를 붙이세요.
+텍스트 상자는 글에 맞춰 아래로 늘어납니다. `h`를 `0`으로 주고 `deot`에 맡기면 되고, `--no-auto-height`를 붙이면 `h`를 한계로 보고 넘치면 `TEXT_OVERFLOW`를 냅니다. 상자나 표가 페이지 밖으로 나가면 `PAGE_OVERFLOW`로 실패합니다. 그래도 쓰려면 `--overflow allow`를 붙이세요.
 
 ## 태그, sourceKey, groupKey
 
@@ -319,7 +320,7 @@ Claude Desktop: [Releases](https://github.com/errorc0de404/DeotPDF/releases/late
 | `EMPTY_RANGE` | 2 | 그 범위에 보이는 글자가 없음 |
 | `NO_SPACE` | 2 | `space`가 빈 자리를 못 찾음 |
 | `REGION_OUTSIDE_PAGE` | 2 | `--region`이 페이지와 겹치지 않음 |
-| `PAGE_OVERFLOW` | 2 | 텍스트 상자가 페이지 밖으로 나감 |
+| `PAGE_OVERFLOW` | 2 | 텍스트 상자나 표가 페이지 밖으로 나감 |
 | `PAGE_NOT_TRANSFORMABLE` | 2 | `page shrink`·`page resize`: 내용과 같이 옮길 수 없는 다른 프로그램 주석이 있는 페이지 |
 | `TEXT_OVERFLOW` | 2 | `--no-auto-height`인데 글이 상자보다 김 |
 | `LAST_PAGE` | 2 | 페이지를 전부 지울 수는 없음 |

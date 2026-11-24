@@ -51,6 +51,7 @@ public static class AnnotCommand
         LineAnnotation => ["--color", "--opacity", "--width", "--dash", "--start-arrow", "--end-arrow", .. Geometry],
         ShapeAnnotation => ["--fill", "--fill-opacity", "--border", "--border-color", "--border-width", "--border-opacity", "--dash", "--size", .. Geometry],
         ImageAnnotation => ["--size", .. Geometry],
+        TableAnnotation => Geometry, // cells, sizes and lines are not edited by the CLI (1.4)
         _ => [],
     };
 

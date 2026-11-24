@@ -1,12 +1,12 @@
 {
   "input": {
     "type": "object",
-    "description": "deot text <pdf> -p <page> [--fields chars,words,lines] [--region x,y,w,h]. chars is long (one entry per character): for reading, ask for --fields lines. --region keeps what touches the rectangle; numbers stay those of the whole page.",
+    "description": "deot text <pdf> -p <page> [--fields chars,words,lines,tables] [--region x,y,w,h]. chars is long (one entry per character): for reading, ask for --fields lines,tables. tables are the table annotations on the page with their cell texts (cells[row][column]); their text is not in the text layer. --region keeps what touches the rectangle; numbers stay those of the whole page.",
     "required": ["pdf", "page"],
     "properties": {
       "pdf": { "type": "string" },
       "page": { "type": "string", "description": "1-based number or page ID" },
-      "fields": { "type": "string", "description": "comma list of chars, words, lines (default all)" },
+      "fields": { "type": "string", "description": "comma list of chars, words, lines, tables (default all)" },
       "region": { "type": "string", "description": "canonical x,y,w,h" }
     }
   },
@@ -48,6 +48,22 @@
           "required": ["start", "end", "text", "quad"],
           "additionalProperties": false,
           "properties": { "start": { "type": "integer" }, "end": { "type": "integer" }, "text": { "type": "string" }, "quad": { "$ref": "common.json#/$defs/quad" } }
+        }
+      },
+      "tables": {
+        "type": "array",
+        "description": "table annotations on the page (with --region: those whose bounds touch it); their cells are not in the text layer",
+        "items": {
+          "type": "object",
+          "required": ["id", "bounds", "rows", "columns", "cells"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "bounds": { "$ref": "common.json#/$defs/rect" },
+            "rows": { "type": "integer" },
+            "columns": { "type": "integer" },
+            "cells": { "type": "array", "description": "cells[row][column] text", "items": { "type": "array", "items": { "type": "string" } } }
+          }
         }
       }
     }

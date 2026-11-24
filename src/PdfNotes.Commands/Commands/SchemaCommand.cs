@@ -50,7 +50,7 @@ public static class SchemaCommand
         ("EMPTY_RANGE", 2, "the characters have no visible glyphs"),
         ("NO_SPACE", 2, "space found no empty rectangle"),
         ("REGION_OUTSIDE_PAGE", 2, "--region does not overlap the page"),
-        ("PAGE_OVERFLOW", 2, "a text box would reach past the page (--overflow allow makes it with a warning)"),
+        ("PAGE_OVERFLOW", 2, "a text box or table would reach past the page (--overflow allow makes it with a warning)"),
         ("PAGE_NOT_TRANSFORMABLE", 2, "page shrink or resize on a page whose annotations of another app cannot be moved with its content"),
         ("TEXT_OVERFLOW", 2, "with --no-auto-height the text is taller than the box"),
         ("LAST_PAGE", 2, "a document keeps at least one page"),

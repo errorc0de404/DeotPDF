@@ -63,9 +63,9 @@ Successful results may carry `warnings`, for example `FONT_FALLBACK` when a font
 |---|---|---|
 | Read | `info <pdf>` | Pages, sizes, rotation, whether there's a text layer, annotation counts, `sourceHash` |
 | | `render <pdf> -p <page> -o <png>` | Render a page or a `--region` to PNG. `--pages 1-8 --grid` makes a contact sheet. `--annotations all\|none\|tagged\|...` picks what to draw, `--overlay` draws boxes on the PNG only |
-| | `text <pdf> -p <page>` | Characters, words and lines with their quads. The character list is long; to just read a page, pass `--fields lines`. `--region x,y,w,h` keeps what touches that rectangle |
-| | `annot list <pdf>` | Annotations with kind, bounds, style, text and tags. Filter with `-p`, `--kind`, `--tag`, `--batch-id`, `--source-key`, `--group-key` (`--tag untagged` is the user's own writing). `--near-text` adds the text line each annotation lies on or nearest to (`nearText`) |
-| Query | `find <pdf> --text <phrase>` | Where a phrase occurs. Ignores case, spacing, line breaks and hyphenation. `--within x,y,w,h` narrows it, `--fuzzy` allows near matches |
+| | `text <pdf> -p <page>` | Characters, words and lines with their quads. The character list is long; to just read a page, pass `--fields lines,tables`. `tables` are the page's tables with their cell texts (`cells[row][column]`), which are not in the text layer. `--region x,y,w,h` keeps what touches that rectangle |
+| | `annot list <pdf>` | Annotations with kind, bounds, style, text and tags. Filter with `-p`, `--kind`, `--tag`, `--batch-id`, `--source-key`, `--group-key` (`--tag untagged` is the user's own writing). `--near-text` adds the text line each annotation lies on or nearest to (`nearText`). A table has `rows`, `columns`, `cells`, `columnWidths`, `rowHeights` (as drawn) and `header` |
+| Query | `find <pdf> --text <phrase>` | Where a phrase occurs. Ignores case, spacing, line breaks and hyphenation. `--within x,y,w,h` narrows it, `--fuzzy` allows near matches. `--include-annotations` also searches text boxes, notes and table cells (`annotationMatches`; a cell has `row` and `column`) |
 | | `layout <pdf> -p <page>` | Lines grouped into paragraphs and list items, with their character ranges and bullet/number markers |
 | | `ink <pdf> -p <page>` | How much of each grid cell is drawn on. `--blocks` returns connected blobs (figures, diagrams) |
 | | `space <pdf> -p <page> --size w,h` | Empty rectangles big enough for `w×h`, avoiding ink and `--avoid` areas. `--largest n` returns the biggest instead |
@@ -84,7 +84,8 @@ Successful results may carry `warnings`, for example `FONT_FALLBACK` when a font
 | | `add ink` | Pen stroke through the given points |
 | | `add image` | PNG, JPEG or BMP |
 | | `add note` | Sticky note |
-| Edit | `annot update` | Change text, style, size, position or rotation |
+| | `add table` | Table, top-left corner at `--x`, `--y`. Size by `--rows`, `--columns` or by `--cells` (`[["Word","Meaning"],["apple","사과"]]`); `--column-widths` (pt, at least 16; default 80), `--header false` (default: first row bold on gray). 1–100 rows and columns. Cells take the default text style (Malgun Gothic 12 pt); rows are 24 pt and grow with their text |
+| Edit | `annot update` | Change text, style, size, position or rotation (a table: position, rotation and scale only) |
 | | `annot delete` | By ID, batch, source key or group key |
 | | `annot order` | Bring to front, send to back, ... |
 | | `annot lock` | Lock or unlock |
@@ -131,7 +132,7 @@ Span fields: `text`, `bold`, `italic`, `underline`, `strikeout`, `color`, `size`
 
 `--style` sets the box: `font`, `size`, `color`, `bold`, `italic`, `alignment` (`left`, `center`, `right`), `background`, `backgroundOpacity`, `border`, `borderColor`, `borderOpacity`, `highlightColor`, `highlightOpacity`. Anything you leave out uses the app's defaults.
 
-Text boxes grow downward to fit. Pass `h` as `0` and let `deot` size it, or use `--no-auto-height` to treat `h` as a limit (`TEXT_OVERFLOW` if it doesn't fit). A box that would end up past the page edge fails with `PAGE_OVERFLOW` unless you add `--overflow allow`.
+Text boxes grow downward to fit. Pass `h` as `0` and let `deot` size it, or use `--no-auto-height` to treat `h` as a limit (`TEXT_OVERFLOW` if it doesn't fit). A box or table that would end up past the page edge fails with `PAGE_OVERFLOW` unless you add `--overflow allow`.
 
 ## Tags, source keys and group keys
 
@@ -319,7 +320,7 @@ The text of every result is exactly the JSON the command prints, and a failed co
 | `EMPTY_RANGE` | 2 | No visible characters in that range |
 | `NO_SPACE` | 2 | `space` found nothing |
 | `REGION_OUTSIDE_PAGE` | 2 | `--region` doesn't overlap the page |
-| `PAGE_OVERFLOW` | 2 | The text box would go past the page edge |
+| `PAGE_OVERFLOW` | 2 | The text box or table would go past the page edge |
 | `PAGE_NOT_TRANSFORMABLE` | 2 | `page shrink` or `page resize` on a page with another app's annotations that cannot move with its content |
 | `TEXT_OVERFLOW` | 2 | With `--no-auto-height`, the text is taller than the box |
 | `LAST_PAGE` | 2 | Can't delete every page |

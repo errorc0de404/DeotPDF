@@ -42,7 +42,7 @@ public static class FindCommand
                     TextBoxAnnotation t => t.Text, StickyNote n => n.Text,
                     TableAnnotation t when hit.Cell is { } cell => t.Cell(cell.Row, cell.Column).Text, _ => ""
                 };
-                boxMatches.Add(new JsonObject
+                var match = new JsonObject
                 {
                     ["page"] = doc.NumberOf(page),
                     ["pageId"] = page.Id.ToString(),
@@ -51,7 +51,13 @@ public static class FindCommand
                     ["range"] = new JsonObject { ["start"] = hit.Start, ["end"] = hit.End },
                     ["quads"] = CliJson.Quads(hit.Quads),
                     ["text"] = annotation is TextBoxAnnotation or TableAnnotation && hit.End <= text.Length ? text[hit.Start..hit.End] : text,
-                });
+                };
+                if (hit.Cell is { } at)
+                {
+                    match["row"] = at.Row; // a table cell: range is in that cell's text
+                    match["column"] = at.Column;
+                }
+                boxMatches.Add(match);
             }
         }
         var result = CliJson.Result("find", doc.SourceHash);

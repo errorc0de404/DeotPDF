@@ -1,16 +1,18 @@
 using System.Text.Json.Nodes;
 using PdfNotes.Core.Geometry;
+using PdfNotes.Core.Models;
 
 namespace PdfNotes.Cli.Commands;
 
 /// <summary>
 /// <c>text &lt;pdf&gt; -p &lt;page&gt; [--fields chars,words,lines] [--region x,y,w,h]</c> (cli_plan 4.3, 3.4): the PDF text
 /// layer of one page, or of the part of it that touches a rectangle. Character numbers start at 0 (of the whole page also
-/// with <c>--region</c>) and ranges are <c>{start, end}</c> with the end excluded. No OCR.
+/// with <c>--region</c>) and ranges are <c>{start, end}</c> with the end excluded. No OCR. <c>tables</c> are the page's table
+/// annotations (1.4) with their cell texts by row and column: their text is not in the text layer.
 /// </summary>
 public static class TextCommand
 {
-    private static readonly string[] AllFields = ["chars", "words", "lines"];
+    private static readonly string[] AllFields = ["chars", "words", "lines", "tables"];
 
     public static JsonObject Run(IReadOnlyList<string> tokens)
     {
@@ -57,6 +59,17 @@ public static class TextCommand
                 ["text"] = TextSelection.TextOf(glyphs, l.Start, l.End),
                 ["quad"] = CliJson.Quad(l.Quad),
             }));
+        if (fields.Contains("tables"))
+            result["tables"] = CliJson.Array(page.Annotations.OfType<TableAnnotation>().Select(t => (t, Bounds: AnnotListCommand.Bounds(t)))
+                .Where(x => region is not { } box || (x.Bounds.X < box.X + box.Width && x.Bounds.X + x.Bounds.Width > box.X && x.Bounds.Y < box.Y + box.Height && x.Bounds.Y + x.Bounds.Height > box.Y))
+                .Select(x => (JsonNode?)new JsonObject
+                {
+                    ["id"] = x.t.Id.ToString(),
+                    ["bounds"] = CliJson.Rect(x.Bounds),
+                    ["rows"] = x.t.Rows,
+                    ["columns"] = x.t.Columns,
+                    ["cells"] = AnnotListCommand.Cells(x.t),
+                }));
         return result;
     }
 

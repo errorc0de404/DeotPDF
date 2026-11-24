@@ -279,7 +279,8 @@
             "shape",
             "ink",
             "image",
-            "note"
+            "note",
+            "table"
           ]
         },
         "z": {
@@ -315,7 +316,7 @@
           "description": "storage format v7; null for the user's own writing and other apps' annotations"
         }
       },
-      "description": "One annotation as annot list reports it: kind-specific fields (text, runs, quads, color, points, ...) follow the common ones."
+      "description": "One annotation as annot list reports it: kind-specific fields (text, runs, quads, color, points, ...) follow the common ones. A table has rows, columns, cells (cells[row][column] text), columnWidths, rowHeights (as drawn: a row grows with its text), minRowHeights, header, lineColor, lineWidth."
     },
     "annotationRef": {
       "type": "object",
@@ -397,7 +398,8 @@
                   "shape",
                   "ink",
                   "image",
-                  "note"
+                  "note",
+                  "table"
                 ]
               }
             },

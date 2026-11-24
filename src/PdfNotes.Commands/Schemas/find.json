@@ -156,9 +156,15 @@
             },
             "text": {
               "type": "string"
+            },
+            "row": {
+              "type": "integer"
+            },
+            "column": {
+              "type": "integer"
             }
           },
-          "description": "text box or sticky note characters (UTF-16 range); not an add.mark target"
+          "description": "text box, sticky note or table cell characters (UTF-16 range); a table cell (kind table) also has row and column (0-based), and its range is in that cell's text; not an add.mark target"
         }
       }
     },

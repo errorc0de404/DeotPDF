@@ -20,7 +20,7 @@ namespace PdfNotes.Cli.Mcp;
 public sealed class DeotMcpServer : IDisposable
 {
     public const string Instructions =
-        "deot reads PDFs and writes annotations that DeotPDF opens as its own (text boxes, highlights, lines, shapes, ink, images, notes). " +
+        "deot reads PDFs and writes annotations that DeotPDF opens as its own (text boxes, highlights, lines, shapes, ink, images, notes, tables). " +
         "Coordinates are PDF points with the origin at the top-left of the page before rotation, y downward; rectangles [x, y, w, h]. " +
         "Pages are numbered from 1 (or page IDs from info); character and word ranges start at 0 and exclude the end. " +
         "Fields are the command-line options in camelCase; a flag is true. " +
@@ -29,7 +29,7 @@ public sealed class DeotMcpServer : IDisposable
         "measure text before placing it; put every edit in one apply plan with source keys, run it with dryRun and previews, add guards, " +
         "and always apply the full plan to the original file so re-runs replace instead of duplicate. " +
         "The schema tool lists every command, error code and an op's fields (e.g. command \"add text\" for add.text). " +
-        "To read a page ask text for fields lines (chars is one entry per character); annot_list with tag untagged and nearText " +
+        "To read a page ask text for fields lines,tables (chars is one entry per character; tables are table annotations with their cells); annot_list with tag untagged and nearText " +
         "gives the user's own marks and notes with the text line each is on. " +
         "An explanation longer than a line goes in a note (add.note: an icon the user opens and closes, so it needs no free space " +
         "and hides nothing; put the icon in the margin beside what it explains); keep text boxes for short labels. " +

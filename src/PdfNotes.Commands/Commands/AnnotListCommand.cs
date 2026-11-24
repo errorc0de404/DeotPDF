@@ -15,7 +15,7 @@ namespace PdfNotes.Cli.Commands;
 /// </summary>
 public static class AnnotListCommand
 {
-    public static readonly string[] Kinds = ["text", "mark", "highlight-stroke", "line", "shape", "ink", "image", "note"];
+    public static readonly string[] Kinds = ["text", "mark", "highlight-stroke", "line", "shape", "ink", "image", "note", "table"];
 
     public static JsonObject Run(IReadOnlyList<string> tokens)
     {
@@ -107,8 +107,13 @@ public static class AnnotListCommand
         InkStroke => "ink",
         ImageAnnotation => "image",
         StickyNote => "note",
+        TableAnnotation => "table",
         _ => a.Kind.ToString(),
     };
+
+    /// <summary>A table's cell texts as rows of columns (<c>cells[row][column]</c>).</summary>
+    public static JsonArray Cells(TableAnnotation table) => CliJson.Array(Enumerable.Range(0, table.Rows).Select(r =>
+        (JsonNode?)CliJson.Array(Enumerable.Range(0, table.Columns).Select(c => (JsonNode?)table.Cell(r, c).Text))));
 
     /// <summary>The page-aligned bounds of what <paramref name="a"/> paints (the <c>bounds</c> of <c>annot list</c>).</summary>
     public static Rect2 Bounds(Annotation a) => AnnotationGeometry.Bounds([a], TextLayout.Bounds);
@@ -199,6 +204,18 @@ public static class AnnotListCommand
             case StickyNote note:
                 item["text"] = note.Text;
                 item["color"] = note.Color.ToHex();
+                break;
+            case TableAnnotation table:
+                var layout = TableLayout.Measure(table);
+                item["rows"] = table.Rows;
+                item["columns"] = table.Columns;
+                item["cells"] = Cells(table);
+                item["columnWidths"] = CliJson.Array(table.ColumnWidths.Select(w => (JsonNode?)CliJson.Num(w)));
+                item["rowHeights"] = CliJson.Array(Enumerable.Range(0, table.Rows).Select(r => (JsonNode?)CliJson.Num(layout.RowY[r + 1] - layout.RowY[r])));
+                item["minRowHeights"] = CliJson.Array(table.RowHeights.Select(h => (JsonNode?)CliJson.Num(h)));
+                item["header"] = table.Style.HeaderRow;
+                item["lineColor"] = table.Style.LineColor.ToHex();
+                item["lineWidth"] = CliJson.Num(table.Style.LineWidthPt);
                 break;
         }
         return item;

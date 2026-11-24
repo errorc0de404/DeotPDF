@@ -14,7 +14,7 @@ using DashStyle = PdfNotes.Core.Models.DashStyle;
 namespace PdfNotes.Cli.Commands;
 
 /// <summary>
-/// <c>add text | mark | highlight-stroke | line | shape | ink | image | note</c> (cli_plan 4.6): one annotation of the
+/// <c>add text | mark | highlight-stroke | line | shape | ink | image | note | table</c> (cli_plan 4.6): one annotation of the
 /// app's own kinds on a page, tagged for the run (author <c>ai</c>, batch id, optional source and group key, 6) and
 /// written through <see cref="CliWrite"/>. Coordinates are canonical page points (3.2). A source key that an AI
 /// annotation already has replaces that annotation: same ID, same stacking position (moved on top of the new page
@@ -198,7 +198,63 @@ public static class AddCommand
             return new(new StickyNote(Guid.NewGuid(), false, Affine.Translation(at[0], at[1]), text, Color(args, "--color", NoteYellow)));
         });
 
-    public static readonly CliOp[] Ops = [Text, Mark, HighlightStroke, Line, Shape, Ink, Image, Note];
+    /// <summary>Most rows and columns <c>add table</c> takes. The app's grid offers 10 × 10 but its tables grow past that (Tab, row inserts).</summary>
+    public const int MaxTableRows = 100, MaxTableColumns = 100;
+
+    public static readonly CliOp Table = Op("add table", "Table with cell texts, its top-left corner at x,y", ["--x", "--y", "--rows", "--columns", "--cells", "--column-widths", "--header", "--overflow"], [],
+        (args, doc, page) =>
+        {
+            double x = args.Number("--x", double.NaN, -ModelLimits.MaxCoordinatePt, ModelLimits.MaxCoordinatePt);
+            double y = args.Number("--y", double.NaN, -ModelLimits.MaxCoordinatePt, ModelLimits.MaxCoordinatePt);
+            if (!args.Has("--x") || !args.Has("--y")) throw CliException.Invalid("Give the table's top-left corner with --x and --y.");
+            bool allow = Overflow(args);
+            string[][]? texts = args.Value("--cells") is { } c ? TableTexts(c) : null;
+            int rows = args.Integer("--rows", texts?.Length ?? 0, 1, MaxTableRows);
+            int columns = args.Integer("--columns", texts is { Length: > 0 } ? texts[0].Length : 0, 1, MaxTableColumns);
+            if (rows == 0 || columns == 0) throw CliException.Invalid("Give --rows and --columns, or --cells (rows of cell texts).");
+            if (texts is not null && (texts.Length != rows || texts.Any(r => r.Length != columns)))
+                throw CliException.Invalid($"--cells must be {rows} rows of {columns} cell texts (--rows × --columns).");
+            bool header = args.Value("--header") switch
+            {
+                null or "true" => true,
+                "false" => false,
+                _ => throw CliException.Invalid("--header takes true or false."),
+            };
+            var table = TableAnnotation.Create(Guid.NewGuid(), new(x, y), rows, columns, TextEditing.Default);
+            if (!header) table = TableEdits.SetHeader(table, false);
+            if (args.Value("--column-widths") is { } w)
+            {
+                var widths = w.Split(',');
+                if (widths.Length != columns) throw CliException.Invalid($"--column-widths needs {columns} numbers (one per column).");
+                table = table with { ColumnWidths = [.. widths.Select(v => double.TryParse(v.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double n) && n >= TableAnnotation.MinColumnWidth && n <= ModelLimits.MaxLengthPt
+                    ? n : throw CliException.Invalid($"--column-widths are numbers from {TableAnnotation.MinColumnWidth} to {ModelLimits.MaxLengthPt} pt."))] };
+            }
+            if (texts is not null)
+                for (int r = 0; r < rows; r++)
+                    for (int k = 0; k < columns; k++)
+                    {
+                        if (texts[r][k].Length == 0) continue;
+                        var style = table.Cell(r, k).Runs[0];
+                        table = TableEdits.SetCell(table, r, k, new TableCell(texts[r][k], [style with { Start = 0, Length = texts[r][k].Length }], TextAlignment.Left, []));
+                    }
+            var local = TableLayout.Measure(table).Bounds;
+            var warnings = new JsonArray();
+            PageOverflow(page, new Rect2(x + local.X, y + local.Y, local.Width, local.Height), warnings, allow);
+            return new(table, Warnings: warnings);
+        });
+
+    public static readonly CliOp[] Ops = [Text, Mark, HighlightStroke, Line, Shape, Ink, Image, Note, Table];
+
+    /// <summary><c>--cells</c>: a JSON list of rows, each a list of cell texts (inline or <c>@file</c>); line ends become LF.</summary>
+    private static string[][] TableTexts(string value)
+    {
+        if (Json(value, "--cells") is not JsonArray { Count: > 0 } rows)
+            throw CliException.Invalid("--cells must be a non-empty JSON list of rows, each a list of cell texts: [[\"a\",\"b\"],[\"c\",\"d\"]].");
+        return [.. rows.Select(row => row is JsonArray { Count: > 0 } cells
+            ? cells.Select(cell => cell is JsonValue v && v.GetValueKind() == JsonValueKind.String ? v.GetValue<string>().ReplaceLineEndings("\n")
+                : throw CliException.Invalid("Each cell of --cells is a string (\"\" for an empty cell).")).ToArray()
+            : throw CliException.Invalid("Each row of --cells is a non-empty list of cell texts."))];
+    }
 
     /// <summary>
     /// Shared frame: the page, the kind's annotation, lock and tag, the add (or replacement of the AI annotation with the
