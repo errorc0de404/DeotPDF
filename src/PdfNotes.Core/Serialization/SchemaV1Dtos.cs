@@ -62,6 +62,7 @@ internal sealed class AnnotationEnvelopeDto
 [JsonDerivedType(typeof(NoteDto), "note")]
 [JsonDerivedType(typeof(ImageDto), "image")]
 [JsonDerivedType(typeof(ShapeDto), "shape")]
+[JsonDerivedType(typeof(TableDto), "table")]
 internal abstract class AnnotationDto
 {
     public required Guid Id { get; init; }
@@ -187,6 +188,27 @@ internal sealed class ShapeDto : AnnotationDto
     public required double BorderWidthPt { get; init; }
     public required double BorderOpacity { get; init; }
     public required DashStyle BorderDash { get; init; }
+}
+
+/// <summary>Schema v9: table (1.4). Cells are row-major, rows × columns of them.</summary>
+internal sealed class TableDto : AnnotationDto
+{
+    public required double[] ColumnWidths { get; init; }
+    /// <summary>Minimum row heights set by dragging; a row grows with its text when drawn.</summary>
+    public required double[] RowHeights { get; init; }
+    public required TableCellDto[] Cells { get; init; }
+    public required string LineColor { get; init; }
+    public required double LineWidthPt { get; init; }
+    public required bool HeaderRow { get; init; }
+}
+
+/// <summary>Text box rules for runs and highlights; an empty cell may keep one zero-length run (its typing style).</summary>
+internal sealed class TableCellDto
+{
+    public required string Text { get; init; }
+    public required TextRunDto[] Runs { get; init; }
+    public required TextAlignment Alignment { get; init; }
+    public required TextHighlightDto[] Highlights { get; init; }
 }
 
 internal sealed class ImageDto : AnnotationDto

@@ -16,10 +16,12 @@ public static class SchemaV8
 {
     public const int Version = 8;
 
-    public static SerializedDocument Serialize(DocumentModel model)
+    public static SerializedDocument Serialize(DocumentModel model) => Serialize(model, allowTable: false);
+
+    internal static SerializedDocument Serialize(DocumentModel model, bool allowTable)
     {
         var pressured = model.AllAnnotations.OfType<InkStroke>().Where(s => s.HasPressure).ToDictionary(s => s.Id, s => s.Pressures);
-        if (pressured.Count == 0) return SchemaV7.Serialize(model);
+        if (pressured.Count == 0) return SchemaV7.Serialize(model, allowTable);
         if (ModelValidator.ValidateDocument(model) is { } error) throw new InvalidDataException(error);
         // v7 writes the rest; the pressures are added to the ink envelopes afterwards.
         var plain = model with
@@ -29,7 +31,7 @@ public static class SchemaV8
                 Annotations = p.Annotations.Select(a => a is InkStroke { HasPressure: true } s ? s with { Pressures = default } : a).ToImmutableList()
             }).ToImmutableList()
         };
-        var data = SchemaV7.Serialize(plain);
+        var data = SchemaV7.Serialize(plain, allowTable);
         var header = JsonNode.Parse(data.Header)!.AsObject();
         header["schemaVersion"] = Version;
         header["tags"] ??= new JsonArray();
@@ -50,7 +52,10 @@ public static class SchemaV8
 
     /// <summary>Reads v8, and v1–v7 through their own readers (which see no pressures).</summary>
     public static DocumentReadResult Read(byte[]? header, IReadOnlyList<byte[]> envelopes, Func<Guid, byte[]?> resources,
-        IReadOnlyList<PageFrame>? actualPages = null)
+        IReadOnlyList<PageFrame>? actualPages = null) => Read(header, envelopes, resources, actualPages, allowTable: false);
+
+    internal static DocumentReadResult Read(byte[]? header, IReadOnlyList<byte[]> envelopes, Func<Guid, byte[]?> resources,
+        IReadOnlyList<PageFrame>? actualPages, bool allowTable)
     {
         if (header is { Length: > SchemaV1.MaxHeaderBytes } || SchemaV2.GetVersion(header) != Version)
             return SchemaV7.Read(header, envelopes, resources, actualPages);
@@ -90,7 +95,7 @@ public static class SchemaV8
                 return SchemaV2.SetVersion(e, 0);
             }
         }).ToArray();
-        var read = SchemaV7.Read(v7Header, v7Envelopes, resources, actualPages);
+        var read = SchemaV7.Read(v7Header, v7Envelopes, resources, actualPages, allowTable);
         if (read.Model is not { } model || pressures.Count == 0) return read;
         // A stroke keeps its pressures only when they fit its points; otherwise it is drawn at its even width.
         var pages = model.Pages.Select(p => p with

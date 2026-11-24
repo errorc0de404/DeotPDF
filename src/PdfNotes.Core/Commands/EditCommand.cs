@@ -56,6 +56,8 @@ public static class SizeEstimator
         TextBoxAnnotation t => t.Text.Length * 2L + t.Runs.Sum(r => 80L + r.FontFamily.Length * 2L) + t.Highlights.Length * 64L,
         ImageAnnotation => 64,
         ShapeAnnotation s => 128 + s.Points.Length * 16L,
+        TableAnnotation t => 128 + (t.ColumnWidths.Length + t.RowHeights.Length) * 8L +
+            t.Cells.Sum(c => 64L + c.Text.Length * 2L + c.Runs.Sum(r => 80L + r.FontFamily.Length * 2L) + c.Highlights.Length * 64L),
         _ => 0
     };
 

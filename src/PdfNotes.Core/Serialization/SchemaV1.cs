@@ -61,8 +61,10 @@ public static class SchemaV1
     /// <param name="allowOutline">Schema v3 writes area-eraser pieces; v1/v2 cannot represent them and refuse.</param>
     /// <param name="allowShape">Schema v5 writes shapes; older versions cannot represent them and refuse.</param>
     /// <param name="allowV6">Schema v6 writes underline/strikeout markups and sticky notes; older versions refuse them.</param>
-    internal static SerializedDocument Serialize(DocumentModel model, bool allowOutline, bool allowShape = false, bool allowV6 = false)
+    /// <param name="allowTable">Schema v9 writes tables; older versions refuse them.</param>
+    internal static SerializedDocument Serialize(DocumentModel model, bool allowOutline, bool allowShape = false, bool allowV6 = false, bool allowTable = false)
     {
+        if (!allowTable && model.AllAnnotations.Any(a => a is TableAnnotation)) throw new InvalidDataException("Tables need schema v9.");
         if (!allowShape && model.AllAnnotations.Any(a => a is ShapeAnnotation)) throw new InvalidDataException("Shapes need schema v5.");
         if (!allowV6 && model.AllAnnotations.Any(a => a is PdfTextMarkup or StickyNote)) throw new InvalidDataException("Text markups and notes need schema v6.");
         if (model.Pages.Any(p => p.Setup.Content is not null) || model.AllAnnotations.OfType<TextBoxAnnotation>().Any(t => t.LayoutScale != 1))
@@ -108,7 +110,7 @@ public static class SchemaV1
         IReadOnlyList<PageFrame>? actualPages = null) => Read(header, envelopes, resourcePayload, actualPages, allowOutline: false);
 
     internal static DocumentReadResult Read(byte[]? header, IReadOnlyList<byte[]> envelopes, Func<Guid, byte[]?> resourcePayload,
-        IReadOnlyList<PageFrame>? actualPages, bool allowOutline, bool allowShape = false, bool allowV6 = false)
+        IReadOnlyList<PageFrame>? actualPages, bool allowOutline, bool allowShape = false, bool allowV6 = false, bool allowTable = false)
     {
         var warnings = new List<string>();
         var (status, dto, reason) = ReadHeader(header, actualPages);
@@ -138,7 +140,7 @@ public static class SchemaV1
         var results = ImmutableArray.CreateBuilder<AnnotationReadResult>(envelopes.Count);
         foreach (var bytes in envelopes)
         {
-            var result = ReadEnvelope(bytes, dto, expectedPage, resources, restored, discarded, allowOutline, allowShape, allowV6);
+            var result = ReadEnvelope(bytes, dto, expectedPage, resources, restored, discarded, allowOutline, allowShape, allowV6, allowTable);
             results.Add(result);
         }
 
@@ -214,7 +216,8 @@ public static class SchemaV1
     }
 
     private static AnnotationReadResult ReadEnvelope(byte[] bytes, DocumentHeaderDto header, Dictionary<Guid, Guid> expectedPage,
-        Dictionary<Guid, Resource> resources, Dictionary<Guid, Annotation> restored, HashSet<Guid> discarded, bool allowOutline, bool allowShape, bool allowV6)
+        Dictionary<Guid, Resource> resources, Dictionary<Guid, Annotation> restored, HashSet<Guid> discarded, bool allowOutline, bool allowShape, bool allowV6,
+        bool allowTable)
     {
         AnnotationEnvelopeDto envelope;
         try
@@ -234,6 +237,7 @@ public static class SchemaV1
         if (!allowOutline && envelope.Annotation is StrokeDto { Outline: not null }) return Rejected(id, "Stroke outlines need schema v3.");
         if (!allowShape && envelope.Annotation is ShapeDto) return Rejected(id, "Shapes need schema v5.");
         if (!allowV6 && envelope.Annotation is TextMarkupDto or NoteDto) return Rejected(id, "Text markups and notes need schema v6.");
+        if (!allowTable && envelope.Annotation is TableDto) return Rejected(id, "Tables need schema v9.");
         Annotation annotation;
         try { annotation = FromDto(envelope.Annotation); }
         catch (Exception e) when (e is FormatException or ArgumentException or InvalidDataException)
@@ -273,20 +277,13 @@ public static class SchemaV1
         TextBoxAnnotation t => new TextBoxDto
         {
             Id = t.Id, Locked = t.Locked, Transform = t.Transform.ToArray(), Text = t.Text, Alignment = t.Alignment, WidthPt = t.WidthPt,
-            Runs = t.Runs.Select(r => new TextRunDto
-            {
-                Start = r.Start, Length = r.Length, FontFamily = r.FontFamily, SizePt = r.SizePt, Color = r.Color.ToHex(),
-                Bold = r.Bold, Italic = r.Italic, Underline = r.Underline, Strikethrough = r.Strikethrough
-            }).ToArray(),
+            Runs = Runs(t.Runs),
             BoxStyle = new()
             {
                 BackgroundColor = t.BoxStyle.BackgroundColor.ToHex(), BackgroundOpacity = t.BoxStyle.BackgroundOpacity,
                 BorderEnabled = t.BoxStyle.BorderEnabled, BorderColor = t.BoxStyle.BorderColor.ToHex(), BorderOpacity = t.BoxStyle.BorderOpacity
             },
-            Highlights = t.Highlights.Select(h => new TextHighlightDto
-            {
-                Start = h.Start, Length = h.Length, HeightMode = h.HeightMode, ManualHeightPt = h.ManualHeightPt, Color = h.Color.ToHex(), Opacity = h.Opacity
-            }).ToArray()
+            Highlights = Highlights(t.Highlights)
         },
         ImageAnnotation i => new ImageDto
         {
@@ -307,6 +304,12 @@ public static class SchemaV1
             FillColor = s.Style.FillColor.ToHex(), FillOpacity = s.Style.FillOpacity, BorderEnabled = s.Style.BorderEnabled,
             BorderColor = s.Style.BorderColor.ToHex(), BorderWidthPt = s.Style.BorderWidthPt, BorderOpacity = s.Style.BorderOpacity, BorderDash = s.Style.BorderDash
         },
+        TableAnnotation t => new TableDto
+        {
+            Id = t.Id, Locked = t.Locked, Transform = t.Transform.ToArray(), ColumnWidths = [.. t.ColumnWidths], RowHeights = [.. t.RowHeights],
+            Cells = t.Cells.Select(c => new TableCellDto { Text = c.Text, Runs = Runs(c.Runs), Alignment = c.Alignment, Highlights = Highlights(c.Highlights) }).ToArray(),
+            LineColor = t.Style.LineColor.ToHex(), LineWidthPt = t.Style.LineWidthPt, HeaderRow = t.Style.HeaderRow
+        },
         _ => throw new NotSupportedException($"Annotation kind {annotation.Kind} has no v1 serializer.")
     };
 
@@ -323,11 +326,12 @@ public static class SchemaV1
             {
                 Transform = transform
             },
-            TextBoxDto t => new TextBoxAnnotation(t.Id, t.Locked, transform, t.Text,
-                NotNull(t.Runs).Select(r => new TextRun(r.Start, r.Length, r.FontFamily, r.SizePt, Color(r.Color), r.Bold, r.Italic, r.Underline, r.Strikethrough)).ToImmutableArray(),
-                t.Alignment, t.WidthPt,
+            TextBoxDto t => new TextBoxAnnotation(t.Id, t.Locked, transform, t.Text, Runs(t.Runs), t.Alignment, t.WidthPt,
                 new TextBoxStyle(Color(t.BoxStyle.BackgroundColor), t.BoxStyle.BackgroundOpacity, t.BoxStyle.BorderEnabled, Color(t.BoxStyle.BorderColor), t.BoxStyle.BorderOpacity),
-                NotNull(t.Highlights).Select(h => new TextHighlightRange(h.Start, h.Length, h.HeightMode, h.ManualHeightPt, Color(h.Color), h.Opacity)).ToImmutableArray()),
+                Highlights(t.Highlights)),
+            TableDto t => new TableAnnotation(t.Id, t.Locked, transform, [.. t.ColumnWidths], [.. t.RowHeights],
+                NotNull(t.Cells).Select(c => new TableCell(c.Text, Runs(c.Runs), c.Alignment, Highlights(c.Highlights))).ToImmutableArray(),
+                new TableStyle(Color(t.LineColor), t.LineWidthPt, t.HeaderRow)),
             ImageDto i => new ImageAnnotation(i.Id, i.Locked, transform, i.ResourceId, Bounds(Required(i.LocalBounds, 4))),
             TextMarkupDto m => new PdfTextMarkup(m.Id, m.Locked, Quads(m.Quads), m.SourceTextHint, m.MarkupKind, m.WidthPt, Color(m.Color), m.Opacity) { Transform = transform },
             NoteDto n => new StickyNote(n.Id, n.Locked, transform, n.Text ?? throw new InvalidDataException(), Color(n.Color)),
@@ -337,6 +341,23 @@ public static class SchemaV1
             _ => throw new InvalidDataException("Unknown annotation type.")
         };
     }
+
+    private static TextRunDto[] Runs(ImmutableArray<TextRun> runs) => runs.Select(r => new TextRunDto
+    {
+        Start = r.Start, Length = r.Length, FontFamily = r.FontFamily, SizePt = r.SizePt, Color = r.Color.ToHex(),
+        Bold = r.Bold, Italic = r.Italic, Underline = r.Underline, Strikethrough = r.Strikethrough
+    }).ToArray();
+
+    private static TextHighlightDto[] Highlights(ImmutableArray<TextHighlightRange> highlights) => highlights.Select(h => new TextHighlightDto
+    {
+        Start = h.Start, Length = h.Length, HeightMode = h.HeightMode, ManualHeightPt = h.ManualHeightPt, Color = h.Color.ToHex(), Opacity = h.Opacity
+    }).ToArray();
+
+    private static ImmutableArray<TextRun> Runs(TextRunDto[] runs) =>
+        NotNull(runs).Select(r => new TextRun(r.Start, r.Length, r.FontFamily, r.SizePt, Color(r.Color), r.Bold, r.Italic, r.Underline, r.Strikethrough)).ToImmutableArray();
+
+    private static ImmutableArray<TextHighlightRange> Highlights(TextHighlightDto[] highlights) =>
+        NotNull(highlights).Select(h => new TextHighlightRange(h.Start, h.Length, h.HeightMode, h.ManualHeightPt, Color(h.Color), h.Opacity)).ToImmutableArray();
 
     private static double[] Flat(ImmutableArray<Point2> points) => points.SelectMany(p => new[] { p.X, p.Y }).ToArray();
 

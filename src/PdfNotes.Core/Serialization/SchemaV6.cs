@@ -13,9 +13,11 @@ public static class SchemaV6
 {
     public const int Version = 6;
 
-    public static SerializedDocument Serialize(DocumentModel model)
+    public static SerializedDocument Serialize(DocumentModel model) => Serialize(model, allowTable: false);
+
+    internal static SerializedDocument Serialize(DocumentModel model, bool allowTable)
     {
-        var data = SchemaV4.Serialize(model, allowShape: true, allowV6: true);
+        var data = SchemaV4.Serialize(model, allowShape: true, allowV6: true, allowTable);
         return data with
         {
             Header = SchemaV2.SetVersion(data.Header, Version),
@@ -25,13 +27,16 @@ public static class SchemaV6
 
     /// <summary>Reads v6, and v1–v5 through their own readers (which reject the new types).</summary>
     public static DocumentReadResult Read(byte[]? header, IReadOnlyList<byte[]> envelopes, Func<Guid, byte[]?> resources,
-        IReadOnlyList<PageFrame>? actualPages = null)
+        IReadOnlyList<PageFrame>? actualPages = null) => Read(header, envelopes, resources, actualPages, allowTable: false);
+
+    internal static DocumentReadResult Read(byte[]? header, IReadOnlyList<byte[]> envelopes, Func<Guid, byte[]?> resources,
+        IReadOnlyList<PageFrame>? actualPages, bool allowTable)
     {
         if (header is { Length: > SchemaV1.MaxHeaderBytes } || SchemaV2.GetVersion(header) != Version)
             return SchemaV5.Read(header, envelopes, resources, actualPages);
         // Envelopes of another version than the header are rejected, as in v2–v5.
         return SchemaV4.Read(SchemaV2.SetVersion(header!, SchemaV4.Version),
             envelopes.Select(e => SchemaV2.GetVersion(e) == Version ? SchemaV2.SetVersion(e, SchemaV4.Version) : SchemaV2.SetVersion(e, 0)).ToArray(),
-            resources, actualPages, allowShape: true, allowV6: true);
+            resources, actualPages, allowShape: true, allowV6: true, allowTable);
     }
 }

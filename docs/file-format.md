@@ -5,7 +5,7 @@
 - **표준 외형**: 일반 PDF 주석의 appearance stream. 다른 뷰어는 이걸 보고 그립니다.
 - **편집 데이터**: 덧PDF가 다시 열어서 고칠 수 있게 남겨 두는 JSON. 다른 뷰어는 무시합니다.
 
-이 문서는 그 편집 데이터의 형식과 읽기·쓰기 규칙을 설명합니다. 현재 버전은 **schemaVersion 8**이고, 이전 버전과 달라진 점은 [마지막 절](#버전-기록)에 모았습니다.
+이 문서는 그 편집 데이터의 형식과 읽기·쓰기 규칙을 설명합니다. 현재 버전은 **schemaVersion 9**이고, 이전 버전과 달라진 점은 [마지막 절](#버전-기록)에 모았습니다.
 
 코드와 이 문서가 다르면 코드가 맞습니다. 주요 코드는 `src/PdfNotes.Core/Serialization/SchemaV*.cs`, `SchemaV1Dtos.cs`, `src/PdfNotes.Pdf/Writing/{EditablePdfWriter,AnnotationAppearance,SafeFileSaver}.cs`, `src/PdfNotes.Pdf/Reading/EditablePdfReader.cs`입니다. 형식 식별자가 `PdfNotes`인 이유는 README의 '소스에서 빌드하기'를 보세요.
 
@@ -99,6 +99,7 @@ Flatten은 `/PdfNotes`로 시작하는 키를 모두 지웁니다. 그래서 새
 | `image` | `ImageAnnotation` | resourceId, localBounds[x, y, w, h] |
 | `shape` | `ShapeAnnotation` | shapeKind, box, points, fillColor, fillOpacity, borderEnabled, borderColor, borderWidthPt, borderOpacity, borderDash |
 | `note` | `StickyNote` | text, color |
+| `table` | `TableAnnotation` | columnWidths[], rowHeights[], cells[](text, runs[], alignment, highlights[]), lineColor, lineWidthPt, headerRow |
 
 모든 주석에 공통으로 `id`, `locked`, `transform`이 있습니다. 무결성 한계(`ModelLimits`)는 화면 입력 범위(`InputLimits`)보다 넓습니다. 크기를 키우면 화면 최대값보다 굵은 선이나 큰 글자가 생길 수 있어서입니다.
 
@@ -168,6 +169,25 @@ Flatten은 `/PdfNotes`로 시작하는 키를 모두 지웁니다. 그래서 새
 
 - 아이콘은 지역 원점의 20pt 정사각형이고 크기가 바뀌지 않습니다. transform은 이동만 허용합니다.
 - `text`는 일반 텍스트(줄바꿈 `\n`)입니다. 비어 있으면 저장하지 않고 읽을 때도 버립니다.
+
+### 표 (`table`)
+
+```json
+{
+  "type": "table", "id": "…", "locked": false, "transform": [1, 0, 0, 1, x, y],
+  "columnWidths": [80, 80], "rowHeights": [24, 24],
+  "cells": [
+    { "text": "", "runs": [ { "start": 0, "length": 0, "fontFamily": "Malgun Gothic", "sizePt": 11, "color": "#000000", "bold": true, "italic": false, "underline": false, "strikethrough": false } ], "alignment": "left", "highlights": [] }
+  ],
+  "lineColor": "#000000", "lineWidthPt": 0.75, "headerRow": true
+}
+```
+
+- 지역 원점은 표의 왼쪽 위입니다. `cells`는 행 우선이고 개수는 행 수(`rowHeights` 길이) × 열 수(`columnWidths` 길이)입니다. 행·열은 1개 이상입니다.
+- `columnWidths`는 16pt 이상, `rowHeights`는 12pt 이상입니다. `rowHeights`는 끌어서 정한 최소 높이이고, 그릴 때 행 높이는 그 행 칸 글자 높이(안쪽 여백 4pt 포함)와 비교해 큰 쪽입니다.
+- 칸의 runs·highlights는 텍스트 상자 규칙을 따릅니다. 예외: 빈 칸은 길이 0인 run 하나(입력 서식)를 가질 수 있습니다.
+- `headerRow`가 켜져 있으면 첫 행 배경이 `#F0F0F0`입니다. 굵게는 칸 runs에 들어 있습니다.
+- 칸이 모두 비어 있어도 저장하고 읽을 때도 복원합니다.
 
 ## 6. 외형 그리기 규칙
 
@@ -250,7 +270,7 @@ PDFsharp `XImage`로 만든 Image XObject와 PNG soft mask를 Form 리소스로 
 
 - 원본 PDF(열 때 읽은 바이트)를 수정 모드로 열고, 복원했던 앱 주석을 뺀 뒤, 모델 순서로 페이지를 놓고, 회전을 `/Rotate`로 적고, 앱 주석과 Header를 새로 씁니다. 매번 전체를 다시 쓰기 때문에 여러 번 저장해도 주석이나 파일 크기가 불어나지 않습니다.
 - 유효하지 않은 모델과 공백 텍스트 상자는 쓰지 않습니다. 저장 직전에 잠긴 빈 상자도 정리합니다.
-- **새 파일은 필요한 가장 낮은 버전이 아니라 지금 버전으로 씁니다.** 예외는 태그와 필압입니다. 필압 획이 하나라도 있으면 v8, 없고 태그가 있으면 v7, 둘 다 없으면 v6로 씁니다. 그래서 CLI와 필압 펜을 쓰지 않은 파일은 이전 앱에서도 편집할 수 있습니다. 지운 주석의 태그는 쓰지 않습니다. v8 Header에는 태그가 없어도 `tags`(빈 배열)가 있습니다.
+- **새 파일은 필요한 가장 낮은 버전이 아니라 지금 버전으로 씁니다.** 예외는 표, 태그, 필압입니다. 표가 하나라도 있으면 v9, 없고 필압 획이 있으면 v8, 둘 다 없고 태그가 있으면 v7, 모두 없으면 v6로 씁니다. 그래서 표, CLI, 필압 펜을 쓰지 않은 파일은 이전 앱에서도 편집할 수 있습니다. 지운 주석의 태그는 쓰지 않습니다. v8·v9 Header에는 태그가 없어도 `tags`(빈 배열)가 있습니다.
 - 앱의 주석 클립보드(`AnnotationTransfer`)는 v6 형식입니다. 복사본은 새 ID라 태그가 없기 때문입니다.
 - 검증: 같은 폴더의 임시 파일(`~<이름>.<guid>.tmp`)을 다시 읽어서 PDFium으로 열리는지, Header가 유효한지, 모든 앱 주석이 복원되는지, 다시 직렬화한 결과가 저장한 스냅샷과 바이트 단위로 같은지 확인한 뒤에만 `File.Replace`로 바꿉니다. 원본에서 보존한 보기 전용 주석은 검증 실패 사유가 아닙니다.
 
@@ -293,7 +313,7 @@ Flatten한 덧PDF 메모도 이 방법으로 다시 편집할 수 있습니다.
 ## 12. 버전 정책
 
 1. **필드를 더하거나 빼거나 의미를 바꾸면 `schemaVersion`을 올립니다.** 리더는 모르는 필드를 거부합니다(`UnmappedMemberHandling.Disallow`). 옛 앱이 새 데이터를 일부만 읽고 다시 저장해서 정보를 조용히 잃는 걸 막기 위해서입니다.
-2. 새 리더는 이전 버전을 각 버전의 리더로 넘겨 같은 모델로 읽습니다(`SchemaV8.Read` → `SchemaV7.Read` → …). 쓸 때는 지금 버전으로 씁니다(태그 예외는 9절).
+2. 새 리더는 이전 버전을 각 버전의 리더로 넘겨 같은 모델로 읽습니다(`SchemaV9.Read` → `SchemaV8.Read` → …). 쓸 때는 지금 버전으로 씁니다(태그 예외는 9절).
 3. 이전 버전의 `Serialize`는 그 버전에 없는 내용(조각, 도형, 새 종류 등)이 있는 모델을 예외로 거절합니다.
 4. 모르는 버전은 추측하지 않고 외형을 보기 전용으로 남깁니다. 그래서 옛 앱으로 새 파일을 열어도 필기가 사라지거나 엉뚱하게 바뀌지 않고, 보이기만 합니다.
 5. 새 주석 종류는 외형 생성, 화면 그리기, 선택 판정을 함께 등록합니다. 외형 처리기가 없는 종류는 저장하지도 복원하지도 않습니다.
@@ -319,5 +339,6 @@ v1~v8은 위 규칙 그대로 둡니다(이미 나간 파일과 앱이 있어서
 | 6 | `textMarkup`(밑줄·취소선), `note`(메모), 앱 주석 서브타입 `/Underline`·`/StrikeOut`·`/Text` | v1~5 앱: 보기 전용 |
 | 7 | Header `tags`(CLI 태그 표). 태그가 있을 때만 씀 | v1~6 앱: 보기 전용 |
 | 8 | `ink`의 `pressures`(점마다 펜 필압). 필압 획이 있을 때만 씀. 필압이 점 수와 맞지 않으면 그 획은 고른 굵기로 읽음 | v1~7 앱: 보기 전용 |
+| 9 | `table`(표). 표가 있을 때만 씀 | v1~8 앱: 보기 전용 |
 
-지금 앱은 v1~v8을 모두 읽고, 다음에 저장할 때 v6(태그·필압 없음), v7(태그) 또는 v8(필압)로 바꿔 씁니다. 클립보드 묶음도 같은 규칙입니다(태그는 담지 않음).
+지금 앱은 v1~v9를 모두 읽고, 다음에 저장할 때 v6(표·태그·필압 없음), v7(태그), v8(필압) 또는 v9(표)로 바꿔 씁니다. 클립보드 묶음도 같은 규칙입니다(태그는 담지 않음).

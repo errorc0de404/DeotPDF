@@ -4,7 +4,7 @@ using PdfNotes.Core.Geometry;
 namespace PdfNotes.Core.Models;
 
 /// <summary>Every annotation kind of spec 5.1. The schema tag of each kind is fixed in SchemaV1.</summary>
-public enum AnnotationKind { TextBox, Ink, FreeHighlight, Line, PdfTextHighlight, Image, Shape, TextMarkup, Note }
+public enum AnnotationKind { TextBox, Ink, FreeHighlight, Line, PdfTextHighlight, Image, Shape, TextMarkup, Note, Table }
 
 /// <summary>
 /// Common annotation data. Geometry is in the annotation's local space and <see cref="Transform"/> maps it to
@@ -178,4 +178,52 @@ public sealed record ImageAnnotation(Guid Id, bool Locked, Affine Transform, Gui
     : Annotation(Id, Locked, Transform)
 {
     public override AnnotationKind Kind => AnnotationKind.Image;
+}
+
+/// <summary>
+/// A table cell: text laid out like a text box (runs, alignment, highlights follow the text box rules). An empty cell may
+/// keep its typing style as one zero-length run, so an empty header cell stays bold and an empty row keeps its font height.
+/// </summary>
+public sealed record TableCell(string Text, ImmutableArray<TextRun> Runs, TextAlignment Alignment, ImmutableArray<TextHighlightRange> Highlights)
+{
+    public static TableCell Empty(TextRun style) => new("", [style with { Start = 0, Length = 0 }], TextAlignment.Left, []);
+}
+
+/// <summary>Grid lines of a table and its header row (first row on a light gray fill, bold when created).</summary>
+public sealed record TableStyle(RgbColor LineColor, double LineWidthPt, bool HeaderRow)
+{
+    public static TableStyle Default { get; } = new(RgbColor.Black, 0.75, true);
+    public static readonly RgbColor HeaderFill = new(0xF0, 0xF0, 0xF0);
+}
+
+/// <summary>
+/// Table (1.4, schema v9): one annotation per table. The local origin is the table's top-left corner. Cells are row-major.
+/// <see cref="RowHeights"/> are the minimum heights set by dragging; the drawn height of a row grows with its text (TableLayout).
+/// </summary>
+public sealed record TableAnnotation(Guid Id, bool Locked, Affine Transform, ImmutableArray<double> ColumnWidths,
+    ImmutableArray<double> RowHeights, ImmutableArray<TableCell> Cells, TableStyle Style) : Annotation(Id, Locked, Transform)
+{
+    public const double DefaultColumnWidth = 80, DefaultRowHeight = 24, CellPadding = 4, MinColumnWidth = 16, MinRowHeight = 12,
+        MinLineWidth = 0.5, MaxLineWidth = 4;
+    /// <summary>Largest row and column count offered when a table is inserted.</summary>
+    public const int MaxPick = 10;
+
+    public override AnnotationKind Kind => AnnotationKind.Table;
+    public int Rows => RowHeights.IsDefault ? 0 : RowHeights.Length;
+    public int Columns => ColumnWidths.IsDefault ? 0 : ColumnWidths.Length;
+
+    public TableCell Cell(int row, int column) => Cells[row * Columns + column];
+
+    /// <summary>A new empty table at <paramref name="topLeft"/> with default cell sizes; header cells are bold.</summary>
+    public static TableAnnotation Create(Guid id, Point2 topLeft, int rows, int columns, TextRun style)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(rows, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(columns, 1);
+        var tableStyle = TableStyle.Default;
+        var header = TableCell.Empty(style with { Bold = true });
+        var body = TableCell.Empty(style);
+        var cells = Enumerable.Range(0, rows * columns).Select(i => tableStyle.HeaderRow && i < columns ? header : body).ToImmutableArray();
+        return new(id, false, Affine.Translation(topLeft.X, topLeft.Y), [.. Enumerable.Repeat(DefaultColumnWidth, columns)],
+            [.. Enumerable.Repeat(DefaultRowHeight, rows)], cells, tableStyle);
+    }
 }

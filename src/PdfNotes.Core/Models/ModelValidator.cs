@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Globalization;
 using PdfNotes.Core.Geometry;
 
@@ -114,6 +115,7 @@ public static class ModelValidator
             TextBoxAnnotation t => ValidateTextBox(t),
             ImageAnnotation i => ValidateImage(i, resourceExists),
             ShapeAnnotation s => ValidateShape(s),
+            TableAnnotation t => ValidateTable(t),
             _ => "Annotation type is not supported."
         };
     }
@@ -203,24 +205,49 @@ public static class ModelValidator
         var style = box.BoxStyle;
         if (style is null || ValidateOpacity(style.BackgroundOpacity) is not null || ValidateOpacity(style.BorderOpacity) is not null)
             return "Text box style is invalid.";
-        if (box.Runs.IsDefault || box.Highlights.IsDefault || box.Runs.Length > ModelLimits.MaxRuns || box.Highlights.Length > ModelLimits.MaxRuns)
+        return ValidateRichText(box.Text, box.Runs, box.Highlights, emptyStyle: false);
+    }
+
+    private static string? ValidateTable(TableAnnotation table)
+    {
+        if (table.ColumnWidths.IsDefault || table.RowHeights.IsDefault || table.Cells.IsDefault || table.Style is null) return "Table data is missing.";
+        if (table.Rows < 1 || table.Columns < 1 || (long)table.Rows * table.Columns > ModelLimits.MaxRuns || table.Cells.Length != table.Rows * table.Columns)
+            return "Table cell count does not match its rows and columns.";
+        if (!table.ColumnWidths.All(w => InRange(w, TableAnnotation.MinColumnWidth, ModelLimits.MaxLengthPt)) ||
+            !table.RowHeights.All(h => InRange(h, TableAnnotation.MinRowHeight, ModelLimits.MaxLengthPt)))
+            return "Table column width or row height is invalid.";
+        // Like other scalable widths, the line width is checked against integrity limits, not the 0.5–4 pt input range.
+        if (ValidatePaint(table.Style.LineWidthPt, 1) is not null) return "Table line width is invalid.";
+        foreach (var cell in table.Cells)
+        {
+            if (cell is null || cell.Text is null || cell.Text.Length > ModelLimits.MaxTextLength) return "Table cell text is invalid.";
+            if (!Enum.IsDefined(cell.Alignment)) return "Text alignment is invalid.";
+            if (ValidateRichText(cell.Text, cell.Runs, cell.Highlights, emptyStyle: true) is { } error) return error;
+        }
+        return null;
+    }
+
+    /// <param name="emptyStyle">An empty table cell may keep its typing style as one zero-length run (<see cref="TableCell.Empty"/>).</param>
+    private static string? ValidateRichText(string text, ImmutableArray<TextRun> runs, ImmutableArray<TextHighlightRange> highlights, bool emptyStyle)
+    {
+        if (runs.IsDefault || highlights.IsDefault || runs.Length > ModelLimits.MaxRuns || highlights.Length > ModelLimits.MaxRuns)
             return "Text ranges are missing.";
-        var boundaries = GraphemeBoundaries(box.Text);
+        if (emptyStyle && text.Length == 0 && runs.Length == 1 && runs[0] is { Start: 0, Length: 0 } style)
+            return highlights.Length != 0 ? "Text highlights must be ordered, non-overlapping and on grapheme boundaries." : ValidateFont(style);
+        var boundaries = GraphemeBoundaries(text);
         // Runs partition the text: contiguous, non-empty, in order, starting at 0 and ending at Text.Length.
-        if (box.Text.Length == 0 ? box.Runs.Length != 0 : box.Runs.Length == 0) return "Text runs must cover the text.";
+        if (text.Length == 0 ? runs.Length != 0 : runs.Length == 0) return "Text runs must cover the text.";
         int expected = 0;
-        foreach (var run in box.Runs)
+        foreach (var run in runs)
         {
             if (run.Start != expected || run.Length <= 0 || !RangeOnBoundaries(run.Start, run.Length, boundaries))
                 return "Text runs must be contiguous and on grapheme boundaries.";
             expected = run.Start + run.Length;
-            if (string.IsNullOrWhiteSpace(run.FontFamily) || run.FontFamily.Length > ModelLimits.MaxFontFamilyLength)
-                return "Font family is invalid.";
-            if (!InRange(run.SizePt, 0, ModelLimits.MaxLengthPt) || run.SizePt <= 0) return "Font size is invalid.";
+            if (ValidateFont(run) is { } fontError) return fontError;
         }
-        if (expected != box.Text.Length) return "Text runs must cover the text.";
+        if (expected != text.Length) return "Text runs must cover the text.";
         int highlightEnd = 0;
-        foreach (var highlight in box.Highlights)
+        foreach (var highlight in highlights)
         {
             if (highlight.Length <= 0 || highlight.Start < highlightEnd || !RangeOnBoundaries(highlight.Start, highlight.Length, boundaries))
                 return "Text highlights must be ordered, non-overlapping and on grapheme boundaries.";
@@ -228,6 +255,12 @@ public static class ModelValidator
             if ((ValidateHeight(highlight.HeightMode, highlight.ManualHeightPt) ?? ValidateOpacity(highlight.Opacity)) is { } error) return error;
         }
         return null;
+    }
+
+    private static string? ValidateFont(TextRun run)
+    {
+        if (string.IsNullOrWhiteSpace(run.FontFamily) || run.FontFamily.Length > ModelLimits.MaxFontFamilyLength) return "Font family is invalid.";
+        return !InRange(run.SizePt, 0, ModelLimits.MaxLengthPt) || run.SizePt <= 0 ? "Font size is invalid." : null;
     }
 
     private static string? ValidateImage(ImageAnnotation image, Func<Guid, bool> resourceExists)
