@@ -13,6 +13,7 @@ using PdfNotes.Editor.Tools;
 using PdfNotes.Text;
 using PdfNotes.UI.Controls;
 using PdfNotes.UI.Views;
+using PdfNotes.ViewModels;
 
 namespace PdfNotes.Desktop.Tests;
 
@@ -412,6 +413,86 @@ public sealed class TableFrameTests
         w.DragThrough(MouseButton.Left, RawInputModifiers.None, Gestures.Steps(OnPage(table, 80, 30), OnPage(table, 120, 30), 4));
         Assert.Equal(table, Table(w));
         Assert.Equal(steps, Steps(w));
+        w.Close();
+    });
+
+    /// <summary>
+    /// Review fix: Tab while a composition is still open commits it and moves on, without a tab character. Not a real IME:
+    /// the composition is set on the editor model the way the IME client sets it.
+    /// </summary>
+    [Fact]
+    public void TabDuringASimulatedCompositionCommitsItAndMovesOn() => Headless.Run(() =>
+    {
+        var w = Window();
+        var table = AddTable(w, 1, 2);
+        w.View.BeginTableCellEdit(table.Id, 0, 1); // the last cell
+        w.KeyTextInput("사");
+        w.View.ActiveTextEditor!.Model!.SetComposition("과");
+        Assert.True(w.View.ActiveTextEditor.Model.IsComposing);
+        w.Tap(Key.Tab);
+        Assert.Equal("사과", Table(w).Cell(0, 1).Text);
+        Assert.Equal(2, Table(w).Rows); // the last cell's Tab still adds the row
+        Assert.Equal((table.Id, 1, 0), w.View.EditingCell);
+        w.Tap(Key.Escape);
+        w.Close();
+    });
+
+    [Fact]
+    public void TableFontAndSizeFromTheBar() => Headless.Run(() =>
+    {
+        var w = Window();
+        var table = AddTable(w, 2, 2, change: t => TableEdits.SetCell(t, 1, 0, Text("가")));
+        w.View.Selection.Select(table.Id);
+        Dispatcher.UIThread.RunJobs();
+        var styles = w.View.ViewModel.ToolStyles;
+        var sizeBox = w.View.FindControl<TextBox>("TableSizeBox")!;
+        Assert.True(w.View.FindControl<ComboBox>("TableFontBox")!.IsEffectivelyVisible);
+        Assert.Equal(TextEditing.Default.SizePt.ToString("0.##", System.Globalization.CultureInfo.CurrentCulture), sizeBox.Text);
+        int steps = Steps(w);
+
+        // The size box as typed: every cell, empty ones too, in one step; the rows grow with the text.
+        sizeBox.Text = "20";
+        styles.CommitTableSize();
+        Assert.All(Table(w).Cells.SelectMany(c => c.Runs), r => Assert.Equal(20, r.SizePt));
+        Assert.True(Table(w).Cell(0, 0).Runs[0].Bold); // the header keeps its bold
+        Assert.Equal("undo.tableFormat", Label(w));
+        Assert.Equal(steps + 1, Steps(w));
+        var grid = TableLayout.Measure(Table(w));
+        Assert.True(grid.RowY[2] - grid.RowY[1] > TableAnnotation.DefaultRowHeight);
+        styles.SetTableSize(20); // nothing changes: no step
+        Assert.Equal(steps + 1, Steps(w));
+
+        string other = TextLayout.FontFamilies().First(f => f != TextEditing.Default.FontFamily && TextLayout.FontAvailable(f));
+        styles.SetTableFont(other);
+        Assert.All(Table(w).Cells.SelectMany(c => c.Runs), r => Assert.Equal(other, r.FontFamily));
+        Assert.Equal(steps + 2, Steps(w));
+        w.View.Undo();
+        w.View.Undo();
+        Assert.Equal(TextEditing.Default.SizePt, Table(w).Cell(1, 0).Runs[0].SizePt);
+        w.Close();
+    });
+
+    [Fact]
+    public void EditingACellLeavesTheTextBoxFillAndBorderAlone() => Headless.Run(() =>
+    {
+        var w = Window();
+        var table = AddTable(w, 2, 2);
+        var textStyle = w.View.ViewModel.TextStyle;
+        var before = textStyle.NewBoxStyle;
+        textStyle.SetColorTarget(TextColorTarget.Fill);
+        w.View.BeginTableCellEdit(table.Id, 1, 1);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(textStyle.BoxTargetsShown);
+        Assert.False(w.View.FindControl<RadioButton>("TextTargetFill")!.IsVisible);
+        Assert.False(w.View.FindControl<RadioButton>("TextTargetBorder")!.IsVisible);
+        Assert.True(textStyle.IsTargetText); // the palette colors the characters
+        var red = ColorPalette.Basic[2];
+        textStyle.SetColor(red);
+        w.KeyTextInput("x");
+        w.Tap(Key.Escape);
+        Assert.Equal(before, textStyle.NewBoxStyle);
+        Assert.Equal(red, Table(w).Cell(1, 1).Runs[0].Color);
+        Assert.True(textStyle.BoxTargetsShown);
         w.Close();
     });
 }

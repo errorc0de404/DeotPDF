@@ -123,6 +123,17 @@ public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialo
 
     public TextColorTarget ColorTarget => target;
 
+    /// <summary>True while the box being edited is a table cell (the view says so): a cell has no fill or border (1.4 plan 1.3).</summary>
+    public Func<bool> EditingTableCell { get; set; } = () => false;
+
+    private bool CellEdit => Editing && EditingTableCell();
+
+    /// <summary>What the palette edits now: the characters while a cell is edited, else the chosen target.</summary>
+    private TextColorTarget EffectiveTarget => CellEdit ? TextColorTarget.Text : target;
+
+    /// <summary>채우기 and 테두리 are offered for text boxes, not for table cells.</summary>
+    public bool BoxTargetsShown => !CellEdit;
+
     /// <summary>Chooses what the palette and transparency edit (not document state).</summary>
     public void SetColorTarget(TextColorTarget value)
     {
@@ -136,7 +147,7 @@ public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialo
         get
         {
             var style = Target?.BoxStyle ?? NewBoxStyle;
-            return target switch
+            return EffectiveTarget switch
             {
                 TextColorTarget.Text => CurrentStyle.Color,
                 TextColorTarget.Fill => style.BackgroundOpacity > 0 ? style.BackgroundColor : null,
@@ -158,14 +169,14 @@ public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialo
             var style = box?.BoxStyle ?? NewBoxStyle;
             bool highlighted = Editing && box is not null && editor!.Range is { Length: > 0 } range
                 ? TextHighlights.Covers(box, range.Start, range.Length) : box is not null && TextHighlights.Covers(box, 0, box.Text.Length);
-            string transparency = target switch
+            string transparency = EffectiveTarget switch
             {
                 TextColorTarget.Fill => Percent(Opacity.ToTransparencyPercent(style.BackgroundOpacity)),
                 TextColorTarget.Border => style.BorderEnabled ? Percent(Opacity.ToTransparencyPercent(style.BorderOpacity)) : "100",
                 _ => ""
             };
-            return new(visible, Editing || boxes.Length > 0, CurrentStyle, highlighted, box?.Alignment ?? TextAlignment.Left, target, TargetColor,
-                target != TextColorTarget.Text, transparency);
+            return new(visible, Editing || boxes.Length > 0, CurrentStyle, highlighted, box?.Alignment ?? TextAlignment.Left, EffectiveTarget, TargetColor,
+                EffectiveTarget != TextColorTarget.Text, transparency);
         }
     }
 
@@ -179,7 +190,7 @@ public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialo
     {
         owner.ToolStyles.RememberColor(color);
         owner.SaveSettings();
-        switch (target)
+        switch (EffectiveTarget)
         {
             case TextColorTarget.Text: Format(r => r with { Color = color }); break;
             case TextColorTarget.Fill: ApplyBoxStyle(s => s with { BackgroundColor = color, BackgroundOpacity = s.BackgroundOpacity > 0 ? s.BackgroundOpacity : 1 }); break;
@@ -191,10 +202,10 @@ public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialo
     /// <summary>Transparency (0–100%) of the box fill or border; a 100% border is no border. Characters have none.</summary>
     public void SetTransparency(double percent)
     {
-        if (!double.IsFinite(percent) || target == TextColorTarget.Text) return;
+        if (!double.IsFinite(percent) || EffectiveTarget == TextColorTarget.Text) return;
         percent = Math.Clamp(percent, 0, 100);
         double opacity = Opacity.FromTransparencyPercent(percent);
-        if (target == TextColorTarget.Fill) ApplyBoxStyle(s => s with { BackgroundOpacity = opacity });
+        if (EffectiveTarget == TextColorTarget.Fill) ApplyBoxStyle(s => s with { BackgroundOpacity = opacity });
         else ApplyBoxStyle(s => percent >= 100 ? s with { BorderEnabled = false } : s with { BorderEnabled = true, BorderOpacity = opacity });
     }
 
@@ -208,13 +219,22 @@ public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialo
     public void SetFont(string family)
     {
         if (string.IsNullOrWhiteSpace(family)) return;
-        if (!TextLayout.FontAvailable(family)) { dialogs.Tell(texts.Get("text.fontMissing"), NoticeKind.Information); family = TextLayout.FallbackFont; }
+        family = UsableFont(family);
         Format(r => r with { FontFamily = family });
+    }
+
+    /// <summary>The font itself, or the fallback font after telling that this PC does not have it (also the table bar's font).</summary>
+    internal string UsableFont(string family)
+    {
+        if (TextLayout.FontAvailable(family)) return family;
+        dialogs.Tell(texts.Get("text.fontMissing"), NoticeKind.Information);
+        return TextLayout.FallbackFont;
     }
 
     /// <summary>Changes the box fill/border of the edited or selected boxes; the next new box starts with it too (2026-10-13 user request, like the shape tool).</summary>
     public void ApplyBoxStyle(Func<TextBoxStyle, TextBoxStyle> change)
     {
+        if (CellEdit) return; // a cell has no box style, and new text boxes keep theirs
         var next = change(Target?.BoxStyle ?? NewBoxStyle);
         ApplyBox(b => b with { BoxStyle = change(b.BoxStyle) });
         owner.Settings.TextBox = AppSettings.TextBoxSettings.From(next);

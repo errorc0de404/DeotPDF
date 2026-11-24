@@ -128,6 +128,28 @@ public sealed partial class ToolStylesViewModel
     public bool TableHeaderOn => OptionTables is { Length: > 0 } tables && tables.All(t => t.Style.HeaderRow);
     public Command TableHeaderCommand => field ??= new(() => SetTableHeader(!TableHeaderOn));
 
+    /// <summary>The fonts of this PC, as the text bar lists them.</summary>
+    public IReadOnlyList<string> FontFamilies => owner.TextStyle.FontFamilies;
+
+    /// <summary>표 전체 글꼴 (empty when the cells differ).</summary>
+    public InputField TableFontField { get; } = new();
+
+    /// <summary>표 전체 크기 (empty when the cells differ).</summary>
+    public InputField TableSizeField { get; } = new();
+
+    /// <summary>A font picked from the list or typed, applied once to every cell.</summary>
+    public void CommitTableFont()
+    {
+        if (TableFontField.Edited && TableFontField.Text is { Length: > 0 } family) SetTableFont(family);
+        TableFontField.Reset();
+    }
+
+    public void CommitTableSize()
+    {
+        if (TableSizeField.Edited && TryParseNumber(TableSizeField.Text, out double size)) SetTableSize(size);
+        TableSizeField.Reset();
+    }
+
     // ----- lines (spec 8.1–8.2) -----
 
     public bool LineOptionsShown => Bar.LineOptionsShown;
@@ -184,6 +206,9 @@ public sealed partial class ToolStylesViewModel
         WidthField.Show(bar.Target is null || bar.Mixed.Width ? "" : FormatNumber(style.WidthPt));
         TransparencyField.Show(bar.Target is null || bar.Mixed.Transparency ? "" : FormatNumber(style.TransparencyPercent));
         EraserField.Show(FormatNumber(EraserSize));
+        var runs = OptionTables.SelectMany(t => t.Cells.SelectMany(c => c.Runs)).ToArray();
+        TableFontField.Show(runs.Length > 0 && runs.All(r => r.FontFamily == runs[0].FontFamily) ? runs[0].FontFamily : "");
+        TableSizeField.Show(runs.Length > 0 && runs.All(r => r.SizePt == runs[0].SizePt) ? runs[0].SizePt.ToString("0.##", CultureInfo.CurrentCulture) : "");
         var line = LineBar;
         string[] shapes = line.Shapes switch
         {

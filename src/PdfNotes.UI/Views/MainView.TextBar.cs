@@ -47,6 +47,7 @@ public sealed partial class MainView
     private void InitializeTextBar()
     {
         textStyle.Attach(new EditorSession(this), selectTool);
+        textStyle.EditingTableCell = () => editSession is TableCellEditSession;
         // A button of the bar gives the keyboard back to the box being edited (the bar is bound, R4d).
         TextStylePanel.AddHandler(Button.ClickEvent, (_, _) => FocusBack(), Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
         TextField(TextAlphaBox, textStyle.CommitTransparency);

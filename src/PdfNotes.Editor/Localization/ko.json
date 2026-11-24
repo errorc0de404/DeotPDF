@@ -526,6 +526,7 @@
     "undo.strokeEraser": "획 지우개",
     "undo.tableCell": "칸 글자",
     "undo.tableColumn": "열",
+    "undo.tableFormat": "표 서식",
     "undo.tableHeader": "머리행",
     "undo.tableRow": "행",
     "undo.tableSize": "표 크기",

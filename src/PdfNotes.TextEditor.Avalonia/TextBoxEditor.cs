@@ -208,8 +208,14 @@ public sealed class TextBoxEditor : Control
         bool command = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
         var modifiers = (e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? EditorModifiers.Shift : EditorModifiers.None) |
             (command ? EditorModifiers.Control : EditorModifiers.None);
-        if (e.Key == Key.Tab && TabLeaves && !command && !model.IsComposing)
-        { e.Handled = true; TabPressed?.Invoke(this, e.KeyModifiers.HasFlag(KeyModifiers.Shift)); return; }
+        // In a cell Tab always leaves it: a composition still open is committed first, never followed by a tab character.
+        if (e.Key == Key.Tab && TabLeaves && !command)
+        {
+            e.Handled = true;
+            model.CompleteInput();
+            TabPressed?.Invoke(this, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+            return;
+        }
         EditorKey? key = e.Key switch
         {
             Key.Left => EditorKey.Left, Key.Right => EditorKey.Right, Key.Up => EditorKey.Up, Key.Down => EditorKey.Down,

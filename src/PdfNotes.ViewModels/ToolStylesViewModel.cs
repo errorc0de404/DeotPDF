@@ -380,6 +380,36 @@ public sealed partial class ToolStylesViewModel : ObservableObject
         Show();
     }
 
+    /// <summary>표 전체 글꼴: every cell's characters and empty cells' typing style get the font (one Undo unit).</summary>
+    public void SetTableFont(string family)
+    {
+        if (string.IsNullOrWhiteSpace(family)) return;
+        family = owner.TextStyle.UsableFont(family.Trim());
+        ApplyTableRuns(r => r with { FontFamily = family });
+    }
+
+    /// <summary>표 전체 크기: every cell's characters and empty cells' typing style get the size (kept in the input range; one Undo unit).</summary>
+    public void SetTableSize(double sizePt)
+    {
+        if (!double.IsFinite(sizePt)) return;
+        double size = TextEditing.InputSize(sizePt);
+        ApplyTableRuns(r => r with { SizePt = size });
+    }
+
+    private void ApplyTableRuns(Func<TextRun, TextRun> change)
+    {
+        var before = new List<Annotation>();
+        var after = new List<Annotation>();
+        foreach (var table in OptionTables)
+        {
+            if (table.Cells.All(c => c.Runs.All(r => change(r) == r))) continue; // nothing to change: no step
+            before.Add(table);
+            after.Add(table with { Cells = [.. table.Cells.Select(c => c with { Runs = [.. c.Runs.Select(change)] })] });
+        }
+        if (before.Count > 0) Update(before, after, null, "undo.tableFormat");
+        Show();
+    }
+
     // ----- lines (spec 8.1–8.2) -----
 
     public void SetLineDash(DashStyle dash) => ApplyLineOptions(o => o with { Dash = dash }, l => l with { Dash = dash });

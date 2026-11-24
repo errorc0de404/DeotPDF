@@ -21,9 +21,9 @@ public sealed partial class TextStyleViewModel
 
     // ----- target and colors -----
 
-    public bool IsTargetText => target == TextColorTarget.Text;
-    public bool IsTargetFill => target == TextColorTarget.Fill;
-    public bool IsTargetBorder => target == TextColorTarget.Border;
+    public bool IsTargetText => EffectiveTarget == TextColorTarget.Text;
+    public bool IsTargetFill => EffectiveTarget == TextColorTarget.Fill;
+    public bool IsTargetBorder => EffectiveTarget == TextColorTarget.Border;
 
     /// <summary>`Text`, `Fill` or `Border`.</summary>
     public Command<string> TargetCommand => field ??= new(tag => { if (Enum.TryParse<TextColorTarget>(tag, out var t)) SetColorTarget(t); });

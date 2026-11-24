@@ -406,6 +406,10 @@
                             <!-- Kind options: tables (1.4 plan 1.3) -->
                             <StackPanel x:Name="TableOptionsPanel" Orientation="Horizontal" VerticalAlignment="Center" IsVisible="{Binding ToolStyles.TableOptionsShown}">
                                 <Border Classes="sep" />
+                                <ComboBox x:Name="TableFontBox" Classes="bar" Width="110" IsEditable="True" Margin="0,0,6,0"
+                                          ItemsSource="{Binding ToolStyles.FontFamilies}" Text="{Binding ToolStyles.TableFontField.Text, Mode=TwoWay}" />
+                                <TextBox x:Name="TableSizeBox" Classes="bar" Width="42" ToolTip.Tip="{l:T text.size}" Text="{Binding ToolStyles.TableSizeField.Text, Mode=TwoWay}" />
+                                <TextBlock Classes="unit" Text="pt" />
                                 <ToggleButton x:Name="TableHeaderButton" Theme="{StaticResource ToolButton}" Content="{l:T table.header}" Padding="6,3"
                                               IsChecked="{Binding ToolStyles.TableHeaderOn, Mode=OneWay}" Command="{Binding ToolStyles.TableHeaderCommand}" />
                             </StackPanel>
@@ -447,9 +451,9 @@
                             <StackPanel Classes="field" Margin="0,0,6,0">
                                 <RadioButton x:Name="TextTargetText" Theme="{StaticResource ToolButton}" GroupName="TextColorTarget" Content="{l:T text.targetText}"
                                              IsChecked="{Binding TextStyle.IsTargetText, Mode=OneWay}" Command="{Binding TextStyle.TargetCommand}" CommandParameter="Text" />
-                                <RadioButton x:Name="TextTargetFill" Theme="{StaticResource ToolButton}" GroupName="TextColorTarget" Content="{l:T text.targetFill}"
+                                <RadioButton x:Name="TextTargetFill" Theme="{StaticResource ToolButton}" GroupName="TextColorTarget" Content="{l:T text.targetFill}" IsVisible="{Binding TextStyle.BoxTargetsShown}"
                                              IsChecked="{Binding TextStyle.IsTargetFill, Mode=OneWay}" Command="{Binding TextStyle.TargetCommand}" CommandParameter="Fill" />
-                                <RadioButton x:Name="TextTargetBorder" Theme="{StaticResource ToolButton}" GroupName="TextColorTarget" Content="{l:T text.targetBorder}"
+                                <RadioButton x:Name="TextTargetBorder" Theme="{StaticResource ToolButton}" GroupName="TextColorTarget" Content="{l:T text.targetBorder}" IsVisible="{Binding TextStyle.BoxTargetsShown}"
                                              IsChecked="{Binding TextStyle.IsTargetBorder, Mode=OneWay}" Command="{Binding TextStyle.TargetCommand}" CommandParameter="Border" />
                             </StackPanel>
                             <StackPanel Classes="field" Margin="0,0,6,0">

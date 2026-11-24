@@ -526,6 +526,7 @@
     "undo.strokeEraser": "Stroke eraser",
     "undo.tableCell": "Cell text",
     "undo.tableColumn": "Table column",
+    "undo.tableFormat": "Table format",
     "undo.tableHeader": "Header row",
     "undo.tableRow": "Table row",
     "undo.tableSize": "Table size",

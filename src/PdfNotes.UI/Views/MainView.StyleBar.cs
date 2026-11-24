@@ -32,6 +32,11 @@ public sealed partial class MainView
         EraserSizeSlider.AddHandler(PointerReleasedEvent, (_, _) => viewModel.SaveSettings(), RoutingStrategies.Tunnel, handledEventsToo: true);
         EraserSizeSlider.KeyUp += (_, _) => viewModel.SaveSettings();
         Field(EraserSizeBox, styles.CommitEraserSize, styles.EraserField);
+        // 표 전체 글꼴·크기 (1.4 plan 1.3), like the text bar's boxes.
+        Field(TableSizeBox, styles.CommitTableSize, styles.TableSizeField);
+        TableFontBox.DropDownClosed += (_, _) => styles.CommitTableFont();
+        TableFontBox.LostFocus += (_, _) => styles.CommitTableFont();
+        TableFontBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { FocusBack(); e.Handled = true; } };
         foreach (var entry in new[] { CustomColor, TextCustomColor })
         {
             CustomColorPickers[entry.Name!] = entry.Picker;
