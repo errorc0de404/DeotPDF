@@ -108,6 +108,14 @@ public sealed class CliTableTests : IDisposable
         WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, At("--rows", "2"));
         WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, At("--rows", "101", "--columns", "2"));
         WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, At("--rows", "2", "--columns", "2", "--cells", """[["a","b"],["c"]]"""));
+        // --cells alone sets the size: still at most 100 rows and 100 columns.
+        string tallCells = new JsonArray([.. Enumerable.Range(0, 101).Select(_ => (JsonNode)new JsonArray("a"))]).ToJsonString();
+        string wideCells = new JsonArray(new JsonArray([.. Enumerable.Range(0, 101).Select(_ => (JsonNode)"a")])).ToJsonString();
+        WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, At("--cells", tallCells));
+        WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, At("--cells", wideCells));
+        var plan = Out("wide-plan.json");
+        File.WriteAllText(plan, new JsonObject { ["ops"] = new JsonArray(new JsonObject { ["op"] = "add.table", ["page"] = 1, ["x"] = 60, ["y"] = 80, ["cells"] = JsonNode.Parse(wideCells) }) }.ToJsonString());
+        WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, "apply", sample, plan, "--dry-run");
         WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, At("--rows", "3", "--columns", "2", "--cells", Vocabulary[..^1] + ""","x"]"""));
         WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, At("--rows", "2", "--cells", Vocabulary));
         WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, At("--cells", """[["a", 1]]"""));

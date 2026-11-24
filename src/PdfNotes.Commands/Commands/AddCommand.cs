@@ -212,6 +212,8 @@ public static class AddCommand
             int rows = args.Integer("--rows", texts?.Length ?? 0, 1, MaxTableRows);
             int columns = args.Integer("--columns", texts is { Length: > 0 } ? texts[0].Length : 0, 1, MaxTableColumns);
             if (rows == 0 || columns == 0) throw CliException.Invalid("Give --rows and --columns, or --cells (rows of cell texts).");
+            if (rows > MaxTableRows || columns > MaxTableColumns) // --cells alone sets them unchecked by Integer
+                throw CliException.Invalid($"A table has 1 to {MaxTableRows} rows and 1 to {MaxTableColumns} columns.");
             if (texts is not null && (texts.Length != rows || texts.Any(r => r.Length != columns)))
                 throw CliException.Invalid($"--cells must be {rows} rows of {columns} cell texts (--rows × --columns).");
             bool header = args.Value("--header") switch
