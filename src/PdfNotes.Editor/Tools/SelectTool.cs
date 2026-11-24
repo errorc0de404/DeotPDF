@@ -41,6 +41,8 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         public sealed record Text : Drag;
         /// <summary>A Shift rectangle selection.</summary>
         public sealed record Box : Drag;
+        /// <summary>A line of the selected table (1.4): a column line (Column) or a row line; Index is the column or row it sizes.</summary>
+        public sealed record Boundary(bool Column, int Index) : Drag;
     }
 
     private Drag drag = Drag.Idle;
@@ -153,6 +155,7 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         var transform = view.PageTransform(index);
         int handle = HandleAt(viewportPoint, transform);
         if (handle >= 0) return handle == 4 ? ToolCursor.Rotate(transform.DpiScale) : ResizeCursor(handle, transform);
+        if (BoundaryAt(viewportPoint) is { } line) return BoundaryCursor(line.Table, line.Column, transform);
         return HitSelection(viewportPoint) is SelectionHit.Annotation or SelectionHit.Frame && CanTransform ? ToolCursor.Move : null;
     }
 
@@ -344,6 +347,24 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         return true;
     }
 
+    /// <summary>
+    /// The line of the single selected table under a viewport point (1.4 plan 1.3): an inner line or the outer right or
+    /// bottom line, within <see cref="PickToleranceDip"/> (also just outside the table, where a press would not pick it).
+    /// The point is turned into table-local points first, so a rotated table works the same.
+    /// </summary>
+    public (TableAnnotation Table, bool Column, int Index)? BoundaryAt(Point2 viewportPoint)
+    {
+        if (SelectedAnnotations is not [TableAnnotation table] || PageId is not { } pageId || session() is not { } s ||
+            s.Current.IndexOfPage(pageId) is not (>= 0 and var index)) return null;
+        var transform = view.PageTransform(index);
+        var local = table.Transform.Invert().Transform(transform.DipToPage.Transform(viewportPoint));
+        return PdfNotes.Text.TableLayout.BoundaryAt(table, local, transform.DipLengthToPoints(PickToleranceDip)) is { } line ? (table, line.Column, line.Index) : null;
+    }
+
+    /// <summary>↔ on a column line, ↕ on a row line, along the table's own axes on screen.</summary>
+    private static ToolCursor BoundaryCursor(TableAnnotation table, bool column, ViewTransform transform) =>
+        ToolCursor.Resize(table.Transform.Then(transform.PageToDip).TransformVector(column ? new(1, 0) : new(0, 1)));
+
     /// <summary>Starts a handle drag (resize or rotate) when <paramref name="viewportPoint"/> is on a selection handle.</summary>
     private bool BeginHandle(Point2 viewportPoint)
     {
@@ -363,6 +384,13 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
         if (session() is not { } s) return false;
         start = pointer.Position;
         if (BeginHandle(start)) return true;
+        // A line of the selected table sizes its column or row; tested before picking, since the line reaches past the table (1.4).
+        if (BoundaryAt(start) is { } line && PageId is { } linePage && s.Current.IndexOfPage(linePage) is >= 0 and var lineIndex)
+        {
+            Begin(new Drag.Boundary(line.Column, line.Index));
+            dragCursor = BoundaryCursor(line.Table, line.Column, view.PageTransform(lineIndex));
+            return true;
+        }
         var picked = Pick(start);
         // Inside the frame or just around its border the selection moves, before PDF text selection or panning (spec 5.3).
         if (picked is null && !pointer.Modifiers.HasFlag(InputModifiers.Shift) && HitSelection(start) == SelectionHit.Frame && BeginMove(start)) return true;
@@ -449,6 +477,15 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
             angle = SnapRotation(Math.Atan2(frame.M12, frame.M11), angle, pointer.Modifiers.HasFlag(InputModifiers.Shift), pointer.Modifiers.HasFlag(InputModifiers.Alt));
             preview = originals.Select(x => AnnotationGeometry.Similarity(x, center, angle: angle)).ToArray();
         }
+        else if (drag is Drag.Boundary(var column, var line))
+        {
+            if (originals is not [TableAnnotation table]) { preview = []; view.RefreshLive(); return; }
+            var delta = table.Transform.Invert().TransformVector(new(b.X - a.X, b.Y - a.Y));
+            // From the line as drawn: a row taller than its set height (its text) is dragged from where it shows.
+            var grid = PdfNotes.Text.TableLayout.Measure(table);
+            preview = [column ? TableEdits.ResizeColumn(table, line, table.ColumnWidths[line] + delta.X)
+                : TableEdits.ResizeRow(table, line, grid.RowY[line + 1] - grid.RowY[line] + delta.Y)];
+        }
         else if (drag is Drag.Corner(var corner))
         {
             if (originals is [TextBoxAnnotation box])
@@ -468,6 +505,8 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
             if (originals is [ImageAnnotation image] && pointer.Modifiers.HasFlag(InputModifiers.Shift)) preview = [AnnotationGeometry.ResizeImage(image, anchor, sx, sy)];
             // A single shape stretches freely; Shift keeps its proportions (D11, like presentation apps).
             else if (originals is [ShapeAnnotation shape] && !pointer.Modifiers.HasFlag(InputModifiers.Shift)) preview = [AnnotationGeometry.ResizeShape(shape, anchor, sx, sy)];
+            // A single table too: column widths × sx, row heights × sy; its text keeps its size (1.4 plan 1.3).
+            else if (originals is [TableAnnotation table] && !pointer.Modifiers.HasFlag(InputModifiers.Shift)) preview = [AnnotationGeometry.ResizeTable(table, anchor, sx, sy, PdfNotes.Text.TextLayout.Bounds)];
             else
             {
                 var initial = new Point2(startLocal.X - anchor.X, startLocal.Y - anchor.Y);
@@ -540,7 +579,7 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
             return;
         }
         bool changed = changes.Length > 0 && session() is not null;
-        if (changed) session()!.Execute(DocumentEdits.UpdateAnnotations(session()!.Current, changes, mode switch { Drag.Move => "undo.move", Drag.Rotate => "undo.rotate", Drag.LineHandle => "undo.editLine", _ => "undo.resize" }));
+        if (changed) session()!.Execute(DocumentEdits.UpdateAnnotations(session()!.Current, changes, mode switch { Drag.Move => "undo.move", Drag.Rotate => "undo.rotate", Drag.LineHandle => "undo.editLine", Drag.Boundary => "undo.tableSize", _ => "undo.resize" }));
         view.RefreshOverlays();
         Released?.Invoke(this, changed);
     }

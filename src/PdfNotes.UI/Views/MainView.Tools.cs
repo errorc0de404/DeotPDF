@@ -150,8 +150,11 @@ public sealed partial class MainView
         var model = doc.Session.Current;
         var ai = viewModel.AiNotes;
         var shown = new List<Annotation>(page.Annotations.Count);
+        var cell = editSession as PdfNotes.TextEditor.TableCellEditSession;
         foreach (var original in page.Annotations)
-            if (original.Id != EditingTextId && !live.Contains(original.Id) && !ai.Hides(model, original)) shown.Add(original);
+            if (original.Id != EditingTextId && !live.Contains(original.Id) && !ai.Hides(model, original))
+                // The cell being typed in is drawn by its editor; its row keeps the height the text gives it (1.4).
+                shown.Add(cell is not null && original is TableAnnotation edited && edited.Id == cell.TableId ? cell.WithoutEditedText(edited) : original);
         // 강조 (MCP_LIVE_PLAN 6): a soft glow in the halo color under AI writing, and a thin edge on top of framed kinds.
         var halos = ai.IsEmphasized && !model.Tags.IsEmpty ? shown.Where(a => Authorship.IsAi(model, a.Id)).ToList() : null;
         var haloColor = new SKColor(ai.HaloColor.R, ai.HaloColor.G, ai.HaloColor.B);
@@ -168,6 +171,9 @@ public sealed partial class MainView
         {
             var box = editing.Model.DisplayBox;
             editFrame = (box.Transform, box.WidthPt, PdfNotes.TextEditor.Avalonia.SkiaMeasure.Layout(box).Height);
+            // A cell's frame is the cell: column width × row height.
+            if (cell is not null && page.Annotations.FirstOrDefault(a => a.Id == cell.TableId) is TableAnnotation table && cell.CellRect(table) is { } r)
+                editFrame = (Affine.Translation(r.X, r.Y).Then(table.Transform), r.Width, Math.Max(r.Height, editFrame.Value.Height));
         }
         return (canvas, _, _, t) =>
         {

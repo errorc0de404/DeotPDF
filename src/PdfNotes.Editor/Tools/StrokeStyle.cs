@@ -42,6 +42,7 @@ public sealed record StrokeStyle(RgbColor Color, double WidthPt, double Transpar
         AnnotationKind.FreeHighlight => (InputLimits.MinFreeHighlightWidthPt, InputLimits.MaxFreeHighlightWidthPt),
         AnnotationKind.PdfTextHighlight => (InputLimits.MinManualHighlightHeightPt, InputLimits.MaxManualHighlightHeightPt),
         AnnotationKind.TextMarkup => (ModelValidator.MinMarkupWidthPt, ModelValidator.MaxMarkupWidthPt),
+        AnnotationKind.Table => (TableAnnotation.MinLineWidth, TableAnnotation.MaxLineWidth),
         _ => (InputLimits.MinPenWidthPt, InputLimits.MaxPenWidthPt)
     };
 

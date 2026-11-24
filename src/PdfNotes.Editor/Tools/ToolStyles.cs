@@ -5,9 +5,9 @@ namespace PdfNotes.Editor.Tools;
 /// <summary>The style bar's view of annotations (spec 3.1, 9.4, D14d): color, width and transparency of what it edits.</summary>
 public static class ToolStyles
 {
-    /// <summary>True for annotations the style bar edits together (strokes, lines, glyph marks, shapes, notes).</summary>
+    /// <summary>True for annotations the style bar edits together (strokes, lines, glyph marks, shapes, notes, table lines).</summary>
     public static bool HasStrokeStyle(Annotation a) =>
-        a is StrokeAnnotation or LineAnnotation or PdfTextHighlight or ShapeAnnotation or PdfTextMarkup or StickyNote;
+        a is StrokeAnnotation or LineAnnotation or PdfTextHighlight or ShapeAnnotation or PdfTextMarkup or StickyNote or TableAnnotation;
 
     /// <summary>The bar values of <paramref name="a"/>; a shape shows its fill or its border (<paramref name="shapeFill"/>).</summary>
     public static StrokeStyle StyleOf(Annotation a, bool shapeFill) => a switch
@@ -18,6 +18,7 @@ public static class ToolStyles
         PdfTextMarkup m => StrokeStyle.Of(m),
         StickyNote n => new(n.Color, StrokeStyle.DefaultPen.WidthPt, 0), // a note has a color only
         ShapeAnnotation s => ShapeStroke(s.Style, shapeFill),
+        TableAnnotation t => new(t.Style.LineColor, t.Style.LineWidthPt, 0), // the grid lines: color and width (1.4 plan 1.3)
         _ => throw new ArgumentException("No stroke style.", nameof(a))
     };
 

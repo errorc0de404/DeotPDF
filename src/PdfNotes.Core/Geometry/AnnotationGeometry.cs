@@ -85,12 +85,7 @@ public static class AnnotationGeometry
             // The icon keeps its size and stays upright: only where its top-left corner goes counts.
             StickyNote n => n with { Transform = Affine.Translation(combined.OffsetX, combined.OffsetY) },
             // Tables (1.4): a scale multiplies column widths and row heights; the text keeps its size.
-            TableAnnotation t => t with
-            {
-                Transform = rigid,
-                ColumnWidths = t.ColumnWidths.Select(w => Math.Max(TableAnnotation.MinColumnWidth, w * scale)).ToImmutableArray(),
-                RowHeights = t.RowHeights.Select(h => Math.Max(TableAnnotation.MinRowHeight, h * scale)).ToImmutableArray()
-            },
+            TableAnnotation t => Commands.TableEdits.Scaled(t, scale, scale) with { Transform = rigid },
             _ => throw new NotSupportedException($"{a.Kind} cannot be transformed yet.")
         };
     }
@@ -115,6 +110,24 @@ public static class AnnotationGeometry
             Box = shape.UsesBox ? new(anchor.X + (b.X - anchor.X) * sx, anchor.Y + (b.Y - anchor.Y) * sy, b.Width * sx, b.Height * sy) : default,
             Points = shape.Points.Select(Stretch).ToImmutableArray()
         };
+    }
+
+    /// <summary>
+    /// Single-table free resize (1.4) in its own rotated frame: column widths × <paramref name="sx"/>, row heights ×
+    /// <paramref name="sy"/> (<see cref="Commands.TableEdits.Scaled"/>, text sizes stay), then the table moves so the corner of
+    /// its bounds at <paramref name="anchor"/> (a table-local corner of the old bounds) stays where it was. Rows taller than
+    /// their set height because of their text keep that height, so the result is the size it really becomes.
+    /// </summary>
+    public static TableAnnotation ResizeTable(TableAnnotation table, Point2 anchor, double sx, double sy, Func<TextBoxAnnotation, Rect2> textBounds)
+    {
+        if (table.Locked) throw new Commands.AnnotationLockedException();
+        var before = TableGeometry.Measure(table, textBounds).Bounds;
+        var scaled = Commands.TableEdits.Scaled(table, sx, sy);
+        var after = TableGeometry.Measure(scaled, textBounds).Bounds;
+        double fx = before.Width <= 0 ? 0 : Math.Clamp((anchor.X - before.X) / before.Width, 0, 1);
+        double fy = before.Height <= 0 ? 0 : Math.Clamp((anchor.Y - before.Y) / before.Height, 0, 1);
+        var moved = new Point2(before.X + fx * before.Width - (after.X + fx * after.Width), before.Y + fy * before.Height - (after.Y + fy * after.Height));
+        return scaled with { Transform = Affine.Translation(moved.X, moved.Y).Then(table.Transform) };
     }
 
     /// <summary>Single-image free resize in its own rotated frame, keeping the opposite corner fixed.</summary>

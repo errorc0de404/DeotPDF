@@ -70,7 +70,7 @@ public sealed partial class MainView
             onText = hit is null && selectTool.HasTextSelection && selectTool.TextSelectionPage == anchor.PageIndex &&
                 selectTool.TextSelectionQuads(anchor.PageIndex).Any(q => TextSelection.DistanceToQuad(q, anchor.PagePoint) <= 2);
         }
-        if (selection.Menu(anchor.PageIndex, hit, onText) is not { } entries) return null;
+        if (selection.Menu(anchor.PageIndex, hit, onText, anchor.PagePoint) is not { } entries) return null;
         var menu = new ContextMenu { Placement = PlacementMode.Pointer };
         foreach (var entry in entries.Entries)
         {

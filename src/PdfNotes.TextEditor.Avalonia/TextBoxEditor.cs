@@ -69,6 +69,11 @@ public sealed class TextBoxEditor : Control
     /// <summary>Esc: the host ends editing.</summary>
     public event EventHandler? Finished;
 
+    /// <summary>Tab and Shift+Tab leave the box (a table cell, 1.4 plan 1.3) instead of typing a tab: <see cref="TabPressed"/> (true with Shift).</summary>
+    public bool TabLeaves { get; set; }
+
+    public event EventHandler<bool>? TabPressed;
+
     /// <summary>A model that lays out with the Skia engine (the same layouts this control draws).</summary>
     public static TextEditorModel Edit(TextBoxAnnotation box, TextRun? typingStyle = null) => new(box, typingStyle, SkiaMeasure.Layout);
 
@@ -203,6 +208,8 @@ public sealed class TextBoxEditor : Control
         bool command = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
         var modifiers = (e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? EditorModifiers.Shift : EditorModifiers.None) |
             (command ? EditorModifiers.Control : EditorModifiers.None);
+        if (e.Key == Key.Tab && TabLeaves && !command && !model.IsComposing)
+        { e.Handled = true; TabPressed?.Invoke(this, e.KeyModifiers.HasFlag(KeyModifiers.Shift)); return; }
         EditorKey? key = e.Key switch
         {
             Key.Left => EditorKey.Left, Key.Right => EditorKey.Right, Key.Up => EditorKey.Up, Key.Down => EditorKey.Down,

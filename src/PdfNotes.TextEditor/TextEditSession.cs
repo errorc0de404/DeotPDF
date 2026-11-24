@@ -3,6 +3,15 @@ using PdfNotes.Core.Models;
 
 namespace PdfNotes.TextEditor;
 
+/// <summary>An edit linked to the document: a text box (<see cref="TextEditSession"/>) or a table cell (<see cref="TableCellEditSession"/>).</summary>
+public interface ITextEditSession
+{
+    TextEditorModel Model { get; }
+
+    /// <summary>Ends editing: the composition is completed and the edit's one document step settled.</summary>
+    void Finish();
+}
+
 /// <summary>
 /// Keeps the document in step with a <see cref="TextEditorModel"/> while its box is edited (roadmap P2 S4). Every
 /// change goes into the document at once, so other views see it, but one edit is one document Undo step (2026-11-03 user decision, spec 13.2): a new box comes
@@ -10,7 +19,7 @@ namespace PdfNotes.TextEditor;
 /// (per word) and only moves the box inside that step. Blank text is not written while editing; <see cref="Finish"/>
 /// removes a box left blank in the same step, and an edit that changed nothing leaves no step.
 /// </summary>
-public sealed class TextEditSession : IDisposable
+public sealed class TextEditSession : ITextEditSession, IDisposable
 {
     public const string TypeLabel = "undo.typeText", DeleteEmptyLabel = "undo.deleteEmptyText";
 

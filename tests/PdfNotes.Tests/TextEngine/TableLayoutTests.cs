@@ -241,4 +241,29 @@ public sealed class TableLayoutTests
         Assert.Equal(new Point2(60, 70), placed.Transform.Transform(new(0, 0)));
         Assert.Null(ModelValidator.ValidateAnnotation(placed, _ => true));
     }
+
+    /// <summary>1.4 Task 10: the size handles multiply widths and heights (text keeps its size); a single table stretches from the fixed corner.</summary>
+    [Fact]
+    public void HandleResizeScalesCellsAndKeepsTheOppositeCorner()
+    {
+        var table = With(TableAnnotation.Create(Guid.NewGuid(), new(50, 70), 2, 2, Style), 1, 1, Text("가"))
+            with { Transform = Affine.Rotation(Math.PI / 6).Then(Affine.Translation(50, 70)) };
+        var even = (TableAnnotation)AnnotationGeometry.Similarity(table, new(50, 70), 1.5);
+        Assert.Equal([120, 120], even.ColumnWidths.ToArray());
+        Assert.Equal([36, 36], even.RowHeights.ToArray());
+        Assert.Equal(12, even.Cell(1, 1).Runs[0].SizePt);
+
+        var before = TableLayout.Measure(table).Bounds;
+        var anchor = new Point2(before.X + before.Width, before.Y + before.Height); // the bottom-right corner stays
+        var stretched = AnnotationGeometry.ResizeTable(table, anchor, 2, 0.5, TextLayout.Bounds);
+        Assert.Equal([160, 160], stretched.ColumnWidths.ToArray());
+        Assert.Equal([TableAnnotation.MinRowHeight, TableAnnotation.MinRowHeight], stretched.RowHeights.ToArray());
+        var after = TableLayout.Measure(stretched).Bounds;
+        var fixedBefore = table.Transform.Transform(anchor);
+        var fixedAfter = stretched.Transform.Transform(new(after.X + after.Width, after.Y + after.Height));
+        Assert.Equal(fixedBefore.X, fixedAfter.X, 6);
+        Assert.Equal(fixedBefore.Y, fixedAfter.Y, 6);
+        Assert.Equal(12, stretched.Cell(1, 1).Runs[0].SizePt);
+        Assert.Null(ModelValidator.ValidateAnnotation(stretched, _ => true));
+    }
 }

@@ -27,7 +27,9 @@ public enum AnnotationCommand
     SavedStyles, Lock, Unlock, Copy, Cut, Paste, Delete, Forward, Backward, ToFront, ToBack,
     AddTextBox, Tool, ConvertForeign,
     /// <summary>내 필기로: the AI writing among the targets becomes the user's own (MCP_LIVE_PLAN 5).</summary>
-    Adopt
+    Adopt,
+    /// <summary>A table's rows and columns at the cell the menu was opened on (1.4 plan 1.3 구조 편집).</summary>
+    TableRowAbove, TableRowBelow, TableColumnLeft, TableColumnRight, TableDeleteRow, TableDeleteColumn
 }
 
 /// <param name="SeparatorBefore">A line goes above this entry.</param>
@@ -38,7 +40,8 @@ public sealed record AnnotationMenuEntry(AnnotationCommand Command, string Text,
 /// The canvas menu for one right-click: its entries, and the annotations and page its commands act on (a locked
 /// annotation alone; otherwise the selection, which the click made when it was outside it).
 /// </summary>
-public sealed record AnnotationMenu(IReadOnlyList<AnnotationMenuEntry> Entries, Guid PageId, Guid[] Targets);
+/// <param name="Cell">The table cell the menu was opened on: the row and column commands act there.</param>
+public sealed record AnnotationMenu(IReadOnlyList<AnnotationMenuEntry> Entries, Guid PageId, Guid[] Targets, (Guid Table, int Row, int Column)? Cell = null);
 
 /// <summary>
 /// Selection commands (spec 5.3, 5.7, 17; P1 V8): copy, cut, paste, delete and select all on the canvas, copying and
@@ -221,8 +224,10 @@ public sealed class SelectionViewModel(MainViewModel owner, IEditorDialogs dialo
     /// The canvas menu for a right-click on page <paramref name="pageIndex"/> (spec 3.2, 5.6–5.9): on selected PDF text its
     /// copy and highlight; on an annotation (selecting it when it is unlocked and outside the selection) lock, clipboard
     /// and order commands; elsewhere a new text box, the quick tool switch, paste and converting other apps' annotations.
+    /// On an unlocked table, <paramref name="pagePoint"/> (where the menu was opened) picks the cell its row and column
+    /// commands act on (1.4 plan 1.3).
     /// </summary>
-    public AnnotationMenu? Menu(int pageIndex, Guid? hit, bool onTextSelection)
+    public AnnotationMenu? Menu(int pageIndex, Guid? hit, bool onTextSelection, Point2? pagePoint = null)
     {
         if (Document is not { } doc) return null;
         var model = doc.Session.Current;
@@ -240,6 +245,17 @@ public sealed class SelectionViewModel(MainViewModel owner, IEditorDialogs dialo
             Guid[] targets = annotation.Locked ? [id] : [.. Tool.SelectedIds];
             bool unlocked = !annotation.Locked;
             if (annotation is TextBoxAnnotation) entries.Add(new(AnnotationCommand.SavedStyles, texts.Get("text.savedStyles"), unlocked));
+            var cell = annotation is TableAnnotation { Locked: false } table && pagePoint is { } point ? CellNear(table, point) : null;
+            if (cell is { } at)
+            {
+                var t = (TableAnnotation)annotation;
+                entries.Add(new(AnnotationCommand.TableRowAbove, texts.Get("table.rowAbove")));
+                entries.Add(new(AnnotationCommand.TableRowBelow, texts.Get("table.rowBelow")));
+                entries.Add(new(AnnotationCommand.TableColumnLeft, texts.Get("table.columnLeft")));
+                entries.Add(new(AnnotationCommand.TableColumnRight, texts.Get("table.columnRight")));
+                entries.Add(new(AnnotationCommand.TableDeleteRow, texts.Get("table.deleteRow"), t.Rows > 1, SeparatorBefore: true));
+                entries.Add(new(AnnotationCommand.TableDeleteColumn, texts.Get("table.deleteColumn"), t.Columns > 1));
+            }
             entries.Add(annotation.Locked ? new(AnnotationCommand.Unlock, texts.Get("command.unlock"), SeparatorBefore: entries.Count > 0)
                 : new(AnnotationCommand.Lock, texts.Get("command.lock"), SeparatorBefore: entries.Count > 0));
             entries.Add(new(AnnotationCommand.Copy, texts.Get("command.copy"), SeparatorBefore: true));
@@ -251,7 +267,7 @@ public sealed class SelectionViewModel(MainViewModel owner, IEditorDialogs dialo
             entries.Add(new(AnnotationCommand.ToFront, texts.Get("order.toFront"), unlocked));
             entries.Add(new(AnnotationCommand.ToBack, texts.Get("order.toBack"), unlocked));
             if (targets.Any(t => Authorship.IsAi(model, t))) entries.Add(new(AnnotationCommand.Adopt, texts.Get("ai.adopt"), SeparatorBefore: true));
-            return new(entries, pageId, targets);
+            return new(entries, pageId, targets, cell is { } c ? (annotation.Id, c.Row, c.Column) : null);
         }
         entries.Add(new(AnnotationCommand.AddTextBox, texts.Get("menu.addTextBox")));
         bool first = true;
@@ -282,7 +298,39 @@ public sealed class SelectionViewModel(MainViewModel owner, IEditorDialogs dialo
             case AnnotationCommand.ToBack: ChangeOrder(menu.PageId, menu.Targets, ZOrderChange.ToBack); return true;
             case AnnotationCommand.Adopt: Adopt(menu.Targets); return true;
             case AnnotationCommand.Tool when entry.Tool is { } tool: owner.ToolBar.SetTool(tool); return true;
+            case AnnotationCommand.TableRowAbove or AnnotationCommand.TableRowBelow or AnnotationCommand.TableColumnLeft or AnnotationCommand.TableColumnRight
+                or AnnotationCommand.TableDeleteRow or AnnotationCommand.TableDeleteColumn: EditTable(menu, entry.Command); return true;
             default: return false;
         }
+    }
+
+    /// <summary>The cell under a page point of a table; on the outer frame, the nearest cell.</summary>
+    private static (int Row, int Column)? CellNear(TableAnnotation table, Point2 pagePoint)
+    {
+        var local = table.Transform.Invert().Transform(pagePoint);
+        var grid = PdfNotes.Text.TableLayout.Measure(table);
+        var inside = new Point2(Math.Clamp(local.X, 0, grid.ColumnX[^1]), Math.Clamp(local.Y, 0, grid.RowY[^1]));
+        return PdfNotes.Text.TableLayout.CellAt(table, inside);
+    }
+
+    /// <summary>A row or column inserted next to the menu's cell, or its row or column removed: one Undo unit (1.4 plan 1.3).</summary>
+    private void EditTable(AnnotationMenu menu, AnnotationCommand command)
+    {
+        if (Document is not { } doc || menu.Cell is not { } cell ||
+            doc.Session.Current.FindAnnotation(cell.Table)?.Annotation is not TableAnnotation { Locked: false } table ||
+            cell.Row >= table.Rows || cell.Column >= table.Columns) return;
+        var (after, label) = command switch
+        {
+            AnnotationCommand.TableRowAbove => (TableEdits.InsertRow(table, cell.Row), "undo.tableRow"),
+            AnnotationCommand.TableRowBelow => (TableEdits.InsertRow(table, cell.Row + 1), "undo.tableRow"),
+            AnnotationCommand.TableColumnLeft => (TableEdits.InsertColumn(table, cell.Column), "undo.tableColumn"),
+            AnnotationCommand.TableColumnRight => (TableEdits.InsertColumn(table, cell.Column + 1), "undo.tableColumn"),
+            AnnotationCommand.TableDeleteRow => (TableEdits.DeleteRow(table, cell.Row), "undo.tableRow"),
+            _ => (TableEdits.DeleteColumn(table, cell.Column), "undo.tableColumn")
+        };
+        if (after is null) return; // the last row or column: its entry is off
+        doc.Session.SealCoalescing();
+        doc.Session.Execute(DocumentEdits.UpdateAnnotations(doc.Session.Current, [after], label));
+        doc.Session.SealCoalescing();
     }
 }

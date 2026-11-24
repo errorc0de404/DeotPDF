@@ -122,6 +122,12 @@ public sealed partial class ToolStylesViewModel
         set { if (!showing && value >= 0 && value != ShapeBar.BorderIndex) SetShapeBorder(value == 0 ? null : (DashStyle)(value - 1)); }
     }
 
+    // ----- tables (1.4 plan 1.3) -----
+
+    public bool TableOptionsShown => OptionTables.Length > 0;
+    public bool TableHeaderOn => OptionTables is { Length: > 0 } tables && tables.All(t => t.Style.HeaderRow);
+    public Command TableHeaderCommand => field ??= new(() => SetTableHeader(!TableHeaderOn));
+
     // ----- lines (spec 8.1–8.2) -----
 
     public bool LineOptionsShown => Bar.LineOptionsShown;

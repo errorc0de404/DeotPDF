@@ -403,6 +403,12 @@
                                               IsVisible="{Binding ToolStyles.HighlighterSnapShown}" IsEnabled="{Binding ToolStyles.HighlighterSnapEnabled}"
                                               IsChecked="{Binding ToolStyles.HighlighterSnapOn, Mode=OneWay}" Command="{Binding ToolStyles.HighlighterSnapCommand}" />
                             </StackPanel>
+                            <!-- Kind options: tables (1.4 plan 1.3) -->
+                            <StackPanel x:Name="TableOptionsPanel" Orientation="Horizontal" VerticalAlignment="Center" IsVisible="{Binding ToolStyles.TableOptionsShown}">
+                                <Border Classes="sep" />
+                                <ToggleButton x:Name="TableHeaderButton" Theme="{StaticResource ToolButton}" Content="{l:T table.header}" Padding="6,3"
+                                              IsChecked="{Binding ToolStyles.TableHeaderOn, Mode=OneWay}" Command="{Binding ToolStyles.TableHeaderCommand}" />
+                            </StackPanel>
                             <!-- Kind options: lines -->
                             <StackPanel x:Name="LineOptionsPanel" Orientation="Horizontal" VerticalAlignment="Center" IsVisible="{Binding ToolStyles.LineOptionsShown}">
                                 <Border Classes="sep" />

@@ -102,6 +102,13 @@ public sealed class FrameTests
             case "Shape": w.View.SetTool(ToolKind.Shape); break;
             case "Eraser": w.View.SetTool(ToolKind.AreaEraser); break;
             case "Text": w.View.SetTool(ToolKind.Text); break;
+            case "Table": // a selected table: line palette, width and 머리행 (1.4 plan 1.3)
+                var session = w.View.Document!.Session;
+                var table = TableAnnotation.Create(Guid.NewGuid(), new(100, 150), 2, 2, PdfNotes.Core.Commands.TextEditing.Default);
+                session.Execute(PdfNotes.Core.Commands.DocumentEdits.AddAnnotation(session.Current, session.Current.Pages[0].Id, table));
+                w.View.SetTool(ToolKind.Select);
+                w.View.Selection.Select(table.Id);
+                break;
         }
         Settle(w);
     }
@@ -139,7 +146,7 @@ public sealed class FrameTests
                 }
             }
             if (width < 720) { w.Close(); continue; } // only the ribbon is checked as narrow as a portrait phone
-            foreach (var bar in new[] { "Pen", "Highlighter", "Markup", "Line", "Shape", "Eraser", "Text" })
+            foreach (var bar in new[] { "Pen", "Highlighter", "Markup", "Line", "Shape", "Eraser", "Text", "Table" })
             {
                 ShowBar(w, bar);
                 var panel = bar switch

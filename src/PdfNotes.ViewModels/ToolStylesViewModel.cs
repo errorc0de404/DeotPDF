@@ -156,6 +156,9 @@ public sealed partial class ToolStylesViewModel : ObservableObject
     public ShapeAnnotation[] OptionShapes => Current == ToolKind.Shape ? SelectedShape is { } s ? [s] : []
         : StyleSelection is { Length: > 0 } all && all.All(a => a is ShapeAnnotation) ? [.. all.Cast<ShapeAnnotation>()] : [];
 
+    /// <summary>The tables the table options edit (1.4 plan 1.3): a selection of tables only.</summary>
+    public TableAnnotation[] OptionTables => StyleSelection is { Length: > 0 } all && all.All(a => a is TableAnnotation) ? [.. all.Cast<TableAnnotation>()] : [];
+
     /// <summary>The style bar as it should look now.</summary>
     public StyleBarState Bar
     {
@@ -168,13 +171,14 @@ public sealed partial class ToolStylesViewModel : ObservableObject
             bool highlight = highlighterTool || selected.Length > 0 && selected.All(a => a is PdfTextHighlight);
             // A sticky note has a color only (spec 24.9); an area-eraser piece keeps its shape: its width is fixed.
             bool colorOnly = Current == ToolKind.Note || selected.Length > 0 && selected.All(a => a is StickyNote);
+            bool tables = selected.Length > 0 && selected.All(a => a is TableAnnotation); // table lines have no transparency
             bool fixedWidth = selected.Length > 0 && selected.All(a => a is StrokeAnnotation { IsOutlined: true });
             bool autoChecked = highlighterTool ? highlighterAuto : selected.Length > 0 && selected.All(a => a is PdfTextHighlight { HeightMode: HighlightHeightMode.Auto });
             // Automatic glyph height leaves no width to set on selected glyph highlights; the highlighter's width still
             // sets its free strokes (spec 9.1).
             bool widthEnabled = !fixedWidth && !colorOnly && !(highlight && !highlighterTool && autoChecked);
             return new(target, eraser, StyleMixed, highlighterTool, Current == ToolKind.Markup, highlighterTool, highlight, autoChecked,
-                !colorOnly, widthEnabled, OptionLines.Length > 0 || Current is ToolKind.Line or ToolKind.Curve, Current == ToolKind.Shape || OptionShapes.Length > 0);
+                !colorOnly && !tables, widthEnabled, OptionLines.Length > 0 || Current is ToolKind.Line or ToolKind.Curve, Current == ToolKind.Shape || OptionShapes.Length > 0);
         }
     }
 
@@ -284,6 +288,7 @@ public sealed partial class ToolStylesViewModel : ObservableObject
                     PdfTextMarkup m => toolChange(StrokeStyle.Of(m)).ClampFor(AnnotationKind.TextMarkup) is var ms ? m with { Color = ms.Color, WidthPt = ms.WidthPt, Opacity = ms.Opacity } : m,
                     StickyNote n => n with { Color = toolChange(StyleOf(n)).Color },
                     ShapeAnnotation sh => sh with { Style = WithStroke(sh.Style, toolChange(ShapeStroke(sh.Style))) },
+                    TableAnnotation t => toolChange(StyleOf(t)).ClampFor(AnnotationKind.Table) is var ts ? t with { Style = t.Style with { LineColor = ts.Color, LineWidthPt = ts.WidthPt } } : t,
                     _ => a
                 })], coalescePart);
                 break;
@@ -362,6 +367,16 @@ public sealed partial class ToolStylesViewModel : ObservableObject
             owner.SaveSettings();
         }
         if (OptionShapes is { Length: > 0 } shapes) Update(shapes, [.. shapes.Select(s => (Annotation)(s with { Style = With(s.Style) }))], null);
+        Show();
+    }
+
+    // ----- tables (1.4 plan 1.3) -----
+
+    /// <summary>머리행 on or off for the selected tables (first row gray and bold): one Undo unit, none when nothing changes.</summary>
+    public void SetTableHeader(bool on)
+    {
+        var tables = OptionTables.Where(t => t.Style.HeaderRow != on).ToArray();
+        if (tables.Length > 0) Update(tables, [.. tables.Select(t => (Annotation)TableEdits.SetHeader(t, on))], null, "undo.tableHeader");
         Show();
     }
 

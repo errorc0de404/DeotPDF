@@ -12,6 +12,7 @@ using PdfNotes.UI.Themes;
 using PdfNotes.Editor.Localization;
 using PdfNotes.Editor.Tools;
 using PdfNotes.Text;
+using PdfNotes.TextEditor;
 using PdfNotes.ViewModels;
 using Alignment = PdfNotes.Core.Models.TextAlignment;
 
@@ -36,7 +37,9 @@ public sealed partial class MainView
         public TextRun TypingStyle => Model!.TypingStyle;
         public void CompleteInput() => Model?.CompleteInput();
         public void Format(Func<TextRun, TextRun> change) => Model?.Format(change);
-        public void Change(Func<TextBoxAnnotation, TextBoxAnnotation> change) => Model?.Change(change);
+        // A table cell has the box's text, runs, alignment and highlights only: its width, place and fill/border stay (1.4).
+        public void Change(Func<TextBoxAnnotation, TextBoxAnnotation> change) => Model?.Change(window.editSession is TableCellEditSession
+            ? b => change(b) with { WidthPt = b.WidthPt, Transform = b.Transform, BoxStyle = b.BoxStyle, LayoutScale = b.LayoutScale } : change);
 
         public void UndoStep(bool redo) => Model?.UndoStep(redo);
     }

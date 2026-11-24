@@ -24,7 +24,7 @@ namespace PdfNotes.UI.Views;
 public sealed partial class MainView
 {
     private TextBoxEditor? textEditor;
-    private TextEditSession? editSession;
+    private ITextEditSession? editSession;
     private Guid editingPageId;
 
     /// <summary>The box being edited (tests), or null.</summary>
@@ -35,6 +35,9 @@ public sealed partial class MainView
     public bool IsEditingText => editSession is not null;
 
     private Guid? EditingTextId => editSession?.Model.Box.Id;
+
+    /// <summary>The table cell being edited (tests), or null.</summary>
+    internal (Guid Table, int Row, int Column)? EditingCell => editSession is TableCellEditSession c ? (c.TableId, c.Row, c.Column) : null;
 
     private void InitializeText()
     {
@@ -131,12 +134,55 @@ public sealed partial class MainView
         Attach(doc, doc.Session.Current.Pages[location.PageIndex].Id, model, focus);
     }
 
-    private void Attach(PdfNotes.Editor.Services.OpenDocument doc, Guid pageId, TextEditorModel model, bool focus = true)
+    /// <summary>
+    /// Starts typing in a table cell (1.4 plan 1.3 칸 입력): the cell is edited as its cell box, and entering until leaving
+    /// it is one Undo step (<see cref="TableCellEditSession"/>). With <paramref name="at"/> (a canvas point) the caret goes
+    /// there, else to the end. A locked table is not edited. The table stays selected.
+    /// </summary>
+    public void BeginTableCellEdit(Guid tableId, int row, int column, Point2? at = null)
+    {
+        FinishTextEditing();
+        if (Document is not { } doc || doc.Session.Current.FindAnnotation(tableId) is not { Annotation: TableAnnotation { Locked: false } table } location ||
+            (uint)row >= (uint)table.Rows || (uint)column >= (uint)table.Columns || viewModel.AiNotes.Hides(doc.Session.Current, table)) return;
+        editReturnsToText = false;
+        viewModel.Ribbon.Auto(RibbonTab.Home);
+        var box = TableLayout.CellBox(table, row, column);
+        var model = TextBoxEditor.Edit(box, TableLayout.CellStyle(table, row, column));
+        if (at is { } point && Canvas.HitTestPage(point) is { } anchor) model.PointerDown(box.Transform.Invert().Transform(anchor.PagePoint));
+        else model.Select(box.Text.Length, box.Text.Length);
+        var pageId = doc.Session.Current.Pages[location.PageIndex].Id;
+        Attach(doc, pageId, model, session: new TableCellEditSession(doc.Session, tableId, row, column, model));
+    }
+
+    /// <summary>
+    /// Tab in a cell: the next cell (the cell's step ends, the next one's begins); in the last cell a new row first, as its
+    /// own Undo step. Shift+Tab: the cell before (the first cell stays).
+    /// </summary>
+    private void MoveToNextCell(bool back)
+    {
+        if (editSession is not TableCellEditSession cell || Document is not { } doc) return;
+        var (tableId, row, column) = (cell.TableId, cell.Row, cell.Column);
+        FinishTextEditing();
+        if (doc.Session.Current.FindAnnotation(tableId)?.Annotation is not TableAnnotation { Locked: false } table) return;
+        int index = row * table.Columns + column + (back ? -1 : 1);
+        if (index < 0) index = 0;
+        if (index >= table.Cells.Length)
+        {
+            doc.Session.SealCoalescing();
+            doc.Session.Execute(PdfNotes.Core.Commands.DocumentEdits.UpdateAnnotations(doc.Session.Current, [PdfNotes.Core.Commands.TableEdits.InsertRow(table, table.Rows)], "undo.tableRow"));
+            doc.Session.SealCoalescing();
+            index = table.Rows * table.Columns;
+        }
+        BeginTableCellEdit(tableId, index / table.Columns, index % table.Columns);
+    }
+
+    private void Attach(PdfNotes.Editor.Services.OpenDocument doc, Guid pageId, TextEditorModel model, bool focus = true, ITextEditSession? session = null)
     {
         editingPageId = pageId;
-        editSession = new TextEditSession(doc.Session, pageId, model);
-        textEditor = new TextBoxEditor { Model = model, Name = "TextEditor" };
+        editSession = session ?? new TextEditSession(doc.Session, pageId, model);
+        textEditor = new TextBoxEditor { Model = model, Name = "TextEditor", TabLeaves = session is TableCellEditSession };
         textEditor.Finished += (_, _) => { FinishTextEditing(); Canvas.Focus(); };
+        textEditor.TabPressed += (_, back) => MoveToNextCell(back);
         // The text bar shows the format at the caret (spec 3.2) and follows every edit.
         model.SelectionChanged += (_, _) => textStyle.Refresh();
         model.Edited += (_, _) => { textStyle.Refresh(); Canvas.RefreshOverlays(); }; // the edit frame grows with the text
@@ -248,6 +294,13 @@ public sealed partial class MainView
         var pressed = e.GetPosition(Canvas);
         reclickBox = tools.Current == ToolKind.Select && tools.Return == ToolKind.Text && e.ClickCount == 1 &&
             selectTool.SelectedAnnotations is [TextBoxAnnotation selected] && selectTool.Pick(new Point2(pressed.X, pressed.Y)) == selected.Id ? selected.Id : null;
+        // A double click (a double tap) on the selected table types in the cell under it (1.4 plan 1.3).
+        if (e.ClickCount >= 2 && tools.Current == ToolKind.Select && selectTool.SelectedAnnotations is [TableAnnotation table] && TableCellAt(table, pressed) is { } cell)
+        {
+            e.Handled = true;
+            BeginTableCellEdit(table.Id, cell.Row, cell.Column, new Point2(pressed.X, pressed.Y));
+            return;
+        }
         // A double click on the selected text box edits it at that point (the selection tool would select a word of
         // the PDF under it instead).
         if (e.ClickCount < 2 || tools.Current != ToolKind.Select || selectTool.SelectedAnnotations is not [TextBoxAnnotation box]) return;
@@ -258,6 +311,13 @@ public sealed partial class MainView
         if (!AnnotationGeometry.Hit(box, anchor.PagePoint, tolerance, TextLayout.Bounds)) return;
         e.Handled = true;
         BeginTextEdit(box.Id, point);
+    }
+
+    /// <summary>The cell of a table under a canvas point, worked out in table-local points (so a rotated table works too).</summary>
+    private (int Row, int Column)? TableCellAt(TableAnnotation table, Point at)
+    {
+        if (Canvas.HitTestPage(new Point2(at.X, at.Y)) is not { } anchor || Document?.Session.Current.Pages[anchor.PageIndex].Annotations.All(a => a.Id != table.Id) != false) return null;
+        return TableLayout.CellAt(table, table.Transform.Invert().Transform(anchor.PagePoint));
     }
 
     /// <summary>A second press without moving on the box selected from the text tool edits it.</summary>
