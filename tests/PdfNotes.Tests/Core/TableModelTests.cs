@@ -129,6 +129,26 @@ public sealed class TableModelTests
     }
 
     [Fact]
+    public void CellChecksItsRowAndColumn()
+    {
+        var table = TableAnnotation.Create(Guid.NewGuid(), new(0, 0), 2, 3, Style);
+        Assert.Same(table.Cells[5], table.Cell(1, 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => table.Cell(0, 3));
+        Assert.Throws<ArgumentOutOfRangeException>(() => table.Cell(0, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => table.Cell(2, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => table.Cell(-1, 0));
+    }
+
+    [Fact]
+    public void AnEmptyCellCannotHaveHighlights()
+    {
+        var table = TableAnnotation.Create(Guid.NewGuid(), new(0, 0), 1, 1, Style);
+        var highlighted = TableCell.Empty(Style) with { Highlights = [new(0, 1, HighlightHeightMode.Auto, null, RgbColor.Black, 0.5)] };
+        Assert.Equal("An empty table cell cannot have highlights.",
+            ModelValidator.ValidateAnnotation(table with { Cells = [highlighted] }, _ => true));
+    }
+
+    [Fact]
     public void AnEmptyTableIsKept()
     {
         var table = TableAnnotation.Create(Guid.NewGuid(), new(10, 10), 2, 2, Style);

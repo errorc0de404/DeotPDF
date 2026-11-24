@@ -233,7 +233,7 @@ public static class ModelValidator
         if (runs.IsDefault || highlights.IsDefault || runs.Length > ModelLimits.MaxRuns || highlights.Length > ModelLimits.MaxRuns)
             return "Text ranges are missing.";
         if (emptyStyle && text.Length == 0 && runs.Length == 1 && runs[0] is { Start: 0, Length: 0 } style)
-            return highlights.Length != 0 ? "Text highlights must be ordered, non-overlapping and on grapheme boundaries." : ValidateFont(style);
+            return highlights.Length != 0 ? "An empty table cell cannot have highlights." : ValidateFont(style);
         var boundaries = GraphemeBoundaries(text);
         // Runs partition the text: contiguous, non-empty, in order, starting at 0 and ending at Text.Length.
         if (text.Length == 0 ? runs.Length != 0 : runs.Length == 0) return "Text runs must cover the text.";

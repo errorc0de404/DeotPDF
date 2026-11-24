@@ -212,7 +212,12 @@ public sealed record TableAnnotation(Guid Id, bool Locked, Affine Transform, Imm
     public int Rows => RowHeights.IsDefault ? 0 : RowHeights.Length;
     public int Columns => ColumnWidths.IsDefault ? 0 : ColumnWidths.Length;
 
-    public TableCell Cell(int row, int column) => Cells[row * Columns + column];
+    public TableCell Cell(int row, int column)
+    {
+        if ((uint)row >= (uint)Rows) throw new ArgumentOutOfRangeException(nameof(row));
+        if ((uint)column >= (uint)Columns) throw new ArgumentOutOfRangeException(nameof(column));
+        return Cells[row * Columns + column];
+    }
 
     /// <summary>A new empty table at <paramref name="topLeft"/> with default cell sizes; header cells are bold.</summary>
     public static TableAnnotation Create(Guid id, Point2 topLeft, int rows, int columns, TextRun style)

@@ -17,6 +17,7 @@ public static class AnnotationGeometry
         StickyNote => new(0, 0, StickyNote.IconPt, StickyNote.IconPt),
         ShapeAnnotation s => ShapeGeometry.Bounds(s),
         TextBoxAnnotation t => textBounds?.Invoke(t) ?? throw new NotSupportedException("Text bounds require a layout provider."),
+        TableAnnotation t => TableGeometry.Measure(t, textBounds ?? throw new NotSupportedException("Table bounds require a text layout provider.")).Bounds,
         _ => throw new NotSupportedException($"{a.Kind} geometry is not implemented.")
     };
 
@@ -41,7 +42,7 @@ public static class AnnotationGeometry
             StrokeAnnotation s => StrokeGeometry.Reaches(s, local, tolerance),
             ImageAnnotation i => local.X >= i.LocalBounds.X && local.X <= i.LocalBounds.X + i.LocalBounds.Width &&
                 local.Y >= i.LocalBounds.Y && local.Y <= i.LocalBounds.Y + i.LocalBounds.Height,
-            TextBoxAnnotation t => Contains(LocalBounds(t, textBounds), local),
+            TextBoxAnnotation or TableAnnotation => Contains(LocalBounds(a, textBounds), local),
             LineAnnotation l => LineGeometry.Hit(l, local, tolerance),
             ShapeAnnotation s => ShapeGeometry.Hit(s, local, tolerance),
             PdfTextHighlight h => TextSelection.PaintedQuads(h).Any(q => TextSelection.DistanceToQuad(q, local) <= tolerance),
@@ -83,6 +84,13 @@ public static class AnnotationGeometry
             ShapeAnnotation s => ShapeGeometry.Scaled(s, scale) with { Transform = rigid },
             // The icon keeps its size and stays upright: only where its top-left corner goes counts.
             StickyNote n => n with { Transform = Affine.Translation(combined.OffsetX, combined.OffsetY) },
+            // Tables (1.4): a scale multiplies column widths and row heights; the text keeps its size.
+            TableAnnotation t => t with
+            {
+                Transform = rigid,
+                ColumnWidths = t.ColumnWidths.Select(w => Math.Max(TableAnnotation.MinColumnWidth, w * scale)).ToImmutableArray(),
+                RowHeights = t.RowHeights.Select(h => Math.Max(TableAnnotation.MinRowHeight, h * scale)).ToImmutableArray()
+            },
             _ => throw new NotSupportedException($"{a.Kind} cannot be transformed yet.")
         };
     }

@@ -8,7 +8,7 @@ namespace PdfNotes.Core.Geometry;
 /// the even-odd fill of that polygon, so a self-crossing lasso selects what its loops enclose. Like common note apps,
 /// an annotation is selected when any part of its painted area lies inside (2026-10-12 user decision, replacing
 /// complete containment): strokes and lines with their width, caps and arrow heads, text boxes and images by their
-/// transformed rectangle. Locked annotations and the PDF itself are never selected.
+/// transformed rectangle (tables too, sized by their layout). Locked annotations and the PDF itself are never selected.
 /// </summary>
 public static class Lasso
 {
@@ -67,7 +67,7 @@ public static class Lasso
                 foreach (var q in TextSelection.PaintedQuads(markup)) bands.Add(new PathD(TextSelection.Ring(q).Select(p => new PointD(p.X, p.Y))));
                 local = Clipper.Union(bands, [], FillRule.NonZero, StrokeRegion.Precision);
                 break;
-            case ImageAnnotation or TextBoxAnnotation or StickyNote:
+            case ImageAnnotation or TextBoxAnnotation or StickyNote or TableAnnotation:
                 var r = AnnotationGeometry.LocalBounds(annotation, textBounds);
                 local = [new PathD { new(r.X, r.Y), new(r.X + r.Width, r.Y), new(r.X + r.Width, r.Y + r.Height), new(r.X, r.Y + r.Height) }];
                 break;
