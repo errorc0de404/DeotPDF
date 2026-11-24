@@ -41,7 +41,12 @@ public static class ShapeRecognizer
     public const double ArrowHeadFraction = 0.25;
     public const double BarbMinDegrees = 20, BarbMaxDegrees = 70;
     /// <summary>Rectangle corners are 90° ± this.</summary>
-    public const double RightAngleSlackDegrees = 15;
+    public const double RightAngleSlackDegrees = 25;
+    /// <summary>
+    /// A rectangle's outline (from its fitted sides) is within this many tolerances of every point; each side on its
+    /// own is within one tolerance of its line. Hand-drawn sides lean a little, so the whole outline gets more room.
+    /// </summary>
+    public const double RectangleFitTolerances = 3;
     /// <summary>A barb shorter than this many tolerances is noise, not a head.</summary>
     public const double BarbMinTolerances = 2;
     /// <summary>A corner turns the stroke by more than this between the chords on either side of it.</summary>
@@ -179,11 +184,12 @@ public static class ShapeRecognizer
         RecognizedShape? cornered = corners?.Count switch
         {
             3 => Triangle(loop, corners, reach, tolerance),
-            4 when RightAngled(loop, corners) => Rectangle(points),
+            4 when RightAngled(loop, corners) => Rectangle(loop, corners, reach, tolerance),
             _ => null,
         };
         // A corner count that does not fit still may be a round shape with jitter.
-        if (Fits(cornered, points, tolerance)) return cornered;
+        double room = cornered?.Kind == RecognizedKind.Rectangle ? RectangleFitTolerances * tolerance : tolerance;
+        if (Fits(cornered, points, room)) return cornered;
         var ellipse = Ellipse(loop);
         return Fits(ellipse, points, tolerance) && Rounded(ellipse, loop, tolerance) ? ellipse : null;
     }
@@ -233,24 +239,24 @@ public static class ShapeRecognizer
             double ax = loop[i].X - loop[back].X, ay = loop[i].Y - loop[back].Y, bx = loop[forward].X - loop[i].X, by = loop[forward].Y - loop[i].Y;
             turn[i] = Math.Abs(Math.Atan2(ax * by - ay * bx, ax * bx + ay * by)) * 180 / Math.PI;
         }
-        int calm = Array.FindIndex(turn, t => t <= CornerTurnDegrees);
-        if (calm < 0) return null;
+        if (Array.TrueForAll(turn, t => t > CornerTurnDegrees)) return null;
+        // A corner is the sharpest turn within reach of it, so two corners joined by a short side (whose points all
+        // turn because their chords reach the corners) stay two.
         var corners = new List<int>();
-        int best = -1;
-        for (int k = 1; k <= n; k++)
+        for (int i = 0; i < n; i++)
         {
-            int i = (calm + k) % n;
-            if (turn[i] > CornerTurnDegrees)
-            {
-                if (best < 0 || turn[i] > turn[best]) best = i;
-            }
-            else if (best >= 0)
-            {
-                corners.Add(best);
-                best = -1;
-            }
+            if (turn[i] <= CornerTurnDegrees) continue;
+            bool sharpest = true;
+            foreach (int step in (int[])[-1, 1])
+                for (int k = 1; k < n && sharpest; k++)
+                {
+                    int j = ((i + step * k) % n + n) % n;
+                    if (loop[j].DistanceTo(loop[i]) >= reach) break;
+                    if (turn[j] > turn[i] || (turn[j] == turn[i] && j < i)) sharpest = false;
+                }
+            if (sharpest) corners.Add(i);
         }
-        // A corner split by jitter into two runs counts once.
+        // A corner split by jitter into two peaks counts once.
         for (int k = 0; corners.Count > 1 && k < corners.Count;)
         {
             int next = (k + 1) % corners.Count;
@@ -313,24 +319,52 @@ public static class ShapeRecognizer
         return new(RecognizedKind.Triangle, [.. vertices], 0);
     }
 
-    /// <summary>Minimum-area bounding rectangle: rotating calipers over the convex hull edges.</summary>
-    private static RecognizedShape? Rectangle(IReadOnlyList<Point2> points)
+    /// <summary>
+    /// Rectangle from the four side lines (fitted away from the rounded corners): the turn is the sides' mean
+    /// direction, each edge sits at its side's mean offset. Null when a side is not straight.
+    /// </summary>
+    private static RecognizedShape? Rectangle(List<Point2> loop, List<int> corners, double reach, double tolerance)
     {
-        var hull = ConvexHull(points);
-        if (hull.Count < 3) return null;
-        double bestArea = double.MaxValue, bestAngle = 0;
-        for (int i = 0; i < hull.Count; i++)
+        int n = loop.Count;
+        var sides = new List<Point2>[4];
+        double sumX = 0, sumY = 0;
+        for (int k = 0; k < 4; k++)
         {
-            Point2 a = hull[i], b = hull[(i + 1) % hull.Count];
-            double angle = Math.Atan2(b.Y - a.Y, b.X - a.X);
-            var (_, half) = Extents(hull, angle);
-            double area = half.X * half.Y;
-            if (area < bestArea - 1e-9) { bestArea = area; bestAngle = angle; }
+            int from = corners[k], to = corners[(k + 1) % 4];
+            var side = new List<Point2>();
+            for (int i = from; i != to; i = (i + 1) % n)
+                if (loop[i].DistanceTo(loop[from]) >= reach && loop[i].DistanceTo(loop[to]) >= reach) side.Add(loop[i]);
+            // A short side keeps its two corners.
+            if (side.Count < 2) side = [loop[from], loop[to]];
+            var (origin, direction) = FitLine(side, 0, side.Count - 1);
+            if (side.Any(p => DistanceToLine(p, origin, direction) > tolerance)) return null;
+            sides[k] = side;
+            // Four times the angle folds the four side directions onto one; weighted by the side's length.
+            double length = loop[from].DistanceTo(loop[to]), angle = 4 * Math.Atan2(direction.Y, direction.X);
+            sumX += length * Math.Cos(angle);
+            sumY += length * Math.Sin(angle);
         }
-        double rotation = QuarterTurn(bestAngle);
-        var (center, halves) = Extents(hull, rotation);
-        return new(RecognizedKind.Rectangle, [center, halves], rotation);
+        double rotation = Math.Atan2(sumY, sumX) / 4;
+        double c = Math.Cos(rotation), s = Math.Sin(rotation);
+        // Sides along the u axis fix v, sides along v fix u.
+        var uEdges = new List<double>();
+        var vEdges = new List<double>();
+        foreach (var side in sides)
+        {
+            Point2 first = side[0], last = side[^1];
+            double du = (last.X - first.X) * c + (last.Y - first.Y) * s, dv = -(last.X - first.X) * s + (last.Y - first.Y) * c;
+            if (Math.Abs(du) >= Math.Abs(dv)) vEdges.Add(side.Average(p => -p.X * s + p.Y * c));
+            else uEdges.Add(side.Average(p => p.X * c + p.Y * s));
+        }
+        if (uEdges.Count != 2 || vEdges.Count != 2) return null;
+        double cu = (uEdges[0] + uEdges[1]) / 2, cv = (vEdges[0] + vEdges[1]) / 2;
+        Point2 half = new(Math.Abs(uEdges[0] - uEdges[1]) / 2, Math.Abs(vEdges[0] - vEdges[1]) / 2);
+        if (half.X <= 0 || half.Y <= 0) return null;
+        return new(RecognizedKind.Rectangle, [new(cu * c - cv * s, cu * s + cv * c), half], rotation);
     }
+
+    private static double DistanceToLine(Point2 p, Point2 origin, Point2 direction) =>
+        Math.Abs((p.X - origin.X) * direction.Y - (p.Y - origin.Y) * direction.X);
 
     /// <summary>Center and axis directions from the stroke's covariance, half axes by least squares.</summary>
     private static RecognizedShape? Ellipse(List<Point2> loop)
@@ -552,39 +586,5 @@ public static class ShapeRecognizer
         double quarter = Math.PI / 2;
         double r = radians - quarter * Math.Floor(radians / quarter);
         return r > quarter / 2 ? r - quarter : r;
-    }
-
-    /// <summary>Center and half extents of the points in the frame turned by <paramref name="angle"/>.</summary>
-    private static (Point2 Center, Point2 Half) Extents(IReadOnlyList<Point2> points, double angle)
-    {
-        double c = Math.Cos(angle), s = Math.Sin(angle);
-        double minU = double.MaxValue, maxU = double.MinValue, minV = double.MaxValue, maxV = double.MinValue;
-        foreach (var p in points)
-        {
-            double u = p.X * c + p.Y * s, v = -p.X * s + p.Y * c;
-            minU = Math.Min(minU, u); maxU = Math.Max(maxU, u); minV = Math.Min(minV, v); maxV = Math.Max(maxV, v);
-        }
-        double cu = (minU + maxU) / 2, cv = (minV + maxV) / 2;
-        return (new(cu * c - cv * s, cu * s + cv * c), new((maxU - minU) / 2, (maxV - minV) / 2));
-    }
-
-    /// <summary>Andrew's monotone chain, counter-clockwise without collinear points.</summary>
-    private static List<Point2> ConvexHull(IReadOnlyList<Point2> points)
-    {
-        var sorted = points.Distinct().OrderBy(p => p.X).ThenBy(p => p.Y).ToList();
-        if (sorted.Count < 3) return sorted;
-        var hull = new List<Point2>();
-        static double Cross(Point2 o, Point2 a, Point2 b) => (a.X - o.X) * (b.Y - o.Y) - (a.Y - o.Y) * (b.X - o.X);
-        for (int pass = 0; pass < 2; pass++)
-        {
-            int start = hull.Count;
-            foreach (var p in pass == 0 ? sorted : Enumerable.Reverse(sorted))
-            {
-                while (hull.Count >= start + 2 && Cross(hull[^2], hull[^1], p) <= 0) hull.RemoveAt(hull.Count - 1);
-                hull.Add(p);
-            }
-            hull.RemoveAt(hull.Count - 1);
-        }
-        return hull;
     }
 }
