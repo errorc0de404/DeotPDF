@@ -17,7 +17,7 @@ public sealed record FlattenResult(byte[] Pdf, int MergedApp, int MergedForeign,
 /// Flatten PDF export (spec 14.5). The editable PDF of the snapshot is written first (the same physical pages, page
 /// placement and appearances as a normal save), then every app annotation and every visible annotation of another app
 /// whose normal appearance can be placed is drawn into the page content in /Annots order and removed. All app data is
-/// removed: header, envelopes, image originals, the retained source, fingerprints and markers. Text box Unicode layers
+/// removed: header, envelopes, image originals, the retained source, fingerprints and markers. Text box and table Unicode layers
 /// stay in the content so the text remains selectable and searchable. Source text and vectors are kept as they are.
 /// </summary>
 public static class FlattenWriter

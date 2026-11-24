@@ -39,6 +39,7 @@ public static class SkiaAnnotationPainter
             case TextBoxAnnotation text: PaintText(canvas, text, transform); break;
             case ImageAnnotation image when resources?.Invoke(image.ResourceId) is { } resource: PaintImage(canvas, image, resource, transform); break;
             case StickyNote note: PaintNote(canvas, note, transform); break;
+            case TableAnnotation table: PaintTable(canvas, table, transform); break;
         }
     }
 
@@ -227,6 +228,38 @@ public static class SkiaAnnotationPainter
         if (TextLayout.Measure(text) is not SkiaTextLayout layout) return; // drawn by the Skia engine only
         int saved = Push(canvas, text.Transform.Then(transform.PageToDip));
         SkiaTextRenderer.Draw(canvas, layout);
+        canvas.RestoreToCount(saved);
+    }
+
+    /// <summary>
+    /// Table (1.4), like its PDF appearance: header row fill, each cell's text as its cell text box (TableLayout.CellBox), then
+    /// the outer frame as one mitred rectangle and the inner lines edge to edge.
+    /// </summary>
+    private static void PaintTable(SKCanvas canvas, TableAnnotation table, ViewTransform transform)
+    {
+        var grid = TableLayout.Measure(table);
+        float width = (float)grid.ColumnX[^1], height = (float)grid.RowY[^1];
+        int saved = Push(canvas, table.Transform.Then(transform.PageToDip));
+        if (table.Style.HeaderRow)
+        {
+            using var fill = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Fill, Color = Color(TableStyle.HeaderFill) };
+            canvas.DrawRect(SKRect.Create(0, 0, width, (float)grid.RowY[1]), fill);
+        }
+        canvas.RestoreToCount(saved);
+        for (int r = 0; r < table.Rows; r++)
+            for (int c = 0; c < table.Columns; c++)
+                if (table.Cell(r, c).Text.Length > 0) PaintText(canvas, TableLayout.CellBox(table, r, c), transform);
+        saved = Push(canvas, table.Transform.Then(transform.PageToDip));
+        using var pen = new SKPaint
+        {
+            IsAntialias = true, Style = SKPaintStyle.Stroke, Color = Color(table.Style.LineColor), StrokeWidth = (float)table.Style.LineWidthPt,
+            StrokeCap = SKStrokeCap.Butt, StrokeJoin = SKStrokeJoin.Miter
+        };
+        using var lines = new SKPath();
+        lines.AddRect(SKRect.Create(0, 0, width, height));
+        for (int c = 1; c < table.Columns; c++) { lines.MoveTo((float)grid.ColumnX[c], 0); lines.LineTo((float)grid.ColumnX[c], height); }
+        for (int r = 1; r < table.Rows; r++) { lines.MoveTo(0, (float)grid.RowY[r]); lines.LineTo(width, (float)grid.RowY[r]); }
+        canvas.DrawPath(lines, pen);
         canvas.RestoreToCount(saved);
     }
 

@@ -363,11 +363,10 @@ public sealed class EditablePdfTests : IDisposable
     [Fact]
     public void EveryKindHasAnAppearanceAndRoundTrips()
     {
-        // D09 registered the last kind (PDF text highlights); the writer still refuses any kind without an appearance.
-        // Tables (1.4) are in the model and schema v9 but get their appearance in Task 7; until then they are not saved.
-        Assert.All(Enum.GetValues<AnnotationKind>().Where(k => k != AnnotationKind.Table), kind => Assert.True(AnnotationAppearance.IsSupported(kind), kind.ToString()));
-        Assert.False(AnnotationAppearance.IsSupported(AnnotationKind.Table));
+        // Every kind has an appearance (tables since 1.4); the writer still refuses any kind without one.
+        Assert.All(Enum.GetValues<AnnotationKind>(), kind => Assert.True(AnnotationAppearance.IsSupported(kind), kind.ToString()));
         var model = PdfNotes.Tests.Core.TestModels.AllKinds(out _);
+        model = model with { Pages = model.Pages.SetItem(1, model.Pages[1] with { Annotations = model.Pages[1].Annotations.Add(TableAppearanceTests.Sample()) }) };
         byte[] pdf = EditablePdfWriter.Write(null, null, model);
         EditablePdfWriter.Verify(pdf, model);
         var read = EditablePdfReader.Read(pdf, PdfPageGeometryReader.Read(pdf));

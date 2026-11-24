@@ -27,9 +27,9 @@ public static class EditablePdfKeys
 /// </summary>
 public static class AnnotationAppearance
 {
-    /// <summary>Kinds with a screen painter and a PDF appearance (D04 strokes and their D08 eraser pieces, D05 images, D06 text, D07 lines, D09 PDF text highlights, D11 shapes).</summary>
+    /// <summary>Kinds with a screen painter and a PDF appearance (D04 strokes and their D08 eraser pieces, D05 images, D06 text, D07 lines, D09 PDF text highlights, D11 shapes, 1.4 tables).</summary>
     public static bool IsSupported(AnnotationKind kind) => kind is AnnotationKind.Ink or AnnotationKind.FreeHighlight or AnnotationKind.Image or AnnotationKind.TextBox
-        or AnnotationKind.Line or AnnotationKind.PdfTextHighlight or AnnotationKind.Shape or AnnotationKind.TextMarkup or AnnotationKind.Note;
+        or AnnotationKind.Line or AnnotationKind.PdfTextHighlight or AnnotationKind.Shape or AnnotationKind.TextMarkup or AnnotationKind.Note or AnnotationKind.Table;
 
     /// <summary>
     /// The standard subtype an app annotation is written as (spec 14.2, 24.8–24.9): underline/strikeout markups and notes
@@ -61,6 +61,7 @@ public static class AnnotationAppearance
         if (annotation is PdfTextMarkup markup) return CreateFill(document, box, TextSelection.PaintedQuads(markup), markup.Color, markup.Opacity, out rect, out hash);
         if (annotation is StickyNote note) return CreateNote(document, box, note, out rect, out hash);
         if (annotation is ShapeAnnotation shape) return CreateShape(document, box, shape, out rect, out hash);
+        if (annotation is TableAnnotation table) return CreateTable(document, box, table, out rect, out hash);
         if (annotation is not StrokeAnnotation stroke) throw new NotSupportedException($"{annotation.Kind} has no PDF appearance yet.");
         byte[] content;
         if (Strokes.TryGetValue(stroke, out var drawn) && drawn.Box == box)
@@ -102,6 +103,7 @@ public static class AnnotationAppearance
 
     private static readonly ConditionalWeakTable<StrokeAnnotation, Drawn> Strokes = new();
     private static readonly ConditionalWeakTable<TextBoxAnnotation, Drawn> Texts = new();
+    private static readonly ConditionalWeakTable<TableAnnotation, Drawn> Tables = new();
 
     /// <summary>The drawing operators of a stroke, in canonical points through one <c>cm</c>.</summary>
     private static byte[] StrokeContent(StrokeAnnotation stroke, PdfPageBox box, out double[] rect)
@@ -158,7 +160,7 @@ public static class AnnotationAppearance
         string basic = Hash(form.Stream?.UnfilteredValue ?? [], values, state?.Elements.GetReal("/CA") ?? -1, state?.Elements.GetReal("/ca") ?? -1,
             state?.Elements.GetName("/BM") ?? "", form.Elements.ContainsKey("/Matrix"));
         var image = form.Elements.GetDictionary("/Resources")?.Elements.GetDictionary("/XObject")?.Elements.GetDictionary("/Image");
-        if (form.Elements.GetBoolean("/PdfNotesText") || form.Elements.GetBoolean("/PdfNotesShape"))
+        if (form.Elements.GetBoolean("/PdfNotesText") || form.Elements.GetBoolean("/PdfNotesShape") || form.Elements.GetBoolean("/PdfNotesTable"))
         {
             var states = form.Elements.GetDictionary("/Resources")!.Elements.GetDictionary("/ExtGState")!;
             var alpha = string.Join(";", states.Elements.Keys.OrderBy(k => k, StringComparer.Ordinal).Select(k => k + "=" + N(states.Elements.GetDictionary(k)!.Elements.GetReal("/ca")) + "," + N(states.Elements.GetDictionary(k)!.Elements.GetReal("/CA")) + "," + states.Elements.GetDictionary(k)!.Elements.GetName("/BM")));
@@ -450,38 +452,80 @@ public static class AnnotationAppearance
         return form;
     }
 
-    private static PdfDictionary CreateText(PdfDocument doc, PdfPageBox box, TextBoxAnnotation text, out double[] rect, out string hash)
+    private static PdfDictionary CreateText(PdfDocument doc, PdfPageBox box, TextBoxAnnotation text, out double[] rect, out string hash) =>
+        CreateLaidOut(doc, box, text, Texts, "/PdfNotesText", states =>
+        {
+            var layout = PdfNotes.Text.TextLayout.Measure(text);
+            var toUser = text.Transform.Then(box.CanonicalToPdfUser);
+            var code = new StringBuilder("q " + Numbers(toUser.ToArray()) + " cm\n");
+            TextPaths(layout.Paint, code, doc, states, 1);
+            code.Append("Q\n");
+            return (Encoding.ASCII.GetBytes(code.ToString()), UserBounds(toUser, new(0, 0, text.WidthPt, layout.Height), 1));
+        }, out rect, out hash);
+
+    /// <summary>
+    /// Table (1.4): the header row fill, then every cell's text drawn exactly as its cell text box (TableLayout.CellBox, the
+    /// glyphs the screen paints), then the grid: the outer frame as one rectangle (mitred corners) and the inner lines edge
+    /// to edge, in the line color and width — the screen painter's order. The bounding box holds the outer lines.
+    /// </summary>
+    private static PdfDictionary CreateTable(PdfDocument doc, PdfPageBox box, TableAnnotation table, out double[] rect, out string hash) =>
+        CreateLaidOut(doc, box, table, Tables, "/PdfNotesTable", states =>
+        {
+            var grid = PdfNotes.Text.TableLayout.Measure(table);
+            var toUser = table.Transform.Then(box.CanonicalToPdfUser);
+            double width = grid.ColumnX[^1], height = grid.RowY[^1];
+            var code = new StringBuilder("q " + Numbers(toUser.ToArray()) + " cm\n");
+            if (table.Style.HeaderRow)
+                code.Append(Rgb(TableStyle.HeaderFill)).Append(" rg 0 0 ").Append(N(width)).Append(' ').Append(N(grid.RowY[1])).Append(" re f\n");
+            for (int r = 0; r < table.Rows; r++)
+                for (int c = 0; c < table.Columns; c++)
+                {
+                    if (table.Cell(r, c).Text.Length == 0) continue;
+                    var cell = PdfNotes.Text.TableLayout.CellBox(table, r, c);
+                    code.Append("q 1 0 0 1 ").Append(N(grid.ColumnX[c])).Append(' ').Append(N(grid.RowY[r])).Append(" cm\n");
+                    TextPaths(PdfNotes.Text.TextLayout.Measure(cell).Paint, code, doc, states, 1);
+                    code.Append("Q\n");
+                }
+            code.Append(Rgb(table.Style.LineColor)).Append(" RG ").Append(N(table.Style.LineWidthPt)).Append(" w 0 J 0 j\n");
+            code.Append("0 0 ").Append(N(width)).Append(' ').Append(N(height)).Append(" re\n");
+            for (int c = 1; c < table.Columns; c++)
+                code.Append(N(grid.ColumnX[c])).Append(" 0 m ").Append(N(grid.ColumnX[c])).Append(' ').Append(N(height)).Append(" l\n");
+            for (int r = 1; r < table.Rows; r++)
+                code.Append("0 ").Append(N(grid.RowY[r])).Append(" m ").Append(N(width)).Append(' ').Append(N(grid.RowY[r])).Append(" l\n");
+            code.Append("S\nQ\n");
+            return (Encoding.ASCII.GetBytes(code.ToString()), UserBounds(toUser, grid.Bounds, 1));
+        }, out rect, out hash);
+
+    private static string Rgb(RgbColor c) => $"{N(c.R / 255d)} {N(c.G / 255d)} {N(c.B / 255d)}";
+
+    /// <summary>
+    /// A form of laid-out text (text box, table) whose drawing adds one alpha state per paint (/T0, /T1, …). What it draws is
+    /// kept per annotation and page box like strokes (save plan 2026-11-12); <paramref name="flag"/> marks the form for <see cref="Hash(PdfDictionary)"/>.
+    /// </summary>
+    private static PdfDictionary CreateLaidOut<T>(PdfDocument doc, PdfPageBox box, T annotation, ConditionalWeakTable<T, Drawn> cache, string flag,
+        Func<PdfDictionary, (byte[] Content, double[] Rect)> draw, out double[] rect, out string hash) where T : class
     {
         var states = new PdfDictionary(doc);
         byte[] content;
-        bool known = Texts.TryGetValue(text, out var drawn) && drawn.Box == box;
+        bool known = cache.TryGetValue(annotation, out var drawn) && drawn.Box == box;
         if (known)
         {
             (content, rect) = (drawn!.Content, drawn.Rect);
             for (int i = 0; i < drawn.Alphas!.Length; i++) states.Elements["/T" + i] = TextAlpha(doc, drawn.Alphas[i]);
         }
-        else
-        {
-            var layout = PdfNotes.Text.TextLayout.Measure(text);
-            var toUser = text.Transform.Then(box.CanonicalToPdfUser);
-            rect = UserBounds(toUser, new(0, 0, text.WidthPt, layout.Height), 1);
-            var code = new StringBuilder("q " + Numbers(toUser.ToArray()) + " cm\n");
-            TextPaths(layout.Paint, code, doc, states, 1);
-            code.Append("Q\n");
-            content = Encoding.ASCII.GetBytes(code.ToString());
-        }
+        else (content, rect) = draw(states);
         var resources = new PdfDictionary(doc); resources.Elements["/ExtGState"] = states;
         var form = new PdfDictionary(doc);
         form.Elements.SetName("/Type", "/XObject"); form.Elements.SetName("/Subtype", "/Form"); form.Elements.SetInteger("/FormType", 1);
         form.Elements["/BBox"] = new PdfArray(doc, rect.Select(v => (PdfItem)Real(v)).ToArray());
-        form.Elements["/Resources"] = resources; form.Elements.SetBoolean("/PdfNotesText", true);
+        form.Elements["/Resources"] = resources; form.Elements.SetBoolean(flag, true);
         form.CreateStream(content);
         if (known) hash = drawn!.Hash;
         else
         {
             hash = Hash(form);
             var alphas = Enumerable.Range(0, states.Elements.Count).Select(i => states.Elements.GetDictionary("/T" + i)!.Elements.GetReal("/ca")).ToArray();
-            Texts.AddOrUpdate(text, new(box, content, rect, hash, alphas));
+            cache.AddOrUpdate(annotation, new(box, content, rect, hash, alphas));
         }
         form.Stream.Zip(); doc.Internals.AddObject(form); return form;
     }

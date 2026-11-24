@@ -29,6 +29,19 @@ public sealed class PaintTests
         return Resource.Create(Guid.NewGuid(), "image/png", data.ToArray());
     }
 
+    /// <summary>A turned 2 × 3 table with a header row, blue 1.5pt lines and text in most cells.</summary>
+    private static TableAnnotation Table()
+    {
+        var style = new TextRun(0, 0, "Malgun Gothic", 11, RgbColor.Black, false, false, false, false);
+        TableCell Cell(string text, bool bold = false) => new(text, [style with { Length = text.Length, Bold = bold }], TextAlignment.Left, []);
+        var table = TableAnnotation.Create(Guid.NewGuid(), default, 2, 3, style);
+        return table with
+        {
+            Transform = Affine.Rigid(-.08, 200, 520), ColumnWidths = [70, 60, 90], Style = table.Style with { LineColor = Blue, LineWidthPt = 1.5 },
+            Cells = [Cell("항목", true), Cell("Score", true), Cell("Note", true), Cell("가나다"), Cell("12"), Cell("wraps into two lines")]
+        };
+    }
+
     /// <summary>One annotation of each kind (and the stroke variants), well apart on one page.</summary>
     private static (DocumentModel Model, Dictionary<string, Annotation> Kinds) Corpus()
     {
@@ -64,6 +77,7 @@ public sealed class PaintTests
                 TextAlignment.Left, 200, new(new(255, 250, 200), .9, true, Red, .8), [new TextHighlightRange(4, 7, HighlightHeightMode.Auto, null, Yellow, .5)]),
             ["image"] = new ImageAnnotation(Guid.NewGuid(), false, Affine.Rigid(.25, 380, 400), image.Id, new(0, 0, 80, 60)),
             ["note"] = new StickyNote(Guid.NewGuid(), false, Affine.Translation(480, 480), "memo", new(255, 210, 60)),
+            ["table"] = Table(),
         };
         var model = DocumentModel.Create([new PageSetup(560, 600, 0, PageSource.Generated, PageBackground.Blank)]);
         model = model with

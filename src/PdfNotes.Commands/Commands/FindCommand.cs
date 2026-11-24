@@ -37,7 +37,11 @@ public static class FindCommand
             {
                 if (within is { } r && !Inside(TextSelection.Bounds(hit.Quads), r)) continue;
                 var annotation = page.Annotations.First(a => a.Id == hit.BoxId);
-                string text = annotation switch { TextBoxAnnotation t => t.Text, StickyNote n => n.Text, _ => "" };
+                string text = annotation switch
+                {
+                    TextBoxAnnotation t => t.Text, StickyNote n => n.Text,
+                    TableAnnotation t when hit.Cell is { } cell => t.Cell(cell.Row, cell.Column).Text, _ => ""
+                };
                 boxMatches.Add(new JsonObject
                 {
                     ["page"] = doc.NumberOf(page),
@@ -46,7 +50,7 @@ public static class FindCommand
                     ["kind"] = AnnotListCommand.KindName(annotation),
                     ["range"] = new JsonObject { ["start"] = hit.Start, ["end"] = hit.End },
                     ["quads"] = CliJson.Quads(hit.Quads),
-                    ["text"] = annotation is TextBoxAnnotation && hit.End <= text.Length ? text[hit.Start..hit.End] : text,
+                    ["text"] = annotation is TextBoxAnnotation or TableAnnotation && hit.End <= text.Length ? text[hit.Start..hit.End] : text,
                 });
             }
         }

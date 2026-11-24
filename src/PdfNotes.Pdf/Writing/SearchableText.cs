@@ -11,44 +11,56 @@ namespace PdfNotes.Pdf.Writing;
 
 /// <summary>Positioned Unicode page text for selection/search in external readers. The annotation retains its
 /// exact shaped appearance. Empty Type3 glyphs carry measured bounds and ToUnicode, never a font binary.
-/// Each text box owns one authenticated content stream, removed with its restored annotation on open.</summary>
+/// Each text box or table owns one authenticated content stream, removed with its restored annotation on open.</summary>
 internal static class SearchableText
 {
     internal const string LayerKey = "/PdfNotesTextLayer", HashKey = "/PdfNotesTextHash";
     private static string N(double value) => AnnotationAppearance.N(value);
     private static string Numbers(IEnumerable<double> values) => string.Join(' ', values.Select(N));
 
-    internal static void Add(PdfDocument doc, PdfPage page, PdfPageBox pageBox, TextBoxAnnotation box, PdfDictionary annotation)
+    /// <summary>The cells of a table that hold text, as the text boxes its appearance draws (1.4).</summary>
+    internal static TextBoxAnnotation[] Cells(TableAnnotation table) =>
+        [.. Enumerable.Range(0, table.Rows).SelectMany(r => Enumerable.Range(0, table.Columns).Select(c => (r, c)))
+            .Where(rc => table.Cell(rc.r, rc.c).Text.Length > 0).Select(rc => TableLayout.CellBox(table, rc.r, rc.c))];
+
+    /// <summary>
+    /// The text layer of annotation <paramref name="id"/>: the characters of <paramref name="boxes"/> (one text box, or a
+    /// table's cells), each box clipped to itself. Nothing is added when there are no characters.
+    /// </summary>
+    internal static void Add(PdfDocument doc, PdfPage page, PdfPageBox pageBox, IReadOnlyList<TextBoxAnnotation> boxes, Guid id, PdfDictionary annotation)
     {
-        var layout = TextLayout.Measure(box);
-        if (layout.Characters.IsEmpty) return;
+        var layouts = boxes.Select(b => (Box: b, Layout: TextLayout.Measure(b))).Where(b => !b.Layout.Characters.IsEmpty).ToArray();
+        if (layouts.Length == 0) return;
         var fonts = new PdfDictionary(doc);
-        var code = new StringBuilder("q\n");
-        var m = box.Transform.Then(pageBox.CanonicalToPdfUser);
-        code.Append(Numbers(m.ToArray())).Append(" cm\n0 0 ").Append(N(box.WidthPt)).Append(' ').Append(N(layout.Height)).Append(" re W n\nBT\n3 Tr\n");
+        var code = new StringBuilder();
         int group = 0;
-        foreach (var line in layout.Characters.GroupBy(c => c.Line))
-        foreach (var chunk in line.Chunk(255))
+        foreach (var (box, layout) in layouts)
         {
-            string fontName = "/F" + group++;
-            fonts.Elements[fontName] = Font(doc, chunk).Reference!;
-            var b = chunk[0].Bounds;
-            code.Append(fontName).Append(' ').Append(N(b.Height)).Append(" Tf\n");
-            code.Append("1 0 0 -1 ").Append(N(b.X)).Append(' ').Append(N(b.Y + b.Height)).Append(" Tm <");
-            for (int i = 0; i < chunk.Length; i++) code.Append((i + 1).ToString("X2", CultureInfo.InvariantCulture));
-            code.Append("> Tj\n");
+            var m = box.Transform.Then(pageBox.CanonicalToPdfUser);
+            code.Append("q\n").Append(Numbers(m.ToArray())).Append(" cm\n0 0 ").Append(N(box.WidthPt)).Append(' ').Append(N(layout.Height)).Append(" re W n\nBT\n3 Tr\n");
+            foreach (var line in layout.Characters.GroupBy(c => c.Line))
+            foreach (var chunk in line.Chunk(255))
+            {
+                string fontName = "/F" + group++;
+                fonts.Elements[fontName] = Font(doc, chunk).Reference!;
+                var b = chunk[0].Bounds;
+                code.Append(fontName).Append(' ').Append(N(b.Height)).Append(" Tf\n");
+                code.Append("1 0 0 -1 ").Append(N(b.X)).Append(' ').Append(N(b.Y + b.Height)).Append(" Tm <");
+                for (int i = 0; i < chunk.Length; i++) code.Append((i + 1).ToString("X2", CultureInfo.InvariantCulture));
+                code.Append("> Tj\n");
+            }
+            code.Append("ET\nQ\n");
         }
-        code.Append("ET\nQ\n");
         var form = Stream(doc, code.ToString());
         form.Elements.SetName("/Type", "/XObject"); form.Elements.SetName("/Subtype", "/Form"); form.Elements.SetInteger("/FormType", 1);
         form.Elements["/BBox"] = AnnotationAppearance.Array(doc, [pageBox.Left, pageBox.Bottom, pageBox.Right, pageBox.Top]);
         var resources = new PdfDictionary(doc); resources.Elements["/Font"] = fonts; form.Elements["/Resources"] = resources;
-        string name = "/PNT" + box.Id.ToString("N");
+        string name = "/PNT" + id.ToString("N");
         var objects = page.Resources.Elements.GetDictionary("/XObject");
         if (objects is null) { objects = new PdfDictionary(doc); page.Resources.Elements["/XObject"] = objects; }
         objects.Elements[name] = form.Reference!;
         var content = page.Contents.AppendContent(); content.CreateStream(Encoding.ASCII.GetBytes("q " + name + " Do Q\n"));
-        content.Elements.SetString("/PdfNotesTextId", box.Id.ToString("D"));
+        content.Elements.SetString("/PdfNotesTextId", id.ToString("D"));
         content.Elements.SetString("/PdfNotesTextName", name);
         content.Elements["/PdfNotesTextForm"] = form.Reference!;
         annotation.Elements[LayerKey] = content.Reference!;

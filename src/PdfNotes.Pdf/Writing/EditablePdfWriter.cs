@@ -122,7 +122,7 @@ public static class EditablePdfWriter
             sourcePages = prepared.Pages;
         }
         model = model with { Pages = model.Pages.Select(p => p with { Annotations = p.Annotations.Where(a => a is not (TextBoxAnnotation { IsBlank: true } or StickyNote { IsBlank: true })).ToImmutableList() }).ToImmutableList() };
-        var serialized = SchemaV8.Serialize(model);
+        var serialized = SchemaV9.Serialize(model);
         if (model.AllAnnotations.FirstOrDefault(a => !AnnotationAppearance.IsSupported(a.Kind)) is { } unsupported)
             throw new NotSupportedException($"{unsupported.Kind} annotations cannot be saved yet.");
         var envelopes = serialized.Annotations.ToDictionary(a => a.AnnotationId, a => a.Envelope);
@@ -208,13 +208,14 @@ public static class EditablePdfWriter
                     var saved = CreateAnnotation(document, geometry, annotation, images, envelopes[annotation.Id]);
                     annots.Elements.Add(saved.Reference!);
                     if (saved.Elements.GetDictionary("/Popup") is { } popup) annots.Elements.Add(popup.Reference!); // a note's popup (24.9)
-                    if (annotation is TextBoxAnnotation text) SearchableText.Add(document, pdfPage, geometry.Box, text, saved);
+                    if (annotation is TextBoxAnnotation text) SearchableText.Add(document, pdfPage, geometry.Box, [text], text.Id, saved);
+                    else if (annotation is TableAnnotation table) SearchableText.Add(document, pdfPage, geometry.Box, SearchableText.Cells(table), table.Id, saved);
                 }
             }
             document.Internals.Catalog.Elements[EditablePdfKeys.Header] = Stream(document, serialized.Header).Reference!;
             object backgroundKey = (object?)original ?? NoSource;
             var setups = model.Pages.Select(p => p.Setup).ToArray();
-            var textLayers = model.Pages.Select(p => p.Annotations.Any(a => a is TextBoxAnnotation)).ToArray();
+            var textLayers = model.Pages.Select(p => p.Annotations.Any(a => a is TextBoxAnnotation or TableAnnotation)).ToArray();
             string[]? known = knownHashes;
             if (known is null && Backgrounds.TryGetValue(backgroundKey, out var memo) && memo.Setups.SequenceEqual(setups) && memo.TextLayers.SequenceEqual(textLayers))
             {
@@ -272,11 +273,11 @@ public static class EditablePdfWriter
         var read = EditablePdfReader.Read(written, PdfPageGeometryReader.Read(written));
         if (read.HeaderStatus != HeaderStatus.Valid)
             throw new InvalidDataException("The written PDF does not restore all annotations.");
-        var a = SchemaV8.Serialize(read.Model);
+        var a = SchemaV9.Serialize(read.Model);
         if (read.ReadOnlyCount != 0)
             throw new InvalidDataException($"The written PDF does not restore the saved document ({read.ReadOnlyCount} read-only).");
         expected = expected with { Pages = expected.Pages.Select(p => p with { Annotations = p.Annotations.Where(a => a is not (TextBoxAnnotation { IsBlank: true } or StickyNote { IsBlank: true })).ToImmutableList() }).ToImmutableList() };
-        var b = SchemaV8.Serialize(expected);
+        var b = SchemaV9.Serialize(expected);
         if (!a.Header.AsSpan().SequenceEqual(b.Header))
             throw new InvalidDataException($"The written PDF does not restore the saved document (header: {FirstDifference(a.Header, b.Header)}).");
         if (a.Annotations.Length != b.Annotations.Length)

@@ -50,11 +50,14 @@ public sealed class PageGlyphSource(DocumentSources? pdf)
     }
 }
 
-/// <summary>One search result: PDF text of a page (<see cref="BoxId"/> null) or characters of a text box, with its line quads in canonical points.</summary>
-public sealed record SearchHit(Guid PageId, Guid? BoxId, int Start, int End, ImmutableArray<Quad> Quads);
+/// <summary>
+/// One search result: PDF text of a page (<see cref="BoxId"/> null) or characters of a text box, note or table cell (<see cref="BoxId"/>
+/// the table, <see cref="Cell"/> the cell; offsets in the cell's text), with its line quads in canonical points.
+/// </summary>
+public sealed record SearchHit(Guid PageId, Guid? BoxId, int Start, int End, ImmutableArray<Quad> Quads, (int Row, int Column)? Cell = null);
 
 /// <summary>
-/// Document search over PDF text and text boxes (spec 12): results in page order, and inside a page in reading order
+/// Document search over PDF text, text boxes, notes and table cells (spec 12): results in page order, and inside a page in reading order
 /// by position (PDF text keeps the engine order, text box results are merged in by their place on the shown page).
 /// Characters entirely off the current paper are not searched; partly visible results are clipped when drawn.
 /// </summary>
@@ -86,10 +89,20 @@ public static class DocumentSearch
             foreach (var r in TextSearch.Find([.. note.Text.EnumerateRunes().Select(r => r.ToString())], query, matchCase: matchCase))
                 boxes.Add(new SearchHit(page.Id, note.Id, r.Start, r.End, [new Quad(icon[0], icon[1], icon[3], icon[2])]));
         }
-        foreach (var box in page.Annotations.OfType<TextBoxAnnotation>())
+        foreach (var annotation in page.Annotations)
         {
             token.ThrowIfCancellationRequested();
-            if (box.IsBlank) continue;
+            if (annotation is TextBoxAnnotation { IsBlank: false } box) SearchBox(box, box.Id, null);
+            else if (annotation is TableAnnotation table)
+            {
+                // Table cells are found like text boxes (1.4): the hit names the table and the cell, offsets in the cell's text.
+                for (int r = 0; r < table.Rows; r++)
+                    for (int c = 0; c < table.Columns; c++)
+                        if (table.Cell(r, c).Text.Length > 0) SearchBox(TableLayout.CellBox(table, r, c), table.Id, (r, c));
+            }
+        }
+        void SearchBox(TextBoxAnnotation box, Guid id, (int, int)? cell)
+        {
             // Characters cut off the paper entirely are not found; a gap they leave breaks words like a line end.
             var visible = TextLayout.Measure(box).Characters.Where(c => Visible(Corners(c.Bounds, box.Transform), paper)).ToArray();
             var found = TextSearch.Find(visible.Select(c => c.Text).ToArray(), query, i =>
@@ -106,7 +119,7 @@ public static class DocumentSearch
                     var q = Corners(new Rect2(x0, y0, x1 - x0, y1 - y0), box.Transform);
                     return new Quad(q[0], q[1], q[3], q[2]);
                 }).ToImmutableArray();
-                boxes.Add(new SearchHit(page.Id, box.Id, visible[start].Offset, visible[end - 1].Offset + visible[end - 1].Text.Length, quads));
+                boxes.Add(new SearchHit(page.Id, id, visible[start].Offset, visible[end - 1].Offset + visible[end - 1].Text.Length, quads, cell));
             }
         }
         if (boxes.Count == 0) return pdf;

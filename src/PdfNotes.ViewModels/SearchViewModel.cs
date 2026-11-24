@@ -189,7 +189,7 @@ public sealed class SearchViewModel(MainViewModel owner) : ObservableObject
         {
             int best = -1;
             for (int i = 0; i < found.Count; i++)
-                if (found[i].PageId == old.PageId && found[i].BoxId == old.BoxId && Math.Abs(found[i].Start - old.Start) <= Math.Max(4, old.End - old.Start) &&
+                if (found[i].PageId == old.PageId && found[i].BoxId == old.BoxId && found[i].Cell == old.Cell && Math.Abs(found[i].Start - old.Start) <= Math.Max(4, old.End - old.Start) &&
                     (best < 0 || Math.Abs(found[i].Start - old.Start) < Math.Abs(found[best].Start - old.Start))) best = i;
             if (best < 0)
             {
