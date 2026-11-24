@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using PdfNotes.Core.Commands;
 using PdfNotes.Core.Models;
 
@@ -12,12 +13,35 @@ namespace PdfNotes.Core.Geometry;
 /// </summary>
 public static class TableGeometry
 {
-    /// <summary>Line positions in table-local points: <see cref="ColumnX"/> has Columns + 1 entries, <see cref="RowY"/> Rows + 1.</summary>
+    /// <summary>
+    /// Line positions in table-local points: <see cref="ColumnX"/> has Columns + 1 entries, <see cref="RowY"/> Rows + 1.
+    /// <see cref="Bounds"/> is the grid with half the line width outside it, where the outer lines paint (like a shape's border).
+    /// </summary>
     public sealed record Result(ImmutableArray<double> ColumnX, ImmutableArray<double> RowY, Rect2 Bounds);
 
+    // One measurement per table instance and measurer (hit tests run on every pointer move), and one set of cell boxes per
+    // measurement, so the text layout's instance cache hits instead of laying every cell out again.
+    private static readonly ConditionalWeakTable<TableAnnotation, List<(Func<TextBoxAnnotation, Rect2> Measurer, Result Result)>> Measured = new();
+    private static readonly ConditionalWeakTable<Result, TextBoxAnnotation?[]> Boxes = new();
+
+    /// <summary>Row height = max(set height, tallest cell box). Cached per table instance and measurer (delegate equality).</summary>
     public static Result Measure(TableAnnotation table, Func<TextBoxAnnotation, Rect2> textBounds)
     {
         ArgumentNullException.ThrowIfNull(textBounds);
+        var known = Measured.GetValue(table, _ => []);
+        lock (known)
+            foreach (var (measurer, result) in known) if (measurer.Equals(textBounds)) return result;
+        var measured = Lay(table, textBounds);
+        lock (known)
+        {
+            foreach (var (measurer, result) in known) if (measurer.Equals(textBounds)) return result;
+            known.Add((textBounds, measured));
+        }
+        return measured;
+    }
+
+    private static Result Lay(TableAnnotation table, Func<TextBoxAnnotation, Rect2> textBounds)
+    {
         var columnX = new double[table.Columns + 1];
         for (int c = 0; c < table.Columns; c++) columnX[c + 1] = columnX[c] + table.ColumnWidths[c];
         var rowY = new double[table.Rows + 1];
@@ -27,20 +51,33 @@ public static class TableGeometry
             for (int c = 0; c < table.Columns; c++) height = Math.Max(height, textBounds(MeasuredBox(table, r, c)).Height);
             rowY[r + 1] = rowY[r] + height;
         }
-        return new([.. columnX], [.. rowY], new(0, 0, columnX[^1], rowY[^1]));
+        double half = table.Style.LineWidthPt / 2;
+        return new([.. columnX], [.. rowY], new(-half, -half, columnX[^1] + 2 * half, rowY[^1] + 2 * half));
     }
 
     /// <summary>
     /// The cell as a text box placed on the page: deterministic ID (from the table ID and the cell), the table's transform
     /// moved to the cell's corner, width = column width. An empty cell gives a box without runs, like a new text box; its
-    /// style is <see cref="CellStyle"/>.
+    /// style is <see cref="CellStyle"/>. For the table's own measurement it is the same instance on every call.
     /// </summary>
     public static TextBoxAnnotation CellBox(TableAnnotation table, Result layout, int row, int column)
     {
         var cell = table.Cell(row, column);
-        return new(CellId(table.Id, row, column), table.Locked, Affine.Translation(layout.ColumnX[column], layout.RowY[row]).Then(table.Transform),
+        int index = row * table.Columns + column;
+        // A layout is cached per table, so its boxes are too; a layout passed with another table builds a fresh box.
+        bool own = Measured.TryGetValue(table, out var known) && Owns(known, layout);
+        var boxes = own ? Boxes.GetValue(layout, _ => new TextBoxAnnotation?[table.Cells.Length]) : null;
+        if (boxes?[index] is { } box) return box;
+        box = new(CellId(table.Id, row, column), table.Locked, Affine.Translation(layout.ColumnX[column], layout.RowY[row]).Then(table.Transform),
             cell.Text, cell.Text.Length == 0 ? [] : cell.Runs, cell.Alignment, table.ColumnWidths[column], TextBoxStyle.Default,
             cell.Text.Length == 0 ? [] : cell.Highlights);
+        if (boxes is not null) boxes[index] = box;
+        return box;
+    }
+
+    private static bool Owns(List<(Func<TextBoxAnnotation, Rect2> Measurer, Result Result)> known, Result layout)
+    {
+        lock (known) return known.Any(k => ReferenceEquals(k.Result, layout));
     }
 
     /// <summary>The style typing in the cell starts with: the empty cell's kept style, or the style of its last character.</summary>
@@ -48,11 +85,11 @@ public static class TableGeometry
         (table.Cell(row, column).Runs.LastOrDefault() ?? TextEditing.Default) with { Start = 0, Length = 0 };
 
     /// <summary>
-    /// The cell a (possibly edited) cell box holds. An empty box becomes <see cref="TableCell.Empty"/> with
-    /// <paramref name="emptyStyle"/> (the editor's typing style), else the box's last run, else the default style.
+    /// The cell a (possibly edited) cell box holds. An empty box has no runs, so it becomes <see cref="TableCell.Empty"/> with
+    /// <paramref name="emptyStyle"/>: the editor's typing style, or <see cref="CellStyle"/> for a box that was not edited.
     /// </summary>
-    public static TableCell FromBox(TextBoxAnnotation box, TextRun? emptyStyle = null) => box.Text.Length == 0
-        ? TableCell.Empty(emptyStyle ?? box.Runs.LastOrDefault() ?? TextEditing.Default) with { Alignment = box.Alignment }
+    public static TableCell FromBox(TextBoxAnnotation box, TextRun emptyStyle) => box.Text.Length == 0
+        ? TableCell.Empty(emptyStyle ?? throw new ArgumentNullException(nameof(emptyStyle))) with { Alignment = box.Alignment }
         : new(box.Text, box.Runs, box.Alignment, box.Highlights);
 
     /// <summary>The cell under a table-local point; points on a line belong to the cell after it, the outer frame to the table.</summary>
@@ -63,21 +100,36 @@ public static class TableGeometry
     }
 
     /// <summary>
-    /// The inner line within <paramref name="tolerance"/> of a table-local point, the nearer one where two cross:
+    /// The line within <paramref name="tolerance"/> of a table-local point that sets a size, the nearer one where two cross:
     /// a column line (Column true) or a row line, with Index = the column or row before it (the one dragging it resizes).
-    /// The outer frame is the selection frame's, so it is never returned.
+    /// The inner lines and the outer right and bottom lines count; the left and top lines size nothing.
     /// </summary>
     public static (bool Column, int Index)? BoundaryAt(Result layout, Point2 local, double tolerance)
     {
-        var b = layout.Bounds;
-        if (local.X < -tolerance || local.Y < -tolerance || local.X > b.Width + tolerance || local.Y > b.Height + tolerance) return null;
+        double width = layout.ColumnX[^1], height = layout.RowY[^1];
+        if (local.X < -tolerance || local.Y < -tolerance || local.X > width + tolerance || local.Y > height + tolerance) return null;
         var (column, dx) = Nearest(layout.ColumnX, local.X);
         var (row, dy) = Nearest(layout.RowY, local.Y);
-        bool onColumn = column >= 0 && dx <= tolerance && local.Y >= 0 && local.Y <= b.Height;
-        bool onRow = row >= 0 && dy <= tolerance && local.X >= 0 && local.X <= b.Width;
+        bool onColumn = column >= 0 && dx <= tolerance && local.Y >= 0 && local.Y <= height;
+        bool onRow = row >= 0 && dy <= tolerance && local.X >= 0 && local.X <= width;
         if (onColumn && (!onRow || dx < dy)) return (true, column - 1);
         return onRow ? (false, row - 1) : null;
     }
+
+    /// <summary>
+    /// The text of a table through a page placement change (D11, spec 14.6), which scales text boxes' fonts as well: font
+    /// sizes, manual highlight heights and the line width times <paramref name="scale"/>. Column widths and row heights are
+    /// scaled by <see cref="AnnotationGeometry.Similarity"/>. The fixed 4pt cell padding does not scale (tables keep no layout scale).
+    /// </summary>
+    public static TableAnnotation ScaledText(TableAnnotation table, double scale) => table with
+    {
+        Cells = table.Cells.Select(c => c with
+        {
+            Runs = c.Runs.Select(r => r with { SizePt = r.SizePt * scale }).ToImmutableArray(),
+            Highlights = c.Highlights.Select(h => h with { ManualHeightPt = h.ManualHeightPt * scale }).ToImmutableArray()
+        }).ToImmutableArray(),
+        Style = table.Style with { LineWidthPt = table.Style.LineWidthPt * scale }
+    };
 
     /// <summary>The box a row height is measured on: like <see cref="CellBox"/>, but an empty cell keeps its style run so its font sets the line height.</summary>
     private static TextBoxAnnotation MeasuredBox(TableAnnotation table, int row, int column)
@@ -115,11 +167,11 @@ public static class TableGeometry
         return lines.Length - 2;
     }
 
-    /// <summary>The inner line (index 1 … Length − 2) nearest to <paramref name="v"/> and its distance, or (-1, ∞) without inner lines.</summary>
+    /// <summary>The line after the first (index 1 … Length − 1) nearest to <paramref name="v"/> and its distance.</summary>
     private static (int Index, double Distance) Nearest(ImmutableArray<double> lines, double v)
     {
         (int, double) best = (-1, double.PositiveInfinity);
-        for (int i = 1; i < lines.Length - 1; i++) if (Math.Abs(v - lines[i]) < best.Item2) best = (i, Math.Abs(v - lines[i]));
+        for (int i = 1; i < lines.Length; i++) if (Math.Abs(v - lines[i]) < best.Item2) best = (i, Math.Abs(v - lines[i]));
         return best;
     }
 }

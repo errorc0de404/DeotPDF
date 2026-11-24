@@ -32,7 +32,8 @@ public sealed class TableLayoutTests
         Assert.Equal(24, layout.RowY[1], 6);
         Assert.Equal(24 + grown, layout.RowY[2], 6);
         Assert.Equal(24 + grown + 24, layout.RowY[3], 6);
-        Assert.Equal(new Rect2(0, 0, 240, layout.RowY[3]), layout.Bounds);
+        // The outer lines paint half their width outside the grid.
+        Assert.Equal(new Rect2(-0.375, -0.375, 240.75, layout.RowY[3] + 0.75), layout.Bounds);
         // The other cells of the grown row get the same height: their boxes start on the same line, the next row below all.
         for (int c = 0; c < 3; c++)
         {
@@ -85,9 +86,10 @@ public sealed class TableLayoutTests
         Assert.Equal(7, ids.Count);
         Assert.NotEqual(box.Id, TableLayout.CellBox(table with { Id = Guid.NewGuid() }, 1, 1).Id);
         // The box turns back into the cell.
-        Assert.Equal(table.Cell(1, 1).Text, TableLayout.FromBox(box).Text);
-        Assert.Equal(table.Cell(1, 1).Runs.ToArray(), TableLayout.FromBox(box).Runs.ToArray());
-        Assert.Equal(TextAlignment.Right, TableLayout.FromBox(box).Alignment);
+        var cell = TableLayout.FromBox(box, TableLayout.CellStyle(table, 1, 1));
+        Assert.Equal(table.Cell(1, 1).Text, cell.Text);
+        Assert.Equal(table.Cell(1, 1).Runs.ToArray(), cell.Runs.ToArray());
+        Assert.Equal(TextAlignment.Right, cell.Alignment);
     }
 
     [Fact]
@@ -137,7 +139,7 @@ public sealed class TableLayoutTests
     public void BoundaryAtFindsInnerLines()
     {
         var table = TableAnnotation.Create(Guid.NewGuid(), new(0, 0), 3, 3, Style);
-        // Lines between columns 0|1 and 1|2, rows 0|1 and 1|2; the index is the column or row before the line.
+        // Inner lines and the outer right and bottom lines; the index is the column or row before the line (the one it sizes).
         Assert.Equal((true, 0), TableLayout.BoundaryAt(table, new(81.5, 30), 2));
         Assert.Equal((true, 1), TableLayout.BoundaryAt(table, new(159, 70), 2));
         Assert.Equal((false, 0), TableLayout.BoundaryAt(table, new(40, 23), 2));
@@ -145,11 +147,14 @@ public sealed class TableLayoutTests
         // Where two lines cross, the nearer one.
         Assert.Equal((false, 0), TableLayout.BoundaryAt(table, new(81.5, 24.5), 2));
         Assert.Equal((true, 0), TableLayout.BoundaryAt(table, new(80.5, 25.5), 2));
-        // Not near a line, the outer frame (the selection frame's) or past the table's ends.
+        Assert.Equal((true, 2), TableLayout.BoundaryAt(table, new(239.5, 30), 2));
+        Assert.Equal((true, 2), TableLayout.BoundaryAt(table, new(241.5, 30), 2));
+        Assert.Equal((false, 2), TableLayout.BoundaryAt(table, new(40, 72), 2));
+        Assert.Equal((false, 2), TableLayout.BoundaryAt(table, new(239, 73), 2));
+        // Not near a line, on the left or top line (they size nothing) or past the table's ends.
         Assert.Null(TableLayout.BoundaryAt(table, new(40, 36), 2));
         Assert.Null(TableLayout.BoundaryAt(table, new(0.5, 30), 2));
-        Assert.Null(TableLayout.BoundaryAt(table, new(239.5, 30), 2));
-        Assert.Null(TableLayout.BoundaryAt(table, new(40, 72), 2));
+        Assert.Null(TableLayout.BoundaryAt(table, new(40, 0.5), 2));
         Assert.Null(TableLayout.BoundaryAt(table, new(80, 76), 2));
         Assert.Null(TableLayout.BoundaryAt(table, new(-5, 24), 2));
     }
@@ -169,7 +174,7 @@ public sealed class TableLayoutTests
         double height = TextLayout.Bounds(fallback).Height;
         Assert.True(height > TableAnnotation.DefaultRowHeight);
         Assert.Equal(height, layout.RowY[2] - layout.RowY[1], 6);
-        Assert.Equal(missing, TableLayout.FromBox(box).Runs.Single().FontFamily);
+        Assert.Equal(missing, TableLayout.FromBox(box, TableLayout.CellStyle(table, 1, 1)).Runs.Single().FontFamily);
     }
 
     [Fact]
@@ -203,5 +208,37 @@ public sealed class TableLayoutTests
         var small = Assert.IsType<TableAnnotation>(AnnotationGeometry.Similarity(table, new(100, 100), 0.1));
         Assert.All(small.ColumnWidths, w => Assert.Equal(TableAnnotation.MinColumnWidth, w));
         Assert.All(small.RowHeights, h => Assert.Equal(TableAnnotation.MinRowHeight, h));
+    }
+
+    [Fact]
+    public void OneTableIsMeasuredOnce()
+    {
+        var table = With(TableAnnotation.Create(Guid.NewGuid(), new(0, 0), 2, 2, Style), 1, 1, Text(Long));
+        var first = TableGeometry.Measure(table, TextLayout.Bounds);
+        // Hit tests, the lasso and the painter measure through the same cache (a new delegate of the same method counts as the same).
+        Assert.Same(first, TableGeometry.Measure(table, TextLayout.Bounds));
+        Assert.Same(first, TableLayout.Measure(table));
+        Assert.Equal(first.Bounds, AnnotationGeometry.LocalBounds(table, TextLayout.Bounds));
+        Assert.Same(TableLayout.CellBox(table, 1, 1), TableLayout.CellBox(table, 1, 1));
+        // Another measurer gets its own measurement; a changed table is measured again.
+        var tall = TableGeometry.Measure(table, b => new(0, 0, b.WidthPt, 100));
+        Assert.Equal(200, tall.RowY[2]);
+        Assert.NotSame(first, TableLayout.Measure(table with { RowHeights = [30, 30] }));
+    }
+
+    [Fact]
+    public void APageScaleShrinksTheTextToo()
+    {
+        var table = With(TableAnnotation.Create(Guid.NewGuid(), new(100, 100), 2, 2, Style with { SizePt = 20 }), 1, 1,
+            Text("글", Style with { SizePt = 20 }) with { Highlights = [new(0, 1, HighlightHeightMode.Manual, 16, RgbColor.Black, 0.5)] });
+        var change = Affine.Scale(0.5).Then(Affine.Translation(10, 20));
+        var placed = Assert.IsType<TableAnnotation>(PdfNotes.Core.Commands.PageTransforms.Transform(table, change, 0.5));
+        Assert.Equal([40, 40], placed.ColumnWidths.ToArray());
+        Assert.Equal([12, 12], placed.RowHeights.ToArray());
+        Assert.All(placed.Cells, c => Assert.Equal(10, c.Runs.Single().SizePt));
+        Assert.Equal(8, placed.Cell(1, 1).Highlights.Single().ManualHeightPt);
+        Assert.Equal(0.375, placed.Style.LineWidthPt);
+        Assert.Equal(new Point2(60, 70), placed.Transform.Transform(new(0, 0)));
+        Assert.Null(ModelValidator.ValidateAnnotation(placed, _ => true));
     }
 }

@@ -82,6 +82,7 @@ public static class PageTransforms
         var result = AnnotationGeometry.Similarity(a with { Locked = false }, new(0, 0), scale, move: new(change.OffsetX, change.OffsetY));
         if (result is TextBoxAnnotation t) result = t with { LayoutScale = t.LayoutScale * scale,
             Highlights = t.Highlights.Select(h => h with { ManualHeightPt = h.ManualHeightPt * scale }).ToImmutableArray() };
+        if (result is TableAnnotation table) result = TableGeometry.ScaledText(table, scale);
         return result with { Locked = a.Locked };
     }
 }
