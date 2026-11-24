@@ -24,7 +24,8 @@ public sealed record ToolSources(
     Func<double> StrokeEraserPt,
     Func<double> AreaEraserPt,
     Func<bool>? AiNotesHidden = null,
-    Func<bool>? ShapeRecognition = null);
+    Func<bool>? ShapeRecognition = null,
+    Func<TextRun>? TextStyle = null);
 
 /// <summary>What the text and note tools hand back to the window (it owns the text editor and the note cards).</summary>
 public sealed record ToolActions(
@@ -54,6 +55,9 @@ public sealed class ToolSet
     public ShapeTool Shape { get; }
     public EraserTool StrokeEraser { get; }
     public EraserTool AreaEraser { get; }
+
+    /// <summary>The armed table insert (1.4 plan 1.3): one click puts the table, then the selection tool selects it.</summary>
+    public TableInsertTool Table { get; }
 
     private readonly ToolSwitch tools;
     private readonly Action<ToolKind> setTool;
@@ -88,6 +92,12 @@ public sealed class ToolSet
         Markup = new TextHighlightTool(canvas, session, sources.Glyphs, sources.TextHighlight, SelectFrom(ToolKind.Markup), () => sources.Markup());
         StrokeEraser = new EraserTool(canvas, session, sources.StrokeEraserPt, EraserMode.Stroke);
         AreaEraser = new EraserTool(canvas, session, sources.AreaEraserPt, EraserMode.Area);
+        // One table per arming: the selection tool takes it and the table tool does not come back (no Return).
+        Table = new TableInsertTool(canvas, session, () => tools.Table, sources.TextStyle ?? (() => TextEditing.Default), id => later(() =>
+        {
+            setTool(ToolKind.Select);
+            Select.Select(id);
+        }));
         // Hidden AI writing is passed over by every tool that picks annotations (MCP_LIVE_PLAN 6).
         var mask = new AnnotationMask(sources.AiNotesHidden ?? (() => false));
         Select.Mask = Highlighter.Mask = Markup.Mask = StrokeEraser.Mask = AreaEraser.Mask = mask;
@@ -121,6 +131,7 @@ public sealed class ToolSet
         ToolKind.AreaEraser => AreaEraser,
         ToolKind.Shape => Shape,
         ToolKind.Note => Note,
+        ToolKind.Table => Table,
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 

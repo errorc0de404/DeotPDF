@@ -103,12 +103,19 @@ public sealed class ToolBarViewModel : ObservableObject
         OnPropertyChanged(nameof(ShapeIcon));
     }
 
-    public void SetTool(ToolKind kind)
+    public void SetTool(ToolKind kind) => Switch(kind != ToolKind.Select, hidden => owner.Tools.Choose(kind, hidden));
+
+    /// <summary>The 표 grid's pick (1.4 plan 1.3): the table tool puts a table of <paramref name="size"/> where the page is clicked next.</summary>
+    public void ArmTable(TableSize size) => Switch(true, hidden => owner.Tools.ArmTable(size, hidden));
+
+    public Command<TableSize> ArmTableCommand => field ??= new(ArmTable);
+
+    private void Switch(bool showsNotes, Action<bool> choose)
     {
-        if (owner.Display.NotesHidden && kind != ToolKind.Select) owner.SetNotesHidden(false);
+        if (owner.Display.NotesHidden && showsNotes) owner.SetNotesHidden(false);
         bool hidden = owner.Display.NotesHidden;
         owner.Editing.FinishTextEditing();
-        owner.Tools.Choose(kind, hidden);
+        choose(hidden);
         OnPropertyChanged(nameof(Current)); // the view puts the canvas tool in place
         Refresh();
         owner.ToolStyles.Refresh();

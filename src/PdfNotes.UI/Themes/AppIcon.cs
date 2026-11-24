@@ -71,6 +71,9 @@ public sealed class AppIcon : Control
         }
     }
 
+    /// <summary>The 표 button (1.4 plan 1.3): a frame with two row and two column lines.</summary>
+    public const string TableOutline = "M1.5,2.5 L14.5,2.5 L14.5,13.5 L1.5,13.5 Z M1.5,6.17 L14.5,6.17 M1.5,9.83 L14.5,9.83 M5.83,2.5 L5.83,13.5 M10.17,2.5 L10.17,13.5";
+
     /// <summary>The outline of a shape group tool.</summary>
     public static string ShapeOutline(PdfNotes.Editor.Tools.ToolKind tool, PdfNotes.Core.Models.ShapeKind shape) => tool switch
     {

@@ -45,7 +45,7 @@ public sealed partial class MainView
                 () => styles.Pen, () => settings.PenPressure, () => styles.Highlighter, () => settings.HighlighterSnap, () => styles.TextHighlightStyle,
                 () => (styles.MarkKind, styles.MarkupStyle), () => styles.Line, () => styles.LineOptions,
                 () => settings.ShapeKind, () => styles.Shape, () => settings.StrokeEraserPt, () => settings.AreaEraserPt,
-                () => viewModel.AiNotes.IsHidden, () => settings.ShapeRecognition),
+                () => viewModel.AiNotes.IsHidden, () => settings.ShapeRecognition, () => settings.DefaultText),
             new(BeginNewTextAtClick, SelectTextAt, CreateNote, SelectNoteAt),
             SetTool, ReturnAfterAutoSelect, action => Dispatcher.UIThread.Post(action), changed => TextBoxReleased(null, changed), time);
         styles.Attach(selectTool);
@@ -70,6 +70,8 @@ public sealed partial class MainView
         // selection do not (spec 3.2 automatic tab switch).
         Canvas.ToolPressed += (_, _) => { if (Canvas.ActiveTool != selectTool || selectTool.SelectedIds.Count > 0) viewModel.Ribbon.Auto(RibbonTab.Home); };
         Canvas.TemporaryToolEnded += (_, _) => viewModel.ToolBar.Refresh();
+        // The 표 grid closes on a pick and the page takes the next click (1.4 plan 1.3).
+        TablePicker.Picked += (_, _) => { TableButton.Flyout?.Hide(); Canvas.Focus(); };
         SetTool(ToolKind.Pen);
     }
 

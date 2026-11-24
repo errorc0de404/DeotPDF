@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:PdfNotes.UI.Controls"
+        x:Class="PdfNotes.UI.Controls.TableSizePicker">
+    <!-- The 표 grid (1.4 plan 1.3): rows × columns up to 10 × 10; the cells up to the pointer light up, the size shows below. -->
+    <UserControl.Styles>
+        <Style Selector="Border.cell">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Margin" Value="1" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Control.Border}" />
+            <Setter Property="Background" Value="{DynamicResource Control.Background}" />
+        </Style>
+        <Style Selector="Border.cell.lit">
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+            <Setter Property="Background" Value="{DynamicResource Accent.Subtle}" />
+        </Style>
+    </UserControl.Styles>
+    <StackPanel Spacing="4">
+        <ItemsControl x:Name="CellGrid" Background="Transparent">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><UniformGrid Rows="10" Columns="10" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="c:TableSizeCell">
+                    <Border Classes="cell" Classes.lit="{Binding IsLit}" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock x:Name="SizeLabel" HorizontalAlignment="Center" MinHeight="16" />
+    </StackPanel>
+</UserControl>

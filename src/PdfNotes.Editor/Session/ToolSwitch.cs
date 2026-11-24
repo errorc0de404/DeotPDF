@@ -1,3 +1,4 @@
+using PdfNotes.Core.Models;
 using PdfNotes.Editor.Services;
 using PdfNotes.Editor.Tools;
 
@@ -37,7 +38,8 @@ public sealed class ToolSwitch(AppSettings settings, Action saveSettings)
     /// </summary>
     public ToolKind Choose(ToolKind kind, bool notesHidden)
     {
-        if (notesHidden) kind = ToolKind.Select;
+        if (notesHidden || kind == ToolKind.Table && Table is null) kind = ToolKind.Select; // the table tool needs a size
+        if (kind != ToolKind.Table) Table = null; // Esc or another tool cancels the armed table (1.4 plan 1.3)
         Return = null; // only an automatic switch remembers where to go back
         Current = kind;
         if (kind is ToolKind.Line or ToolKind.Curve or ToolKind.Shape && settings.ShapeGroupTool != kind)
@@ -51,6 +53,19 @@ public sealed class ToolSwitch(AppSettings settings, Action saveSettings)
             saveSettings();
         }
         return kind;
+    }
+
+    /// <summary>The size of the armed table insert (<see cref="ToolKind.Table"/>), or null when no table is armed.</summary>
+    public TableSize? Table { get; private set; }
+
+    /// <summary>
+    /// Arms a table of <paramref name="size"/> (the 표 grid, 1.4 plan 1.3): the table tool becomes current and the next click
+    /// on a page puts it there. The size is kept inside 1..<see cref="TableAnnotation.MaxPick"/>. Returns the tool that became current.
+    /// </summary>
+    public ToolKind ArmTable(TableSize size, bool notesHidden)
+    {
+        Table = new(Math.Clamp(size.Rows, 1, TableAnnotation.MaxPick), Math.Clamp(size.Columns, 1, TableAnnotation.MaxPick));
+        return Choose(ToolKind.Table, notesHidden);
     }
 
     /// <summary>The tool of a toolbar button tag: the eraser and shape buttons select the one used last.</summary>

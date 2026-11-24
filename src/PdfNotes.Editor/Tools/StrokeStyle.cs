@@ -2,8 +2,8 @@ using PdfNotes.Core.Models;
 
 namespace PdfNotes.Editor.Tools;
 
-/// <summary>Canvas tools (spec 4.3 ToolState).</summary>
-public enum ToolKind { Select, Pen, FreeHighlight, Text, Line, Curve, Lasso, StrokeEraser, AreaEraser, Shape, Note, Markup }
+/// <summary>Canvas tools (spec 4.3 ToolState). <see cref="Table"/> is the armed table insert (1.4 plan 1.3): one click, then the selection tool.</summary>
+public enum ToolKind { Select, Pen, FreeHighlight, Text, Line, Curve, Lasso, StrokeEraser, AreaEraser, Shape, Note, Markup, Table }
 
 /// <summary>
 /// Paint settings of a freehand tool or a selected stroke. <see cref="TransparencyPercent"/> is the UI value

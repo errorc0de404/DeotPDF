@@ -5,6 +5,7 @@
         xmlns:l="using:PdfNotes.UI.Localization"
         xmlns:vm="using:PdfNotes.ViewModels"
         xmlns:v="using:PdfNotes.UI.Views"
+        xmlns:c="using:PdfNotes.UI.Controls"
         x:Class="PdfNotes.UI.Views.MainView"
         x:DataType="vm:MainViewModel"
         Background="{DynamicResource Window.Background}" Foreground="{DynamicResource Text.Primary}"
@@ -172,6 +173,15 @@
                                 <Button x:Name="ShapeMenuButton" Theme="{StaticResource ToolButton}" Padding="2,5" ToolTip.Tip="{l:T ribbon.shapeMenuTip}" Click="ShapeMenuClick"><th:AppIcon Glyph="ChevronDown" Classes="tiny" /></Button>
                                 <RadioButton x:Name="NoteToolButton" Theme="{StaticResource ToolButton}" GroupName="Tools" ToolTip.Tip="{l:T ribbon.note}" Tag="Note"
                                              IsChecked="{Binding ToolBar.Note.IsChecked, Mode=OneWay}" Command="{Binding ToolBar.Note.Command}" Classes.return="{Binding ToolBar.Note.IsReturn}"><th:IconLabel Glyph="Note" Text="{l:T ribbon.note}" /></RadioButton>
+                                <!-- 표 (1.4 plan 1.3): the grid arms a table; the next click on a page puts it there -->
+                                <Button x:Name="TableButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T tool.table}">
+                                    <Button.Flyout>
+                                        <Flyout Placement="BottomEdgeAlignedLeft">
+                                            <c:TableSizePicker x:Name="TablePicker" Command="{Binding ToolBar.ArmTableCommand}" />
+                                        </Flyout>
+                                    </Button.Flyout>
+                                    <th:IconLabel Outline="{x:Static th:AppIcon.TableOutline}" Text="{l:T tool.table}" />
+                                </Button>
                                 <Button x:Name="InsertImageButton" Theme="{StaticResource ToolButton}" ToolTip.Tip="{l:T image.insertTitle}" Command="{Binding InsertImageCommand}"><th:IconLabel Glyph="Image" Text="{l:T ribbon.image}" /></Button>
                             </StackPanel>
                         </HeaderedContentControl>

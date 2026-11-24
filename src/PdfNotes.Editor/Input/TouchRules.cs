@@ -6,10 +6,10 @@ namespace PdfNotes.Editor.Input;
 public static class TouchRules
 {
     /// <summary>
-    /// A finger tap clicks the selection, text and note tools (pick an annotation, start editing a text box). Drawing
+    /// A finger tap clicks the selection, text, note and table insert tools (pick an annotation, start editing a text box, place a table). Drawing
     /// tools ignore it unless finger drawing is on: a tap there is usually a hand resting on the screen.
     /// </summary>
-    public static bool TapReachesTool(ICanvasTool? tool) => tool is SelectTool or TextTool or NoteTool;
+    public static bool TapReachesTool(ICanvasTool? tool) => tool is SelectTool or TextTool or NoteTool or TableInsertTool;
 
     /// <summary>The pen held still opens the right-click menu with the selection tools (2026-11-08); drawing tools keep a slow pen.</summary>
     public static bool PenHolds(ICanvasTool? tool, PdfNotes.Core.Geometry.Point2 at) =>
