@@ -1,8 +1,8 @@
 # DeotPDF (덧PDF)
 
-**A lightweight PDF annotation and note-taking app for Windows, macOS and Linux, with a command-line tool (`deot`) that lets scripts and AI agents write on PDFs too.**
+**A lightweight PDF annotation and note-taking app for Windows, macOS and Linux. Includes a command-line tool (`deot`) that scripts and agents can write with.**
 
-**윈도우·맥·리눅스에서 쓰는 가벼운 PDF 필기·주석 프로그램입니다. 스크립트나 AI 에이전트가 PDF에 필기할 수 있는 명령줄 도구(`deot`)도 함께 들어 있습니다.**
+**윈도우·맥·리눅스용 가벼운 PDF 필기·주석 프로그램입니다. 스크립트나 에이전트가 필기할 수 있는 명령줄 도구(`deot`)도 포함됩니다.**
 
 [English](#english) · [한국어](#한국어) · [Download / 다운로드](https://github.com/errorc0de404/DeotPDF/releases/latest) · [CLI guide](docs/cli.md) · [CLI 설명서](docs/cli.ko.md)
 
@@ -14,9 +14,7 @@
 
 DeotPDF is a free, open-source PDF note-taking app for Windows 10 and 11, macOS and Linux. You can add pen strokes, highlights, text boxes, shapes and images to a PDF with a mouse and keyboard or a tablet pen. Files are saved as normal PDFs: other viewers show the notes, and DeotPDF can edit them again.
 
-I built it because I wanted something between a heavy PDF editor and a plain viewer: it opens fast, doesn't need an account or an internet connection, and handles Korean text input properly.
-
-(The name comes from the Korean prefix 덧 (*deot*), "added on top": the notes go on a layer over the original PDF.)
+I built it because I wanted something between a heavy PDF editor and a plain viewer. (The name comes from the Korean prefix 덧 (*deot*), "added on top": the notes go on a layer over the original PDF.)
 
 ### What you can do
 
@@ -66,7 +64,7 @@ Unzip anywhere and run `DeotPDF.exe`. To have DeotPDF show up under *Open with* 
 powershell -NoProfile -ExecutionPolicy Bypass -File .\register-open-with.ps1
 # undo: add -Unregister
 ```
-Windows may show a blue *Windows protected your PC* (SmartScreen) box the first time, because the app is new and not widely downloaded yet. Click **More info**, then **Run anyway**.
+Windows may show a blue *Windows protected your PC* (SmartScreen) box the first time. Click **More info** › **Run anyway** to continue.
 
 **macOS** (Apple silicon: `macos-arm64`, Intel: `macos-x64`)
 
@@ -76,7 +74,7 @@ Unzip and move `DeotPDF.app` to Applications. The app isn't signed with an Apple
 
 Unpack and run `./DeotPDF`. Korean text needs a Korean font such as Noto Sans CJK KR (`sudo apt install fonts-noto-cjk` on Debian and Ubuntu). `./register-open-with.sh` adds DeotPDF to *Open with* for your user.
 
-There's no installer yet; the macOS and Linux packages include the .NET runtime. Settings and backups live in `%LOCALAPPDATA%\PdfNotes` on Windows, `~/Library/Application Support/PdfNotes` on macOS and `~/.config/PdfNotes` on Linux. To check a download, compare its SHA256 with the one on the release page.
+There's no installer yet; the macOS and Linux packages include the .NET runtime. Settings and backups live in `%LOCALAPPDATA%\PdfNotes` on Windows, `~/Library/Application Support/PdfNotes` on macOS and `~/.config/PdfNotes` on Linux.
 
 ### The `deot` command-line tool
 
@@ -150,7 +148,7 @@ Built with C#, .NET 10 and [Avalonia](https://avaloniaui.net). Text and drawing 
 ### Known limitations
 
 - The macOS and Linux versions pass the automated tests on both systems, but I haven't used them on a real Mac or Linux PC yet. Korean input on Linux depends on your input method setup. Reports are welcome.
-- PDFs that need a password to open, and digitally signed PDFs, aren't opened.
+- Password-protected and digitally signed PDFs aren't opened.
 - No printing. Export a flattened PDF and print it from another viewer.
 - If another app re-saves the PDF, DeotPDF may no longer be able to edit its notes (they stay visible).
 
@@ -162,17 +160,15 @@ Built with C#, .NET 10 and [Avalonia](https://avaloniaui.net). Text and drawing 
 
 **Does it work on macOS or Linux?** Yes, since 1.2.1.
 
-**Can an AI agent use it?** Yes, through `deot`. See [docs/cli.md](docs/cli.md).
+**Can an agent write on PDFs?** Yes, through `deot`. See [docs/cli.md](docs/cli.md).
 
 ---
 
 ## 한국어
 
-덧PDF(DeotPDF)는 윈도우 10·11, 맥, 리눅스에서 쓰는 무료 오픈소스 PDF 필기 프로그램입니다. PDF 파일에 마우스·키보드나 태블릿 펜으로 펜, 형광펜, 텍스트 상자, 도형, 이미지를 얹을 수 있습니다. 저장 형식은 일반 PDF이고, 다른 뷰어에서도 필기가 그대로 보이고, 덧PDF로 다시 열면 이어서 고칠 수 있습니다.
+덧PDF(DeotPDF)는 윈도우 10·11, 맥, 리눅스용 무료 오픈소스 PDF 필기 프로그램입니다. PDF 파일에 마우스·키보드나 태블릿 펜으로 펜, 형광펜, 텍스트 상자, 도형, 이미지를 얹을 수 있습니다. 저장 형식은 일반 PDF이고, 다른 뷰어에서도 필기가 그대로 보이고, 덧PDF로 다시 열면 이어서 고칠 수 있습니다.
 
-무거운 PDF 편집기와 단순 뷰어 사이쯤 되는 프로그램이 필요해서 만들었습니다. 빨리 열리고, 계정이나 인터넷 연결이 필요 없고, 한글 입력이 제대로 되는 것을 목표로 했습니다.
-
-(원본 PDF는 건드리지 않고 그 위에 필기를 한 겹 덧붙인다고 해서 덧PDF입니다.)
+무거운 PDF 편집기와 단순 뷰어 사이쯤 되는 프로그램이 필요해서 만들었습니다. (원본 PDF는 건드리지 않고 그 위에 필기를 한 겹 덧붙여, 덧PDF입니다.)
 
 ### 주요 기능
 
@@ -222,7 +218,7 @@ Built with C#, .NET 10 and [Avalonia](https://avaloniaui.net). Text and drawing 
 powershell -NoProfile -ExecutionPolicy Bypass -File .\register-open-with.ps1
 # 지우려면 뒤에 -Unregister
 ```
-처음 실행할 때 파란색 'Windows의 PC 보호'(SmartScreen) 창이 뜰 수 있습니다. 새로 나온 프로그램이라 아직 받은 사람이 적어서 그렇습니다. '추가 정보'를 누른 다음 '실행'을 누르면 됩니다.
+처음 실행할 때 파란색 'Windows의 PC 보호'(SmartScreen) 창이 뜰 수 있습니다. '추가 정보' > '실행'을 누르면 무시됩니다.
 
 **맥** (Apple 실리콘은 `macos-arm64`, 인텔은 `macos-x64`)
 
@@ -232,7 +228,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\register-open-with.ps1
 
 압축을 풀고 `./DeotPDF`를 실행합니다. 한글을 보려면 Noto Sans CJK KR 같은 한글 글꼴이 있어야 합니다(Debian·Ubuntu는 `sudo apt install fonts-noto-cjk`). `./register-open-with.sh`를 실행하면 '다른 프로그램으로 열기'에 덧PDF가 들어갑니다.
 
-아직 설치 프로그램은 없습니다. 맥·리눅스 판에는 .NET 런타임이 들어 있습니다. 설정과 백업은 윈도우 `%LOCALAPPDATA%\PdfNotes`, 맥 `~/Library/Application Support/PdfNotes`, 리눅스 `~/.config/PdfNotes`에 저장됩니다. 받은 파일이 맞는지 확인하고 싶으면 SHA256을 릴리스 페이지에 적힌 값과 비교해 보세요.
+아직 설치 프로그램은 없습니다. 맥·리눅스 판에는 .NET 런타임이 들어 있습니다. 설정과 백업은 윈도우 `%LOCALAPPDATA%\PdfNotes`, 맥 `~/Library/Application Support/PdfNotes`, 리눅스 `~/.config/PdfNotes`에 저장됩니다.
 
 ### 명령줄 도구 `deot`
 
@@ -284,7 +280,7 @@ pwsh tools/package-release.ps1 -Rid win-x64     # linux-x64, osx-arm64, osx-x64�
 ### 아직 안 되는 것
 
 - 맥·리눅스 판은 두 시스템에서 자동 테스트를 통과했지만, 실제 맥이나 리눅스 PC에서는 아직 써 보지 못했습니다. 리눅스의 한글 입력은 입력기 설정에 따라 다를 수 있습니다. 문제가 있으면 알려 주세요.
-- 열 때 암호가 필요한 PDF와 전자서명된 PDF는 열지 않습니다.
+- 암호가 필요한 PDF, 전자서명된 PDF는 열지 않습니다.
 - 인쇄 기능이 없습니다. 필기 합친 PDF로 내보내서 다른 뷰어에서 인쇄해 주세요.
 - 다른 프로그램에서 다시 저장한 PDF는 필기가 보이기는 하지만 덧PDF에서 다시 고치지 못할 수 있습니다.
 
@@ -296,7 +292,7 @@ pwsh tools/package-release.ps1 -Rid win-x64     # linux-x64, osx-arm64, osx-x64�
 
 **맥이나 리눅스에서도 되나요?** 네. 1.2.1부터 지원됩니다.
 
-**AI 에이전트가 PDF에 필기하게 할 수 있나요?** `deot`로 할 수 있습니다. [docs/cli.ko.md](docs/cli.ko.md)를 보세요.
+**에이전트가 PDF에 필기하게 할 수 있나요?** `deot`로 할 수 있습니다. [docs/cli.ko.md](docs/cli.ko.md)를 보세요.
 
 ---
 
