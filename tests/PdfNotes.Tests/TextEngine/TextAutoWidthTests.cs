@@ -125,7 +125,7 @@ public sealed class TextAutoWidthTests
         var tiny = Box(".", Affine.Translation(100, 100), size: 3);
         Assert.Equal(16, TextAutoWidth.NaturalWidth(tiny), 6);
         Assert.Equal(16, TextAutoWidth.Fit(tiny, PageW, PageH).WidthPt, 6);
-        Assert.Equal(8, TextAutoWidth.NaturalWidth(tiny with { Runs = [Run(1, 1.5)], LayoutScale = 0.5 }), 6);
+        Assert.Equal(16, TextAutoWidth.NaturalWidth(tiny with { Runs = [Run(1, 1.5)], LayoutScale = 0.5 }), 6); // the engine floor is not scaled
     }
 
     [Fact]

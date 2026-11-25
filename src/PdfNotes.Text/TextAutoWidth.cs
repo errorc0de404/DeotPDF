@@ -17,7 +17,7 @@ public static class TextAutoWidth
     /// </summary>
     public const double DefaultCapPt = 180;
 
-    // The engine lays a box out at least this wide (SkiaTextEngine.MinimumWidth), at layout scale 1.
+    // The engine lays a box out at least this wide (SkiaTextEngine.MinimumWidth) whatever the layout scale.
     private const double EngineMinimumPt = 16;
 
     // Wide enough that no line wraps when measuring the natural width.
@@ -82,7 +82,7 @@ public static class TextAutoWidth
 
     // Run sizes are stored at the box's layout scale already; the typing default is at scale 1. Never below the engine's
     // minimum box width, so the stored width is the width the engine lays out.
-    private static double MinimumWidth(TextBoxAnnotation box) => Math.Max(EngineMinimumPt * box.LayoutScale,
+    private static double MinimumWidth(TextBoxAnnotation box) => Math.Max(EngineMinimumPt,
         2 * (box.Runs.Length > 0 ? box.Runs[0].SizePt : TextEditing.Default.SizePt * box.LayoutScale) + Padding(box));
 
     /// <summary>
