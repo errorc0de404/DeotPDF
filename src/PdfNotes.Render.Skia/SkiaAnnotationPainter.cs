@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using PdfNotes.Core.Geometry;
 using PdfNotes.Core.Models;
 using PdfNotes.Text;
@@ -18,6 +19,34 @@ namespace PdfNotes.Render.Skia;
 public static class SkiaAnnotationPainter
 {
     private static readonly ConditionalWeakTable<StrokeAnnotation, SKPath> Strokes = new();
+    // The same path by local geometry: a moved or rotated stroke is a new instance with the same point arrays (only its
+    // transform differs), so a drag finds the path made for the original instead of building it again every frame.
+    private static readonly ConditionalWeakTable<object, StrokeShape> Shapes = new();
+
+    private sealed record StrokeShape(StrokeAnnotation Stroke, SKPath Path)
+    {
+        public bool Fits(StrokeAnnotation s) => s.GetType() == Stroke.GetType() && s.WidthPt == Stroke.WidthPt &&
+            Same(s.Points, Stroke.Points) && Same(s.Outline, Stroke.Outline) &&
+            Same((s as InkStroke)?.Pressures ?? default, (Stroke as InkStroke)?.Pressures ?? default);
+
+        private static bool Same<T>(ImmutableArray<T> a, ImmutableArray<T> b) =>
+            ReferenceEquals(ImmutableCollectionsMarshal.AsArray(a), ImmutableCollectionsMarshal.AsArray(b));
+    }
+
+    private static SKPath StrokePath(StrokeAnnotation stroke, Func<StrokeAnnotation, SKPath> build)
+    {
+        if (Strokes.TryGetValue(stroke, out var known)) return known;
+        object? key = stroke.Points.IsDefaultOrEmpty ? ImmutableCollectionsMarshal.AsArray(stroke.Outline) : ImmutableCollectionsMarshal.AsArray(stroke.Points);
+        if (key is not null && Shapes.TryGetValue(key, out var shape) && shape.Fits(stroke))
+        {
+            Strokes.AddOrUpdate(stroke, shape.Path);
+            return shape.Path;
+        }
+        var path = build(stroke);
+        Strokes.AddOrUpdate(stroke, path);
+        if (key is not null) Shapes.AddOrUpdate(key, new(stroke, path));
+        return path;
+    }
     private static readonly ConditionalWeakTable<Resource, SKImage> Images = new();
 
     /// <summary>Paints every annotation of <paramref name="page"/> in stacking order (skipping those <paramref name="skip"/> names).</summary>
@@ -72,7 +101,7 @@ public static class SkiaAnnotationPainter
                 using var pieces = Rings([.. StrokeRegion.PressurePieces(live)], SKPathFillType.Winding); // per frame: not cached
                 canvas.DrawPath(pieces, paint);
             }
-            else canvas.DrawPath(Strokes.GetValue(stroke, BuildFilled), paint);
+            else canvas.DrawPath(StrokePath(stroke, BuildFilled), paint);
         }
         else if (stroke.Points.Length == 1)
         {
@@ -90,7 +119,7 @@ public static class SkiaAnnotationPainter
                 using var line = Polyline(stroke.Points); // per frame: not cached
                 canvas.DrawPath(line, paint);
             }
-            else canvas.DrawPath(Strokes.GetValue(stroke, s => Polyline(s.Points)), paint);
+            else canvas.DrawPath(StrokePath(stroke, s => Polyline(s.Points)), paint);
         }
         canvas.RestoreToCount(saved);
     }

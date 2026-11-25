@@ -73,6 +73,8 @@ public static class AnnotationGeometry
             combined.OffsetX, combined.OffsetY);
         return a switch
         {
+            // A move or a rotation keeps the local geometry: the same arrays, so painters' caches still find it (perf review E1).
+            StrokeAnnotation s when scale == 1 => s with { Transform = rigid },
             StrokeAnnotation s => s with
             {
                 Transform = rigid, Points = s.Points.Select(p => Scaled(p, scale)).ToImmutableArray(), WidthPt = s.WidthPt * scale,

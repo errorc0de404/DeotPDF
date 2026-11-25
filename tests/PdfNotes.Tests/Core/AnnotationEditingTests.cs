@@ -9,6 +9,22 @@ public sealed class AnnotationEditingTests
 {
     private static InkStroke Stroke => new(Guid.NewGuid(), false, Affine.Rigid(.4, 30, 40), [new(10, 20), new(90, 80)], 4, RgbColor.Black, .7);
     [Fact]
+    public void MovingOrRotatingAStrokeKeepsItsLocalGeometry()
+    {
+        // Painters cache a stroke's path by its point arrays: a drag must not rebuild it every frame (perf review E1).
+        var stroke = Stroke with { Pressures = [0.2, 0.8] };
+        var moved = (InkStroke)AnnotationGeometry.Similarity(stroke, default, move: new(12, -3));
+        var turned = (InkStroke)AnnotationGeometry.Similarity(stroke, new(50, 50), angle: .5);
+        foreach (var s in new[] { moved, turned })
+        {
+            Assert.True(s.Points == stroke.Points); // the same array
+            Assert.True(s.Pressures == stroke.Pressures);
+            Assert.Equal(stroke.WidthPt, s.WidthPt);
+        }
+        Assert.Equal(stroke.Transform.Then(Affine.Translation(12, -3)), moved.Transform);
+    }
+
+    [Fact]
     public void SimilarityPreservesWorldGeometryAndBakesWidthExactlyOnce()
     {
         var stroke = Stroke;
