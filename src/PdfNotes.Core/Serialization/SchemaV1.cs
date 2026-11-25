@@ -61,10 +61,12 @@ public static class SchemaV1
     /// <param name="allowOutline">Schema v3 writes area-eraser pieces; v1/v2 cannot represent them and refuse.</param>
     /// <param name="allowShape">Schema v5 writes shapes; older versions cannot represent them and refuse.</param>
     /// <param name="allowV6">Schema v6 writes underline/strikeout markups and sticky notes; older versions refuse them.</param>
-    /// <param name="allowTable">Schema v9 writes tables; older versions refuse them.</param>
-    internal static SerializedDocument Serialize(DocumentModel model, bool allowOutline, bool allowShape = false, bool allowV6 = false, bool allowTable = false)
+    /// <param name="allowV9">Schema v9 writes tables and auto-width text boxes; older versions refuse them.</param>
+    internal static SerializedDocument Serialize(DocumentModel model, bool allowOutline, bool allowShape = false, bool allowV6 = false, bool allowV9 = false)
     {
-        if (!allowTable && model.AllAnnotations.Any(a => a is TableAnnotation)) throw new InvalidDataException("Tables need schema v9.");
+        if (!allowV9 && model.AllAnnotations.Any(a => a is TableAnnotation)) throw new InvalidDataException("Tables need schema v9.");
+        if (!allowV9 && model.AllAnnotations.Any(a => a is TextBoxAnnotation { AutoWidth: true }))
+            throw new InvalidDataException("Auto-width text boxes need schema v9.");
         if (!allowShape && model.AllAnnotations.Any(a => a is ShapeAnnotation)) throw new InvalidDataException("Shapes need schema v5.");
         if (!allowV6 && model.AllAnnotations.Any(a => a is PdfTextMarkup or StickyNote)) throw new InvalidDataException("Text markups and notes need schema v6.");
         if (model.Pages.Any(p => p.Setup.Content is not null) || model.AllAnnotations.OfType<TextBoxAnnotation>().Any(t => t.LayoutScale != 1))
@@ -110,7 +112,7 @@ public static class SchemaV1
         IReadOnlyList<PageFrame>? actualPages = null) => Read(header, envelopes, resourcePayload, actualPages, allowOutline: false);
 
     internal static DocumentReadResult Read(byte[]? header, IReadOnlyList<byte[]> envelopes, Func<Guid, byte[]?> resourcePayload,
-        IReadOnlyList<PageFrame>? actualPages, bool allowOutline, bool allowShape = false, bool allowV6 = false, bool allowTable = false)
+        IReadOnlyList<PageFrame>? actualPages, bool allowOutline, bool allowShape = false, bool allowV6 = false, bool allowV9 = false)
     {
         var warnings = new List<string>();
         var (status, dto, reason) = ReadHeader(header, actualPages);
@@ -140,7 +142,7 @@ public static class SchemaV1
         var results = ImmutableArray.CreateBuilder<AnnotationReadResult>(envelopes.Count);
         foreach (var bytes in envelopes)
         {
-            var result = ReadEnvelope(bytes, dto, expectedPage, resources, restored, discarded, allowOutline, allowShape, allowV6, allowTable);
+            var result = ReadEnvelope(bytes, dto, expectedPage, resources, restored, discarded, allowOutline, allowShape, allowV6, allowV9);
             results.Add(result);
         }
 
@@ -217,7 +219,7 @@ public static class SchemaV1
 
     private static AnnotationReadResult ReadEnvelope(byte[] bytes, DocumentHeaderDto header, Dictionary<Guid, Guid> expectedPage,
         Dictionary<Guid, Resource> resources, Dictionary<Guid, Annotation> restored, HashSet<Guid> discarded, bool allowOutline, bool allowShape, bool allowV6,
-        bool allowTable)
+        bool allowV9)
     {
         AnnotationEnvelopeDto envelope;
         try
@@ -237,7 +239,8 @@ public static class SchemaV1
         if (!allowOutline && envelope.Annotation is StrokeDto { Outline: not null }) return Rejected(id, "Stroke outlines need schema v3.");
         if (!allowShape && envelope.Annotation is ShapeDto) return Rejected(id, "Shapes need schema v5.");
         if (!allowV6 && envelope.Annotation is TextMarkupDto or NoteDto) return Rejected(id, "Text markups and notes need schema v6.");
-        if (!allowTable && envelope.Annotation is TableDto) return Rejected(id, "Tables need schema v9.");
+        if (!allowV9 && envelope.Annotation is TableDto) return Rejected(id, "Tables need schema v9.");
+        if (!allowV9 && envelope.Annotation is TextBoxDto { AutoWidth: true }) return Rejected(id, "Auto-width text boxes need schema v9.");
         Annotation annotation;
         try { annotation = FromDto(envelope.Annotation); }
         catch (Exception e) when (e is FormatException or ArgumentException or InvalidDataException)
@@ -283,7 +286,7 @@ public static class SchemaV1
                 BackgroundColor = t.BoxStyle.BackgroundColor.ToHex(), BackgroundOpacity = t.BoxStyle.BackgroundOpacity,
                 BorderEnabled = t.BoxStyle.BorderEnabled, BorderColor = t.BoxStyle.BorderColor.ToHex(), BorderOpacity = t.BoxStyle.BorderOpacity
             },
-            Highlights = Highlights(t.Highlights)
+            Highlights = Highlights(t.Highlights), AutoWidth = t.AutoWidth
         },
         ImageAnnotation i => new ImageDto
         {
@@ -328,7 +331,7 @@ public static class SchemaV1
             },
             TextBoxDto t => new TextBoxAnnotation(t.Id, t.Locked, transform, t.Text, Runs(t.Runs), t.Alignment, t.WidthPt,
                 new TextBoxStyle(Color(t.BoxStyle.BackgroundColor), t.BoxStyle.BackgroundOpacity, t.BoxStyle.BorderEnabled, Color(t.BoxStyle.BorderColor), t.BoxStyle.BorderOpacity),
-                Highlights(t.Highlights)),
+                Highlights(t.Highlights)) { AutoWidth = t.AutoWidth },
             TableDto t => new TableAnnotation(t.Id, t.Locked, transform, [.. t.ColumnWidths], [.. t.RowHeights],
                 NotNull(t.Cells).Select(c => new TableCell(c.Text, Runs(c.Runs), c.Alignment, Highlights(c.Highlights))).ToImmutableArray(),
                 new TableStyle(Color(t.LineColor), t.LineWidthPt, t.HeaderRow)),

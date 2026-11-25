@@ -12,12 +12,12 @@ public static class SchemaV4
     public const int Version = 4;
     public static SerializedDocument Serialize(DocumentModel model) => Serialize(model, allowShape: false);
 
-    internal static SerializedDocument Serialize(DocumentModel model, bool allowShape, bool allowV6 = false, bool allowTable = false)
+    internal static SerializedDocument Serialize(DocumentModel model, bool allowShape, bool allowV6 = false, bool allowV9 = false)
     {
         if (ModelValidator.ValidateDocument(model) is { } error) throw new InvalidDataException(error);
         var legacy = model with { Pages = model.Pages.Select(p => p with { Setup = p.Setup with { Content = null },
             Annotations = p.Annotations.Select(a => a is TextBoxAnnotation t ? t with { LayoutScale = 1 } : a).ToImmutableList() }).ToImmutableList() };
-        var data = SchemaV3.Serialize(legacy, allowShape, allowV6, allowTable);
+        var data = SchemaV3.Serialize(legacy, allowShape, allowV6, allowV9);
         var header = JsonNode.Parse(data.Header)!.AsObject(); header["schemaVersion"] = Version;
         for (int i = 0; i < model.Pages.Count; i++)
         {
@@ -38,7 +38,7 @@ public static class SchemaV4
         IReadOnlyList<PageFrame>? actualPages = null) => Read(header, envelopes, resources, actualPages, allowShape: false);
 
     internal static DocumentReadResult Read(byte[]? header, IReadOnlyList<byte[]> envelopes, Func<Guid, byte[]?> resources,
-        IReadOnlyList<PageFrame>? actualPages, bool allowShape, bool allowV6 = false, bool allowTable = false)
+        IReadOnlyList<PageFrame>? actualPages, bool allowShape, bool allowV6 = false, bool allowV9 = false)
     {
         if (header is { Length: > SchemaV1.MaxHeaderBytes } || SchemaV2.GetVersion(header) != Version)
             return SchemaV3.Read(header, envelopes, resources, actualPages);
@@ -74,7 +74,7 @@ public static class SchemaV4
                 }
                 n["schemaVersion"] = 3; return Bytes(n);
             }).ToArray();
-            var read = SchemaV3.Read(Bytes(root), migrated, resources, actualPages, allowShape, allowV6, allowTable);
+            var read = SchemaV3.Read(Bytes(root), migrated, resources, actualPages, allowShape, allowV6, allowV9);
             if (read.Model is not { } model) return read;
             model = model with { Pages = model.Pages.Select((p, i) => p with { Setup = p.Setup with { Source = sources[i].Source, Content = sources[i].Content },
                 Annotations = p.Annotations.Select(a => a is TextBoxAnnotation t ? t with { LayoutScale = scales.GetValueOrDefault(t.Id, 1) } : a).ToImmutableList() }).ToImmutableList() };

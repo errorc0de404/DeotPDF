@@ -70,7 +70,7 @@ public static class TableGeometry
         if (boxes?[index] is { } box) return box;
         box = new(CellId(table.Id, row, column), table.Locked, Affine.Translation(layout.ColumnX[column], layout.RowY[row]).Then(table.Transform),
             cell.Text, cell.Text.Length == 0 ? [] : cell.Runs, cell.Alignment, table.ColumnWidths[column], TextBoxStyle.Default,
-            cell.Text.Length == 0 ? [] : cell.Highlights);
+            cell.Text.Length == 0 ? [] : cell.Highlights) { AutoWidth = false }; // a cell is always as wide as its column
         if (boxes is not null) boxes[index] = box;
         return box;
     }
@@ -136,7 +136,7 @@ public static class TableGeometry
     {
         var cell = table.Cell(row, column);
         return new(CellId(table.Id, row, column), false, Affine.Identity, cell.Text, cell.Runs, cell.Alignment, table.ColumnWidths[column],
-            TextBoxStyle.Default, cell.Text.Length == 0 ? [] : cell.Highlights);
+            TextBoxStyle.Default, cell.Text.Length == 0 ? [] : cell.Highlights) { AutoWidth = false };
     }
 
     /// <summary>The table ID mixed with a hash of the cell (never zero), so each cell box has its own fixed ID.</summary>

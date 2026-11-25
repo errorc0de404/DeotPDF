@@ -27,7 +27,7 @@ public static class AnnotationTransfer
         var data = AnnotationClipboard.Capture(model, pageId, ids);
         if (data.Annotations.Length == 0) return null;
         var page = model.GetPage(pageId) with { Annotations = data.Annotations.ToImmutableList() };
-        // Tags stay with the document (a pasted copy is the user's own); pen pressure travels with the strokes (schema v8), tables need v9.
+        // Tags stay with the document (a pasted copy is the user's own); pen pressure travels with the strokes (schema v8), tables and auto-width text boxes need v9.
         var encoded = SchemaV9.Serialize(model with { Pages = [page], Resources = data.Resources.ToImmutableDictionary(r => r.Id), Tags = ImmutableDictionary<Guid, AnnotationTag>.Empty });
         return JsonSerializer.Serialize(new Packet(encoded.Header, encoded.Annotations.Select(a => a.Envelope).ToArray(),
             encoded.Resources.ToDictionary(r => r.Id, r => r.Payload.ToArray())));

@@ -16,11 +16,11 @@ public static class SchemaV7
 {
     public const int Version = 7;
 
-    public static SerializedDocument Serialize(DocumentModel model) => Serialize(model, allowTable: false);
+    public static SerializedDocument Serialize(DocumentModel model) => Serialize(model, allowV9: false);
 
-    internal static SerializedDocument Serialize(DocumentModel model, bool allowTable)
+    internal static SerializedDocument Serialize(DocumentModel model, bool allowV9)
     {
-        var data = SchemaV6.Serialize(model, allowTable);
+        var data = SchemaV6.Serialize(model, allowV9);
         var tags = model.LiveTags.ToArray();
         if (tags.Length == 0) return data;
         var header = JsonNode.Parse(data.Header)!.AsObject();
@@ -37,10 +37,10 @@ public static class SchemaV7
 
     /// <summary>Reads v7, and v1–v6 through their own readers (which see no tags).</summary>
     public static DocumentReadResult Read(byte[]? header, IReadOnlyList<byte[]> envelopes, Func<Guid, byte[]?> resources,
-        IReadOnlyList<PageFrame>? actualPages = null) => Read(header, envelopes, resources, actualPages, allowTable: false);
+        IReadOnlyList<PageFrame>? actualPages = null) => Read(header, envelopes, resources, actualPages, allowV9: false);
 
     internal static DocumentReadResult Read(byte[]? header, IReadOnlyList<byte[]> envelopes, Func<Guid, byte[]?> resources,
-        IReadOnlyList<PageFrame>? actualPages, bool allowTable)
+        IReadOnlyList<PageFrame>? actualPages, bool allowV9)
     {
         if (header is { Length: > SchemaV1.MaxHeaderBytes } || SchemaV2.GetVersion(header) != Version)
             return SchemaV6.Read(header, envelopes, resources, actualPages);
@@ -70,7 +70,7 @@ public static class SchemaV7
         // Envelopes of another version than the header are rejected, as in v2–v6.
         var read = SchemaV6.Read(v6Header,
             envelopes.Select(e => SchemaV2.GetVersion(e) == Version ? SchemaV2.SetVersion(e, SchemaV6.Version) : SchemaV2.SetVersion(e, 0)).ToArray(),
-            resources, actualPages, allowTable);
+            resources, actualPages, allowV9);
         if (read.Model is not { } model) return read;
         // A tag of an annotation that was not restored (rejected or blank) is dropped with it.
         var live = model.AllAnnotations.Select(a => a.Id).ToHashSet();

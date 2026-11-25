@@ -15,9 +15,9 @@ public static class SchemaV3
 
     public static SerializedDocument Serialize(DocumentModel model) => Serialize(model, allowShape: false);
 
-    internal static SerializedDocument Serialize(DocumentModel model, bool allowShape, bool allowV6 = false, bool allowTable = false)
+    internal static SerializedDocument Serialize(DocumentModel model, bool allowShape, bool allowV6 = false, bool allowV9 = false)
     {
-        var data = SchemaV1.Serialize(model, allowOutline: true, allowShape, allowV6, allowTable);
+        var data = SchemaV1.Serialize(model, allowOutline: true, allowShape, allowV6, allowV9);
         return data with
         {
             Header = SchemaV2.SetVersion(data.Header, Version),
@@ -30,13 +30,13 @@ public static class SchemaV3
         IReadOnlyList<PageFrame>? actualPages = null) => Read(header, envelopes, resourcePayload, actualPages, allowShape: false);
 
     internal static DocumentReadResult Read(byte[]? header, IReadOnlyList<byte[]> envelopes, Func<Guid, byte[]?> resourcePayload,
-        IReadOnlyList<PageFrame>? actualPages, bool allowShape, bool allowV6 = false, bool allowTable = false)
+        IReadOnlyList<PageFrame>? actualPages, bool allowShape, bool allowV6 = false, bool allowV9 = false)
     {
         if (header is { Length: > SchemaV1.MaxHeaderBytes } || SchemaV2.GetVersion(header) != Version)
             return SchemaV2.Read(header, envelopes, resourcePayload, actualPages);
         // Envelopes of another version than the header are rejected, as in v2.
         return SchemaV1.Read(SchemaV2.SetVersion(header!, SchemaV1.Version),
             envelopes.Select(e => SchemaV2.GetVersion(e) == Version ? SchemaV2.SetVersion(e, SchemaV1.Version) : SchemaV2.SetVersion(e, 0)).ToArray(),
-            resourcePayload, actualPages, allowOutline: true, allowShape, allowV6, allowTable);
+            resourcePayload, actualPages, allowOutline: true, allowShape, allowV6, allowV9);
     }
 }

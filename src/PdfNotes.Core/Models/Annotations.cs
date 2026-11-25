@@ -140,6 +140,11 @@ public sealed record TextBoxAnnotation(Guid Id, bool Locked, Affine Transform, s
 {
     /// <summary>Scale of fixed padding, border and layout minimums; 1 for legacy/new boxes (schema v4).</summary>
     public double LayoutScale { get; init; } = 1;
+    /// <summary>
+    /// Auto width (1.4): the width follows the longest line up to the page edge; false = fixed width that wraps text (legacy
+    /// boxes). <see cref="TextBoxAnnotation.WidthPt"/> always holds the actual width (schema v9).
+    /// </summary>
+    public bool AutoWidth { get; init; }
     public override AnnotationKind Kind => AnnotationKind.TextBox;
 
     /// <summary>Spec 6.2: empty or whitespace/tab/newline-only text is empty content and must never be saved.</summary>

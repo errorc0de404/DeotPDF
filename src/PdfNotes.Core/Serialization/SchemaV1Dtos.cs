@@ -139,6 +139,9 @@ internal sealed class TextBoxDto : AnnotationDto
     public required double WidthPt { get; init; }
     public required TextBoxStyleDto BoxStyle { get; init; }
     public required TextHighlightDto[] Highlights { get; init; }
+    /// <summary>Schema v9: written only when true; older versions refuse it.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool AutoWidth { get; init; }
 }
 
 internal sealed class TextRunDto
