@@ -244,4 +244,97 @@ public sealed class CliAddTests : IDisposable
         using var document = await OpenDocument.OpenPdfAsync(replaced);
         Assert.Single(document.Session.Current.Resources); // the first picture's resource left with it
     }
+
+    private const string LongText = "베르누이 방정식은 유선을 따라 에너지 보존을 적용한 식이고, 압력과 속도와 높이의 합은 일정하다.";
+
+    [Fact]
+    public async Task AddTextAtMakesAnAutoWidthBox()
+    {
+        // Page 1 is A4 (595.28 pt wide): a long line grows to the page edge from x = 400 and wraps there.
+        var made = Write("add", "text", sample, "-p", "1", "--at", "400,100", "--text", LongText, "--dry-run");
+        var annotation = made["annotation"]!;
+        Assert.True(annotation["autoWidth"]!.GetValue<bool>());
+        Assert.Equal(195.28, annotation["width"]!.GetValue<double>(), 2);
+        Assert.Equal(400, Numbers(made["rect"])[0], 6);
+        Assert.Equal(100, Numbers(made["rect"])[1], 6);
+        Assert.True(made["layout"]!["lineCount"]!.GetValue<int>() > 1);
+
+        // A short line: the natural width, below the cap; saved and listed as auto width.
+        string output = Out("auto.pdf");
+        var shortBox = Write("add", "text", sample, "-p", "1", "--at", "60,500", "--text", "짧은 글", "-o", output);
+        double width = shortBox["annotation"]!["width"]!.GetValue<double>();
+        Assert.True(width < 100, $"width {width}");
+        Assert.Equal(1, shortBox["layout"]!["lineCount"]!.GetValue<int>());
+        var listed = CliRunner.Ok("annot", "list", output)["annotations"]![0]!;
+        Assert.True(listed["autoWidth"]!.GetValue<bool>());
+        Assert.Equal(width, listed["width"]!.GetValue<double>(), 6);
+        using var document = await OpenDocument.OpenPdfAsync(output);
+        Assert.True(Assert.Single(document.Session.Current.Pages[0].Annotations.OfType<TextBoxAnnotation>()).AutoWidth);
+
+        // Right alignment: x,y is the right end of the top edge and the box grows to the left.
+        var right = Write("add", "text", sample, "-p", "1", "--at", "300,100", "--text", "짧은 글", "--style", "{\"alignment\":\"right\"}", "--dry-run");
+        var rect = Numbers(right["rect"]);
+        Assert.Equal(300, rect[0] + rect[2], 6);
+    }
+
+    [Fact]
+    public void AddTextRectStaysFixed()
+    {
+        var made = Write("add", "text", sample, "-p", "1", "--rect", "60,500,180,0", "--text", "짧은 글", "--dry-run");
+        Assert.False(made["annotation"]!["autoWidth"]!.GetValue<bool>());
+        Assert.Equal(180, made["annotation"]!["width"]!.GetValue<double>());
+    }
+
+    [Fact]
+    public void AtAndRectTogetherIsInvalid()
+    {
+        WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, "add", "text", sample, "-p", "1", "--at", "60,500", "--rect", "60,500,180,0", "--text", "글", "--dry-run");
+        WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, "add", "text", sample, "-p", "1", "--text", "글", "--dry-run");
+        WriteFails("INVALID_ARGUMENT", ExitCodes.InvalidInput, "add", "text", sample, "-p", "1", "--at", "60,500", "--text", "글", "--no-auto-height", "--dry-run");
+    }
+
+    [Fact]
+    public void AnnotUpdateWidthFixesTheBox()
+    {
+        string auto = Out("auto.pdf"), output = Out("updated.pdf");
+        Write("add", "text", sample, "-p", "1", "--at", "60,500", "--text", "짧은 글", "--source-key", "k", "-o", auto);
+        var fixedBox = Write("annot", "update", auto, "--source-key", "k", "--width", "120", "--dry-run");
+        Assert.False(fixedBox["annotation"]!["autoWidth"]!.GetValue<bool>());
+        Assert.Equal(120, fixedBox["annotation"]!["width"]!.GetValue<double>());
+        var scaled = Write("annot", "update", auto, "--source-key", "k", "--scale", "2", "--dry-run"); // scaled keeps the scaled width, like the app
+        Assert.False(scaled["annotation"]!["autoWidth"]!.GetValue<bool>());
+
+        // Text and style edits keep an auto width box auto and refit it; a move keeps its width.
+        var longer = Write("annot", "update", auto, "--source-key", "k", "--text", LongText, "-o", output);
+        Assert.True(longer["annotation"]!["autoWidth"]!.GetValue<bool>());
+        Assert.Equal(595.28 - 60, longer["annotation"]!["width"]!.GetValue<double>(), 2);
+        Assert.Equal(60, Numbers(longer["rect"])[0], 6);
+        var small = Write("annot", "update", auto, "--source-key", "k", "--style", "{\"size\":8}", "--dry-run");
+        Assert.True(small["annotation"]!["autoWidth"]!.GetValue<bool>());
+        double before = CliRunner.Ok("annot", "list", auto)["annotations"]![0]!["width"]!.GetValue<double>();
+        Assert.True(small["annotation"]!["width"]!.GetValue<double>() < before);
+        var moved = Write("annot", "update", output, "--source-key", "k", "--at", "300,500", "--overflow", "allow", "--dry-run");
+        Assert.True(moved["annotation"]!["autoWidth"]!.GetValue<bool>());
+        Assert.Equal(595.28 - 60, moved["annotation"]!["width"]!.GetValue<double>(), 2);
+    }
+
+    [Fact]
+    public async Task ApplyAddTextAtInLive()
+    {
+        string plan = """
+            { "ops": [ { "op": "add.text", "page": 1, "at": [400, 100], "text": "베르누이 방정식은 유선을 따라 에너지 보존을 적용한 식이고, 압력과 속도와 높이의 합은 일정하다." } ] }
+            """;
+        var ops = (JsonArray)JsonNode.Parse(plan)!["ops"]!;
+        Assert.Equal(LiveLevel.AiWrite, CliLive.Needs("apply", ["apply", CliLive.Input, "-"], ops));
+        using var document = await OpenDocument.OpenPdfAsync(sample);
+        var run = CliLive.Run(document, "doc", ["apply", CliLive.Input, "-"], plan);
+        Assert.True(run.ExitCode == 0, run.Json);
+        document.Session.Execute(new PdfNotes.Core.Commands.EditCommand(PdfNotes.Core.Commands.Authorship.AiLabel, run.Operations));
+        var box = Assert.Single(document.Session.Current.Pages[0].Annotations.OfType<TextBoxAnnotation>());
+        Assert.True(box.AutoWidth);
+        Assert.Equal(195.28, box.WidthPt, 2);
+        var input = CliRunner.Ok("schema", "add", "text")["schema"]!["input"]!;
+        Assert.NotNull(input["properties"]!["at"]);
+        Assert.DoesNotContain("rect", input["required"]!.AsArray().Select(r => r!.GetValue<string>()));
+    }
 }

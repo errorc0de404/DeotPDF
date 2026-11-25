@@ -140,6 +140,7 @@ public static class AnnotListCommand
             case TextBoxAnnotation t:
                 item["text"] = t.Text;
                 item["width"] = CliJson.Num(t.WidthPt);
+                item["autoWidth"] = t.AutoWidth;
                 item["alignment"] = t.Alignment.ToString().ToLowerInvariant();
                 item["runs"] = CliJson.Array(t.Runs.Select(r => (JsonNode?)new JsonObject
                 {

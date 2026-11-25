@@ -76,7 +76,7 @@ Successful results may carry `warnings`, for example `FONT_FALLBACK` when a font
 | | `page resize --size w,h --mode fit\|clip` | Change the page size. `clip` keeps the content at its size (handy for adding a writing margin) |
 | | `page import --from other.pdf` | Insert pages from another PDF |
 | | `page export --pages 1-3 -o part.pdf` | Write some pages as a separate PDF |
-| Add | `add text` | Text box with formatted text. The height follows the text |
+| Add | `add text` | Text box with formatted text. `--at x,y`: auto width (follows the longest line, wraps at the page edge). `--rect x,y,w,h`: fixed width. The height follows the text |
 | | `add mark` | Highlight, underline or strikeout on PDF text, by `--chars`, `--words`, `--quads` or `--find` |
 | | `add highlight-stroke` | Freehand highlighter stroke, or a filled rectangle (good for scanned pages) |
 | | `add line` | Straight line or Bézier curve, optional arrowheads and dashes |
@@ -85,7 +85,7 @@ Successful results may carry `warnings`, for example `FONT_FALLBACK` when a font
 | | `add image` | PNG, JPEG or BMP |
 | | `add note` | Sticky note |
 | | `add table` | Table, top-left corner at `--x`, `--y`. Size by `--rows`, `--columns` or by `--cells` (`[["Word","Meaning"],["apple","사과"]]`); `--column-widths` (pt, at least 16; default 80), `--header false` (default: first row bold on gray). 1–100 rows and columns. Cells take the default text style (Malgun Gothic 12 pt); rows are 24 pt and grow with their text |
-| Edit | `annot update` | Change text, style, size, position or rotation (a table: position, rotation and scale only) |
+| Edit | `annot update` | Change text, style, size, position or rotation (a table: position, rotation and scale only). `--width` or `--scale` makes a text box fixed width; `--text` and `--style` refit an auto width box |
 | | `annot delete` | By ID, batch, source key or group key |
 | | `annot order` | Bring to front, send to back, ... |
 | | `annot lock` | Lock or unlock |

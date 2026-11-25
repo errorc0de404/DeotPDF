@@ -32,16 +32,36 @@ public static class AddCommand
     /// <summary>What a kind's builder makes: the annotation, an image resource, extra result fields and warnings.</summary>
     private sealed record Built(Annotation Annotation, Resource? Resource = null, JsonObject? Fields = null, JsonArray? Warnings = null);
 
-    public static readonly CliOp Text = Op("add text", "Text box with formatted text, sized by the app's text engine", ["--rect", "--text", "--style", "--overflow"], ["--no-auto-height"], (args, doc, page) =>
+    public static readonly CliOp Text = Op("add text", "Text box with formatted text, sized by the app's text engine", ["--at", "--rect", "--text", "--style", "--overflow"], ["--no-auto-height"], (args, doc, page) =>
         {
-            var rect = Box(args.Required("--rect"), "--rect");
-            if (rect.Width < 16) throw CliException.Invalid("--rect width must be at least 16 pt (the app's narrowest text box).");
+            if (args.Has("--at") && args.Has("--rect")) throw CliException.Invalid("Give --at (auto width) or --rect (fixed width), not both.");
+            bool autoWidth = args.Has("--at");
+            Rect2 rect;
+            if (autoWidth)
+            {
+                var at = CliArgs.ParseNumbers(args.Required("--at"), 2, "--at");
+                rect = new(at[0], at[1], InputLimits.DefaultTextBoxWidthPt, 0);
+            }
+            else
+            {
+                rect = Box(args.Value("--rect") ?? throw CliException.Invalid("Give --at x,y (auto width) or --rect x,y,w,h (fixed width)."), "--rect");
+                if (rect.Width < 16) throw CliException.Invalid("--rect width must be at least 16 pt (the app's narrowest text box).");
+            }
             bool allow = Overflow(args);
             bool auto = !args.Flag("--no-auto-height");
             if (!auto && rect.Height <= 0) throw CliException.Invalid("--no-auto-height needs a --rect height.");
             var spans = RichText.ParseText(args.Required("--text"));
             var style = RichText.ParseStyle(args.Value("--style"), RichText.BoxStyle.Default);
-            var box = RichText.Build(spans, style, rect.Width, Affine.Translation(rect.X, rect.Y));
+            TextBoxAnnotation box;
+            if (autoWidth)
+            {
+                // x,y is the anchor that stays put (1.4 plan 1.1): the left end, center or right end of the top edge by alignment.
+                double anchor = style.Alignment switch { TextAlignment.Center => rect.Width / 2, TextAlignment.Right => rect.Width, _ => 0 };
+                box = RichText.Build(spans, style, rect.Width, Affine.Translation(rect.X - anchor, rect.Y)) with { AutoWidth = true };
+                box = TextAutoWidth.Fit(box, page.Setup.WidthPt, page.Setup.HeightPt);
+                rect = new(box.Transform.Transform(new(0, 0)).X, rect.Y, box.WidthPt, 0);
+            }
+            else box = RichText.Build(spans, style, rect.Width, Affine.Translation(rect.X, rect.Y));
             var report = MeasureCommand.Report(box, auto ? null : rect.Height, style);
             var warnings = (JsonArray)report["warnings"]!.DeepClone();
             report.Remove("warnings");

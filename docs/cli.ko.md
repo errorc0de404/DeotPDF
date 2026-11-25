@@ -76,7 +76,7 @@ dotnet run --project src/PdfNotes.Cli -c Release -- schema
 | | `page resize --size w,h --mode fit\|clip` | 페이지 크기 변경. `clip`은 내용 크기를 그대로 둡니다(필기할 여백 만들 때 좋습니다) |
 | | `page import --from 다른.pdf` | 다른 PDF의 페이지 넣기 |
 | | `page export --pages 1-3 -o 일부.pdf` | 일부 페이지만 따로 PDF로 |
-| 만들기 | `add text` | 서식 있는 텍스트 상자. 높이는 글에 맞춰집니다 |
+| 만들기 | `add text` | 서식 있는 텍스트 상자. `--at x,y`: 자동 너비(가장 긴 줄에 맞추고 페이지 끝에서 줄바꿈). `--rect x,y,w,h`: 고정 너비. 높이는 글에 맞춰집니다 |
 | | `add mark` | PDF 글자에 형광·밑줄·취소선. `--chars`, `--words`, `--quads`, `--find` 중 하나로 위치를 줍니다 |
 | | `add highlight-stroke` | 자유 형광 획, 또는 꽉 찬 형광 사각형(스캔 페이지에 유용) |
 | | `add line` | 직선이나 베지어 곡선. 화살표, 점선 가능 |
@@ -85,7 +85,7 @@ dotnet run --project src/PdfNotes.Cli -c Release -- schema
 | | `add image` | PNG, JPEG, BMP |
 | | `add note` | 스티키 메모 |
 | | `add table` | 표. 왼쪽 위 모서리 `--x`, `--y`. 크기는 `--rows`, `--columns` 또는 `--cells`(`[["단어","뜻"],["apple","사과"]]`). `--column-widths`(pt, 16 이상, 기본 80), `--header false`(기본은 첫 행 굵게·회색 바탕). 행·열 1~100. 칸은 기본 글자 서식(Malgun Gothic 12pt), 행 높이 24pt이고 글자에 맞춰 커집니다 |
-| 고치기 | `annot update` | 글, 스타일, 크기, 위치, 회전 바꾸기(표는 위치·회전·배율만) |
+| 고치기 | `annot update` | 글, 스타일, 크기, 위치, 회전 바꾸기(표는 위치·회전·배율만). 텍스트 상자에 `--width`·`--scale`을 주면 고정 너비, 자동 너비 상자는 `--text`·`--style`로 너비를 다시 맞춤 |
 | | `annot delete` | ID, 배치, sourceKey, groupKey로 지우기 |
 | | `annot order` | 맨 앞으로, 맨 뒤로 등 |
 | | `annot lock` | 잠금, 잠금 해제 |

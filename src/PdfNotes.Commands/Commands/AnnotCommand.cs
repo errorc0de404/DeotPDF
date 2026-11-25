@@ -74,7 +74,7 @@ public static class AnnotCommand
         if (args.Has("--move") && args.Has("--at")) throw CliException.Invalid("Give --move or --at, not both.");
 
         var warnings = new JsonArray();
-        var updated = Content(args, old, warnings, result);
+        var updated = Content(args, page, old, warnings, result);
         updated = Transformed(args, updated);
         if (updated is TextBoxAnnotation box)
         {
@@ -99,26 +99,30 @@ public static class AnnotCommand
         return changed ? [page.Id] : [];
     }
 
-    /// <summary>The kind's own fields changed by the options given (text, style, colors, widths, arrows, dash).</summary>
-    private static Annotation Content(CliArgs args, Annotation a, JsonArray warnings, JsonObject result)
+    /// <summary>
+    /// The kind's own fields changed by the options given (text, style, colors, widths, arrows, dash). A text box given
+    /// <c>--width</c> becomes fixed width; an auto width box given <c>--text</c> or <c>--style</c> is fit again on <paramref name="page"/> (1.4 plan 1.1).
+    /// </summary>
+    private static Annotation Content(CliArgs args, Page page, Annotation a, JsonArray warnings, JsonObject result)
     {
         switch (a)
         {
             case TextBoxAnnotation t:
             {
                 double width = args.Number("--width", t.WidthPt, 16, ModelLimits.MaxLengthPt);
-                var box = t with { WidthPt = width };
+                var box = t with { WidthPt = width, AutoWidth = t.AutoWidth && !args.Has("--width") };
                 RichText.BoxStyle style;
                 if (args.Value("--text") is { } text)
                 {
                     style = RichText.ParseStyle(args.Value("--style"), RichText.StyleOf(t));
-                    box = RichText.Build(RichText.ParseText(text), style, width, t.Transform, t.Id) with { LayoutScale = t.LayoutScale };
+                    box = RichText.Build(RichText.ParseText(text), style, width, t.Transform, t.Id) with { LayoutScale = t.LayoutScale, AutoWidth = box.AutoWidth };
                 }
                 else
                 {
                     if (args.Value("--style") is { } s) box = RichText.Restyle(box, RichText.StyleObject(s));
                     style = RichText.StyleOf(box);
                 }
+                if (box.AutoWidth && (args.Has("--text") || args.Has("--style"))) box = TextAutoWidth.Fit(box, page.Setup.WidthPt, page.Setup.HeightPt);
                 if (args.Has("--text") || args.Has("--style") || args.Has("--width"))
                 {
                     var report = MeasureCommand.Report(box, null, style);
@@ -198,13 +202,14 @@ public static class AnnotCommand
         }
     }
 
-    /// <summary><c>--scale</c> from the bounds' top-left, <c>--rotate</c> about their center, then <c>--move</c> or <c>--at</c> (the bounds' new top-left).</summary>
+    /// <summary><c>--scale</c> from the bounds' top-left (a text box becomes fixed width), <c>--rotate</c> about their center, then <c>--move</c> or <c>--at</c> (the bounds' new top-left).</summary>
     private static Annotation Transformed(CliArgs args, Annotation a)
     {
         if (args.Has("--scale"))
         {
             var b = AnnotListCommand.Bounds(a);
             a = AnnotationGeometry.Similarity(a, new(b.X, b.Y), args.Number("--scale", 1, 0.01, 100));
+            if (a is TextBoxAnnotation t) a = t with { AutoWidth = false }; // keeps the scaled width, like the app (1.4 plan 1.1)
         }
         if (args.Has("--rotate"))
         {

@@ -1,11 +1,10 @@
 {
   "input": {
     "type": "object",
-    "description": "deot add text <pdf> -p <page> --rect x,y,w,h --text <formatted text> [--style json|file] [--no-auto-height] [--overflow error|allow (error)]. The height follows the text (h may be 0); --no-auto-height keeps h as a limit (TEXT_OVERFLOW). A final rect past the page is PAGE_OVERFLOW (exit 2) unless --overflow allow (then a warning). Nothing is shrunk or rewrapped. Warnings also: FONT_NOT_INSTALLED, FONT_FALLBACK, MISSING_GLYPH. Common: -p <page> (number or page ID), [--source-key k] [--group-key k] [--lock], -o <pdf> [--overwrite] | --dry-run, [--preview png|folder] [--expect-hash h] [--batch-id id] [--flatten]. The annotation is tagged author \"ai\" with the batch id; a source key an AI annotation already has replaces it (same ID and stacking position; another page moves it there on top). Errors: SOURCE_KEY_KIND_MISMATCH (2), DUPLICATE_SOURCE_KEY (2), PAGE_NOT_FOUND, SAME_AS_INPUT, OUTPUT_EXISTS, HASH_MISMATCH (3), FILE_OPEN_IN_APP (3).",
+    "description": "deot add text <pdf> -p <page> (--at x,y | --rect x,y,w,h) --text <formatted text> [--style json|file] [--no-auto-height] [--overflow error|allow (error)]. --at: auto width box, as a click in the app; x,y is the left end, center or right end of the top edge by alignment and stays put; the width follows the longest line up to the page edge, where lines wrap. --rect: fixed width box. Give one of them (both: INVALID_ARGUMENT). The height follows the text (h may be 0); --no-auto-height keeps h as a limit (TEXT_OVERFLOW, --rect only). A final rect past the page is PAGE_OVERFLOW (exit 2) unless --overflow allow (then a warning). Nothing is shrunk or rewrapped. Warnings also: FONT_NOT_INSTALLED, FONT_FALLBACK, MISSING_GLYPH. Common: -p <page> (number or page ID), [--source-key k] [--group-key k] [--lock], -o <pdf> [--overwrite] | --dry-run, [--preview png|folder] [--expect-hash h] [--batch-id id] [--flatten]. The annotation is tagged author \"ai\" with the batch id; a source key an AI annotation already has replaces it (same ID and stacking position; another page moves it there on top). Errors: SOURCE_KEY_KIND_MISMATCH (2), DUPLICATE_SOURCE_KEY (2), PAGE_NOT_FOUND, SAME_AS_INPUT, OUTPUT_EXISTS, HASH_MISMATCH (3), FILE_OPEN_IN_APP (3).",
     "required": [
       "pdf",
       "page",
-      "rect",
       "text"
     ],
     "properties": {
@@ -24,9 +23,13 @@
       "lock": {
         "type": "boolean"
       },
+      "at": {
+        "type": "string",
+        "description": "x,y: auto width box anchored at this point of its top edge (left end, center or right end by alignment)"
+      },
       "rect": {
         "type": "string",
-        "description": "x,y,w,h; w at least 16"
+        "description": "x,y,w,h: fixed width box; w at least 16"
       },
       "text": {
         "type": "string",
