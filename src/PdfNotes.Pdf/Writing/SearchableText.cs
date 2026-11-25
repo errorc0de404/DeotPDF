@@ -132,20 +132,27 @@ internal static class SearchableText
         page.Resources.Elements.GetDictionary("/XObject")?.Elements.Remove(layer.Elements.GetString("/PdfNotesTextName"));
     }
 
+    /// <summary>An empty stream hash table for <see cref="Hash"/> (by object identity).</summary>
+    internal static Dictionary<PdfDictionary, string> NewStreamHashes() => new(ReferenceEqualityComparer.Instance);
+
     private static PdfDictionary? Resolve(PdfItem item) => item is PdfReference r ? r.Value as PdfDictionary : item as PdfDictionary;
     /// <param name="pageReferences">
     /// Background hash only (D13h fix): a page reached through a reference (a link's /Dest) counts as "a page" instead of
     /// its content. Hashing the target page made the hash depend on other pages' order and keys, so moving or deleting
     /// pages of a PDF with links failed save verification. False reproduces the hash of files saved before.
     /// </param>
-    internal static string Hash(PdfDictionary layer, bool background = false, bool pageReferences = false)
+    /// <param name="streams">
+    /// Background hash only: stream hashes already computed for this document's objects, shared by the pages of one save
+    /// or check so a font or image every page uses is decoded and hashed once (the hash value does not change).
+    /// </param>
+    internal static string Hash(PdfDictionary layer, bool background = false, bool pageReferences = false, Dictionary<PdfDictionary, string>? streams = null)
     {
         var code = new StringBuilder(); int objects = 0;
         var active = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
         // A page background nests deeper than a text layer (forms in forms, soft masks, fonts under them): at 20 saving
         // such a PDF failed every time. The object count still bounds the walk.
         int maxDepth = background ? 256 : 20;
-        var streams = background ? new Dictionary<PdfDictionary, string>(ReferenceEqualityComparer.Instance) : null;
+        streams = background ? streams ?? NewStreamHashes() : null;
         void Write(PdfItem item, int depth)
         {
             if (++objects > 1_000_000 || depth > maxDepth) throw new InvalidDataException("Text layer resource graph exceeds limits.");

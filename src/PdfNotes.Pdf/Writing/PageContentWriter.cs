@@ -38,19 +38,20 @@ internal static class PageContentWriter
     internal const string OriginalHashKey = "/PdfNotesOriginalHash";
     internal const string BackgroundHashKey = "/PdfNotesBackgroundHash";
     /// <summary>Fingerprint of a page's visible background; <paramref name="legacy"/> is the form of files saved before D13h.</summary>
-    internal static string BackgroundHash(PdfPage page, bool legacy = false)
+    internal static string BackgroundHash(PdfPage page, bool legacy = false, Dictionary<PdfDictionary, string>? streams = null)
     {
         var selected = new PdfDictionary(page.Owner);
         foreach (var key in new[] { "/Contents", "/Resources", "/Annots", "/MediaBox", "/CropBox", "/Rotate", "/UserUnit" })
             if (page.Elements[key] is { } value && !(value is PdfArray { Elements.Count: 0 })) selected.Elements[key] = value;
-        return SearchableText.Hash(selected, background: true, pageReferences: !legacy);
+        return SearchableText.Hash(selected, background: true, pageReferences: !legacy, streams);
     }
     internal static bool BackgroundVerified(PdfDocument document)
     {
         try
         {
+            var streams = SearchableText.NewStreamHashes(); // fonts and images the pages share: hashed once
             return document.Pages.Cast<PdfPage>().All(p => p.Elements.GetString(BackgroundHashKey) is { } stored &&
-                (stored == BackgroundHash(p) || stored == BackgroundHash(p, legacy: true)));
+                (stored == BackgroundHash(p, streams: streams) || stored == BackgroundHash(p, legacy: true, streams)));
         }
         catch (Exception e) when (e is InvalidDataException or InvalidOperationException or ArgumentException or NotSupportedException or NotImplementedException) { return false; }
     }
@@ -67,10 +68,32 @@ internal static class PageContentWriter
     }
     internal static void StoreOriginal(PdfDocument document, byte[] bytes)
     {
-        var stream = new PdfDictionary(document); stream.CreateStream(bytes); stream.Stream.Zip(); document.Internals.AddObject(stream);
+        var stream = new PdfDictionary(document);
+        string hash;
+        if (StoredOriginals.TryGetValue(bytes, out var stored))
+        {
+            // The same source array as an earlier save: its compressed bytes and hash do not change (whole-file deflate and
+            // SHA-256 on every save otherwise).
+            stream.CreateStream(stored.Zipped);
+            stream.Elements["/Filter"] = new PdfName(stored.Filter);
+            hash = stored.Hash;
+        }
+        else
+        {
+            stream.CreateStream(bytes); stream.Stream.Zip();
+            hash = Convert.ToHexString(SHA256.HashData(bytes));
+            if (stream.Elements.GetName("/Filter") is { Length: > 0 } filter && stream.Elements["/DecodeParms"] is null)
+                StoredOriginals.AddOrUpdate(bytes, new(stream.Stream.Value, filter, hash));
+        }
+        document.Internals.AddObject(stream);
         document.Internals.Catalog.Elements[OriginalKey] = stream.Reference!;
-        document.Internals.Catalog.Elements.SetString(OriginalHashKey, Convert.ToHexString(SHA256.HashData(bytes)));
+        document.Internals.Catalog.Elements.SetString(OriginalHashKey, hash);
     }
+
+    private sealed record StoredOriginal(byte[] Zipped, string Filter, string Hash);
+
+    // Keyed by the source array, which a document keeps unchanged for its session (OpenDocument.Sources).
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<byte[], StoredOriginal> StoredOriginals = new();
     /// <summary>
     /// The stored original followed by imported pages (spec 11.9). <paramref name="original"/> is the stripped source
     /// without app metadata, or null for a new note; imported PDFs are already stripped.

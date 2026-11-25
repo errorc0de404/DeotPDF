@@ -237,7 +237,10 @@ public static class EditablePdfWriter
             // representation with our appearances removed, then attach the fingerprints without changing content.
             string[] hashes;
             using (var background = EditablePdfReader.OpenStripped(bytes, PdfPageGeometryReader.Read(bytes), out _, saveBackground: false))
-                hashes = background.Document.Pages.Cast<PdfPage>().Select(p => PageContentWriter.BackgroundHash(p)).ToArray();
+            {
+                var streams = SearchableText.NewStreamHashes(); // fonts and images the pages share: hashed once
+                hashes = background.Document.Pages.Cast<PdfPage>().Select(p => PageContentWriter.BackgroundHash(p, streams: streams)).ToArray();
+            }
             Backgrounds.AddOrUpdate(backgroundKey, new(setups, textLayers, hashes));
             // Built again with the fingerprints now known: the same bytes every later save of these pages writes (a document
             // is saved only once, so this one cannot just take them).
