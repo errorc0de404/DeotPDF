@@ -30,7 +30,11 @@ public static class Lasso
         var selected = new List<Guid>();
         foreach (var annotation in page.Annotations)
         {
-            if (annotation.Locked || skip?.Invoke(annotation) == true || PaintedRegion(annotation, textBounds) is not { } region) continue;
+            if (annotation.Locked || skip?.Invoke(annotation) == true) continue;
+            // A stroke's region is polygon arithmetic: skip strokes whose bounds (with a margin) miss the lasso first (perf review E3).
+            if (annotation is StrokeAnnotation && AnnotationGeometry.Bounds([annotation]) is var b &&
+                (b.X - 1 > maxX || b.X + b.Width + 1 < minX || b.Y - 1 > maxY || b.Y + b.Height + 1 < minY)) continue;
+            if (PaintedRegion(annotation, textBounds) is not { } region) continue;
             var points = region.SelectMany(r => r).ToArray();
             if (points.Length == 0 || points.Max(p => p.x) < minX || points.Min(p => p.x) > maxX ||
                 points.Max(p => p.y) < minY || points.Min(p => p.y) > maxY) continue; // cannot overlap
