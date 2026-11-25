@@ -83,10 +83,26 @@ public sealed class DocumentSession
             if (command.CoalesceKey is not null && top is not null && top.Key == command.CoalesceKey &&
                 top.After == revision && savedRevision != revision)
             {
-                top.Operations.AddRange(command.Operations);
+                long before = top.Bytes;
+                foreach (var operation in command.Operations)
+                {
+                    // Typing replaces one box per keystroke: keep its first and latest state, not every one between (perf
+                    // review E2). Undoing the entry gives the same document either way.
+                    if (operation is ReplaceAnnotationOperation incoming && top.Operations.Count > 0 &&
+                        top.Operations[^1] is ReplaceAnnotationOperation last && last.PageId == incoming.PageId && ReferenceEquals(last.After, incoming.Before))
+                    {
+                        var merged = new ReplaceAnnotationOperation(last.PageId, last.Before, incoming.After);
+                        top.Operations[^1] = merged;
+                        top.Bytes += merged.EstimatedBytes - last.EstimatedBytes;
+                    }
+                    else
+                    {
+                        top.Operations.Add(operation);
+                        top.Bytes += operation.EstimatedBytes;
+                    }
+                }
                 top.After = after;
-                top.Bytes += command.EstimatedBytes;
-                historyBytes += command.EstimatedBytes;
+                historyBytes += top.Bytes - before;
             }
             else
             {

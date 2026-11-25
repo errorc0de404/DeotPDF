@@ -190,6 +190,29 @@ public class DocumentSessionTests
     }
 
     [Fact]
+    public void CoalescedReplacementsOfOneAnnotationKeepOnlyItsFirstAndLatestState()
+    {
+        // Typing replaces the box once per keystroke (perf review E2): the entry holds one replacement, not one per key.
+        var (session, page) = NewSession();
+        var ink = TestModels.Ink();
+        session.Execute(DocumentEdits.AddAnnotation(session.Current, page, ink));
+        var first = session.Current.FindAnnotation(ink.Id)!.Annotation;
+        for (int i = 3; i <= 50; i++)
+        {
+            var current = (InkStroke)session.Current.FindAnnotation(ink.Id)!.Annotation;
+            session.Execute(DocumentEdits.UpdateAnnotations(session.Current, [current with { WidthPt = i }], "굵기", coalesceKey: "width"));
+        }
+        var last = session.Current.FindAnnotation(ink.Id)!.Annotation;
+        var replace = Assert.IsType<ReplaceAnnotationOperation>(Assert.Single(session.UndoOperations));
+        Assert.Same(first, replace.Before);
+        Assert.Same(last, replace.After);
+        Assert.True(session.Undo());
+        Assert.Same(first, session.Current.FindAnnotation(ink.Id)!.Annotation);
+        Assert.True(session.Redo());
+        Assert.Same(last, session.Current.FindAnnotation(ink.Id)!.Annotation);
+    }
+
+    [Fact]
     public void CoalescedEditsFormOneUndoUnitUntilSealedOrSaved()
     {
         var (session, page) = NewSession();
