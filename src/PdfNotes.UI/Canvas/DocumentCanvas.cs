@@ -602,7 +602,8 @@ public sealed partial class DocumentCanvas : Panel, IDocumentViewport
             tiles.RemoveAll(t => t.Key.PixelsPerPoint != key.PixelsPerPoint || !t.Key.Setup.Equals(key.Setup) || t.Key.Region == key.Region);
             tiles.Add((key, image));
         }
-        Redraw();
+        // A page planned ahead but not on screen: kept for when it scrolls in (a scroll redraws), no frame now (perf review R2).
+        if (layout.VisiblePages(new(offset.X, offset.Y, viewportWidth, viewportHeight)).Any(i => ReferenceEquals(pages[i], page))) Redraw();
     }
 
     private static double Distance(RenderKey key, RenderKey wanted) => Math.Abs(Math.Log(key.PixelsPerPoint / wanted.PixelsPerPoint));
