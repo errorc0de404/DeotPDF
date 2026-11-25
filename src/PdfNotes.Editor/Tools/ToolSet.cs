@@ -29,7 +29,7 @@ public sealed record ToolSources(
 
 /// <summary>What the text and note tools hand back to the window (it owns the text editor and the note cards).</summary>
 public sealed record ToolActions(
-    Action<int, Point2, double> NewText,
+    Action<int, Point2, double?> NewText,
     Func<CanvasPointer, bool> SelectText,
     Action<int, Point2> NewNote,
     Func<CanvasPointer, bool> SelectNote);

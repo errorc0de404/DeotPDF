@@ -493,7 +493,8 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
                 var localPoint = box.Transform.Invert().Transform(b);
                 bool left = corner == 0;
                 double width = Math.Clamp(left ? box.WidthPt - localPoint.X : localPoint.X, 16, 100000);
-                preview = [box with { WidthPt = width, Transform = left ? Affine.Translation(box.WidthPt - width, 0).Then(box.Transform) : box.Transform }];
+                // The dragged width fixes the box (1.4 plan 1.1).
+                preview = [box with { WidthPt = width, AutoWidth = false, Transform = left ? Affine.Translation(box.WidthPt - width, 0).Then(box.Transform) : box.Transform }];
                 view.RefreshLive(); return;
             }
             var corners = AnnotationGeometry.Corners(bounds, Affine.Identity);
@@ -512,7 +513,9 @@ public sealed class SelectTool(ICanvasView view, Func<DocumentSession?> session,
                 var initial = new Point2(startLocal.X - anchor.X, startLocal.Y - anchor.Y);
                 double scale = Math.Clamp(((local.X - anchor.X) * initial.X + (local.Y - anchor.Y) * initial.Y) /
                     Math.Max(initial.X * initial.X + initial.Y * initial.Y, 1e-6), .01, 100);
-                preview = originals.Select(x => AnnotationGeometry.Similarity(x, frame.Transform(anchor), scale)).ToArray();
+                // A scaled text box keeps the scaled width (1.4 plan 1.1).
+                preview = originals.Select(x => AnnotationGeometry.Similarity(x, frame.Transform(anchor), scale))
+                    .Select(x => x is TextBoxAnnotation t ? t with { AutoWidth = false } : x).ToArray();
             }
         }
         if (preview.Any(x => ModelValidator.ValidateAnnotation(x, session()!.Current.Resources.ContainsKey) is not null)) preview = [];

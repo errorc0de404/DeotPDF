@@ -29,7 +29,9 @@ public enum AnnotationCommand
     /// <summary>내 필기로: the AI writing among the targets becomes the user's own (MCP_LIVE_PLAN 5).</summary>
     Adopt,
     /// <summary>A table's rows and columns at the cell the menu was opened on (1.4 plan 1.3 구조 편집).</summary>
-    TableRowAbove, TableRowBelow, TableColumnLeft, TableColumnRight, TableDeleteRow, TableDeleteColumn
+    TableRowAbove, TableRowBelow, TableColumnLeft, TableColumnRight, TableDeleteRow, TableDeleteColumn,
+    /// <summary>자동 너비 (1.4 plan 1.1): a check entry for one text box; on fits it to its text, off keeps the width it has.</summary>
+    AutoWidth
 }
 
 /// <param name="SeparatorBefore">A line goes above this entry.</param>
@@ -245,6 +247,8 @@ public sealed class SelectionViewModel(MainViewModel owner, IEditorDialogs dialo
             Guid[] targets = annotation.Locked ? [id] : [.. Tool.SelectedIds];
             bool unlocked = !annotation.Locked;
             if (annotation is TextBoxAnnotation) entries.Add(new(AnnotationCommand.SavedStyles, texts.Get("text.savedStyles"), unlocked));
+            if (annotation is TextBoxAnnotation box && targets.Length == 1)
+                entries.Add(new(AnnotationCommand.AutoWidth, texts.Get("textBox.autoWidth"), unlocked, Checked: box.AutoWidth));
             var cell = annotation is TableAnnotation { Locked: false } table && pagePoint is { } point ? CellNear(table, point) : null;
             if (cell is { } at)
             {
@@ -297,11 +301,26 @@ public sealed class SelectionViewModel(MainViewModel owner, IEditorDialogs dialo
             case AnnotationCommand.ToFront: ChangeOrder(menu.PageId, menu.Targets, ZOrderChange.ToFront); return true;
             case AnnotationCommand.ToBack: ChangeOrder(menu.PageId, menu.Targets, ZOrderChange.ToBack); return true;
             case AnnotationCommand.Adopt: Adopt(menu.Targets); return true;
+            case AnnotationCommand.AutoWidth: SetAutoWidth(menu.Targets, !entry.Checked); return true;
             case AnnotationCommand.Tool when entry.Tool is { } tool: owner.ToolBar.SetTool(tool); return true;
             case AnnotationCommand.TableRowAbove or AnnotationCommand.TableRowBelow or AnnotationCommand.TableColumnLeft or AnnotationCommand.TableColumnRight
                 or AnnotationCommand.TableDeleteRow or AnnotationCommand.TableDeleteColumn: EditTable(menu, entry.Command); return true;
             default: return false;
         }
+    }
+
+    /// <summary>
+    /// 자동 너비 on (fit to the text at once) or off (fixed at the width it has) for one unlocked text box: one Undo unit
+    /// (1.4 plan 1.1).
+    /// </summary>
+    public void SetAutoWidth(IReadOnlyCollection<Guid> targets, bool on)
+    {
+        if (Document is not { } doc || targets.Count != 1 ||
+            doc.Session.Current.FindAnnotation(targets.First())?.Annotation is not TextBoxAnnotation { Locked: false } box || box.AutoWidth == on) return;
+        var after = on ? TextStyleViewModel.FitOnPage(doc.Session.Current, box with { AutoWidth = true }) : box with { AutoWidth = false };
+        doc.Session.SealCoalescing();
+        doc.Session.Execute(DocumentEdits.UpdateAnnotations(doc.Session.Current, [after], "undo.autoWidth"));
+        doc.Session.SealCoalescing();
     }
 
     /// <summary>The cell under a page point of a table; on the outer frame, the nearest cell.</summary>

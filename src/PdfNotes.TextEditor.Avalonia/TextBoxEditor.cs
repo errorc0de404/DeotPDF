@@ -74,8 +74,9 @@ public sealed class TextBoxEditor : Control
 
     public event EventHandler<bool>? TabPressed;
 
-    /// <summary>A model that lays out with the Skia engine (the same layouts this control draws).</summary>
-    public static TextEditorModel Edit(TextBoxAnnotation box, TextRun? typingStyle = null) => new(box, typingStyle, SkiaMeasure.Layout);
+    /// <summary>A model that lays out with the Skia engine (the same layouts this control draws); <paramref name="fit"/> as the model's (auto width, 1.4).</summary>
+    public static TextEditorModel Edit(TextBoxAnnotation box, TextRun? typingStyle = null, Func<TextBoxAnnotation, TextBoxAnnotation>? fit = null) =>
+        new(box, typingStyle, SkiaMeasure.Layout, fit);
 
     private void OnModelChanged(object? sender, EventArgs e) => Refresh(measure: e is TextEditedEventArgs);
 
@@ -100,8 +101,9 @@ public sealed class TextBoxEditor : Control
 
     private SkiaTextLayout? Shown => model is null ? null : SkiaMeasure.Layout(model.DisplayBox);
 
+    // The shown box: an auto width box is wider while the IME composes in it.
     protected override Size MeasureOverride(Size availableSize) =>
-        model is null || Shown is not { } layout ? default : new(model.Box.WidthPt * Zoom, layout.Height * Zoom);
+        model is null || Shown is not { } layout ? default : new(model.DisplayBox.WidthPt * Zoom, layout.Height * Zoom);
 
     public override void Render(DrawingContext context)
     {

@@ -248,7 +248,7 @@ public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialo
         Document?.Session.SealCoalescing();
         if (Editing) editor!.Format(change);
         else if (Document is { } doc && SelectedBoxes is { Length: > 0 } boxes)
-            doc.Session.Execute(DocumentEdits.UpdateAnnotations(doc.Session.Current, boxes.Select(b => TextEditing.Format(b, 0, b.Text.Length, change)), "undo.textFormat"));
+            doc.Session.Execute(DocumentEdits.UpdateAnnotations(doc.Session.Current, boxes.Select(b => FitOnPage(doc.Session.Current, TextEditing.Format(b, 0, b.Text.Length, change))), "undo.textFormat"));
         Document?.Session.SealCoalescing();
         Show();
     }
@@ -259,10 +259,19 @@ public sealed partial class TextStyleViewModel(MainViewModel owner, IEditorDialo
         editor?.CompleteInput();
         Document?.Session.SealCoalescing();
         if (Editing) editor!.Change(change);
-        else if (Document is { } doc) doc.Session.Execute(DocumentEdits.UpdateAnnotations(doc.Session.Current, SelectedBoxes.Select(change), "undo.textBoxStyle"));
+        else if (Document is { } doc)
+            doc.Session.Execute(DocumentEdits.UpdateAnnotations(doc.Session.Current, SelectedBoxes.Select(b => change(b) is var after && after.Alignment != b.Alignment
+                ? FitOnPage(doc.Session.Current, after) : after), "undo.textBoxStyle")); // a new alignment fits an auto width box again (plan 1.1)
         Document?.Session.SealCoalescing();
         Show();
     }
+
+    /// <summary>
+    /// An auto width box fit to its text up to the edge of its page (1.4 plan 1.1): after a change of a box that is not
+    /// being edited (the editor fits its own box), in that change's Undo step. A fixed box comes back as it is.
+    /// </summary>
+    internal static TextBoxAnnotation FitOnPage(DocumentModel model, TextBoxAnnotation box) =>
+        model.FindAnnotation(box.Id) is { Page.Setup: var page } ? TextAutoWidth.Fit(box, page.WidthPt, page.HeightPt) : box;
 
     public void SetAlignment(TextAlignment alignment) => ApplyBox(b => b with { Alignment = alignment });
 

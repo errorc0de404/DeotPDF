@@ -62,7 +62,7 @@ public sealed partial class MainView
         {
             if (editSession is null || textEditor is null || Document is not { } doc || doc.Session.Current.IndexOfPage(editingPageId) is not (>= 0 and var index)) return default;
             var r = editSession.Model.CompositionCaretRect();
-            var at = editSession.Model.Box.Transform.Then(Canvas.PageTransform(index).PageToDip).Transform(new Point2(r.X, r.Y));
+            var at = editSession.Model.DisplayBox.Transform.Then(Canvas.PageTransform(index).PageToDip).Transform(new Point2(r.X, r.Y));
             return new Rect(at.X, at.Y, 1, r.Height * textEditor.Zoom);
         };
     }
@@ -99,9 +99,10 @@ public sealed partial class MainView
 
     /// <summary>
     /// A new box from a click (text tool): the caret starts where the user clicked — the box moves left by its padding and
-    /// up by the padding plus half a line of the typing style.
+    /// up by the padding plus half a line of the typing style. Without <paramref name="width"/> (a click, the menu, a paste)
+    /// it is an auto width box (1.4 plan 1.1).
     /// </summary>
-    public void BeginNewTextAtClick(int pageIndex, Point2 position, double width = 180)
+    public void BeginNewTextAtClick(int pageIndex, Point2 position, double? width = null)
     {
         var style = settings.DefaultText;
         var probe = new TextBoxAnnotation(Guid.NewGuid(), false, Affine.Identity, "가", [style with { Start = 0, Length = 1 }], PdfNotes.Core.Models.TextAlignment.Left, 200, TextBoxStyle.Default, []); // font metrics sample, not UI text (D14e)
@@ -109,14 +110,24 @@ public sealed partial class MainView
         BeginNewText(pageIndex, new(position.X - TextLayout.PaddingPt, position.Y - TextLayout.PaddingPt - line / 2), width);
     }
 
-    public void BeginNewText(int pageIndex, Point2 position, double width = 180)
+    /// <summary>A new box at <paramref name="position"/>: fixed at <paramref name="width"/> (a drag), else auto width.</summary>
+    public void BeginNewText(int pageIndex, Point2 position, double? width = null)
     {
         FinishTextEditing();
         if (Document is not { } doc) return;
         SetTool(ToolKind.Text); // also from the quick menu or a paste: the text tool and the 필기 tab follow
+        var page = doc.Session.Current.Pages[pageIndex];
+        var fit = AutoFit(page.Setup);
         var box = new TextBoxAnnotation(Guid.NewGuid(), false, Affine.Translation(position.X, position.Y), "", [], PdfNotes.Core.Models.TextAlignment.Left,
-            Math.Clamp(width, 16, 100000), viewModel.TextStyle.NewBoxStyle, []);
-        Attach(doc, doc.Session.Current.Pages[pageIndex].Id, TextBoxEditor.Edit(box, settings.DefaultText));
+            Math.Clamp(width ?? InputLimits.DefaultTextBoxWidthPt, 16, 100000), viewModel.TextStyle.NewBoxStyle, []) { AutoWidth = width is null };
+        Attach(doc, page.Id, TextBoxEditor.Edit(fit(box), settings.DefaultText, fit));
+    }
+
+    /// <summary>Fits an auto width box to its text up to the edge of a page of this size (1.4 plan 1.1); a fixed box stays as it is.</summary>
+    private static Func<TextBoxAnnotation, TextBoxAnnotation> AutoFit(PageSetup page)
+    {
+        double width = page.WidthPt, height = page.HeightPt;
+        return box => TextAutoWidth.Fit(box, width, height);
     }
 
     /// <summary>Starts editing a box; with <paramref name="at"/> (a canvas point) the caret goes there, else to the end.</summary>
@@ -128,7 +139,7 @@ public sealed partial class MainView
         // only when the box went away.
         editReturnsToText = tools.Current == ToolKind.Select && tools.Return == ToolKind.Text;
         viewModel.Ribbon.Auto(RibbonTab.Home);
-        var model = TextBoxEditor.Edit(box, PdfNotes.Core.Commands.TextEditing.StyleAt(box, 0));
+        var model = TextBoxEditor.Edit(box, PdfNotes.Core.Commands.TextEditing.StyleAt(box, 0), AutoFit(location.Page.Setup));
         if (at is { } point && Canvas.HitTestPage(point) is { } anchor) model.PointerDown(box.Transform.Invert().Transform(anchor.PagePoint));
         else model.Select(box.Text.Length, box.Text.Length);
         Attach(doc, doc.Session.Current.Pages[location.PageIndex].Id, model, focus);
@@ -147,7 +158,7 @@ public sealed partial class MainView
         editReturnsToText = false;
         viewModel.Ribbon.Auto(RibbonTab.Home);
         var box = TableLayout.CellBox(table, row, column);
-        var model = TextBoxEditor.Edit(box, TableLayout.CellStyle(table, row, column));
+        var model = TextBoxEditor.Edit(box, TableLayout.CellStyle(table, row, column)); // no fit: a cell is as wide as its column
         if (at is { } point && Canvas.HitTestPage(point) is { } anchor) model.PointerDown(box.Transform.Invert().Transform(anchor.PagePoint));
         else model.Select(box.Text.Length, box.Text.Length);
         var pageId = doc.Session.Current.Pages[location.PageIndex].Id;
@@ -185,7 +196,9 @@ public sealed partial class MainView
         textEditor.TabPressed += (_, back) => MoveToNextCell(back);
         // The text bar shows the format at the caret (spec 3.2) and follows every edit.
         model.SelectionChanged += (_, _) => textStyle.Refresh();
-        model.Edited += (_, _) => { textStyle.Refresh(); Canvas.RefreshOverlays(); }; // the edit frame grows with the text
+        // The edit frame grows with the text; an auto width box may also move (centered or right aligned) or widen.
+        model.Edited += (_, _) => { textStyle.Refresh(); PositionTextEditor(); Canvas.RefreshOverlays(); };
+        model.CompositionChanged += (_, _) => PositionTextEditor(); // an auto width box widens with the composition too
         textEditor.ContextRequested += (_, e) => { TextContextMenu().Open(textEditor); e.Handled = true; };
         TextLayer.Children.Add(textEditor);
         PositionTextEditor();
@@ -212,7 +225,7 @@ public sealed partial class MainView
         if (textEditor is null || editSession is null || Document is not { } doc) return;
         int index = doc.Session.Current.IndexOfPage(editingPageId);
         if (index < 0 || Canvas.Layout is not { } layout || !layout.IsLaidOut(index)) { textEditor.IsVisible = false; return; }
-        var m = editSession.Model.Box.Transform.Then(Canvas.PageTransform(index).PageToDip);
+        var m = editSession.Model.DisplayBox.Transform.Then(Canvas.PageTransform(index).PageToDip);
         double scale = Math.Sqrt(m.M11 * m.M11 + m.M12 * m.M12);
         textEditor.IsVisible = true;
         textEditor.Zoom = scale;

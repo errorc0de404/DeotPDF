@@ -20,6 +20,7 @@ namespace PdfNotes.TextEditor;
 public sealed class TextEditorModel
 {
     private readonly Func<TextBoxAnnotation, TextLayout.Layout> measure;
+    private readonly Func<TextBoxAnnotation, TextBoxAnnotation> fit;
     private TextBoxAnnotation box;
     private int anchor, caret;
     private bool upstream; // at a soft line wrap the caret stands at the end of the upper line (after End), not the lower
@@ -62,10 +63,16 @@ public sealed class TextEditorModel
     /// <param name="box">The box to edit (a new box may be empty).</param>
     /// <param name="typingStyle">The style typed characters get in an empty box (the default style for a new box).</param>
     /// <param name="measure">The layout of a box; <see cref="TextLayout.Measure"/> when null.</param>
-    public TextEditorModel(TextBoxAnnotation box, TextRun? typingStyle = null, Func<TextBoxAnnotation, TextLayout.Layout>? measure = null)
+    /// <param name="fit">
+    /// Applied to the box after a change of its characters, their format, its alignment or auto width, and to the shown box while composing:
+    /// an auto width box's width (1.4, <see cref="TextAutoWidth.Fit"/>). The result is in that change's Undo step. None when null.
+    /// </param>
+    public TextEditorModel(TextBoxAnnotation box, TextRun? typingStyle = null, Func<TextBoxAnnotation, TextLayout.Layout>? measure = null,
+        Func<TextBoxAnnotation, TextBoxAnnotation>? fit = null)
     {
         this.box = box;
         this.measure = measure ?? TextLayout.Measure;
+        this.fit = fit ?? (b => b);
         this.typingStyle = (typingStyle ?? TextEditing.StyleAt(box, 0)) with { Start = 0, Length = 0 };
         caret = anchor = box.Text.Length;
         if (box.Text.Length > 0) this.typingStyle = TextEditing.StyleAt(box, box.Text.Length - 1) with { Start = 0, Length = 0 };
@@ -400,12 +407,13 @@ public sealed class TextEditorModel
             if (composition.Length == 0) return box;
             if (display is { } d && ReferenceEquals(d.Box, box) && d.Caret == caret && d.Composition == composition && d.Style == typingStyle) return d.Shown;
             string text = box.Text.Insert(caret, composition);
-            var shown = box with
+            // The composition counts in an auto width box's width too (Review Focus 1): no wrap and unwrap while composing.
+            var shown = fit(box with
             {
                 Text = text,
                 Runs = Splice(box.Runs, caret, caret, composition.Length, typingStyle, null, text),
                 Highlights = TextHighlights.Remap(box.Text, text, box.Highlights, caret + composition.Length),
-            };
+            });
             display = (box, caret, composition, typingStyle, shown);
             return shown;
         }
@@ -518,6 +526,7 @@ public sealed class TextEditorModel
 
     private void Commit(TextBoxAnnotation after, int newAnchor, int newCaret, TextEditKind kind, bool coalesce)
     {
+        if (Refits(box, after)) after = fit(after); // the width goes into the same step as the change (plan 1.1)
         bool changed = !Same(box, after);
         bool newGroup = !(coalesce && kind == lastKind && !sealedGroup);
         if (changed)
@@ -537,8 +546,12 @@ public sealed class TextEditorModel
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>The changes an auto width box is fit after (plan 1.1): characters, their format, alignment, auto width turned on.</summary>
+    private static bool Refits(TextBoxAnnotation before, TextBoxAnnotation after) => !ReferenceEquals(before, after) &&
+        (before.Text != after.Text || before.Alignment != after.Alignment || before.AutoWidth != after.AutoWidth || !before.Runs.SequenceEqual(after.Runs));
+
     private static bool Same(TextBoxAnnotation a, TextBoxAnnotation b) => ReferenceEquals(a, b) ||
-        a.Text == b.Text && a.WidthPt == b.WidthPt && a.LayoutScale == b.LayoutScale && a.Alignment == b.Alignment && a.Transform == b.Transform &&
+        a.Text == b.Text && a.WidthPt == b.WidthPt && a.LayoutScale == b.LayoutScale && a.AutoWidth == b.AutoWidth && a.Alignment == b.Alignment && a.Transform == b.Transform &&
         a.BoxStyle == b.BoxStyle && a.Locked == b.Locked && a.Runs.SequenceEqual(b.Runs) && a.Highlights.SequenceEqual(b.Highlights);
 
     // ----- selection -----

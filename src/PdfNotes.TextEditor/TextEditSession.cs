@@ -87,6 +87,6 @@ public sealed class TextEditSession : ITextEditSession, IDisposable
     public void Dispose() => Finish();
 
     private static bool Same(TextBoxAnnotation a, TextBoxAnnotation b) => ReferenceEquals(a, b) ||
-        a.Text == b.Text && a.WidthPt == b.WidthPt && a.LayoutScale == b.LayoutScale && a.Alignment == b.Alignment && a.Transform == b.Transform &&
+        a.Text == b.Text && a.WidthPt == b.WidthPt && a.LayoutScale == b.LayoutScale && a.AutoWidth == b.AutoWidth && a.Alignment == b.Alignment && a.Transform == b.Transform &&
         a.BoxStyle == b.BoxStyle && a.Locked == b.Locked && a.Runs.SequenceEqual(b.Runs) && a.Highlights.SequenceEqual(b.Highlights);
 }

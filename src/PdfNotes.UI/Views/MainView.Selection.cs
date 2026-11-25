@@ -82,13 +82,14 @@ public sealed partial class MainView
                 if (!selection.Run(entries, entry))
                     switch (entry.Command)
                     {
-                        case AnnotationCommand.AddTextBox: BeginNewTextAtClick(anchor.PageIndex, anchor.PagePoint, 180); break;
+                        case AnnotationCommand.AddTextBox: BeginNewTextAtClick(anchor.PageIndex, anchor.PagePoint); break;
                         case AnnotationCommand.Paste: PasteSelection(position); break;
                         case AnnotationCommand.ConvertForeign: Fire.AndReport(ConvertForeignAsync()); break;
                     }
                 if (!IsEditingText) Canvas.Focus();
                 styles.Refresh();
             }, isChecked: entry.Checked, enabled: entry.Enabled);
+            if (entry.Command == AnnotationCommand.AutoWidth) item.ToggleType = MenuItemToggleType.CheckBox; // a check box on or off
             if (entry.Command == AnnotationCommand.AddTextBox) item.Icon = new Themes.AppIcon { Glyph = "Text" };
             else if (entry.Tool is { } kind) item.Icon = ToolIcon(kind); // the ribbon icons (2026-10-15)
             menu.Items.Add(item);
@@ -121,7 +122,7 @@ public sealed partial class MainView
         }
     }
 
-    /// <summary>Plain text from the clipboard as a new text box whose first line starts at <paramref name="at"/> (null: the page middle).</summary>
+    /// <summary>Plain text from the clipboard as a new auto width text box whose first line starts at <paramref name="at"/> (null: the page middle).</summary>
     private void PastePlainTextBox(string plain, int pageIndex, Point2? at)
     {
         if (Document is not { } doc) return;
