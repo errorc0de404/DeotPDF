@@ -289,6 +289,46 @@ public sealed class TextAutoWidthFrameTests
         again.Close();
     });
 
+    /// <summary>The edit frame widens with the composition, not only after it is committed (user report 2026-11-25).</summary>
+    [Fact]
+    public void EditFrameFollowsTheComposition() => Headless.Run(() =>
+    {
+        var w = Window();
+        w.View.SetTool(ToolKind.Text);
+        Settle(w);
+        w.ClickAt(new(100, 400));
+        w.KeyTextInput("가");
+        Settle(w);
+        var model = w.View.ActiveTextEditor!.Model!;
+        double before = model.DisplayBox.WidthPt;
+        model.SetComposition("나다라마바사아");
+        Settle(w);
+        var shown = model.DisplayBox;
+        Assert.True(shown.WidthPt > before + 40, $"{before} -> {shown.WidthPt}");
+        // The frame's top edge just left of the widened box's right end.
+        var corner = w.PageAt(shown.Transform.Transform(new(shown.WidthPt - 4, 0)));
+        Assert.True(FrameLineNear(w, new(corner.X, corner.Y)), "no edit frame at the widened edge");
+        w.Close();
+    });
+
+    /// <summary>A colored pixel (the frame line, not white paper or black text) within 3 pixels of <paramref name="at"/>.</summary>
+    private static bool FrameLineNear(MainWindow w, Point2 at)
+    {
+        using var frame = w.CaptureRenderedFrame()!;
+        using var copy = new Avalonia.Media.Imaging.WriteableBitmap(frame.PixelSize, frame.Dpi, Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Premul);
+        using (var l = copy.Lock()) frame.CopyPixels(new Avalonia.PixelRect(frame.PixelSize), l.Address, l.RowBytes * l.Size.Height, l.RowBytes);
+        using var locked = copy.Lock();
+        var pixels = new byte[locked.RowBytes * locked.Size.Height];
+        System.Runtime.InteropServices.Marshal.Copy(locked.Address, pixels, 0, pixels.Length);
+        for (int dy = -3; dy <= 3; dy++)
+            for (int dx = -3; dx <= 3; dx++)
+            {
+                int i = ((int)Math.Round(at.Y) + dy) * locked.RowBytes + ((int)Math.Round(at.X) + dx) * 4;
+                if (Math.Abs(pixels[i] - pixels[i + 2]) > 8) return true;
+            }
+        return false;
+    }
+
     /// <summary>Review Focus 5: the text bar's size on a selected (not edited) auto box fits it again, in the same Undo step.</summary>
     [Fact]
     public void BarFontChangeRefitsASelectedAutoBox() => Headless.Run(() =>

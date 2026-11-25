@@ -198,7 +198,8 @@ public sealed partial class MainView
         model.SelectionChanged += (_, _) => textStyle.Refresh();
         // The edit frame grows with the text; an auto width box may also move (centered or right aligned) or widen.
         model.Edited += (_, _) => { textStyle.Refresh(); PositionTextEditor(); Canvas.RefreshOverlays(); };
-        model.CompositionChanged += (_, _) => PositionTextEditor(); // an auto width box widens with the composition too
+        // An auto width box widens with the composition too, and the edit frame follows it.
+        model.CompositionChanged += (_, _) => { PositionTextEditor(); Canvas.RefreshOverlays(); };
         textEditor.ContextRequested += (_, e) => { TextContextMenu().Open(textEditor); e.Handled = true; };
         TextLayer.Children.Add(textEditor);
         PositionTextEditor();
