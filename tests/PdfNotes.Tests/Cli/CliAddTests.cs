@@ -305,7 +305,7 @@ public sealed class CliAddTests : IDisposable
         Assert.False(scaled["annotation"]!["autoWidth"]!.GetValue<bool>());
 
         // Text and style edits keep an auto width box auto and refit it; a move keeps its width.
-        var longer = Write("annot", "update", auto, "--source-key", "k", "--text", LongText, "-o", output);
+        var longer = Write("annot", "update", auto, "--source-key", "k", "--text", LongText + " " + LongText, "-o", output); // past the page edge with any font
         Assert.True(longer["annotation"]!["autoWidth"]!.GetValue<bool>());
         Assert.Equal(595.28 - 60, longer["annotation"]!["width"]!.GetValue<double>(), 2);
         Assert.Equal(60, Numbers(longer["rect"])[0], 6);

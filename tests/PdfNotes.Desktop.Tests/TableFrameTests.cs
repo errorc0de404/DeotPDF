@@ -290,8 +290,10 @@ public sealed class TableFrameTests
         // The outer right line sizes the last column; a row line the row above it.
         w.DragThrough(MouseButton.Left, RawInputModifiers.None, Gestures.Steps(OnPage(t, 200, 30), OnPage(t, 240, 30), 4));
         Assert.Equal(120, Table(w).ColumnWidths[1], 1);
-        w.DragThrough(MouseButton.Left, RawInputModifiers.None, Gestures.Steps(OnPage(t, 40, 24), OnPage(t, 40, 44), 4));
-        Assert.Equal(44, Table(w).RowHeights[0], 1);
+        // The row line is where the text puts it (taller than the set 24pt with some fonts: Linux CI).
+        double rowLine = TableGeometry.Measure(Table(w), TextLayout.Bounds).RowY[1];
+        w.DragThrough(MouseButton.Left, RawInputModifiers.None, Gestures.Steps(OnPage(t, 40, rowLine), OnPage(t, 40, rowLine + 20), 4));
+        Assert.Equal(rowLine + 20, Table(w).RowHeights[0], 1);
         Assert.Equal(steps + 3, Steps(w));
         w.Close();
     });
