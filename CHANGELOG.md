@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.4.0 (unreleased)
+## 1.4.0 (2026-11-25)
 
 Tables. Underline and strikeout have their own tool. Holding the pen at the end of a stroke turns it into a shape. Text boxes grow with their text.
 
@@ -22,6 +22,8 @@ Tables. Underline and strikeout have their own tool. Holding the pen at the end 
 - Sticky note cards stay open until folded. The pin is gone.
 - The auto backup count (default 10) is for all backups together, not for each document.
 - Favorites keep the underline/strikeout kind in the new tool's slot.
+- Saving again is faster: the stored original is no longer compressed and hashed on every save, and fonts and images shared by many pages are fingerprinted once.
+- Dragging pressure strokes, lasso selection on pages with many strokes, and long typing in one text box (Undo memory) cost less.
 
 **Fixed**
 - The page number box showed a scroll bar.

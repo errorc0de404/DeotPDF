@@ -23,7 +23,7 @@ I built it because I wanted something between a heavy PDF editor and a plain vie
 **Writing and marking up**
 - Pen and freehand highlighter (color, width, opacity). Tablet pen pressure, eraser end and palm rejection
 - Text highlighter and an underline & strikeout tool, aligned to the PDF's text
-- Text boxes: per-character font, size, color, bold, italic, underline and strikeout; background and border
+- Text boxes: grow with their text and wrap at the page edge; per-character font, size, color, bold, italic, underline and strikeout; background and border
 - Straight lines and Bézier curves with arrowheads and dash styles; rectangles, ellipses, triangles and polygons. Hold the pen at the end of a stroke to turn it into a shape
 - Tables: cells formatted like text boxes, rows and columns added from the right-click menu
 - Images (PNG, JPEG, BMP) from a file, drag and drop, or the clipboard
@@ -179,7 +179,7 @@ Built with C#, .NET 10 and [Avalonia](https://avaloniaui.net). Text and drawing 
 **필기와 표시**
 - 펜, 자유 형광펜 (색·굵기·투명도 조절). 태블릿 펜 필압 인식, 펜 뒤쪽 지우개, 손바닥 무시 지원
 - PDF 글자에 맞춰 붙는 형광펜과 밑줄·취소선 도구
-- 텍스트 상자: 글자마다 글꼴·크기·색·굵게·기울임·밑줄·취소선 적용 가능, 배경과 테두리
+- 텍스트 상자: 글에 맞춰 자라고 페이지 끝에서 줄바꿈, 글자마다 글꼴·크기·색·굵게·기울임·밑줄·취소선 적용 가능, 배경과 테두리
 - 직선, 곡선(화살표·점선 포함), 사각형, 타원, 삼각형, 다각형. 펜 획 끝에서 멈추면 도형으로 바뀜
 - 표: 칸 글자는 텍스트 상자와 같은 서식, 우클릭으로 행·열 넣기·삭제
 - 이미지 넣기 (파일, 끌어다 놓기, 클립보드 붙여넣기)
