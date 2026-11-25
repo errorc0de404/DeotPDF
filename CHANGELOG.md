@@ -2,18 +2,20 @@
 
 ## 1.4.0 (unreleased)
 
-Tables. Underline and strikeout have their own tool. Holding the pen at the end of a stroke turns it into a shape.
+Tables. Underline and strikeout have their own tool. Holding the pen at the end of a stroke turns it into a shape. Text boxes grow with their text.
 
 **New**
 - Tables (Write › `Table`): pick up to 10 × 10 from the grid and click the page. Cells take the same formatting as text boxes. Double-click a cell to type; Tab and Shift+Tab move between cells, Tab in the last cell adds a row. Right-click for rows and columns above, below, left, right and delete. Drag a line (outer lines included) to set a column width or row height; rows grow with their text. With a table selected: line color and width, `Header row`, and font and size for the whole table. The corner handle scales cells, not text.
 - Tables are saved as standard stamp annotations with their appearance, so other viewers show them. Search finds cell text.
 - `Underline & strikeout` tool next to the highlighter, also in the quick menu. The highlighter bar no longer has a kind.
 - Hold the pen still for half a second before lifting it: the stroke becomes a line, arrow, ellipse, rectangle or triangle with the pen's color, width and opacity. Keep moving to resize and turn it; lift to finish. The first undo brings back the hand-drawn stroke. With the highlighter, only straight lines. Settings › Notes › `Hold to make a shape` (on by default).
+- Text boxes made by a click, the quick menu or a paste are auto width: they follow the longest line and wrap at the page edge. A box made by dragging, or after dragging its width handle, keeps its width. Right-click › `Auto width` switches.
 
 **`deot` and MCP**
 - New command `add table` (op `add.table`): `--rows`, `--columns` or `--cells`, `--column-widths`, `--header`. 1 to 100 rows and columns.
 - `text --fields tables` returns each table's cell texts. `annot list` gives a table's `rows`, `columns`, `cells`, `columnWidths`, `rowHeights` and `header`. `find --include-annotations` also matches table cells (`row`, `column`).
 - `annot update` on a table changes position, rotation and scale only.
+- `add text --at x,y` makes an auto width text box (`--rect` keeps a fixed width). `annot update --width` or `--scale` makes it fixed. `annot list` gives `autoWidth`.
 
 **Changed**
 - The first start uses the system language: Korean on a Korean system, English otherwise. English is built in (Android included).
@@ -25,22 +27,24 @@ Tables. Underline and strikeout have their own tool. Holding the pen at the end 
 - The page number box showed a scroll bar.
 - The italic `I` did not fit its button.
 
-File format: schema 9, written only when the document has a table (older versions show the table but can't edit it). Without a table the file is written as before. Settings: `shapeRecognition` added; a favorite can hold the underline & strikeout tool.
+File format: schema 9, written only when the document has a table or an auto width text box (older versions show them but can't edit them). Without either the file is written as before. Settings: `shapeRecognition` added; a favorite can hold the underline & strikeout tool.
 
 **한국어**
 
-표를 넣을 수 있습니다. 밑줄·취소선이 따로 도구가 됐습니다. 펜 획 끝에서 멈추면 도형이 됩니다.
+표를 넣을 수 있습니다. 밑줄·취소선이 따로 도구가 됐습니다. 펜 획 끝에서 멈추면 도형이 됩니다. 텍스트 상자가 글만큼 자랍니다.
 
 **새 기능**
 - 표(필기 › `표`): 격자에서 최대 10 × 10을 고르고 페이지를 누름. 칸 글자는 텍스트 상자와 같은 서식. 칸을 두 번 눌러 입력, Tab·Shift+Tab으로 칸 이동, 마지막 칸에서 Tab은 행 추가. 우클릭으로 위·아래·왼쪽·오른쪽에 행·열 넣기와 삭제. 선(바깥 선 포함)을 끌어 열 너비·행 높이, 글이 넘치면 행이 커짐. 표를 선택하면 선 색·굵기, `머리행`, 표 전체 글꼴·크기. 모서리 손잡이는 칸 크기만 바꾸고 글자 크기는 그대로.
 - 표는 외형이 있는 표준 스탬프 주석으로 저장되어 다른 뷰어에서도 보임. 검색이 칸 글자도 찾음.
 - 형광펜 옆에 `밑줄·취소선` 도구, 빠른 메뉴에도. 형광펜 설정 줄에서 종류 칸이 빠짐.
 - 펜을 떼기 전에 0.5초 멈추면 획이 직선·화살표·타원·사각형·삼각형으로 바뀜(펜의 색·굵기·투명도). 떼지 않고 움직이면 크기와 방향이 따라오고, 떼면 확정. 첫 실행 취소는 손으로 그린 획으로 돌아감. 형광펜은 직선만. 설정 › 필기 › `멈추면 도형으로`(기본 켬).
+- 클릭·빠른 메뉴·붙여넣기로 만든 텍스트 상자는 자동 너비: 가장 긴 줄에 맞추고 페이지 끝에서 줄바꿈. 끌어서 만든 상자와 너비 손잡이를 끈 상자는 너비 고정. 우클릭 › `자동 너비`로 바꿈.
 
 **`deot`와 MCP**
 - 새 명령 `add table`(op `add.table`): `--rows`, `--columns` 또는 `--cells`, `--column-widths`, `--header`. 행·열 1~100개.
 - `text --fields tables`는 표마다 칸 글자를 줌. `annot list`는 표의 `rows`·`columns`·`cells`·`columnWidths`·`rowHeights`·`header`. `find --include-annotations`가 표 칸도 찾음(`row`, `column`).
 - 표에 `annot update`는 위치·회전·배율만.
+- `add text --at x,y`는 자동 너비 텍스트 상자(`--rect`는 고정 너비). `annot update --width`·`--scale`을 주면 고정 너비. `annot list`에 `autoWidth`.
 
 **바뀐 것**
 - 처음 실행할 때 시스템 언어를 따름: 한국어 시스템은 한국어, 그 밖에는 영어. 영어가 내장됨(안드로이드 포함).
@@ -52,7 +56,7 @@ File format: schema 9, written only when the document has a table (older version
 - 페이지 번호 칸에 스크롤바가 보이던 것.
 - 기울임 `I`가 단추에 다 들어가지 않던 것.
 
-파일 형식: 표가 있는 문서만 schema 9로 씀(예전 버전은 표를 보기만 하고 고치지 못함). 표가 없으면 전과 같음. 설정: `shapeRecognition` 추가, 즐겨찾기 칸에 밑줄·취소선 도구가 들어갈 수 있음.
+파일 형식: 표나 자동 너비 텍스트 상자가 있는 문서만 schema 9로 씀(예전 버전은 보기만 하고 고치지 못함). 둘 다 없으면 전과 같음. 설정: `shapeRecognition` 추가, 즐겨찾기 칸에 밑줄·취소선 도구가 들어갈 수 있음.
 
 ## 1.3.0 (2026-11-16)
 
