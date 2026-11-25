@@ -110,6 +110,25 @@ public sealed class TextAutoWidthTests
     }
 
     [Fact]
+    public void DefaultCapIsNeverBelowTheMinimumWidth()
+    {
+        // 200pt text at x 200: the minimum width (2 × 200 + padding = 408) is more than the 395 to the edge and more than 180.
+        var big = Box(Long, Affine.Translation(200, 100), size: 200);
+        Assert.Equal(408, TextAutoWidth.Cap(big, PageW, PageH), 6);
+        Assert.True(TextAutoWidth.Fit(big, PageW, PageH).WidthPt >= 408);
+    }
+
+    [Fact]
+    public void MinimumWidthIsNeverBelowTheEngineMinimum()
+    {
+        // 3pt text: 2 × 3 + padding = 14 is below the engine's narrowest box (16).
+        var tiny = Box(".", Affine.Translation(100, 100), size: 3);
+        Assert.Equal(16, TextAutoWidth.NaturalWidth(tiny), 6);
+        Assert.Equal(16, TextAutoWidth.Fit(tiny, PageW, PageH).WidthPt, 6);
+        Assert.Equal(8, TextAutoWidth.NaturalWidth(tiny with { Runs = [Run(1, 1.5)], LayoutScale = 0.5 }), 6);
+    }
+
+    [Fact]
     public void FixedBoxIsUntouched()
     {
         var box = At("가나다", 100, 100) with { AutoWidth = false };

@@ -11,8 +11,14 @@ namespace PdfNotes.Text;
 /// </summary>
 public static class TextAutoWidth
 {
-    /// <summary>The cap when the anchor is off the page or too close to its edge for the minimum width.</summary>
+    /// <summary>
+    /// The cap when the anchor is off the page or too close to its edge for the minimum width (the minimum width when
+    /// that is larger).
+    /// </summary>
     public const double DefaultCapPt = 180;
+
+    // The engine lays a box out at least this wide (SkiaTextEngine.MinimumWidth), at layout scale 1.
+    private const double EngineMinimumPt = 16;
 
     // Wide enough that no line wraps when measuring the natural width.
     private const double Unwrapped = 100_000;
@@ -32,12 +38,14 @@ public static class TextAutoWidth
     /// <summary>
     /// The room from the anchor to the page rectangle (0, 0, <paramref name="pageWidthPt"/>, <paramref name="pageHeightPt"/>,
     /// canonical page points) along the box's horizontal axis: forward for left alignment, backward for right, twice the
-    /// shorter side for center. <see cref="DefaultCapPt"/> when that is below the minimum width or the anchor is off the page.
+    /// shorter side for center. <see cref="DefaultCapPt"/>, or the minimum width when that is larger, when the room is below
+    /// the minimum width or the anchor is off the page.
     /// </summary>
     public static double Cap(TextBoxAnnotation box, double pageWidthPt, double pageHeightPt)
     {
+        double minimum = MinimumWidth(box), fallback = Math.Max(DefaultCapPt, minimum);
         var anchor = box.Transform.Transform(new(AnchorX(box.Alignment, box.WidthPt), 0));
-        if (!(anchor.X >= 0 && anchor.X <= pageWidthPt && anchor.Y >= 0 && anchor.Y <= pageHeightPt)) return DefaultCapPt;
+        if (!(anchor.X >= 0 && anchor.X <= pageWidthPt && anchor.Y >= 0 && anchor.Y <= pageHeightPt)) return fallback;
         var axis = box.Transform.TransformVector(new(1, 0));
         var back = new Point2(-axis.X, -axis.Y);
         double cap = box.Alignment switch
@@ -46,7 +54,7 @@ public static class TextAutoWidth
             TextAlignment.Right => Room(anchor, back, pageWidthPt, pageHeightPt),
             _ => Room(anchor, axis, pageWidthPt, pageHeightPt),
         };
-        return double.IsFinite(cap) && cap >= MinimumWidth(box) ? cap : DefaultCapPt;
+        return double.IsFinite(cap) && cap >= minimum ? cap : fallback;
     }
 
     /// <summary>
@@ -72,9 +80,10 @@ public static class TextAutoWidth
 
     private static double Padding(TextBoxAnnotation box) => 2 * TextLayout.PaddingPt * box.LayoutScale;
 
-    // Run sizes are stored at the box's layout scale already; the typing default is at scale 1.
-    private static double MinimumWidth(TextBoxAnnotation box) =>
-        2 * (box.Runs.Length > 0 ? box.Runs[0].SizePt : TextEditing.Default.SizePt * box.LayoutScale) + Padding(box);
+    // Run sizes are stored at the box's layout scale already; the typing default is at scale 1. Never below the engine's
+    // minimum box width, so the stored width is the width the engine lays out.
+    private static double MinimumWidth(TextBoxAnnotation box) => Math.Max(EngineMinimumPt * box.LayoutScale,
+        2 * (box.Runs.Length > 0 ? box.Runs[0].SizePt : TextEditing.Default.SizePt * box.LayoutScale) + Padding(box));
 
     /// <summary>
     /// How far, in box-local units, a ray from <paramref name="from"/> (inside the page) along <paramref name="step"/>
