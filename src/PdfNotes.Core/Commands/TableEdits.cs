@@ -13,7 +13,8 @@ public static class TableEdits
     /// <summary>
     /// Inserts an empty row at <paramref name="at"/> (0..Rows) with <see cref="TableAnnotation.DefaultRowHeight"/>. Each new
     /// cell takes the style of the first cell of the row above (the row below when inserting at the top). A row inserted
-    /// at the top of a table with a header row becomes the header and is bold; a row inserted under the header is not.
+    /// at the top of a table with a header row becomes the header and is bold, and the old first row loses the header
+    /// bold (as <see cref="SetHeader"/> off); a row inserted under the header is not bold.
     /// </summary>
     public static TableAnnotation InsertRow(TableAnnotation t, int at)
     {
@@ -23,6 +24,7 @@ public static class TableEdits
         if (style is not null && t.Style.HeaderRow && (at == 0 || source == 0)) style = style with { Bold = at == 0 };
         var cell = NewCell(style);
         var cells = t.Cells.InsertRange(at * t.Columns, Enumerable.Repeat(cell, t.Columns));
+        if (at == 0 && t.Style.HeaderRow) cells = BoldRow(cells, t.Columns, 1, false);
         return t with { RowHeights = t.RowHeights.Insert(at, TableAnnotation.DefaultRowHeight), Cells = cells };
     }
 
@@ -42,12 +44,17 @@ public static class TableEdits
         return t with { ColumnWidths = t.ColumnWidths.Insert(at, TableAnnotation.DefaultColumnWidth), Cells = cells.MoveToImmutable() };
     }
 
-    /// <summary>Removes a row; null when it is the last one (the caller deletes the table).</summary>
+    /// <summary>
+    /// Removes a row; null when it is the last one (the caller deletes the table). Removing the first row of a table with
+    /// a header row makes the new first row the bold header.
+    /// </summary>
     public static TableAnnotation? DeleteRow(TableAnnotation t, int row)
     {
         if ((uint)row >= (uint)t.Rows) throw new ArgumentOutOfRangeException(nameof(row));
         if (t.Rows == 1) return null;
-        return t with { RowHeights = t.RowHeights.RemoveAt(row), Cells = t.Cells.RemoveRange(row * t.Columns, t.Columns) };
+        var cells = t.Cells.RemoveRange(row * t.Columns, t.Columns);
+        if (row == 0 && t.Style.HeaderRow) cells = BoldRow(cells, t.Columns, 0, true);
+        return t with { RowHeights = t.RowHeights.RemoveAt(row), Cells = cells };
     }
 
     /// <summary>Removes a column; null when it is the last one (the caller deletes the table).</summary>
@@ -98,15 +105,16 @@ public static class TableEdits
     }
 
     /// <summary>Turns the header row on or off; the first row's runs (including empty cells' typing style) become bold or not.</summary>
-    public static TableAnnotation SetHeader(TableAnnotation t, bool on)
+    public static TableAnnotation SetHeader(TableAnnotation t, bool on) =>
+        t with { Style = t.Style with { HeaderRow = on }, Cells = BoldRow(t.Cells, t.Columns, 0, on) };
+
+    /// <summary>Sets <c>Bold</c> on every run of one row (including empty cells' typing style).</summary>
+    private static ImmutableArray<TableCell> BoldRow(ImmutableArray<TableCell> cells, int columns, int row, bool on)
     {
-        var cells = t.Cells.ToBuilder();
-        for (int c = 0; c < t.Columns; c++)
-        {
-            var cell = cells[c];
-            cells[c] = cell with { Runs = [.. cell.Runs.Select(r => r with { Bold = on })] };
-        }
-        return t with { Style = t.Style with { HeaderRow = on }, Cells = cells.MoveToImmutable() };
+        var b = cells.ToBuilder();
+        for (int c = row * columns; c < (row + 1) * columns; c++)
+            b[c] = b[c] with { Runs = [.. b[c].Runs.Select(r => r with { Bold = on })] };
+        return b.MoveToImmutable();
     }
 
     private static double Clamp(double value, double min, string name) =>

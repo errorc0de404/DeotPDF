@@ -72,6 +72,38 @@ public sealed class TableEditsTests
     }
 
     [Fact]
+    public void InsertRowAtTheTopMovesTheHeaderBoldToTheNewFirstRow()
+    {
+        var top = Valid(TableEdits.InsertRow(Sample(), 0));
+        Assert.All(top.Cells.Take(2), c => Assert.All(c.Runs, r => Assert.True(r.Bold)));
+        Assert.All(top.Cells.Skip(2), c => Assert.All(c.Runs, r => Assert.False(r.Bold)));
+        Assert.Equal("0,0", top.Cell(1, 0).Text);
+
+        // Without a header row the old first row keeps its own bold.
+        var noHeader = TableEdits.SetCell(TableEdits.SetHeader(Sample(), false), 0, 0, Cell("0,0", bold: true));
+        var plain = Valid(TableEdits.InsertRow(noHeader, 0));
+        Assert.True(plain.Cell(1, 0).Runs[0].Bold);
+    }
+
+    [Fact]
+    public void DeleteRowAtTheTopMakesTheNewFirstRowTheBoldHeader()
+    {
+        var result = Valid(TableEdits.DeleteRow(Sample(), 0));
+        Assert.Equal(2, result.Rows);
+        Assert.Equal("1,0", result.Cell(0, 0).Text);
+        Assert.All(result.Cells.Take(2), c => Assert.All(c.Runs, r => Assert.True(r.Bold)));
+        Assert.All(result.Cells.Skip(2), c => Assert.All(c.Runs, r => Assert.False(r.Bold)));
+
+        var noHeader = Valid(TableEdits.DeleteRow(TableEdits.SetHeader(Sample(), false), 0));
+        Assert.All(noHeader.Cells, c => Assert.All(c.Runs, r => Assert.False(r.Bold)));
+
+        // Deleting a lower row leaves the header alone.
+        var lower = Valid(TableEdits.DeleteRow(Sample(), 1));
+        Assert.True(lower.Cell(0, 0).Runs[0].Bold);
+        Assert.False(lower.Cell(1, 0).Runs[0].Bold);
+    }
+
+    [Fact]
     public void InsertColumnAddsADefaultWidthColumnStyledLikeItsLeftNeighbour()
     {
         var t = TableEdits.SetCell(Sample(), 2, 0, Cell("2,0", Big));
