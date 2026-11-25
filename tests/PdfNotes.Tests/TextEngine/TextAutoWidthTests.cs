@@ -100,19 +100,37 @@ public sealed class TextAutoWidthTests
     }
 
     [Fact]
-    public void AnchorOutsideOrTooCloseUsesTheDefaultCap()
+    public void AnchorOffThePageUsesTheDefaultCap()
     {
         Assert.Equal(180, TextAutoWidth.DefaultCapPt);
         Assert.Equal(180, TextAutoWidth.Cap(At(Long, -10, 100), PageW, PageH));
         Assert.Equal(180, TextAutoWidth.Cap(At(Long, 100, PageH + 5), PageW, PageH));
-        Assert.Equal(180, TextAutoWidth.Cap(At(Long, PageW - 3, 100), PageW, PageH));
-        Assert.Equal(180, TextAutoWidth.Fit(At(Long, PageW - 3, 100), PageW, PageH).WidthPt, 6);
+        Assert.Equal(180, TextAutoWidth.Fit(At(Long, -10, 100), PageW, PageH).WidthPt, 6);
     }
 
     [Fact]
-    public void DefaultCapIsNeverBelowTheMinimumWidth()
+    public void AnchorNearTheEdgeGetsTheMinimumWidth()
     {
-        // 200pt text at x 200: the minimum width (2 × 200 + padding = 408) is more than the 395 to the edge and more than 180.
+        const double minimum = 2 * 12 + 2 * Pad;
+        Assert.Equal(minimum, TextAutoWidth.Cap(At(Long, PageW - 3, 100), PageW, PageH), 6);
+        Assert.Equal(minimum, TextAutoWidth.Fit(At(Long, PageW - 3, 100), PageW, PageH).WidthPt, 6);
+        Assert.Equal(minimum, TextAutoWidth.Cap(At(Long, PageW, 100), PageW, PageH), 6); // on the edge is on the page
+    }
+
+    [Fact]
+    public void CapIsContinuousAroundTheMinimumWidth()
+    {
+        // No jump to 180 as the room shrinks past the minimum width.
+        const double minimum = 2 * 12 + 2 * Pad;
+        Assert.Equal(minimum + 1, TextAutoWidth.Cap(At(Long, PageW - minimum - 1, 100), PageW, PageH), 6);
+        Assert.Equal(minimum, TextAutoWidth.Cap(At(Long, PageW - minimum, 100), PageW, PageH), 6);
+        Assert.Equal(minimum, TextAutoWidth.Cap(At(Long, PageW - minimum + 1, 100), PageW, PageH), 6);
+    }
+
+    [Fact]
+    public void CapIsNeverBelowTheMinimumWidth()
+    {
+        // 200pt text at x 200: the minimum width (2 × 200 + padding = 408) is more than the 395 to the edge.
         var big = Box(Long, Affine.Translation(200, 100), size: 200);
         Assert.Equal(408, TextAutoWidth.Cap(big, PageW, PageH), 6);
         Assert.True(TextAutoWidth.Fit(big, PageW, PageH).WidthPt >= 408);
@@ -154,7 +172,7 @@ public sealed class TextAutoWidthTests
         Assert.Equal(2 * 6 + 2 * Pad * 0.5, TextAutoWidth.NaturalWidth(Half(".", 0)), 6);
 
         // 20pt to the edge is below the unscaled minimum (32) but above the scaled one (16).
-        Assert.Equal(180, TextAutoWidth.Cap(At(Long, PageW - 20, 100), PageW, PageH));
+        Assert.Equal(2 * 12 + 2 * Pad, TextAutoWidth.Cap(At(Long, PageW - 20, 100), PageW, PageH), 6);
         var fit = TextAutoWidth.Fit(Half(Long, PageW - 20), PageW, PageH);
         Assert.Equal(20, fit.WidthPt, 6);
         Assert.True(TextLayout.Measure(fit).Lines.Length >= 2);

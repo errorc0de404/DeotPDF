@@ -12,8 +12,7 @@ namespace PdfNotes.Text;
 public static class TextAutoWidth
 {
     /// <summary>
-    /// The cap when the anchor is off the page or too close to its edge for the minimum width (the minimum width when
-    /// that is larger).
+    /// The cap when the anchor is off the page (the minimum width when that is larger).
     /// </summary>
     public const double DefaultCapPt = 180;
 
@@ -38,8 +37,8 @@ public static class TextAutoWidth
     /// <summary>
     /// The room from the anchor to the page rectangle (0, 0, <paramref name="pageWidthPt"/>, <paramref name="pageHeightPt"/>,
     /// canonical page points) along the box's horizontal axis: forward for left alignment, backward for right, twice the
-    /// shorter side for center. <see cref="DefaultCapPt"/>, or the minimum width when that is larger, when the room is below
-    /// the minimum width or the anchor is off the page.
+    /// shorter side for center, never below the minimum width. <see cref="DefaultCapPt"/>, or the minimum width when that is
+    /// larger, when the anchor is off the page.
     /// </summary>
     public static double Cap(TextBoxAnnotation box, double pageWidthPt, double pageHeightPt)
     {
@@ -54,7 +53,7 @@ public static class TextAutoWidth
             TextAlignment.Right => Room(anchor, back, pageWidthPt, pageHeightPt),
             _ => Room(anchor, axis, pageWidthPt, pageHeightPt),
         };
-        return double.IsFinite(cap) && cap >= minimum ? cap : fallback;
+        return double.IsFinite(cap) ? Math.Max(cap, minimum) : fallback;
     }
 
     /// <summary>
